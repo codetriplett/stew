@@ -17,30 +17,31 @@ export function prepareState (object) {
 				return object[key];
 			},
 			set: update => {
-				if (typeof update === 'function') {
-					updaters = updaters.filter(updater => updater !== update);
-					
-					if (valueRead) {
-						updaters.push(update);
-						valueRead = false;
-					}
-
-					return;
-				}
-				
 				const value = object[key];
-				
+
 				if (update === value) {
 					return;
-				} else if (typeof value === 'object') {
-					for (const key in value) {
-						value[key] = update[key];
-					}
+				} else if (typeof update !== 'function') {
+					object[key] = update;
+					updaters.forEach(updater => updater());
+
+					return;
 				}
 
-				object[key] = update;
-				updaters.forEach(updater => updater());
-			}
+				updaters = updaters.filter(updater => updater !== update);
+					
+				if (valueRead) {
+					updaters.push(update);
+					valueRead = false;
+					
+					if (typeof value === 'object') {
+						for (const key in value) {
+							value[key] = update;
+						}
+					}
+				}
+			},
+			enumerable: true
 		});
 		
 		if (typeof object[key] === 'object') {

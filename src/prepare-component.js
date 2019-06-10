@@ -1,25 +1,30 @@
-export function prepareComponent (component, state) {
+export function prepareComponent (component, state, ...keys) {
+	const suffix = ''.padEnd(keys.length + 1, '}');
+	const states = [state];
 	const expressions = {};
+	let prefix = 'with(this){';
+
+	keys.forEach((key, i) => {
+		prefix = `with(${key}){${prefix}`;
+		states.push(states[i][key]);
+	});
 
 	for (const key in component) {
-		const expression = `with (this) { return ${component[key]}; }`;
-		expressions[key] = Function(expression).bind(state);
+		const expression = `${prefix}return ${component[key]};${suffix}`;
+		expressions[key] = Function(...keys, expression);
 	}
 
 	return attributes => {
 		function update () {
 			for (const key in expressions) {
-				attributes[key] = expressions[key]();
+				attributes[key] = expressions[key].call(...states);
+			}
+
+			for (const key in state) {
+				state[key] = update;
 			}
 		}
 		
 		update();
-
-		// this code will exists in a different block of code that iterates through children
-		state.one = update;
-		state.two = update;
-		state.three = update;
-
-		return update;
 	};
 }
