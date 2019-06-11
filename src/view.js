@@ -1,4 +1,4 @@
-export function prepareComponent (component, state, ...keys) {
+export function view (component, state, ...keys) {
 	const suffix = ''.padEnd(keys.length + 1, '}');
 	const states = [state];
 	const expressions = {};
@@ -14,17 +14,11 @@ export function prepareComponent (component, state, ...keys) {
 		expressions[key] = Function(...keys, expression);
 	}
 
-	return attributes => {
-		function update () {
+	return ({ attributes }) => {
+		return () => {
 			for (const key in expressions) {
 				attributes[key] = expressions[key].call(...states);
 			}
-
-			for (const key in state) {
-				state[key] = update;
-			}
-		}
-		
-		update();
+		};
 	};
 }

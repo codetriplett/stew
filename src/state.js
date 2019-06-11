@@ -1,8 +1,8 @@
-export function prepareState (object) {
+export function state (object) {
 	if (typeof object !== 'object') {
 		return object;
 	} else if (Array.isArray(object)) {
-		return object.map(value => prepareState(value));
+		return object.map(value => state(value));
 	}
 
 	const result = {};
@@ -45,7 +45,7 @@ export function prepareState (object) {
 		});
 		
 		if (typeof object[key] === 'object') {
-			result[key] = prepareState(object[key]);
+			result[key] = state(object[key]);
 		}
 	}
 
