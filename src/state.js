@@ -1,53 +1,64 @@
-export function state (object) {
+export function state (object, existing) {
 	if (typeof object !== 'object') {
 		return object;
 	} else if (Array.isArray(object)) {
-		return object.map(value => state(value));
+		if (!Array.isArray(existing)) {
+			existing = [];
+		}
+
+		return object.map(value => {
+			return existing.indexOf(value) === -1 ? state(value) : value;
+		});
 	}
 
-	const result = {};
+	const original = {};
 
 	for (const key in object) {
+		const value = object[key];
 		const updaters = [];
 		let valueRead = false;
 
-		Object.defineProperty(result, key, {
-			get: () => {
-				valueRead = true;
-				return object[key];
-			},
-			set: update => {
-				const value = object[key];
+		if (typeof value !== 'function') {
+			Object.defineProperty(object, key, {
+				get: () => {
+					valueRead = true;
+					return original[key];
+				},
+				set: update => {
+					const value = original[key];
 
-				if (update === value) {
-					return;
-				} else if (typeof update !== 'function') {
-					object[key] = update;
-					updaters.forEach(updater => updater());
+					if (update === value) {
+						return;
+					} else if (typeof update !== 'function') {
+						original[key] = state(update, value);
+						updaters.forEach(updater => updater());
 
-					return;
-				}
+						return;
+					}
 
-				updaters = updaters.filter(updater => updater !== update);
-					
-				if (valueRead) {
-					updaters.push(update);
-					valueRead = false;
-					
-					if (typeof value === 'object') {
-						for (const key in value) {
-							value[key] = update;
+					updaters = updaters.filter(updater => updater !== update);
+
+					if (valueRead) {
+						updaters.push(update);
+						valueRead = false;
+						
+						if (typeof value === 'object') {
+							[].concat(value).forEach(value => {
+								for (const key in value) {
+									value[key] = update;
+								}
+							});
 						}
 					}
-				}
-			},
-			enumerable: true
-		});
-		
-		if (typeof object[key] === 'object') {
-			result[key] = state(object[key]);
+				},
+				enumerable: true
+			});
+
+			state(value);
 		}
+
+		original[key] = value;
 	}
 
-	return result;
+	return object;
 }

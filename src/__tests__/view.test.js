@@ -1,25 +1,7 @@
 import { view } from '../view';
 
 describe('view', () => {
-	it('should prepare a component', () => {
-		const object = { one: 1, two: 2, three: 3 };
-
-		const actual = view({
-			attribute: 'one && two || three'
-		}, object);
-
-		const attributes = {};
-		const instance = actual({ attributes });
-
-		instance();
-		expect(attributes).toEqual({ attribute: 2 });
-
-		object.two = 4;
-		instance();
-		expect(attributes).toEqual({ attribute: 4 });
-	});
-	
-	it('should prepare a nested component', () => {
+	it.skip('should prepare a component', () => {
 		const object = {
 			one: 1,
 			parent: {

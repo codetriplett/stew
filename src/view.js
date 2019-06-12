@@ -1,4 +1,4 @@
-export function view (component, state, ...keys) {
+export function view (state, ...keys) {
 	const suffix = ''.padEnd(keys.length + 1, '}');
 	const states = [state];
 	const expressions = {};
