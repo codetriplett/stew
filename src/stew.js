@@ -1,48 +1,40 @@
 import { state } from './state';
-import { view } from './view';
 
 export default function stew (object, actions) {
-	if (typeof object === 'string') {
-		return view(object);
-	} else if (typeof object !== 'object') {
-		return;
-	}
-
 	object = state(object);
+	actions = actions(object);
 
-	function define (render) {
-		if (typeof render === 'string') {
-			render = view(render);
-		} else if (typeof render !== 'function') {
-			return;
-		}
+	function define (mount, translate) {
+		return (element, ...parameters) => {
+			let resolver;
 
-		return node => {
 			function update () {
-				render(object, node);
-				
+				const props = translate(object, ...parameters);
+
 				for (const key in object) {
 					object[key] = update;
 				}
+
+				resolver(props);
+				return props;
 			}
 
-			update();
+			mount(element, output => {
+				resolver = output;
+				return update();
+			});
 		};
 	}
 
-	if (typeof actions === 'function') {
-		actions = actions(object);
+	for (const key in actions) {
+		const definition = {
+			get: () => actions[key],
+			set: () => {},
+			enumerable: true
+		};
 
-		for (const key in actions) {
-			const definition = {
-				get: () => actions[key],
-				set: () => {},
-				enumerable: true
-			};
-
-			Object.defineProperty(object, key, definition);
-			Object.defineProperty(define, key, definition);
-		}
+		Object.defineProperty(object, key, definition);
+		Object.defineProperty(define, key, definition);
 	}
 
 	return define;
