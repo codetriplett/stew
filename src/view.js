@@ -1,4 +1,4 @@
-export function view (state, ...keys) {
+export function view (markup) {
 	const suffix = ''.padEnd(keys.length + 1, '}');
 	const states = [state];
 	const expressions = {};

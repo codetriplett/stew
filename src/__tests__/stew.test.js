@@ -4,17 +4,28 @@ import stew from '../stew';
 jest.mock('../view', () => ({ view: jest.fn() }));
 
 describe('stew', () => {
+	const actions = jest.fn();
+	let object;
+
 	beforeEach(() => {
 		view.mockClear().mockReturnValue('view');
+		actions.mockClear().mockImplementation(output => {
+			object = output;
+			return { action: () => 'action' }
+		});
 	});
 
 	it('should create a state from an object', () => {
-		const object = { key: 'value' };
-		const actual = stew(object);
+		const actual = stew({ key: 'value' }, actions);
 
-		expect(object).toEqual({ key: 'value' });
+		expect(actions).toHaveBeenCalledWith({
+			key: 'value',
+			action: expect.any(Function)
+		});
+
 		expect(actual).toEqual(expect.any(Function));
-		expect(actual.key).toBe('value');
+		expect(actual.action()).toBe('action');
+		expect(object.action()).toBe('action');
 	});
 
 	it('should create a view from markup', () => {
@@ -32,70 +43,64 @@ describe('stew', () => {
 	});
 
 	describe('view', () => {
-		let object;
+		let define;
 	
 		beforeEach(() => {
-			object = stew({ key: 'value' });
+			define = stew({ key: 'value' });
 			view.mockClear().mockReturnValue('view');
 		});
 
 		it('should relate view to a state', () => {
-			const actual = object(() => {});
+			const actual = define(() => {});
 
 			expect(view).not.toHaveBeenCalled();
 			expect(actual).toEqual(expect.any(Function));
 		});
 
 		it('should convert markup to a view', () => {
-			const actual = object('string');
+			const actual = define('string');
 
 			expect(view).toHaveBeenCalledWith('string');
 			expect(actual).toEqual(expect.any(Function));
 		});
 
 		it('should not create anything if type is invalid', () => {
-			const actual = object(1);
+			const actual = define(1);
 			expect(actual).toBeUndefined();
 		});
 
 		describe('component', () => {
-			const action = jest.fn();
+			const render = jest.fn();
+			let actions;
 		
 			beforeEach(() => {
-				action.mockClear().mockImplementation((object, key) => {
+				render.mockClear().mockImplementation((object, key) => {
 					object[key];
 				});
+
+				actions = state => ({ action: value => state.key = value });
 			});
 
 			it('should relate state and view to nodes', () => {
 				const object = { key: 'old', other: 'value' };
-				const actual = stew(object)(action);
+				const expected = { ...object, action: expect.any(Function) };
+				const define = stew(object, actions);
+				const actual = define(render);
 
 				actual('key');
 				actual('other');
 
-				expect(action.mock.calls).toEqual([
-					[object, 'key'],
-					[object, 'other']
+				expect(render.mock.calls).toEqual([
+					[expected, 'key'],
+					[expected, 'other']
 				]);
 				
-				action.mockClear();
-				object.key = 'new';
+				render.mockClear();
+				define.action('new');
 
-				expect(action.mock.calls).toEqual([
-					[object, 'key']
+				expect(render.mock.calls).toEqual([
+					[{ ...expected, key: 'new' }, 'key']
 				]);
-			});
-
-			it('should allow updates on function', () => {
-				const state = stew({ key: 'old' })(action)('key');
-
-				expect(action).toHaveBeenCalledWith({ key: 'old' }, 'key');
-				
-				action.mockClear();
-				state.key = 'new';
-
-				expect(action).toHaveBeenCalledWith({ key: 'new' }, 'key');
 			});
 		});
 	});

@@ -1,43 +1,49 @@
 import { state } from './state';
 import { view } from './view';
 
-export default function stew (input) {
-	if (typeof input === 'string') {
-		return view(input);
-	} else if (typeof input !== 'object') {
+export default function stew (object, actions) {
+	if (typeof object === 'string') {
+		return view(object);
+	} else if (typeof object !== 'object') {
 		return;
 	}
 
-	const object = state(input);
+	object = state(object);
 
-	function creator (input) {
-		if (typeof input === 'string') {
-			input = view(input);
-		} else if (typeof input !== 'function') {
+	function define (render) {
+		if (typeof render === 'string') {
+			render = view(render);
+		} else if (typeof render !== 'function') {
 			return;
 		}
 
-		return (...parameters) => {
+		return node => {
 			function update () {
-				input(object, ...parameters);
-
+				render(object, node);
+				
 				for (const key in object) {
 					object[key] = update;
 				}
 			}
 
 			update();
-
-			return creator;
 		};
 	}
 
-	for (const key in object) {
-		Object.defineProperty(creator, key, {
-			get: () => object[key],
-			set: value => object[key] = value
-		});
+	if (typeof actions === 'function') {
+		actions = actions(object);
+
+		for (const key in actions) {
+			const definition = {
+				get: () => actions[key],
+				set: () => {},
+				enumerable: true
+			};
+
+			Object.defineProperty(object, key, definition);
+			Object.defineProperty(define, key, definition);
+		}
 	}
 
-	return creator;
+	return define;
 }
