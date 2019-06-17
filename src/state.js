@@ -1,68 +1,79 @@
-export function state (object, existing) {
-	if (typeof object !== 'object') {
-		return object;
-	} else if (Array.isArray(object)) {
-		if (!Array.isArray(existing)) {
-			existing = [];
-		}
+export class State {
+	constructor (props = {}, store = {}) {
+		this.props = props;
+		this.store = store;
+	}
 
-		return object.map(value => {
-			const index = existing.indexOf(value);
-
-			if (index === -1) {
-				return value;
+	traverse (props, store) {
+		if (typeof props !== 'object') {
+			return props;
+		} else if (Array.isArray(props)) {
+			if (!Array.isArray(store)) {
+				store = [];
 			}
 
-			return state(value, existing[index]);
-		});
-	}
+			return props.map(prop => {
+				const index = store.indexOf(prop);
+				return index !== -1 ? store[index] : this.traverse(prop);
+			});
+		}
 
-	const result = {};
+		if (typeof store !== 'object' || Array.isArray(store)) {
+			store = {};
+		}
 
-	for (const key in object) {
-		const value = object[key];
-		const renderers = [];
-		let read = false;
+		for (const key in props) {
+			const set = new Set([this]);
+			let value = this.traverse(props[key], store[key]);
 
-		Object.defineProperty(result, key, {
-			get: () => {
-				read = true;
-				return object[key];
-			},
-			set: value => {
-				const existing = object[key];
+			if (store.hasOwnProperty(key)) {
+				store[key] = this;
+				continue;
+			}
 
-				if (value === existing) {
-					return;
-				} else if (typeof value !== 'function') {
-					object[key] = state(value, existing);
-					renderers.forEach(render => render());
+			Object.defineProperty(store, key, {
+				get: () => value,
+				set: prop => {
+					if (props === value) {
+						return;
+					} else if (prop instanceof State) {
+						if (prop.active) {
+							set.add(prop);
+						} else {
+							set.delete(prop);
 
-					return;
-				}
-
-				renderers = renderers.filter(render => render !== value);
-
-				if (read) {
-					renderers.push(value);
-					read = false;
-
-					if (typeof value === 'object') {
-						[].concat(value).forEach(item => {
-							for (const key in item) {
-								if (typeof item[key] !== 'function') {
-									item[key] = value;
-								}
+							if (!set.size) {
+								value = undefined;
 							}
-						});
-					}
-				}
-			},
-			enumerable: true
-		});
+						}
 
-		result[key] = value;
+						return;
+					}
+
+					value = this.traverse(prop, value);
+					set.forEach(({ resolve }) => resolve());
+				},
+				enumerable: true
+			});
+		}
+
+		return store;
 	}
 
-	return result;
+	prepare (resolve, set) {
+		if (typeof resolve === 'function') {
+			this.resolve = () => set.add(resolve);
+
+			if (!this.active) {
+				this.active = true;
+				this.traverse(this.props, this.store);
+			}
+		} else if (this.active) {
+			this.active = false;
+			this.traverse(this.props, this.store);
+			this.resolve = undefined;
+		}
+
+		return this.store;
+	}
 }
