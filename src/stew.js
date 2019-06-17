@@ -1,11 +1,10 @@
-import { State } from './State';
+import { state } from './state';
 import { view } from './view';
 
 export default function stew (initialize, ...parameters) {
 	switch (typeof initialize) {
 		case 'object':
-			const state = new State(initialize, ...parameters);
-			return state.update.bind(state);
+			return state(initialize, ...parameters);
 		case 'string':
 			return view(initialize, ...parameters);
 		case 'function':
@@ -20,9 +19,9 @@ export default function stew (initialize, ...parameters) {
 
 	function register (mount, ...parameters) {
 		function create (...parameters) {
-			const state = new State(mount(resolve => {
-				state.prepare(resolve, set)
-			}, ...parameters), store);
+			const props = mount(resolve => {
+				return state(props, () => set.add(resolve), store)
+			}, ...parameters);
 
 			return create;
 		}
