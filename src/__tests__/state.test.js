@@ -9,57 +9,162 @@ describe('state', () => {
 		set = new Set([resolve]);
 	});
 
-	it('should not resolve if value is the same', () => {
-		const actual = state('value', set, 'value');
+	describe('resolve', () => {
+		it('should add resolve to set', () => {
+			set = new Set();
+			state(resolve, set, 'value');
 
-		expect(resolve).not.toHaveBeenCalled();
-		expect(actual).toBe('value');
+			expect(set).toEqual(new Set([resolve]));
+		});
+
+		it('should add another resolve to set', () => {
+			const another = () => {};
+			
+			set = new Set();
+			state(resolve, set, 'value');
+			state(another, set, 'value');
+
+			expect(set).toEqual(new Set([resolve, another]));
+		});
+
+		it('should delete one resolve from set', () => {
+			const another = () => {};
+
+			set = new Set();
+			state(resolve, set, 'value');
+			state(another, set, 'value');
+			state(another, set, 'value');
+
+			expect(set).toEqual(new Set([resolve]));
+		});
+
+		it('should delete resolve from set', () => {
+			const actual = state(resolve, set, 'value');
+
+			expect(set).toEqual(new Set());
+			expect(actual).toBeUndefined();
+		});
 	});
 
-	it('should resolve if value is the same', () => {
-		const actual = state('new', set, 'old');
+	describe('value', () => {
+		it('should update a value if it changes', () => {
+			const actual = state('new', set, 'old');
 
-		expect(resolve).toHaveBeenCalled();
-		expect(actual).toBe('new');
+			expect(resolve).toHaveBeenCalled();
+			expect(actual).toBe('new');
+		});
+
+		it('should not update a value if it is the same', () => {
+			const actual = state('value', set, 'value');
+
+			expect(resolve).not.toHaveBeenCalled();
+			expect(actual).toBe('value');
+		});
 	});
 
-	it('should add resolve to set', () => {
-		set = new Set();
+	describe('object', () => {
+		it('should add properties', () => {
+			const another = () => {};
 
-		const actual = state(resolve, set, 'value');
+			const store = state({
+				keep: 'old',
+				update: {
+					keep: 'old',
+					update: 'old'
+				}
+			}, resolve);
 
-		expect(set).toEqual(new Set([resolve]));
-		expect(actual).toBe('value');
+			const actual = state({
+				update: {
+					update: 'new',
+					add: 'new'
+				},
+				add: 'new'
+			}, another, store);
+
+			expect(actual).toEqual({
+				keep: 'old',
+				update: {
+					keep: 'old',
+					update: 'old',
+					add: 'new'
+				},
+				add: 'new'
+			});
+		});
+		
+		it('should update properties', () => {
+			const actual = state({
+				update: {
+					update: 'new',
+					add: 'new'
+				},
+				add: 'new'
+			}, set, {
+				keep: 'old',
+				update: {
+					keep: 'old',
+					update: 'old'
+				}
+			});
+
+			expect(actual).toEqual({
+				keep: 'old',
+				update: {
+					keep: 'old',
+					update: 'new',
+					add: 'new'
+				},
+				add: 'new'
+			});
+		});
+
+		it('should allow override on undefined', () => {
+			const actual = state({ key: 'value' }, resolve);
+			expect(actual).toEqual({ key: 'value' });
+		});
+
+		it('should not allow override on string', () => {
+			const actual = state({ key: 'value' }, resolve, 'value');
+			expect(actual).toEqual('value');
+		});
+
+		it('should not allow override on array', () => {
+			const actual = state({ key: 'value' }, resolve, ['value']);
+			expect(actual).toEqual(['value']);
+		});
 	});
 
-	it('should add another resolve to set', () => {
-		set = new Set();
-		state(resolve, set, 'value');
+	describe('array', () => {
+		it('should add items', () => {
+			const another = () => {};
+			const old = { key: 'old' };
+			const store = state({ array: [old] }, resolve);
+			const actual = state({ array: [{ key: 'new' }] }, another, store);
 
-		const another = () => {};
-		const actual = state(another, set, 'value');
+			expect(actual).toEqual({ array: [old, { key: 'new' }] });
+		});
 
-		expect(set).toEqual(new Set([resolve, another]));
-		expect(actual).toBe('value');
-	});
+		it('should update items', () => {
+			const old = { key: 'old' };
+			const actual = state([{ key: 'new' }, old], set, [old]);
 
-	it('should delete one resolve from set', () => {
-		const another = () => {};
+			expect(actual).toEqual([{ key: 'new' }, old]);
+		});
 
-		set = new Set();
-		state(resolve, set, 'value');
-		state(another, set, 'value');
+		it('should allow override on undefined', () => {
+			const actual = state(['value'], resolve);
+			expect(actual).toEqual(['value']);
+		});
 
-		const actual = state(another, set, 'value');
+		it('should not allow override on string', () => {
+			const actual = state(['value'], resolve, 'value');
+			expect(actual).toEqual('value');
+		});
 
-		expect(set).toEqual(new Set([resolve]));
-		expect(actual).toBe('value');
-	});
-
-	it('should delete resolve from set', () => {
-		const actual = state(resolve, set, 'value');
-
-		expect(set).toEqual(new Set());
-		expect(actual).toBeUndefined();
+		it('should not allow override on obejct', () => {
+			const actual = state(['value'], resolve, { key: 'value' });
+			expect(actual).toEqual({ key: 'value' });
+		});
 	});
 });

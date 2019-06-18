@@ -26,12 +26,12 @@ export function state (props, resolve, store) {
 
 		if (additive) {
 			store.push(...props);
+		} else {
+			store = props.map(prop => {
+				const index = store.indexOf(prop);
+				return index !== -1 ? store[index] : state(prop, resolve);
+			});
 		}
-		
-		store = props.map(prop => {
-			const index = store.indexOf(prop);
-			return index !== -1 ? store[index] : state(prop, resolve);
-		});
 	} else if (typeof props === 'object') {
 		if (store === undefined) {
 			store = {};
@@ -45,6 +45,8 @@ export function state (props, resolve, store) {
 			if (store.hasOwnProperty(key)) {
 				if (additive) {
 					store[key] = resolve;
+				} else {
+					store[key] = value;
 				}
 
 				continue;
