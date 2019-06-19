@@ -1,106 +1,128 @@
+import { state } from '../state';
 import { view } from '../view';
 import stew from '../stew';
 
+jest.mock('../state', () => ({ state: jest.fn() }));
 jest.mock('../view', () => ({ view: jest.fn() }));
 
 describe('stew', () => {
 	const actions = jest.fn();
-	let object;
+	const action = jest.fn();
+	let store;
 
 	beforeEach(() => {
+		state.mockClear().mockReturnValue('state');
 		view.mockClear().mockReturnValue('view');
+		action.mockClear();
+
 		actions.mockClear().mockImplementation(output => {
-			object = output;
-			return { action: () => 'action' }
+			store = output;
+			return { action };
 		});
 	});
 
-	it('should create a state from an object', () => {
-		const actual = stew({ key: 'value' }, actions);
+	it('should set up actions', () => {
+		const actual = stew(actions);
 
-		expect(actions).toHaveBeenCalledWith({
-			key: 'value',
-			action: expect.any(Function)
-		});
-
+		expect(actions).toHaveBeenCalledWith(store);
 		expect(actual).toEqual(expect.any(Function));
-		expect(actual.action()).toBe('action');
-		expect(object.action()).toBe('action');
+		expect(actual.action).toEqual(expect.any(Function));
+		expect(store.action).toEqual(expect.any(Function));
+
+		actual.action('one', 'two');
+
+		expect(action).toHaveBeenCalledWith('one', 'two');
 	});
 
-	it('should create a view from markup', () => {
-		const actual = stew('string');
+	it('should create a store from an object', () => {
+		const actual = stew({ key: 'value'}, 'extra');
 
-		expect(view).toHaveBeenCalledWith('string');
+		expect(state).toHaveBeenCalledWith({ key: 'value'}, 'extra');
+		expect(actual).toEqual('state');
+	});
+
+	it('should create a view from string', () => {
+		const actual = stew('string', 'extra');
+
+		expect(view).toHaveBeenCalledWith('string', 'extra');
+		expect(actual).toEqual('view');
+	});
+
+	it('should create a view from nothing', () => {
+		const actual = stew();
+
+		expect(view).toHaveBeenCalledWith(undefined);
 		expect(actual).toEqual('view');
 	});
 
 	it('should not create anything if type is invalid', () => {
 		const actual = stew(1);
 
+		expect(state).not.toHaveBeenCalled();
 		expect(view).not.toHaveBeenCalled();
+		expect(actions).not.toHaveBeenCalled();
 		expect(actual).toBeUndefined();
 	});
 
-	describe('view', () => {
-		let define;
-	
-		beforeEach(() => {
-			define = stew({ key: 'value' });
-			view.mockClear().mockReturnValue('view');
-		});
+	describe('register', () => {
+		it('should return create function', () => {
+			const register = stew(() => {});
+			const actual = register(() => {});
 
-		it('should relate view to a state', () => {
-			const actual = define(() => {});
-
-			expect(view).not.toHaveBeenCalled();
 			expect(actual).toEqual(expect.any(Function));
 		});
 
-		it('should convert markup to a view', () => {
-			const actual = define('string');
-
-			expect(view).toHaveBeenCalledWith('string');
-			expect(actual).toEqual(expect.any(Function));
-		});
-
-		it('should not create anything if type is invalid', () => {
-			const actual = define(1);
-			expect(actual).toBeUndefined();
-		});
-
-		describe('component', () => {
-			const render = jest.fn();
-			let actions;
-		
-			beforeEach(() => {
-				render.mockClear().mockImplementation((object, key) => {
-					object[key];
+		describe('create', () => {
+			it('should relate state and view to nodes', () => {
+				let update;
+				let resolve;
+				
+				state.mockClear().mockImplementation((props, output) => {
+					resolve = output;
+					return 'state';
 				});
 
-				actions = state => ({ action: value => state.key = value });
-			});
+				const mount = jest.fn().mockImplementation(output => {
+					update = output;
+				});
 
-			it('should relate state and view to nodes', () => {
-				const object = { key: 'old', other: 'value' };
-				const expected = { ...object, action: expect.any(Function) };
-				const define = stew(object, actions);
-				const actual = define(render);
+				const output = jest.fn();
+				const register = stew(() => ({ action: () => resolve() }));
+				const create = register(mount);
+				const actual = create('one', 'two');
+				const expected = { action: expect.any(Function) };
 
-				actual('key');
-				actual('other');
+				expect(mount).toHaveBeenCalledWith(
+					expect.any(Function),
+					'one',
+					'two'
+				);
 
-				expect(render.mock.calls).toEqual([
-					[expected, 'key'],
-					[expected, 'other']
-				]);
-				
-				render.mockClear();
-				define.action('new');
+				expect(actual).toEqual(expect.any(Function));
 
-				expect(render.mock.calls).toEqual([
-					[{ ...expected, key: 'new' }, 'key']
-				]);
+				update({ key: 'value' });
+
+				expect(state).not.toHaveBeenCalled();
+
+				update(output);
+
+				expect(state).toHaveBeenCalledWith(
+					{ key: 'value'},
+					resolve,
+					expected
+				);
+
+				register.action();
+
+				expect(output).toHaveBeenCalledWith(expected);
+
+				update();
+
+				expect(state).toHaveBeenCalledWith(
+					{ key: 'value'},
+					resolve,
+					expected
+				);
 			});
 		});
 	});

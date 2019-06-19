@@ -118,6 +118,42 @@ describe('state', () => {
 				add: 'new'
 			});
 		});
+		
+		it('should remove properties', () => {
+			const another = () => {};
+
+			const store = state({
+				keep: 'old',
+				update: {
+					keep: 'old',
+					update: 'old'
+				}
+			}, resolve);
+
+			state({
+				update: {
+					update: 'new',
+					add: 'new'
+				},
+				add: 'new'
+			}, another, store);
+			
+			const actual = state({
+				keep: 'old',
+				update: {
+					keep: 'old',
+					update: 'old'
+				}
+			}, resolve, store);
+
+			expect(actual).toEqual({
+				update: {
+					update: 'old',
+					add: 'new'
+				},
+				add: 'new'
+			});
+		});
 
 		it('should allow override on undefined', () => {
 			const actual = state({ key: 'value' }, resolve);

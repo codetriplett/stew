@@ -40,6 +40,7 @@ export function state (props, resolve, store) {
 		}
 
 		for (const key in props) {
+			const set = new Set(additive ? [resolve] : resolve);
 			let value = state(props[key], resolve, store[key]);
 
 			if (store.hasOwnProperty(key)) {
@@ -50,13 +51,11 @@ export function state (props, resolve, store) {
 				}
 
 				continue;
-			} else if (typeof resolve === 'function') {
-				resolve = new Set([resolve]);
 			}
 
 			Object.defineProperty(store, key, {
 				get: () => value,
-				set: prop => value = state(prop, resolve, value),
+				set: prop => value = state(prop, set, value),
 				enumerable: true
 			});
 		}

@@ -1,29 +1,102 @@
 import { view } from '../view';
 
 describe('view', () => {
-	it.skip('should prepare a component', () => {
-		const object = {
-			one: 1,
-			parent: {
-				two: 2,
-				child: {
-					three: 3
-				}
-			}
-		};
+	let container;
+	let element;
 
-		const actual = view({
-			attribute: 'one && three || two'
-		}, object, 'parent', 'child');
+	beforeEach(() => {
+		container = document.createElement('div');
 
-		const attributes = {};
-		const instance = actual({ attributes });
+		container.innerHTML = `<span
+			class="child alpha"
+			data-attribute="value"
+			data-flag>Lorem Ipsum</span><span
+			class="child beta"
+			data-attribute="value"
+			data-flag>Dolor Sit</span>`;
 
-		instance();
-		expect(attributes).toEqual({ attribute: 3 });
+		element = container.querySelector('span');
+	});
 
-		object.parent.child.three = 9;
-		instance();
-		expect(attributes).toEqual({ attribute: 9 });
+	it('should extract content', () => {
+		const extract = view();
+		const actual = extract(element);
+
+		expect(actual).toBe('Lorem Ipsum');
+	});
+
+	it('should extract attribute', () => {
+		const extract = view('data-attribute');
+		const actual = extract(element);
+
+		expect(actual).toBe('value');
+	});
+
+	it('should extract missing attribute', () => {
+		const extract = view('data-other');
+		const actual = extract(element);
+
+		expect(actual).toBe('');
+	});
+
+	it('should extract flag', () => {
+		const extract = view('data-flag').asBoolean;
+		const actual = extract(element);
+
+		expect(actual).toBe(true);
+	});
+
+	it('should extract missing flag', () => {
+		const extract = view('data-other').asBoolean;
+		const actual = extract(element);
+
+		expect(actual).toBe(false);
+	});
+
+	it('should extract class', () => {
+		const extract = view('.child', 'class');
+		const actual = extract(container);
+
+		expect(actual).toBe('alpha');
+	});
+
+	it('should extract from child', () => {
+		const extract = view('.child');
+		const actual = extract(container);
+
+		expect(actual).toBe('Lorem Ipsum');
+	});
+
+	it('should extract from children', () => {
+		const extract = view('span.').asArray;
+		const actual = extract(container);
+
+		expect(actual).toEqual(['Lorem Ipsum', 'Dolor Sit']);
+	});
+
+	it('should extract and transform', () => {
+		const transform = jest.fn().mockImplementation(value => `${value}.`);
+		const extract = view('span.', transform).asArray;
+		const actual = extract(container);
+
+		expect(transform.mock.calls).toEqual([
+			['Lorem Ipsum', element],
+			['Dolor Sit', container.querySelector('span:nth-child(2)')],
+		]);
+
+		expect(actual).toEqual(['Lorem Ipsum.', 'Dolor Sit.']);
+	});
+
+	it('should extract and resolve', () => {
+		const resolve = jest.fn().mockImplementation(value => `${value}.`);
+		const extract = view('span.');
+		const actual = extract(container, resolve);
+
+		expect(resolve.mock.calls).toEqual([
+			['Lorem Ipsum', element],
+			['Dolor Sit', container.querySelector('span:nth-child(2)')],
+		]);
+
+		expect(actual).toEqual(['Lorem Ipsum.', 'Dolor Sit.']);
 	});
 });

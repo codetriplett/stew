@@ -6,6 +6,7 @@ export default function stew (initialize, ...parameters) {
 		case 'object':
 			return state(initialize, ...parameters);
 		case 'string':
+		case 'undefined':
 			return view(initialize, ...parameters);
 		case 'function':
 			break;
@@ -19,8 +20,18 @@ export default function stew (initialize, ...parameters) {
 
 	function register (mount, ...parameters) {
 		function create (...parameters) {
-			const props = mount(resolve => {
-				return state(props, () => set.add(resolve), store)
+			let props = {};
+			let resolve;
+
+			mount(output => {
+				if (typeof output === 'object') {
+					props = output;
+					return;
+				} else if (typeof output === 'function') {
+					resolve = () => set.add(output);
+				}
+
+				return state(props, resolve, store);
 			}, ...parameters);
 
 			return create;
