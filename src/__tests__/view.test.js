@@ -40,14 +40,14 @@ describe('view', () => {
 	});
 
 	it('should extract flag', () => {
-		const extract = view('data-flag').asBoolean;
+		const extract = view('data-flag?');
 		const actual = extract(element);
 
 		expect(actual).toBe(true);
 	});
 
 	it('should extract missing flag', () => {
-		const extract = view('data-other').asBoolean;
+		const extract = view('data-other?');
 		const actual = extract(element);
 
 		expect(actual).toBe(false);
@@ -67,32 +67,32 @@ describe('view', () => {
 		expect(actual).toBe('Lorem Ipsum');
 	});
 
-	it('should extract from children', () => {
-		const extract = view('span.').asArray;
+	it('should extract properties', () => {
+		const extract = view('.alpha', {
+			attributes: {
+				attribute: view('data-attribute')
+			},
+			flags: [view('data-flag?')],
+			text: view(),
+			key: 'other'
+		});
+
 		const actual = extract(container);
 
-		expect(actual).toEqual(['Lorem Ipsum', 'Dolor Sit']);
+		expect(actual).toEqual({
+			attributes: { attribute: 'value' },
+			flags: [true],
+			text: 'Lorem Ipsum',
+			key: 'other'
+		});
 	});
 
 	it('should extract and transform', () => {
 		const transform = jest.fn().mockImplementation(value => `${value}.`);
-		const extract = view('span.', transform).asArray;
+		const extract = view('span.*', transform);
 		const actual = extract(container);
 
 		expect(transform.mock.calls).toEqual([
-			['Lorem Ipsum', element],
-			['Dolor Sit', container.querySelector('span:nth-child(2)')],
-		]);
-
-		expect(actual).toEqual(['Lorem Ipsum.', 'Dolor Sit.']);
-	});
-
-	it('should extract and resolve', () => {
-		const resolve = jest.fn().mockImplementation(value => `${value}.`);
-		const extract = view('span.');
-		const actual = extract(container, resolve);
-
-		expect(resolve.mock.calls).toEqual([
 			['Lorem Ipsum', element],
 			['Dolor Sit', container.querySelector('span:nth-child(2)')],
 		]);

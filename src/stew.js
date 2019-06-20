@@ -19,20 +19,18 @@ export default function stew (initialize, ...parameters) {
 	const set = new Set();
 
 	function register (mount, ...parameters) {
-		function create (...parameters) {
-			let props = {};
-			let resolve;
+		function create (selector, structure, ...parameters) {
+			view(selector, structure, (props, element) => {
+				let resolve;
 
-			mount(output => {
-				if (typeof output === 'object') {
-					props = output;
-					return;
-				} else if (typeof output === 'function') {
-					resolve = () => set.add(output);
-				}
+				mount(output => {
+					if (typeof output === 'function') {
+						resolve = () => set.add(output);
+					}
 
-				return state(props, resolve, store);
-			}, ...parameters);
+					return state(props, resolve, store);
+				}, element, ...parameters);
+			})(document || { querySelectorAll: selector => [selector] });
 
 			return create;
 		}

@@ -74,12 +74,19 @@ describe('stew', () => {
 
 		describe('create', () => {
 			it('should relate state and view to nodes', () => {
+				const extract = jest.fn();
 				let update;
 				let resolve;
+				let transform;
 				
-				state.mockClear().mockImplementation((props, output) => {
+				state.mockClear().mockImplementation((a, output) => {
 					resolve = output;
 					return 'state';
+				});
+				
+				view.mockClear().mockImplementation((a, b, output) => {
+					transform = output;
+					return extract;
 				});
 
 				const mount = jest.fn().mockImplementation(output => {
@@ -89,25 +96,25 @@ describe('stew', () => {
 				const output = jest.fn();
 				const register = stew(() => ({ action: () => resolve() }));
 				const create = register(mount);
-				const actual = create('one', 'two');
+				const actual = create('one', 'two', 'three');
 				const expected = { action: expect.any(Function) };
+
+				expect(view).toHaveBeenCalledWith('one', 'two', transform);
+				expect(extract).toHaveBeenCalledWith(document);
+				expect(actual).toEqual(expect.any(Function));
+
+				transform('props', 'element');
 
 				expect(mount).toHaveBeenCalledWith(
 					expect.any(Function),
-					'one',
-					'two'
+					'element',
+					'three'
 				);
-
-				expect(actual).toEqual(expect.any(Function));
-
-				update({ key: 'value' });
-
-				expect(state).not.toHaveBeenCalled();
 
 				update(output);
 
 				expect(state).toHaveBeenCalledWith(
-					{ key: 'value'},
+					'props',
 					resolve,
 					expected
 				);
@@ -119,7 +126,7 @@ describe('stew', () => {
 				update();
 
 				expect(state).toHaveBeenCalledWith(
-					{ key: 'value'},
+					'props',
 					resolve,
 					expected
 				);

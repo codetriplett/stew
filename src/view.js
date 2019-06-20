@@ -1,82 +1,70 @@
 export function view (...parameters) {
-	let selector;
-	let structure;
-	let transform;
+	let selector = /[.[]/.test(parameters[0]) ? parameters.shift() : '';
+	let structure = typeof parameters[0] !== 'function' && parameters.shift();
 
-	if (/[.[]/.test(parameters[0])) {
-		selector = parameters.shift().replace(/\.$/, '') || undefined;
+	const transform = parameters.shift();
+	const array = selector.endsWith('*');
+	const boolean = typeof structure === 'string' && structure.endsWith('?');
+
+	selector = selector.replace(/\.?\*?$/, '');
+
+	if (boolean) {
+		structure = structure.slice(0, -1);
 	}
 
-	if (typeof parameters[0] !== 'function') {
-		structure = parameters.shift();
-	}
-
-	if (typeof parameters[0] === 'function') {
-		transform = parameters.shift();
-	}
-
-	function extractor (element, mode, ...extras) {
-		if (selector && mode !== 'item') {
-			const resolving = typeof mode === 'function';
-
-			if (mode === 'array' || resolving) {
-				element = Array.from(element.querySelectorAll(selector));
-
-				return element.map(element => {
-					const props = extractor(element, 'item', selector);
-					return resolving ? mode(props, element, ...extras) : props;
-				});
-			}
-
-			element = element.querySelector(selector);
-		}
-
-		let result = {};
-
-		if (Array.isArray(structure)) {
-			Object.assign(result, ...structure.map(extractor => {
-				const object = extractor(element, undefined, selector);
-				return typeof object === 'object' ? object : {};
-			}));
-		} else if (typeof structure === 'object') {
-			for (const key in structure) {
-				const value = structure[key];
-
-				if (typeof value === 'function') {
-					result[key] = value(element, undefined, selector);
-				} else {
-					result[key] = value;
-				}
-			}
-		} else if (typeof structure !== 'string') {
-			result = structure === undefined ? element.innerHTML : undefined;
-		} else if (mode === 'boolean') {
-			result = element.hasAttribute(structure);
+	function extract (element) {
+		if (selector) {
+			element = Array.from(element.querySelectorAll(selector)) || [];
 		} else {
-			result = element.getAttribute(structure) || '';
+			element = [element];
+		}
 
-			if (result && structure === 'class') {
-				selector = selector || extras[0] || '';
-				result = ` ${result.trim().replace(/\s+/g, ' ')} `;
-				
-				selector.match(/(\.[^.[]+)?/g).forEach(value => {
-					const regex = new RegExp(` ${value.slice(1)} `, 'g');
-					result = result.replace(regex, ' ');
-				});
+		const values = element.map(element => {
+			let result;
 
-				result = result.trim();
+			if (!element) {
+				result = boolean ? false : '';
+			} else if (!structure) {
+				result = boolean ? true : element.textContent;
+			} else if (typeof structure === 'object') {
+				let entries;
+
+				if (Array.isArray(structure)) {
+					entries = structure.entries();
+					result = [];
+				} else {
+					entries = Object.entries(structure);
+					result = {};
+				}
+
+				for (const [key, value] of entries) {
+					if (typeof value === 'object') {
+						value = view('.', value);
+					}
+					
+					if (typeof value === 'function') {
+						result[key] = value(element);
+					} else {
+						result[key] = value;
+					}
+				}
+			} else if (boolean) {
+				result = element.hasAttribute(structure);
+			} else if (structure === 'class') {
+				const values = selector.match(/(\.[^.[]+)?/g);
+
+				result = element.className.split(/\s+/).filter(value => {
+					return values.indexOf(`.${value}`) === -1;
+				}).join(' ');
+			} else {
+				result = element.getAttribute(structure) || '';
 			}
-		}
 
-		if (transform) {
-			result = transform(result, element);
-		}
+			return transform ? transform(result, element) : result;
+		});
 
-		return result;
-	};
+		return array ? values : values[0];
+	}
 
-	extractor.asArray = element => extractor(element, 'array');
-	extractor.asBoolean = element => extractor(element, 'boolean');
-
-	return extractor;
+	return extract;
 }
