@@ -60,11 +60,18 @@ describe('view', () => {
 		expect(actual).toBe('alpha');
 	});
 
-	it('should extract from child', () => {
+	it('should extract content of child', () => {
 		const extract = view('.child');
 		const actual = extract(container);
 
 		expect(actual).toBe('Lorem Ipsum');
+	});
+
+	it('should extract existance of child', () => {
+		const extract = view('.child', '?');
+		const actual = extract(container);
+
+		expect(actual).toBe(true);
 	});
 
 	it('should extract properties', () => {
@@ -85,6 +92,20 @@ describe('view', () => {
 			text: 'Lorem Ipsum',
 			key: 'other'
 		});
+	});
+
+	it('should extract from first available child', () => {
+		const extract = view('.gamma', {
+			key: 'missing'
+		}, '.alpha', {
+			key: 'present'
+		}, '.beta', {
+			key: 'ignored'
+		});
+
+		const actual = extract(container);
+
+		expect(actual).toEqual({ key: 'present' });
 	});
 
 	it('should extract and transform', () => {

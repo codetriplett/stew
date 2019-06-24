@@ -1,7 +1,7 @@
 {
 	"name": "@triplett/stew",
 	"version": "0.1.0",
-	"description": "",
+	"description": "Provides a streamlined way to hydrate elements and maintain their states using a central store of data.",
 	"main": "dist/stew.min.js",
 	"scripts": {
 		"test": "jest --watch",
@@ -18,7 +18,11 @@
 	],
 	"author": "triplett",
 	"license": "ISC",
-	"keywords": [],
+	"keywords": [
+		"state",
+		"observer",
+		"hydrate"
+	],
 	"bugs": {
 		"url": "https://github.com/codetriplett/stew/issues"
 	},

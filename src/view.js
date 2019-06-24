@@ -1,8 +1,12 @@
 export function view (...parameters) {
 	let selector = /[.[]/.test(parameters[0]) ? parameters.shift() : '';
 	let structure = typeof parameters[0] !== 'function' && parameters.shift();
+	let transform;
 
-	const transform = parameters.shift();
+	if (typeof parameters[0] === 'function') {
+		transform = parameters.shift();
+	}
+	
 	const array = selector.endsWith('*');
 	const boolean = typeof structure === 'string' && structure.endsWith('?');
 
@@ -12,9 +16,21 @@ export function view (...parameters) {
 		structure = structure.slice(0, -1);
 	}
 
+	while (parameters.length && typeof parameters[0] !== 'string') {
+		parameters.shift();
+	}
+
+	const alternate = parameters.length && view(...parameters);
+
 	function extract (element) {
 		if (selector) {
-			element = Array.from(element.querySelectorAll(selector)) || [];
+			const child = Array.from(element.querySelectorAll(selector)) || [];
+
+			if (!child.length && alternate) {
+				return alternate(element);
+			}
+
+			element = child;
 		} else {
 			element = [element];
 		}

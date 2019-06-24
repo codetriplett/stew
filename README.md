@@ -37,6 +37,7 @@ component('.menu', {
 	value: stew(), // its inner text
 	// an additional selector can be used to locate a child element
 	type: stew('.toggle', 'type'), // the type attribute of a child element
+	expandable: stew('.toggle', '?'), // a boolean indicating if child exists
 	label: stew('.toggle'), // the inner text of a child element
 	// an array will be returned if the selector ends with an asterisk
 	links: stew('.links*', {
@@ -48,7 +49,7 @@ component('.menu', {
 });
 ```
 
-## Shortcuts
+## Combining Calls
 Each stage in the examples above return a function that accepts parameters to define the next stage. If you only have one component that uses the state or one selector that captures all elements that use a component, you can pass them all immediately. The actions will still be available on the function returned.
 
 ```js
