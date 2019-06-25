@@ -1,5 +1,7 @@
 const http = require('http');
 const fs = require('fs');
+const stew = require('../dist/stew.min');
+const carousel = require('./carousel');
 
 const port = 8080;
 
@@ -23,20 +25,41 @@ function sendResponse(res, content, type, utf8, status) {
 		res.writeHead(status || 200, {
 			'Content-Length': Buffer.byteLength(content),
 			'Content-Type': `${type}${utf8 ? '; charset=utf-8' : ''}`
-		});
+		}); 
 
 		res.end(content);
 	}
 }
 
 http.createServer(({ url }, res) => {
-	const path = url.replace(/^\/|(\.[a-z]+|\/)$/g, '') || 'index';
-	const extension = url.match(/(\.[a-z]+)?$/)[0].slice(1) || 'html';
-	const folder = /^dist\//.test(path) ? __dirname.replace(/\\[a-z]+$/, '') : __dirname;
-	const type = mimeTypes[extension] || 'text/plain';
-	const utf8 = !/^image\/(?!svg)/.test(type);
+	if (!/\/$/.test(url)) {
+		let path = `${__dirname}${url}`;
 
-	fs.readFile(`${folder}/${path}.${extension}`, utf8 ? 'utf8' : '', (err, file) => {
-		sendResponse(res, file, type, utf8);
-	});
+		if (url === '/stew.min.js') {
+			path = path.replace('\\preview/stew.min.js', '\\dist/stew.min.js');
+		}
+
+		const type = mimeTypes[url.match(/(\.[a-z]+)?$/)[0].slice(1)];
+		const utf8 = !/^image\/(?!svg)/.test(type);
+
+		fs.readFile(path, utf8 ? 'utf8' : '', (err, file) => {
+			sendResponse(res, file, type, utf8);
+		});
+
+		return;
+	}
+
+	sendResponse(res, [
+		'<!doctype>',
+		'<html>',
+			'<head>',
+				'<title>Preview</title>',
+				'<script src="/stew.min.js"></script>',
+			'</head>',
+			'<body>',
+				stew(carousel, { string: 'value' }),
+				'<script src="/preview.js"></script>',
+			'</body>',
+		'</html>'
+	].join(''), 'text/html', true);
 }).listen(port, err => console.log(`server is listening on ${port}`));

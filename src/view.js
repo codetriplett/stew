@@ -76,7 +76,7 @@ export function view (...parameters) {
 				result = element.getAttribute(structure) || '';
 			}
 
-			return transform ? transform(result, element) : result;
+			return transform ? transform(element, result) : result;
 		});
 
 		return array ? values : values[0];

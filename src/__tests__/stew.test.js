@@ -34,13 +34,6 @@ describe('stew', () => {
 		expect(action).toHaveBeenCalledWith('one', 'two');
 	});
 
-	it('should create a store from an object', () => {
-		const actual = stew({ key: 'value'}, 'extra');
-
-		expect(state).toHaveBeenCalledWith({ key: 'value'}, 'extra');
-		expect(actual).toEqual('state');
-	});
-
 	it('should create a view from string', () => {
 		const actual = stew('string', 'extra');
 
@@ -99,16 +92,17 @@ describe('stew', () => {
 				const actual = create('one', 'two', 'three');
 				const expected = { action: expect.any(Function) };
 
-				expect(view).toHaveBeenCalledWith('one', 'two', transform);
+				expect(view).toHaveBeenCalledWith('one.', 'two', transform);
 				expect(extract).toHaveBeenCalledWith(document);
 				expect(actual).toEqual(expect.any(Function));
 
-				transform('props', 'element');
+				transform('element', 'props');
 
 				expect(mount).toHaveBeenCalledWith(
 					expect.any(Function),
 					'element',
-					'three'
+					'three',
+					stew
 				);
 
 				update(output);

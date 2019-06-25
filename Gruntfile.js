@@ -4,7 +4,6 @@ module.exports = function (grunt) {
 		babel: {
 			dist: {
 				files: {
-					'lib/stew.js': 'src/stew.js',
 					'dist/stew.min.js': 'dist/stew.min.js'
 				}
 			}
@@ -32,6 +31,9 @@ module.exports = function (grunt) {
 		const regex = /(^|[ \r\n]*)(import[^;]*;[ \r\n]*|export (default )?)/g;
 
 		grunt.file.write('./dist/stew.min.js', [
+			'./src/survey.js',
+			'./src/render.js',
+			'./src/parse.js',
 			'./src/state.js',
 			'./src/view.js',
 			'./src/stew.js'
@@ -40,16 +42,15 @@ module.exports = function (grunt) {
 
 	grunt.registerTask('after', function () {
 		const path = './dist/stew.min.js';
-		const file = grunt.file.read(path);
-		const root = '\nwindow.stew = stew;\n';
 
-		const amd = [
-			'\nif (typeof define === \'function\' && define.amd) {',
-				'\n\tdefine(\'stew\', function () { return stew; });',
-			'\n}\n\n'
-		].join('');
-
-		grunt.file.write(path, `(function () {\n\n${file}${root}${amd}})();`);
+		grunt.file.write(path, `(function () {
+			${grunt.file.read(path)}
+			if (typeof module !== 'undefined' && module.exports) {
+				module.exports = stew;
+			} else if (typeof window !== 'undefined') {
+				window.stew = stew;
+			}
+		})();`);
 	});
 
 	grunt.registerTask('default', ['before', 'babel', 'after', 'uglify']);

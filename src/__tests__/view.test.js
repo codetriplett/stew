@@ -109,13 +109,16 @@ describe('view', () => {
 	});
 
 	it('should extract and transform', () => {
-		const transform = jest.fn().mockImplementation(value => `${value}.`);
+		const transform = jest.fn().mockImplementation((element, value) => {
+			return `${value}.`;
+		});
+
 		const extract = view('span.*', transform);
 		const actual = extract(container);
 
 		expect(transform.mock.calls).toEqual([
-			['Lorem Ipsum', element],
-			['Dolor Sit', container.querySelector('span:nth-child(2)')],
+			[element, 'Lorem Ipsum'],
+			[container.querySelector('span:nth-child(2)'), 'Dolor Sit'],
 		]);
 
 		expect(actual).toEqual(['Lorem Ipsum.', 'Dolor Sit.']);

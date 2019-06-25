@@ -1,12 +1,25 @@
+import { survey } from './survey';
+import { render } from './render';
+import { parse } from './parse';
 import { state } from './state';
 import { view } from './view';
+
+const client = typeof Element !== 'undefined';
 
 export default function stew (initialize, ...parameters) {
 	switch (typeof initialize) {
 		case 'object':
-			return state(initialize, ...parameters);
+			if (client && parameters[0] instanceof Element) {
+				return survey(initialize, ...parameters);
+			}
+
+			return render(initialize, ...parameters);
 		case 'string':
 		case 'undefined':
+			if (initialize && initialize.indexOf('<')) {
+				parse(initialize, ...parameters);
+			}
+
 			return view(initialize, ...parameters);
 		case 'function':
 			break;
@@ -20,16 +33,25 @@ export default function stew (initialize, ...parameters) {
 
 	function register (mount, ...parameters) {
 		function create (selector, structure, ...parameters) {
-			view(selector, structure, (props, element) => {
-				let resolve;
+			if (!/[.[]/.test(selector)) {
+				selector += '.';
+			}
 
+			view(selector, structure, (element, props) => {
+				let resolve;
+				
 				mount(output => {
+					if (typeof output === 'object') {
+						props = output;
+						return;
+					}
+
 					if (typeof output === 'function') {
 						resolve = () => set.add(output);
 					}
 
 					return state(props, resolve, store);
-				}, element, ...parameters);
+				}, element, ...parameters, stew);
 			})(document || { querySelectorAll: selector => [selector] });
 
 			return create;
