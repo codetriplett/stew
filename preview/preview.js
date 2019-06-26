@@ -1,9 +1,14 @@
-const carousel = { '': ['div', 'string', []] };
-
 const state = stew(state => ({
 	toggle: () => state.string += '.'
-}), (update, element) => {
-	update({ string: 'value' });
-	update(state => stew(carousel, state, element));
+}));
+
+state((template => (update, element, stew) => {
+	if (!update) {
+		return 'div';
+	}
+
+	update(stew(template, element));
+	update(state => stew(template, state, element));
+
 	element.addEventListener('click', () => state.toggle());
-}, 'div');
+})({ '': ['div', '', [['', 'string', '']]] }));

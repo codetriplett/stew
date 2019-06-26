@@ -1,4 +1,17 @@
 export function render (template, state = {}, element) {
+	if (typeof template !== 'object') {
+		return template;
+	} else if (Array.isArray(template)) {
+		const [prefix, key, suffix] = template;
+		const value = `${prefix}${state[key] || ''}${suffix}`;
+
+		if (element) {
+			element.nodeValue = value;
+		}
+
+		return value;
+	}
+
 	const { '': structure, ...attributes } = template;
 	const [tagName, scopeKey, children] = structure;
 
@@ -62,7 +75,7 @@ export function render (template, state = {}, element) {
 	}
 
 	children.forEach((item, i) => {
-		markup += render(item, childNodes[i]);
+		markup += render(item, state, childNodes[i]);
 	});
 
 	return element || `${markup}</${tagName}>`;

@@ -1,4 +1,4 @@
-import { survey } from './survey';
+import { extract } from './extract';
 import { render } from './render';
 import { parse } from './parse';
 import { state } from './state';
@@ -10,7 +10,7 @@ export default function stew (initialize, ...parameters) {
 	switch (typeof initialize) {
 		case 'object':
 			if (client && parameters[0] instanceof Element) {
-				return survey(initialize, ...parameters);
+				return extract(initialize, ...parameters);
 			}
 
 			return render(initialize, ...parameters);
@@ -30,9 +30,14 @@ export default function stew (initialize, ...parameters) {
 	const store = {};
 	const actions = initialize(store);
 	const set = new Set();
+	let result;
 
 	function register (mount, ...parameters) {
 		function create (selector, structure, ...parameters) {
+			if (!selector) {
+				selector = mount();
+			}
+			
 			if (!/[.[]/.test(selector)) {
 				selector += '.';
 			}
@@ -57,10 +62,14 @@ export default function stew (initialize, ...parameters) {
 			return create;
 		}
 
-		return parameters.length ? create(...parameters) : create;
+		if (parameters.length || result === register) {
+			return create(...parameters);
+		}
+
+		return create;
 	}
 
-	let result = parameters.length ? register(...parameters) : register;
+	result = parameters.length ? register(...parameters) : register;
 
 	for (const key in actions) {
 		const action = (...parameters) => {

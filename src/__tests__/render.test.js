@@ -2,6 +2,11 @@ import { render } from '../render';
 
 describe('render', () => {
 	it('should render container tag', () => {
+		const actual = render(['(', 'string', ')'], { string: 'value' });
+		expect(actual).toBe('(value)');
+	});
+
+	it('should render container tag', () => {
 		const actual = render({ attribute: ['value'], '': ['tag', '', []] });
 		expect(actual).toBe('<tag attribute="value"></tag>');
 	});
