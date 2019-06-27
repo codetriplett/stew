@@ -27,7 +27,8 @@ export function extract (template, reference, object) {
 
 	childTemplates.forEach((childTemplate, i) => {
 		const childNode = childNodes[i];
-		const { wholeText: childReference = childNode } = childNode;
+		const { nodeValue } = childNode;
+		const childReference = nodeValue === null ? childNode : nodeValue;
 
 		extract(childTemplate, childReference, object);
 	});

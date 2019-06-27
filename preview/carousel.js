@@ -1,1 +1,3 @@
-module.exports = { '': ['div', 'string', []] };
+module.exports = { '': ['div', '', [
+	{ '': ['span', '', [['(', 'string', ')']]] }
+]] };

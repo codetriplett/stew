@@ -11,4 +11,6 @@ state((template => (update, element, stew) => {
 	update(state => stew(template, state, element));
 
 	element.addEventListener('click', () => state.toggle());
-})({ '': ['div', '', [['', 'string', '']]] }));
+})({ '': ['div', '', [
+	{ '': ['span', '', [['(', 'string', ')']]] }
+]] }));
