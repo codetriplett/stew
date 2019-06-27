@@ -16,11 +16,28 @@ export default function stew (initialize, ...parameters) {
 			return render(initialize, ...parameters);
 		case 'string':
 		case 'undefined':
-			if (initialize && initialize.indexOf('<')) {
-				parse(initialize, ...parameters);
+			if (!initialize || !initialize.indexOf('<')) {
+				view(initialize, ...parameters);
 			}
 
-			return view(initialize, ...parameters);
+			function mount (template) {
+				return (update, element, stew) => {
+					if (!update) {
+						return 'div';
+					}
+
+					update(stew(template, element));
+					update(state => stew(template, state, element));
+				};
+			}
+
+			const template = parse(initialize, ...parameters)[0];
+
+			if (client) {
+				return mount(template);
+			}
+
+			return `(${mount})(${JSON.stringify(template)})`;
 		case 'function':
 			break;
 		default:
@@ -33,6 +50,10 @@ export default function stew (initialize, ...parameters) {
 	let result;
 
 	function register (mount, ...parameters) {
+		if (typeof mount === 'string') {
+			mount = stew(mount);
+		}
+
 		function create (selector, structure, ...parameters) {
 			if (!selector) {
 				selector = mount();

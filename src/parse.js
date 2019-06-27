@@ -97,6 +97,10 @@ export function parse (markup) {
 		} else if (!independent.test(tag)) {
 			const children = parse(markup);
 
+			if (structure.length < 2) {
+				structure.push('');
+			}
+
 			markup = children.pop();
 			structure.push(children);
 		}
