@@ -15,6 +15,11 @@ describe('parse', () => {
 		]);
 	});
 
+	it('should parse content', () => {
+		const actual = parse('<div>content</div>');
+		expect(actual).toEqual([{ '': ['div', ['content']] }, '']);
+	});
+
 	it('should parse without prefix', () => {
 		const actual = parse('<img src={domain}".com">');
 		expect(actual[0].src).toEqual(['', 'domain', '.com']);

@@ -13,6 +13,11 @@ export function render (template, state = {}, element) {
 	}
 
 	const { '': structure, ...attributes } = template;
+
+	if (Array.isArray(structure[1])) {
+		structure.splice(1, 0, undefined);
+	}
+
 	const [tagName, scopeKey, children] = structure;
 
 	if (scopeKey) {
@@ -39,22 +44,38 @@ export function render (template, state = {}, element) {
 	const childNodes = element ? element.childNodes : [];
 	let markup = `<${tagName}`;
 
-	for (const key in attributes) {
-		const value = attributes[key].map((value, i) => {
-			return i % 2 ? state[value] || '' : value;
-		}).join('');
+	for (const name in attributes) {
+		let value = attributes[name];
 
-		if (!element || value === element.getAttribute(key)) {
-			markup += ` ${key}="${value}"`;
+		if (Array.isArray(value)) {
+			if (value.length === 1) {
+				value = state[value[0]];
+			} else {
+				value = attributes[name].map((value, i) => {
+					return i % 2 ? state[value] || '' : value;
+				}).join('');
+			}
+		}
+
+		if (name.startsWith('on') && typeof value === 'function') {
+			if (!element.hasAttribute(name)) {
+				element.addEventListener(name.replace(/^on/, ''), value);
+			}
+
+			value = 'javascript:void(0);';
+		}
+
+		if (!element || value === element.getAttribute(name)) {
+			markup += ` ${name}="${value}"`;
 			continue;
 		}
 
 		if (value === true) {
-			element.toggleAttribute(key, true);
+			element.toggleAttribute(name, true);
 		} else if (value === false || value === undefined) {
-			element.removeAttribute(key);
+			element.removeAttribute(name);
 		} else {
-			element.setAttribute(key, value);
+			element.setAttribute(name, value);
 		}
 	}
 	

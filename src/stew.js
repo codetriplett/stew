@@ -55,7 +55,9 @@ export default function stew (initialize, ...parameters) {
 		}
 
 		function create (selector, structure, ...parameters) {
-			if (!selector) {
+			const automatic = !selector;
+
+			if (automatic) {
 				selector = mount();
 			}
 			
@@ -72,11 +74,19 @@ export default function stew (initialize, ...parameters) {
 						return;
 					}
 
-					if (typeof output === 'function') {
+					const active = typeof output === 'function';
+
+					if (active) {
 						resolve = () => set.add(output);
 					}
 
-					return state(props, resolve, store);
+					state(props, resolve, store);
+
+					if (automatic && active) {
+						output(store);
+					}
+
+					return store;
 				}, element, ...parameters, stew);
 			})(document || { querySelectorAll: selector => [selector] });
 
