@@ -7,7 +7,9 @@ const openers = '<{"\'';
 const closers = '>}"\'';
 
 function normalize (value) {
-	if (!Array.isArray(value)) {
+	if (typeof value !== 'object') {
+		return value;
+	} else if (!Array.isArray(value)) {
 		const { '': structure, ...attributes } = value;
 		const object = { '': structure };
 
@@ -26,7 +28,9 @@ function normalize (value) {
 		return [key];
 	}
 
-	return value;
+	value.splice(1, 1);
+
+	return [key, ...value];
 }
 
 export function parse (markup) {
@@ -52,12 +56,15 @@ export function parse (markup) {
 			const string = markup.slice(0, index);
 
 			if (symbol === ' ') {
+				const index = string.indexOf('=');
+
 				array = [];
 
-				if (string.endsWith('=')) {
-					object[string.slice(0, -1)] = array;
-				} else {
+				if (index === -1) {
 					object[string] = true;
+				} else {
+					const value = string.slice(index + 1);
+					object[string.slice(0, index)] = value || array;
 				}
 			} else {
 				const dynamic = symbol === '{';

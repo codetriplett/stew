@@ -1,8 +1,8 @@
-export function render (template, state = {}, element) {
+export function render (template, state = {}, element, root = state) {
 	if (typeof template !== 'object') {
 		return template;
 	} else if (Array.isArray(template)) {
-		const [prefix, key, suffix] = template;
+		const [key, prefix = '', suffix = ''] = template;
 		const value = `${prefix}${state[key] || ''}${suffix}`;
 
 		if (element) {
@@ -13,51 +13,38 @@ export function render (template, state = {}, element) {
 	}
 
 	const { '': structure, ...attributes } = template;
+	const [tag, scope = '', children] = structure;
 
-	if (Array.isArray(structure[1])) {
-		structure.splice(1, 0, undefined);
-	}
+	if (scope) {
+		state = state[scope];
 
-	const [tagName, scopeKey, children] = structure;
-
-	if (scopeKey) {
-		let value = state[scopeKey];
-		let object = {};
-
-		if (value === undefined) {
+		if (state === undefined) {
 			return '';
-		} else if (Array.isArray(value)) {
-			return value.map(item => {
-				const itemState = { ...state, [scopeKey]: item };
-				return render(template, itemState);
+		} else if (Array.isArray(state)) {
+			return state.map(item => {
+				return render(template, { [scope]: item });
 			}).join('');
 		}
-
-		if (typeof value === 'object') {
-			object = value;
-			value = undefined;
-		}
-
-		state = { ...state, ...object, '': value };
 	}
 
-	const childNodes = element ? element.childNodes : [];
-	let markup = `<${tagName}`;
+	const nodes = element ? element.childNodes : [];
+	let markup = `<${tag}`;
 
 	for (const name in attributes) {
+		const listener = name.startsWith('on');
 		let value = attributes[name];
 
 		if (Array.isArray(value)) {
-			if (value.length === 1) {
-				value = state[value[0]];
-			} else {
-				value = attributes[name].map((value, i) => {
-					return i % 2 ? state[value] || '' : value;
-				}).join('');
+			const [key, prefix = '', suffix = ''] = value;
+
+			value = (listener ? root : state)[key] || '';
+
+			if (value.length > 1) {
+				value = `${prefix}${value}${suffix}`;
 			}
 		}
-
-		if (name.startsWith('on') && typeof value === 'function') {
+		
+		if (listener && typeof value === 'function') {
 			if (!element.hasAttribute(name)) {
 				element.addEventListener(name.replace(/^on/, ''), value);
 			}
@@ -67,12 +54,9 @@ export function render (template, state = {}, element) {
 
 		if (!element || value === element.getAttribute(name)) {
 			markup += ` ${name}="${value}"`;
-			continue;
-		}
-
-		if (value === true) {
+		} else if (value === true) {
 			element.toggleAttribute(name, true);
-		} else if (value === false || value === undefined) {
+		} else if (value === false) {
 			element.removeAttribute(name);
 		} else {
 			element.setAttribute(name, value);
@@ -85,19 +69,9 @@ export function render (template, state = {}, element) {
 		return markup;
 	}
 
-	const value = state[''];
-
-	if (!children.length && value !== undefined) {
-		if (!element) {
-			markup += value;
-		} else {
-			element.innerText = value;
-		}
-	}
-
 	children.forEach((item, i) => {
-		markup += render(item, state, childNodes[i]);
+		markup += render(item, state, nodes[i], root);
 	});
 
-	return element || `${markup}</${tagName}>`;
+	return `${markup}</${tag}>`;
 }

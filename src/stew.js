@@ -23,7 +23,7 @@ export default function stew (initialize, ...parameters) {
 			function mount (template) {
 				return (update, element, stew) => {
 					if (!update) {
-						return 'div';
+						return template[''][0];
 					}
 
 					update(stew(template, element));
