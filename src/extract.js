@@ -2,7 +2,7 @@ export function extract (template, reference, object) {
 	if (typeof template !== 'object') {
 		return object;
 	} else if (Array.isArray(template) && typeof reference === 'string') {
-		const [prefix, key, suffix] = template;
+		const [key, prefix, suffix] = template;
 		const suffixIndex = -suffix.length || undefined;
 
 		object[key] = reference.slice(prefix.length, suffixIndex);

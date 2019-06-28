@@ -1,4 +1,11 @@
 export function render (template, state = {}, element, root = state) {
+	let id;
+
+	if (element !== undefined && typeof element !== 'object') {
+		id = element;
+		element = undefined;
+	}
+
 	if (typeof template !== 'object') {
 		return template;
 	} else if (Array.isArray(template)) {
@@ -21,8 +28,9 @@ export function render (template, state = {}, element, root = state) {
 		if (state === undefined) {
 			return '';
 		} else if (Array.isArray(state)) {
-			return state.map(item => {
-				return render(template, { [scope]: item });
+			return state.map((item, i) => {
+				const state = { [scope]: item };
+				return render(template, state, `${id}-${i}`);
 			}).join('');
 		}
 	}
@@ -62,15 +70,15 @@ export function render (template, state = {}, element, root = state) {
 			element.setAttribute(name, value);
 		}
 	}
-	
-	markup += '>';
+
+	markup += `${scope && id !== undefined ? ` data-stew="${id}"` : ''}>`;
 
 	if (!children) {
 		return markup;
 	}
 
 	children.forEach((item, i) => {
-		markup += render(item, state, nodes[i], root);
+		markup += render(item, state, element ? nodes[i] : i);
 	});
 
 	return `${markup}</${tag}>`;

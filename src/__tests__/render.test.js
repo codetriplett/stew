@@ -47,10 +47,11 @@ describe('render', () => {
 	it('should set new scope', () => {
 		const actual = render(
 			{ attribute: ['string'], '': ['tag', 'object'] },
-			{ string: 'upper', object: { string: 'lower' } }
+			{ string: 'upper', object: { string: 'lower' } },
+			0
 		);
 
-		expect(actual).toBe('<tag attribute="lower">');
+		expect(actual).toBe('<tag attribute="lower" data-stew="0">');
 	});
 
 	it('should not render if scope is empty', () => {
@@ -65,10 +66,14 @@ describe('render', () => {
 	it('should repeat for each item in array', () => {
 		const actual = render(
 			{ attribute: ['string'], '': ['tag', 'array'] },
-			{ array: [{ string: 'first' }, { string: 'second' }] }
+			{ array: [{ string: 'first' }, { string: 'second' }] },
+			0
 		);
 		
-		expect(actual).toBe('<tag attribute="first"><tag attribute="second">');
+		expect(actual).toBe([
+			'<tag attribute="first" data-stew="0-0">',
+			'<tag attribute="second" data-stew="0-1">'
+		].join(''));
 	});
 
 	it('should render content', () => {
