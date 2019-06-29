@@ -1,5 +1,5 @@
 const state = stew(state => ({
-	toggle: () => state.string += '.'
+	add: () => state.array = [...state.array, state.array.length]
 }));
 
-state(`<div><span onclick={toggle}>({string})</span></div>`);
+state(`<div><p {array}>{}</p><span onclick={add}>add</span></div>`);

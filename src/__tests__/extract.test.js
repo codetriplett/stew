@@ -14,22 +14,22 @@ describe('extract', () => {
 	});
 
 	it('should extract property', () => {
-		extract(['(', 'string', ')'], '(value)', object);
+		extract(['string', '(', ')'], '(value)', object);
 		expect(object).toEqual({ string: 'value' });
 	});
 
 	it('should extract property without suffix', () => {
-		extract(['(', 'string', ''], '(value)', object);
+		extract(['string', '('], '(value)', object);
 		expect(object).toEqual({ string: 'value)' });
 	});
 
 	it('should extract property without prefix', () => {
-		extract(['', 'string', ')'], '(value)', object);
+		extract(['string', '', ')'], '(value)', object);
 		expect(object).toEqual({ string: '(value' });
 	});
 
 	it('should extract property without prefix or suffix', () => {
-		extract(['', 'string', ''], '(value)', object);
+		extract(['string'], '(value)', object);
 		expect(object).toEqual({ string: '(value)' });
 	});
 
@@ -39,7 +39,7 @@ describe('extract', () => {
 	});
 
 	it('should ignore array template with invalid reference', () => {
-		extract(['', 'string', ''], createElement('<div></div>'), object);
+		extract(['string'], createElement('<div></div>'), object);
 		expect(object).toEqual({});
 	});
 
@@ -50,7 +50,7 @@ describe('extract', () => {
 
 	it('should extract attributes', () => {
 		extract(
-			{ src: ['http://', 'domain', '.com'], '': ['img', ''] },
+			{ src: ['domain', 'http://', '.com'], '': ['img'] },
 			createElement('<img src="http://image.com">'),
 			object
 		);
@@ -60,7 +60,7 @@ describe('extract', () => {
 
 	it('should extract from text node', () => {
 		extract(
-			{ '': ['p', '', [['', 'content', '']]] },
+			{ '': ['p', '', [['content']]] },
 			createElement('<p>Lorem ipsum.</p>'),
 			object
 		);
@@ -71,12 +71,26 @@ describe('extract', () => {
 	it('should extract from child element', () => {
 		extract(
 			{ '': ['div', '', [
-				['', 'content', '']
+				{ '': ['span', '', [['content']]] }
 			]] },
-			createElement('<p>Lorem ipsum.</p>'),
+			createElement('<div><span>Lorem ipsum.</span></div>'),
 			object
 		);
 
 		expect(object).toEqual({ content: 'Lorem ipsum.' });
+	});
+
+	it('should extract scoped property', () => {
+		extract(['string', '(', ')'], '(value)', object, 'object.');
+		expect(object).toEqual({ 'object.string': 'value' });
+	});
+
+	it('should merge scoped properties', () => {
+		const object = extract(
+			{ '': ['p', 'object', [['string']]] },
+			createElement('<p>Lorem ipsum.</p>')
+		);
+
+		expect(object).toEqual({ object: { string: 'Lorem ipsum.' } });
 	});
 });

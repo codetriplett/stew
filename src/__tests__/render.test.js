@@ -44,7 +44,7 @@ describe('render', () => {
 		expect(actual).toBe('<tag attribute="^value$">');
 	});
 
-	it('should set new scope', () => {
+	it('should use object scope', () => {
 		const actual = render(
 			{ attribute: ['string'], '': ['tag', 'object'] },
 			{ string: 'upper', object: { string: 'lower' } },
@@ -54,7 +54,7 @@ describe('render', () => {
 		expect(actual).toBe('<tag attribute="lower" data-stew="0">');
 	});
 
-	it('should not render if scope is empty', () => {
+	it('should use empty scope', () => {
 		const actual = render(
 			{ attribute: ['missing', ''], '': ['tag', 'object'] },
 			{ string: 'value' }
@@ -63,7 +63,7 @@ describe('render', () => {
 		expect(actual).toBe('');
 	});
 
-	it('should repeat for each item in array', () => {
+	it('should use array scope', () => {
 		const actual = render(
 			{ attribute: ['string'], '': ['tag', 'array'] },
 			{ array: [{ string: 'first' }, { string: 'second' }] },
@@ -74,6 +74,24 @@ describe('render', () => {
 			'<tag attribute="first" data-stew="0-0">',
 			'<tag attribute="second" data-stew="0-1">'
 		].join(''));
+	});
+
+	it('should use string scope', () => {
+		const actual = render(
+			{ attribute: [''], '': ['tag', 'string'] },
+			{ string: 'value' }
+		);
+
+		expect(actual).toBe('<tag attribute="value">');
+	});
+
+	it('should use number scope', () => {
+		const actual = render(
+			{ attribute: [''], '': ['tag', 'number'] },
+			{ number: 0 }
+		);
+
+		expect(actual).toBe('<tag attribute="0">');
 	});
 
 	it('should render content', () => {

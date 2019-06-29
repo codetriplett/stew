@@ -9,8 +9,9 @@ export function render (template, state = {}, element, root = state) {
 	if (typeof template !== 'object') {
 		return template;
 	} else if (Array.isArray(template)) {
-		const [key, prefix = '', suffix = ''] = template;
-		const value = `${prefix}${state[key] || ''}${suffix}`;
+		const [key = '', prefix = '', suffix = ''] = template;
+		const { [key]: string = '' } = state;
+		const value = `${prefix}${string}${suffix}`;
 
 		if (element) {
 			element.nodeValue = value;
@@ -27,6 +28,8 @@ export function render (template, state = {}, element, root = state) {
 
 		if (state === undefined) {
 			return '';
+		} else if (typeof state !== 'object') {
+			state = { '': state };
 		} else if (Array.isArray(state)) {
 			return state.map((item, i) => {
 				const state = { [scope]: item };
@@ -43,12 +46,13 @@ export function render (template, state = {}, element, root = state) {
 		let value = attributes[name];
 
 		if (Array.isArray(value)) {
-			const [key, prefix = '', suffix = ''] = value;
+			const [key = '', prefix = '', suffix = ''] = value;
+			const { [key]: string = '' } = listener ? root : state;
 
-			value = (listener ? root : state)[key] || '';
-
-			if (value.length > 1) {
-				value = `${prefix}${value}${suffix}`;
+			if (value.length === 1) {
+				value = string;
+			} else {
+				value = `${prefix}${string}${suffix}`;
 			}
 		}
 		
