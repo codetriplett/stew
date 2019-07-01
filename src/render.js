@@ -1,89 +1,126 @@
-export function render (template, state = {}, element, root = state) {
-	let id;
-
-	if (element !== undefined && typeof element !== 'object') {
-		id = element;
-		element = undefined;
-	}
+export function render (template, state, element, option) {
+	const generate = option === undefined || typeof option === 'number';
+	const extract = typeof option === 'string';
 
 	if (typeof template !== 'object') {
 		return template;
 	} else if (Array.isArray(template)) {
 		const [key = '', prefix = '', suffix = ''] = template;
-		const { [key]: string = '' } = state;
-		const value = `${prefix}${string}${suffix}`;
+		let { [key]: value = '' } = state;
 
-		if (element) {
-			element.nodeValue = value;
+		if (extract && typeof element === 'string') {
+			const finish = -suffix.length || undefined;
+			state[`${option}${key}`] = element.slice(prefix.length, finish);
+		} else if (template.length > 1) {
+			value = `${prefix}${value}${suffix}`;
 		}
 
 		return value;
 	}
 
 	const { '': structure, ...attributes } = template;
-	const [tag, scope = '', children] = structure;
+	const [tag, scope, children] = structure;
+	let markup = `<${tag}`;
 
 	if (scope) {
 		state = state[scope];
 
 		if (state === undefined) {
 			return '';
+		} else if (extract) {
+			option += `${scope}.`;
 		} else if (typeof state !== 'object') {
 			state = { '': state };
-		} else if (Array.isArray(state)) {
-			return state.map((item, i) => {
-				const state = { [scope]: item };
-				return render(template, state, `${id}-${i}`);
-			}).join('');
 		}
 	}
 
-	const nodes = element ? element.childNodes : [];
-	let markup = `<${tag}`;
-
 	for (const name in attributes) {
 		const listener = name.startsWith('on');
-		let value = attributes[name];
+		const object = listener && typeof option === 'object' ? option : state;
+		const reference = generate ? undefined : element.getAttribute(name);
+		let value = render(attributes[name], object, reference, option);
 
-		if (Array.isArray(value)) {
-			const [key = '', prefix = '', suffix = ''] = value;
-			const { [key]: string = '' } = listener ? root : state;
-
-			if (value.length === 1) {
-				value = string;
-			} else {
-				value = `${prefix}${string}${suffix}`;
-			}
+		if (generate) {
+			markup += listener ? '' : ` ${name}="${value}"`;
+			continue;
+		} else if (extract) {
+			return '';
 		}
 		
-		if (listener && typeof value === 'function') {
-			if (!element.hasAttribute(name)) {
+		const present = element.hasAttribute(name);
+
+		if (listener) {
+			if (!present) {
 				element.addEventListener(name.replace(/^on/, ''), value);
 			}
 
 			value = 'javascript:void(0);';
 		}
-
-		if (!element || value === element.getAttribute(name)) {
-			markup += ` ${name}="${value}"`;
-		} else if (value === true) {
+		
+		if (value === true && !present) {
 			element.toggleAttribute(name, true);
-		} else if (value === false) {
+		} else if (value === false && present) {
 			element.removeAttribute(name);
-		} else {
+		} else if (value !== reference) {
 			element.setAttribute(name, value);
 		}
 	}
 
-	markup += `${scope && id !== undefined ? ` data-stew="${id}"` : ''}>`;
+	markup += `${scope && generate ? ` data-stew="${element}"` : ''}>`;
 
 	if (!children) {
 		return markup;
 	}
 
-	children.forEach((item, i) => {
-		markup += render(item, state, element ? nodes[i] : i);
-	});
+	const nodes = generate ? [] : element.childNodes;
+	
+	children.reduce((index, child, i) => {
+		const node = generate ? i : nodes[index];
+
+		if (node === undefined) {
+			return index;
+		}
+
+		const [tag, scope] = child[''] || [];
+		const { nodeValue = null } = node;
+		const list = [];
+		let indexed = false;
+		
+		if (nodeValue !== null) {
+			list.push(nodeValue);
+		} else if (!scope) {
+			list.push(node);
+		} else {
+			const regex = new RegExp(`^${i}(-|$)`);
+
+			while (node) {
+				const stew = !node.nodeValue && node.getAttribute('data-stew');
+
+				if (regex.test(stew || '')) {
+					indexed = indexed || stew.indexOf('-') !== -1;
+					list.push(node);
+				}
+
+				node = node.nextSibling;
+			}
+		}
+
+		list.forEach((item, i) => {
+			if (generate) {
+				option = indexed ? i : undefined;
+			}
+
+			const value = render(child, state, item, option);
+
+			if (nodeValue !== null && value !== nodeValue) {
+				node.nodeValue = value;
+			}
+
+			markup += value;
+		});
+
+		return index + list.length;
+	}, 0);
 
 	return `${markup}</${tag}>`;
 }

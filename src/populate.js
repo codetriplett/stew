@@ -1,4 +1,4 @@
-export function state (props, resolve, store) {
+export function populate (props, resolve, store) {
 	if (props === store) {
 		return store;
 	} else if (typeof props === 'function') {
@@ -29,7 +29,7 @@ export function state (props, resolve, store) {
 		} else {
 			store = props.map(prop => {
 				const index = store.indexOf(prop);
-				return index !== -1 ? store[index] : state(prop, resolve);
+				return index !== -1 ? store[index] : populate(prop, resolve);
 			});
 		}
 	} else if (typeof props === 'object') {
@@ -41,7 +41,7 @@ export function state (props, resolve, store) {
 
 		for (const key in props) {
 			const set = new Set(additive ? [resolve] : resolve);
-			let value = state(props[key], resolve, store[key]);
+			let value = populate(props[key], resolve, store[key]);
 
 			if (store.hasOwnProperty(key)) {
 				if (additive) {
@@ -55,7 +55,7 @@ export function state (props, resolve, store) {
 
 			Object.defineProperty(store, key, {
 				get: () => value,
-				set: prop => value = state(prop, set, value),
+				set: prop => value = populate(prop, set, value),
 				enumerable: true
 			});
 		}

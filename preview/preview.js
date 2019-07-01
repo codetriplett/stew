@@ -1,5 +1,2 @@
-const state = stew(state => ({
-	add: () => state.array = [...state.array, state.array.length]
-}));
-
-state(`<div><p {array}>{}</p><span onclick={add}>add</span></div>`);
+const state = stew(state => ({ add: () => state.value = `${state.value}.` }));
+state(`<div><p>{value}</p><span onclick={add}>add</span></div>`);

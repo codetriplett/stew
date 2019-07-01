@@ -1,6 +1,6 @@
-import { state } from '../state';
+import { populate } from '../populate';
 
-describe('state', () => {
+describe('populate', () => {
 	const resolve = jest.fn();
 	let set;
 
@@ -12,7 +12,7 @@ describe('state', () => {
 	describe('resolve', () => {
 		it('should add resolve to set', () => {
 			set = new Set();
-			state(resolve, set, 'value');
+			populate(resolve, set, 'value');
 
 			expect(set).toEqual(new Set([resolve]));
 		});
@@ -21,8 +21,8 @@ describe('state', () => {
 			const another = () => {};
 			
 			set = new Set();
-			state(resolve, set, 'value');
-			state(another, set, 'value');
+			populate(resolve, set, 'value');
+			populate(another, set, 'value');
 
 			expect(set).toEqual(new Set([resolve, another]));
 		});
@@ -31,15 +31,15 @@ describe('state', () => {
 			const another = () => {};
 
 			set = new Set();
-			state(resolve, set, 'value');
-			state(another, set, 'value');
-			state(another, set, 'value');
+			populate(resolve, set, 'value');
+			populate(another, set, 'value');
+			populate(another, set, 'value');
 
 			expect(set).toEqual(new Set([resolve]));
 		});
 
 		it('should delete resolve from set', () => {
-			const actual = state(resolve, set, 'value');
+			const actual = populate(resolve, set, 'value');
 
 			expect(set).toEqual(new Set());
 			expect(actual).toBeUndefined();
@@ -48,14 +48,14 @@ describe('state', () => {
 
 	describe('value', () => {
 		it('should update a value if it changes', () => {
-			const actual = state('new', set, 'old');
+			const actual = populate('new', set, 'old');
 
 			expect(resolve).toHaveBeenCalled();
 			expect(actual).toBe('new');
 		});
 
 		it('should not update a value if it is the same', () => {
-			const actual = state('value', set, 'value');
+			const actual = populate('value', set, 'value');
 
 			expect(resolve).not.toHaveBeenCalled();
 			expect(actual).toBe('value');
@@ -66,7 +66,7 @@ describe('state', () => {
 		it('should add properties', () => {
 			const another = () => {};
 
-			const store = state({
+			const store = populate({
 				keep: 'old',
 				update: {
 					keep: 'old',
@@ -74,7 +74,7 @@ describe('state', () => {
 				}
 			}, resolve);
 
-			const actual = state({
+			const actual = populate({
 				update: {
 					update: 'new',
 					add: 'new'
@@ -94,7 +94,7 @@ describe('state', () => {
 		});
 		
 		it('should update properties', () => {
-			const actual = state({
+			const actual = populate({
 				update: {
 					update: 'new',
 					add: 'new'
@@ -122,7 +122,7 @@ describe('state', () => {
 		it('should remove properties', () => {
 			const another = () => {};
 
-			const store = state({
+			const store = populate({
 				keep: 'old',
 				update: {
 					keep: 'old',
@@ -130,7 +130,7 @@ describe('state', () => {
 				}
 			}, resolve);
 
-			state({
+			populate({
 				update: {
 					update: 'new',
 					add: 'new'
@@ -138,7 +138,7 @@ describe('state', () => {
 				add: 'new'
 			}, another, store);
 			
-			const actual = state({
+			const actual = populate({
 				keep: 'old',
 				update: {
 					keep: 'old',
@@ -156,17 +156,17 @@ describe('state', () => {
 		});
 
 		it('should allow override on undefined', () => {
-			const actual = state({ key: 'value' }, resolve);
+			const actual = populate({ key: 'value' }, resolve);
 			expect(actual).toEqual({ key: 'value' });
 		});
 
 		it('should not allow override on string', () => {
-			const actual = state({ key: 'value' }, resolve, 'value');
+			const actual = populate({ key: 'value' }, resolve, 'value');
 			expect(actual).toEqual('value');
 		});
 
 		it('should not allow override on array', () => {
-			const actual = state({ key: 'value' }, resolve, ['value']);
+			const actual = populate({ key: 'value' }, resolve, ['value']);
 			expect(actual).toEqual(['value']);
 		});
 	});
@@ -174,32 +174,33 @@ describe('state', () => {
 	describe('array', () => {
 		it('should add items', () => {
 			const another = () => {};
-			const old = { key: 'old' };
-			const store = state({ array: [old] }, resolve);
-			const actual = state({ array: [{ key: 'new' }] }, another, store);
+			const keep = { key: 'keep' };
+			const add = { key: 'add' };
+			const store = populate({ array: [keep] }, resolve);
+			const actual = populate({ array: [add] }, another, store);
 
-			expect(actual).toEqual({ array: [old, { key: 'new' }] });
+			expect(actual).toEqual({ array: [keep, add] });
 		});
 
 		it('should update items', () => {
 			const old = { key: 'old' };
-			const actual = state([{ key: 'new' }, old], set, [old]);
+			const actual = populate([{ key: 'new' }, old], set, [old]);
 
 			expect(actual).toEqual([{ key: 'new' }, old]);
 		});
 
 		it('should allow override on undefined', () => {
-			const actual = state(['value'], resolve);
+			const actual = populate(['value'], resolve);
 			expect(actual).toEqual(['value']);
 		});
 
 		it('should not allow override on string', () => {
-			const actual = state(['value'], resolve, 'value');
+			const actual = populate(['value'], resolve, 'value');
 			expect(actual).toEqual('value');
 		});
 
 		it('should not allow override on obejct', () => {
-			const actual = state(['value'], resolve, { key: 'value' });
+			const actual = populate(['value'], resolve, { key: 'value' });
 			expect(actual).toEqual({ key: 'value' });
 		});
 	});

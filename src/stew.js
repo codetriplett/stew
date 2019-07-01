@@ -1,43 +1,13 @@
-import { extract } from './extract';
-import { render } from './render';
 import { parse } from './parse';
-import { state } from './state';
-import { view } from './view';
-
-const client = typeof Element !== 'undefined';
+import { populate } from './populate';
+import { render } from './render';
 
 export default function stew (initialize, ...parameters) {
 	switch (typeof initialize) {
-		case 'object':
-			if (client && parameters[0] instanceof Element) {
-				return extract(initialize, ...parameters);
-			}
-
-			return render(initialize, ...parameters);
 		case 'string':
-		case 'undefined':
-			if (!initialize || !initialize.indexOf('<')) {
-				view(initialize, ...parameters);
-			}
-
-			function mount (template) {
-				return (update, element, stew) => {
-					if (!update) {
-						return template[''][0];
-					}
-
-					update(stew(template, element));
-					update(state => stew(template, state, element));
-				};
-			}
-
-			const template = parse(initialize, ...parameters)[0];
-
-			if (client) {
-				return mount(template);
-			}
-
-			return `(${mount})(${JSON.stringify(template)})`;
+			return parse(initialize)[0];
+		case 'object':
+			return render(initialize, ...parameters);
 		case 'function':
 			break;
 		default:
@@ -54,20 +24,27 @@ export default function stew (initialize, ...parameters) {
 			mount = stew(mount);
 		}
 
-		function create (selector, structure, ...parameters) {
-			const automatic = !selector;
+		let template;
 
-			if (automatic) {
-				selector = mount();
-			}
+		if (typeof mount === 'object') {
+			const props = {};
+
+			template = mount;
 			
-			if (!/[.[]/.test(selector)) {
-				selector += '.';
-			}
+			mount = (update, element) => {
+				render(template, props, element, '');
+				update(props);
+				update(state => render(template, state, element, state));
+			};
+		}
 
-			view(selector, structure, (element, props) => {
+		function create (selector, ...parameters) {
+			const elements = document.querySelectorAll(selector) || [];
+
+			elements.forEach(element => {
+				let props;
 				let resolve;
-				
+
 				mount(output => {
 					if (typeof output === 'object') {
 						props = output;
@@ -80,24 +57,20 @@ export default function stew (initialize, ...parameters) {
 						resolve = () => set.add(output);
 					}
 
-					state(props, resolve, store);
+					populate(props, resolve, store);
 
-					if (automatic && active) {
+					if (template && active) {
 						output(store);
 					}
 
 					return store;
-				}, element, ...parameters, stew);
-			})(document || { querySelectorAll: selector => [selector] });
+				}, element, ...parameters);
+			});
 
 			return create;
 		}
 
-		if (parameters.length || result === register) {
-			return create(...parameters);
-		}
-
-		return create;
+		return template ? create(template[''][0], ...parameters) : create;
 	}
 
 	result = parameters.length ? register(...parameters) : register;

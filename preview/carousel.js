@@ -1,4 +1,4 @@
 module.exports = { '': ['div', '', [
-	{ '': ['p', 'array', [['']]] },
+	{ '': ['p', '', [['value']]] },
 	{ onclick: ['add'], '': ['span', '', ['add']] }
 ]] };
