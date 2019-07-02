@@ -1,7 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const stew = require('../dist/stew.min');
-const carousel = require('./carousel');
+const carousel = require('./carousel.min');
 
 const port = 8080;
 
@@ -58,7 +58,7 @@ http.createServer(({ url }, res) => {
 			'</head>',
 			'<body>',
 				stew(carousel, { array: [1, 2, 3] }),
-				'<script src="/preview.js"></script>',
+				'<script src="/preview.min.js"></script>',
 			'</body>',
 		'</html>'
 	].join(''), 'text/html', true);

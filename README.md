@@ -1,8 +1,16 @@
 # Stew
-This library provides a streamlined way to hydrate elements and maintain their states using a central store of data. Updating the central store directly will cause the appropriate elements to update. All setup is achieved through the use of a single function.
+This library offers a steamlined way to create interactive websites. Components are written in plain text markup that resembles HTML. Elements on the page automatically update when changes are made to the data that was used to render them.
 
-## Initialize State
-A state is created by providing an actions function. This function provides access to the state so the actions can make modifications. These actions can be accessed directly from the state that is returned.
+## Components
+Pass markup to have it parsed into a template object. Pass the template along with data to produce html.
+
+```js
+const component = stew('<p>{content}</p>');
+const html = stew(component, { content: 'Lorem ipsum.' });
+```
+
+## State
+Pass a function to have it set up a state. This function must return the actions that will be used to modify the state. These actions can be used by components or called directly.
 
 ```js
 const state = stew(state => ({
@@ -12,64 +20,26 @@ const state = stew(state => ({
 state.toggleMenu();
 ```
 
-## Register Components
-Each component is set up with a mount function. This function is called whenever an existing element needs to be hydrated. The first parameter is the update function. When a function is passed to the update function, it will be called whenever the properties for that component change. The update function also adds the properties for the component to the state and returns those properties so they can be used in the initial render.
+## Hydrate
+Pass either markup or the template object to the state to hydrate any matching elements on the page. The original data will be extracted from each element it finds to populate the store. If any of this data is modified, the element will automatically update to reflect the changes.
 
 ```js
-const component = state((update, element) => {
-	const props = update(state => {
-		element.className = state.expanded ? 'expanded' : '';
-	});
-
-	element.addEventListener('click', () => props.toggleMenu());
-});
+state(component);
 ```
 
-## Hydrate Elements
-Pass a selector and properties to the component function to hydrate existing elements. The mount function shown above will be called for each element the selector locates. The main stew function can be used to extract data from each element to build its properties. The properties will be added to the central store and any updates to these properties will trigger the element to update. Additional parameters you provide will be passed to the mount function after the element.
+## Markup
+Any valid HTML will serve as markup for a component. Use curly braces in place of quotes to use a value from the state data. Quoted text can also be placed before and after the curly brace to define a prefix and suffix. Curly braces can also be placed within inner text but only once per text node. You can also use curly braces after any attributes to have the element conditionally render. If the data is an array, the element will render for each item.
 
-```js
-component('.menu', {
-	expanded: false, // literal property
-	// the properties below will read from each '.menu' element
-	href: stew('href'), // its href attribute
-	disabled: stew('disabled?'), // a boolean attribute
-	value: stew(), // its inner text
-	// an additional selector can be used to locate a child element
-	type: stew('.toggle', 'type'), // the type attribute of a child element
-	expandable: stew('.toggle', '?'), // a boolean indicating if child exists
-	label: stew('.toggle'), // the inner text of a child element
-	// an array will be returned if the selector ends with an asterisk
-	links: stew('.links*', {
-		url: stew('href'), // the href of the current child element
-		text: stew() // the inner text of the current child element
-	}),
-	// classes in the selector will be removed from the class attribute
-	status: stew('.toggle', 'class') // will exclude 'toggle' from value
-});
+```html
+<div>
+	<img src="http://image.com/"{name}".jpg">
+	<p {paragraphs}>{}</p>
+	<a {link} href={url}>click here</a>
+</div>
 ```
 
-## Combining Calls
-Each stage in the examples above return a function that accepts parameters to define the next stage. If you only have one component that uses the state or one selector that captures all elements that use a component, you can pass them all immediately. The actions will still be available on the function returned.
-
-```js
-const state = stew(state => ({
-    toggleMenu: () => state.expanded = !state.expanded
-}), (update, element) => {
-	const props = update(state => {
-		element.className = state.expanded ? 'expanded' : '';
-	});
-
-	element.addEventListener('click', () => props.toggleMenu());
-}, '.menu', {
-	expanded: false
-});
-
-state.toggleMenu();
-```
-
-## React or Other Libraries
-You can use any third party library to render your components as long as they provide a function that can be called to update them. The following shows how to make this work with React components. The Stew wrapper component shown here is just an example. You can create your own to serve your needs.
+## Compatibility
+Pass a function in place of markup or template object to create a custom component. The function must accept a mount function and element as its first and second parameters. The remaining parameters will be whatever was passed to the custom component after the selector. Call the mount function first with the properties you wish to register to the state. Then call it with an update function that you wish to be called when those properties are modified. You can also call it with no parameters to have it stop listening to the state. The following example uses React.
 
 ```js
 import React, { Component, Children, createElement } from 'react';
@@ -79,7 +49,7 @@ import Menu from './menu';
 class Stew extends Component {
 	constructor (props) {
 		super(props);
-		this.state = this.props.update(this.setState.bind(this));
+		this.state = this.props.mount(this.setState.bind(this));
 	}
 
 	render () {
@@ -91,8 +61,11 @@ class Stew extends Component {
 
 const state = stew(state => ({
     toggleMenu: () => state.expanded = !state.expanded
-}), (update, element, Component) => {
-    hydrate(<Stew update={update}><Component /></Stew>, element.parentNode);
+}));
+
+state((mount, element, props, Component) => {
+	mount(props);
+    hydrate(<Stew mount={mount}><Component /></Stew>, element.parentNode);
 });
 
 state('.menu', { expanded: false }, Menu);

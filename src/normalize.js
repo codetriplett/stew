@@ -22,7 +22,7 @@ export function normalize (value) {
 	const [prefix, key, suffix] = value;
 
 	if (key === undefined) {
-		return prefix;
+		return /^\s+$/.test(prefix) ? undefined : prefix;
 	} else if (!prefix && !suffix) {
 		return [key];
 	}

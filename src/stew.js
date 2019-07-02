@@ -69,7 +69,15 @@ export default function stew (initialize, ...parameters) {
 			return create;
 		}
 
-		return template ? create(template[''][0], ...parameters) : create;
+		if (template) {
+			parameters.unshift(template[''][0]);
+		} else if (!parameters.length) {
+			return create;
+		}
+
+		create(...parameters);
+
+		return register;
 	}
 
 	result = parameters.length ? register(...parameters) : register;

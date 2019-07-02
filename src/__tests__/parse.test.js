@@ -56,7 +56,7 @@ describe('parse', () => {
 	});
 	
 	it('should parse children', () => {
-		const actual = parse('<div>(<img src="a"><img src="b">)</div>');
+		const actual = parse('<div>(<img src="a"> <img src="b">)</div>');
 
 		expect(actual).toEqual([
 			{ '': ['div', '', [

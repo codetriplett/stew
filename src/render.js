@@ -98,6 +98,10 @@ export function render (template, state, element, option) {
 		let childOption = option || '';
 		let repeatable = false;
 
+		if (tagName && childNode && childNode.nodeValue !== null) {
+			childNode = childNode.nextSibling;
+		}
+
 		if (scopeKey) {
 			if (extract) {
 				childOption += `${scopeKey}.`;
