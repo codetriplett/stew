@@ -2,37 +2,41 @@ export function render (template, state, element, option) {
 	const generate = option === undefined || typeof option === 'number';
 	const extract = typeof option === 'string';
 
+	if (typeof state !== 'object') {
+		state = { '': state };
+	}
+
 	if (typeof template !== 'object') {
 		return template;
 	} else if (Array.isArray(template)) {
 		const [key = '', prefix = '', suffix = ''] = template;
+		const { nodeValue } = element || {};
 		let { [key]: value = '' } = state;
 
-		if (extract && typeof element === 'string') {
+		if (extract) {
 			const finish = -suffix.length || undefined;
-			state[`${option}${key}`] = element.slice(prefix.length, finish);
-		} else if (template.length > 1) {
-			value = `${prefix}${value}${suffix}`;
+
+			value = typeof element === 'string' ? element : nodeValue;
+			
+			if (typeof value === 'string') {
+				state[`${option}${key}`] = value.slice(prefix.length, finish);
+			}
+		} else {
+			if (template.length > 1) {
+				value = `${prefix}${value}${suffix}`;
+			}
+		
+			if (typeof nodeValue === 'string' && value !== nodeValue) {
+				element.nodeValue = value;
+			}
 		}
 
 		return value;
 	}
 
 	const { '': structure, ...attributes } = template;
-	const [tag, scope, children] = structure;
-	let markup = `<${tag}`;
-
-	if (scope) {
-		state = state[scope];
-
-		if (state === undefined) {
-			return '';
-		} else if (extract) {
-			option += `${scope}.`;
-		} else if (typeof state !== 'object') {
-			state = { '': state };
-		}
-	}
+	const [tagName, scopeKey, childTemplates] = structure;
+	let markup = `<${tagName}`;
 
 	for (const name in attributes) {
 		const listener = name.startsWith('on');
@@ -66,61 +70,87 @@ export function render (template, state, element, option) {
 		}
 	}
 
-	markup += `${scope && generate ? ` data-stew="${element}"` : ''}>`;
+	if (typeof option === 'number') {
+		element += `-${option}`;
+	}
 
-	if (!children) {
+	markup += `${scopeKey && generate ? ` data--="${element}"` : ''}>`;
+
+	if (!childTemplates) {
 		return markup;
 	}
 
-	const nodes = generate ? [] : element.childNodes;
+	let childNode = generate ? undefined : element.childNodes[0];
 	
-	children.reduce((index, child, i) => {
-		const node = generate ? i : nodes[index];
+	childTemplates.forEach((childTemplate, templateIndex) => {
+		const [tagName, scopeKey] = childTemplate[''] || [];
+		const childStates = extract ? [] : [state];
+		const childElements = [];
+		let childOption = option;
+		let repeatable = false;
 
-		if (node === undefined) {
-			return index;
-		}
+		if (scopeKey) {
+			if (extract) {
+				childOption += `${scopeKey}.`;
+			} else {
+				const object = childStates.shift()[scopeKey];
 
-		const [tag, scope] = child[''] || [];
-		const { nodeValue = null } = node;
-		const list = [];
-		let indexed = false;
-		
-		if (nodeValue !== null) {
-			list.push(nodeValue);
-		} else if (!scope) {
-			list.push(node);
-		} else {
-			const regex = new RegExp(`^${i}(-|$)`);
+				if (Array.isArray(object)) {
+					repeatable = Array.isArray(object);
+					childStates.push(...object);
+				} else if (object !== undefined) {
+					childStates.push(object);
+				}
+			}
 
-			while (node) {
-				const stew = !node.nodeValue && node.getAttribute('data-stew');
+			const idRegex = new RegExp(`^${templateIndex}(-|$)`);
 
-				if (regex.test(stew || '')) {
-					indexed = indexed || stew.indexOf('-') !== -1;
-					list.push(node);
+			while (childNode) {
+				const id = childNode.getAttribute('data--');
+
+				if (!idRegex.test(id)) {
+					break;
 				}
 
-				node = node.nextSibling;
+				repeatable = repeatable || id.indexOf('-') !== -1;
+				childElements.push(childNode);
+				childNode = childNode.nextSibling;
 			}
+		} else if (childNode) {
+			childElements.push(childNode);
+			childNode = childNode.nextSibling;
 		}
 
-		list.forEach((item, i) => {
+		childStates.forEach((childState, stateIndex) => {
+			let childElement = childElements.shift();
+
 			if (generate) {
-				option = indexed ? i : undefined;
+				childElement = templateIndex;
+				option = repeatable ? stateIndex : undefined;
+			} else if (!childElement) {
+				childElement = document.createElement(tagName);
+
+				if (childNode) {
+					element.insertBefore(childElement, childNode);
+				} else {
+					element.appendChild(childElement);
+				}
 			}
 
-			const value = render(child, state, item, option);
-
-			if (nodeValue !== null && value !== nodeValue) {
-				node.nodeValue = value;
-			}
-
-			markup += value;
+			markup += render(childTemplate, childState, childElement, option);
 		});
 
-		return index + list.length;
-	}, 0);
+		if (extract) {
+			childElements.forEach((childElement, i) => {
+				const chain = `${childOption}${repeatable ? `${i}.` : ''}`;
+				render(childTemplate, state, childElement, chain);
+			});
+		} else {
+			childElements.forEach(childElement => {
+				element.removeChild(childElement);
+			});
+		}
+	});
 
-	return `${markup}</${tag}>`;
+	return `${markup}</${tagName}>`;
 }
