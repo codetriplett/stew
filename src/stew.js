@@ -32,8 +32,7 @@ export default function stew (initialize, ...parameters) {
 			template = mount;
 			
 			mount = (update, element) => {
-				render(template, props, element, '');
-				update(props);
+				update(render(template, props, element));
 				update(state => render(template, state, element, state));
 			};
 		}

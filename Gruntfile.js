@@ -31,8 +31,10 @@ module.exports = function (grunt) {
 		const regex = /(^|[ \r\n]*)(import[^;]*;[ \r\n]*|export (default )?)/g;
 
 		grunt.file.write('./dist/stew.min.js', [
+			'./src/normalize.js',
 			'./src/parse.js',
 			'./src/populate.js',
+			'./src/stitch.js',
 			'./src/render.js',
 			'./src/stew.js'
 		].map(path => grunt.file.read(path).replace(regex, '')).join('\n'));

@@ -1,6 +1,8 @@
+import { stitch } from './stitch';
+
 export function render (template, state, element, option) {
-	const generate = option === undefined || typeof option === 'number';
-	const extract = typeof option === 'string';
+	const generate = element === undefined || typeof element === 'number';
+	const extract = !generate && typeof option !== 'object';
 
 	if (typeof state !== 'object') {
 		state = { '': state };
@@ -14,19 +16,20 @@ export function render (template, state, element, option) {
 		let { [key]: value = '' } = state;
 
 		if (extract) {
+			const start = prefix.length;
 			const finish = -suffix.length || undefined;
 
 			value = typeof element === 'string' ? element : nodeValue;
 			
 			if (typeof value === 'string') {
-				state[`${option}${key}`] = value.slice(prefix.length, finish);
+				state[`${option || ''}${key}`] = value.slice(start, finish);
 			}
 		} else {
 			if (template.length > 1) {
 				value = `${prefix}${value}${suffix}`;
 			}
 		
-			if (typeof nodeValue === 'string' && value !== nodeValue) {
+			if (typeof nodeValue === 'string' && String(value) !== nodeValue) {
 				element.nodeValue = value;
 			}
 		}
@@ -37,6 +40,12 @@ export function render (template, state, element, option) {
 	const { '': structure, ...attributes } = template;
 	const [tagName, scopeKey, childTemplates] = structure;
 	let markup = `<${tagName}`;
+	let extractResult;
+
+	if (extract && option === undefined) {
+		extractResult = state;
+		state = {};
+	}
 
 	for (const name in attributes) {
 		const listener = name.startsWith('on');
@@ -65,7 +74,7 @@ export function render (template, state, element, option) {
 			element.toggleAttribute(name, true);
 		} else if (value === false && present) {
 			element.removeAttribute(name);
-		} else if (value !== reference) {
+		} else if (String(value) !== reference) {
 			element.setAttribute(name, value);
 		}
 	}
@@ -86,7 +95,7 @@ export function render (template, state, element, option) {
 		const [tagName, scopeKey] = childTemplate[''] || [];
 		const childStates = extract ? [] : [state];
 		const childElements = [];
-		let childOption = option;
+		let childOption = option || '';
 		let repeatable = false;
 
 		if (scopeKey) {
@@ -128,7 +137,18 @@ export function render (template, state, element, option) {
 				childElement = templateIndex;
 				option = repeatable ? stateIndex : undefined;
 			} else if (!childElement) {
-				childElement = document.createElement(tagName);
+				let id = templateIndex;
+
+				if (repeatable) {
+					id += `-${stateIndex}`;
+				}
+
+				if (tagName) {
+					childElement = document.createElement(tagName);
+					childElement.setAttribute('data--', id);
+				} else {
+					childElement = document.createTextNode('');
+				}
 
 				if (childNode) {
 					element.insertBefore(childElement, childNode);
@@ -151,6 +171,11 @@ export function render (template, state, element, option) {
 			});
 		}
 	});
+
+	if (extractResult) {
+		Object.assign(extractResult, stitch(state));
+		return extractResult;
+	}
 
 	return `${markup}</${tagName}>`;
 }

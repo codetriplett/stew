@@ -1,3 +1,5 @@
+import { normalize } from './normalize';
+
 const independent = new RegExp([
 	'^(wbr|track|source|param|meta|link|keygen|input',
 	'|img|hr|embed|command|col|br|base|area|!doctype)$'
@@ -5,33 +7,6 @@ const independent = new RegExp([
 
 const openers = '<{"\'';
 const closers = '>}"\'';
-
-function normalize (value) {
-	if (typeof value !== 'object') {
-		return value;
-	} else if (!Array.isArray(value)) {
-		const { '': structure, ...attributes } = value;
-		const object = { '': structure };
-
-		for (const name in attributes) {
-			object[name] = normalize(attributes[name]);
-		}
-
-		return object;
-	}
-
-	const [prefix, key, suffix] = value;
-
-	if (key === undefined) {
-		return prefix;
-	} else if (!prefix && !suffix) {
-		return [key];
-	}
-
-	value.splice(1, 1);
-
-	return [key, ...value];
-}
 
 export function parse (markup) {
 	let array = [];

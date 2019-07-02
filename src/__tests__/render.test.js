@@ -182,13 +182,12 @@ describe('render', () => {
 				{ attribute: ['value', '(', ')'], '': ['tag', 'object'] },
 				{ attribute: ['', '(', ')'], '': ['tag', 'empty'] },
 				{ attribute: ['', '(', ')'], '': ['tag', 'array'] },
-			]] }, state, element, '');
+			]] }, state, element);
 
 			expect(state).toEqual({
-				'value.': 'string',
-				'object.value': 'object',
-				'array.0.': 'first',
-				'array.1.': 'second'
+				value: 'string',
+				object: { value: 'object' },
+				array: ['first', 'second']
 			});
 		});
 	});
