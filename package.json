@@ -1,6 +1,6 @@
 {
 	"name": "@triplett/stew",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "A steamlined way to create interactive websites.",
 	"main": "dist/stew.min.js",
 	"scripts": {
