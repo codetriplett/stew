@@ -57,7 +57,14 @@ http.createServer(({ url }, res) => {
 				'<script src="/stew.min.js"></script>',
 			'</head>',
 			'<body>',
-				stew(carousel, { array: [1, 2, 3] }),
+				stew(carousel, {
+					slides: [
+						{ text: 'first' },
+						{ text: 'second' },
+						{ text: 'third' }
+					],
+					index: 0
+				}),
 				'<script src="/preview.min.js"></script>',
 			'</body>',
 		'</html>'

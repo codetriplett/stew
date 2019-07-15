@@ -1,7 +1,8 @@
 import carousel from './carousel.min';
 
 const state = stew(state => ({
-	add: () => state.array = [...state.array, state.array.length + 1]
+	slidePrev: () => state.index = (state.index || state.slides.length) - 1,
+	slideNext: () => state.index = (state.index + 1) % state.slides.length
 }));
 
 state(carousel);

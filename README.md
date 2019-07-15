@@ -21,14 +21,14 @@ state.toggleMenu();
 ```
 
 ## Hydrate
-Pass either markup or the template object to the state to hydrate any matching elements on the page. The original data will be extracted from each element it finds to populate the store. If any of this data is modified, the element will automatically update to reflect the changes.
+Pass either markup or the template object to the state to hydrate any matching elements on the page. The original data will be extracted from each element it finds to populate the store. If any of this data is modified later on, the element will automatically update to reflect the changes.
 
 ```js
 state(component);
 ```
 
 ## Markup
-Any valid HTML will serve as markup for a component. Use curly braces in place of quotes to use a value from the state data. Quoted text can also be placed before and after the curly brace to define a prefix and suffix. Curly braces can also be placed within inner text but only once per text node. You can also use curly braces after any attributes to have the element conditionally render. If the data is an array, the element will render for each item.
+Any valid HTML will serve as markup for a component. Use curly braces in place of or next to quotes or within inner text to use values from the state. You can also use curly braces after the tag name and before any attributes to affect the scope of that element. If the new scope is undefined, the element will not render. If it is an array, an element will be rendered for each item. A second value can be provided after the key in the curly braces to have the next quoted text render only if the value from the state matches the given value. If a key starts with a dot, it will ignore its current scope.
 
 ```html
 <div>

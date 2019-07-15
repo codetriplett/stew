@@ -1,5 +1,3 @@
-import { normalize } from './normalize';
-
 const independent = new RegExp([
 	'^(wbr|track|source|param|meta|link|keygen|input',
 	'|img|hr|embed|command|col|br|base|area|!doctype)$'
@@ -10,7 +8,7 @@ const closers = '>}"\'';
 
 export function parse (markup) {
 	let array = [];
-	const result = [array];
+	let result = [array];
 	let object;
 	let symbol;
 
@@ -27,31 +25,39 @@ export function parse (markup) {
 
 		const index = markup.search(new RegExp(`${pattern}|$`));
 
-		if (index || !object) {
-			const string = markup.slice(0, index);
+		if (!object || index && symbol && symbol !== '}') {
+			let string = markup.slice(0, index);
 
-			if (symbol === ' ') {
-				const index = string.indexOf('=');
+			switch (symbol) {
+				case ' ': {
+					const index = string.indexOf('=');
 
-				array = [];
-
-				if (index === -1) {
-					object[string] = true;
-				} else {
-					const value = string.slice(index + 1);
-					object[string.slice(0, index)] = value || array;
-				}
-			} else {
-				const dynamic = symbol === '{';
-				const odd = array.length % 2;
-				
-				if (dynamic && !odd) {
-					array.push('');
-				} else if (!dynamic && odd) {
 					array = [];
-				}
 
-				array.push(string);
+					if (index === -1) {
+						object[string] = true;
+					} else {
+						const value = string.slice(index + 1);
+						object[string.slice(0, index)] = value || array;
+					}
+					
+					break;
+				}
+				case '{': {
+					const expression = string.split(':', 2);
+
+					array.push(expression.map(value => value.trim()));
+
+					break;
+				}
+				default:
+					string = string.replace(/[\n\r\t]/g, '');
+
+					if (string) {
+						array.push(string.replace(/ +/g, ' '));
+					}
+
+					break;
 			}
 		}
 
@@ -61,7 +67,7 @@ export function parse (markup) {
 		if (symbol !== '>') {
 			if (symbol === '<') {
 				array = [];
-				object = { '': array };
+				object = { '': [array] };
 
 				if (markup[0] !== '/') {
 					result.push(object);
@@ -71,26 +77,70 @@ export function parse (markup) {
 			continue;
 		}
 
-		const { '': structure } = object || {};
-		const [tag] = structure;
+		const { '': structure, ...attributes } = object || {};
+		const definition = structure[0].flat().map(value => value.trim());
+		let [tag] = definition;
 		
 		if (structure && /^\//.test(tag)) {
 			break;
 		} else if (!independent.test(tag)) {
 			const children = parse(markup);
 
-			if (structure.length < 2) {
-				structure.push('');
-			}
-
 			markup = children.pop();
-			structure.push(children);
+
+			if (children.length) {
+				structure.push(...children);
+			} else {
+				structure.push(['']);
+			}
 		}
 
+		for (const key in attributes) {
+			let array = object[key];
+			
+			if (key !== 'class') {
+				if (array.length === 1 && typeof array[0] === 'string') {
+					object[key] = array[0];
+				}
+
+				continue;
+			}
+
+			let conditional = false;
+
+			array = array.map((item, i) => {
+				if (typeof item !== 'string' || conditional) {
+					conditional = Array.isArray(item) && item.length > 1;
+					return item;
+				}
+
+				conditional = false;
+
+				const classes = item.split(/ +/);
+				const start = i > 0 ? 1 : 0;
+				const finish = classes.length - (i < array.length - 1 ? 1 : 0);
+
+				classes.splice(start, finish).forEach(item => {
+					tag += `.${item}`;
+				});
+
+				return classes.join(' ').trim();
+			}).filter(item => item);
+
+			if (array.length) {
+				object[key] = array;
+			} else {
+				delete object[key];
+			}
+		}
+
+		structure[0] = [tag, ...definition.slice(1)].join(' ');
 		array = [];
-		object = undefined;
 		result.push(array);
+		object = undefined;
 	}
 
-	return result.map(normalize).filter(item => item).concat(markup);
+	result = result.filter(item => !Array.isArray(item) || item.length);
+
+	return result.concat(markup);
 }

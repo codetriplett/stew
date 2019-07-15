@@ -54,11 +54,10 @@ module.exports = function (grunt) {
 
 	grunt.registerTask('before', () => {
 		merge('./dist/stew.min.js', [
-			'./src/normalize.js',
 			'./src/parse.js',
 			'./src/populate.js',
 			'./src/stitch.js',
-			'./src/render.js',
+			'./src/evaluate.js',
 			'./src/stew.js',
 		]);
 	});

@@ -1,4 +1,11 @@
-<div>
-	<p {array}>{}</p>
-	<span onclick={add}>add</span>
+<div class="slideshow "{index:0}"start"{index:slides#}"finish">
+	<div {slides} class="slide "{#:0}"first "{#:-0}"last "{#:.index}"active">
+		{text}
+	</div>
+	<button class="control prev" type="button" onclick={slidePrev}>
+		&lang;
+	</button>
+	<button class="control next" type="button" onclick={slideNext}>
+		&rang;
+	</button>
 </div>

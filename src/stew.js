@@ -1,13 +1,13 @@
 import { parse } from './parse';
 import { populate } from './populate';
-import { render } from './render';
+import { evaluate } from './evaluate';
 
 export default function stew (initialize, ...parameters) {
 	switch (typeof initialize) {
 		case 'string':
 			return parse(initialize)[0];
 		case 'object':
-			return render(initialize, ...parameters);
+			return evaluate(initialize, ...parameters);
 		case 'function':
 			break;
 		default:
@@ -32,8 +32,8 @@ export default function stew (initialize, ...parameters) {
 			template = mount;
 			
 			mount = (update, element) => {
-				update(render(template, props, element));
-				update(state => render(template, state, element, state));
+				update(evaluate(template, props, element));
+				update(state => evaluate(template, state, element));
 			};
 		}
 
