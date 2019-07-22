@@ -12,10 +12,37 @@ describe('parse', () => {
 	});
 
 	it('should parse conditional text', () => {
-		const actual = parse('prefix{string: value}suffix');
+		const actual = parse('prefix{string:value}suffix');
 
 		expect(actual).toEqual([
 			['prefix', ['string', 'value'], 'suffix'],
+			''
+		]);
+	});
+
+	it('should parse number condition', () => {
+		const actual = parse('prefix{string:1}suffix');
+
+		expect(actual).toEqual([
+			['prefix', ['string', 1], 'suffix'],
+			''
+		]);
+	});
+
+	it('should parse true condition', () => {
+		const actual = parse('prefix{string:true}suffix');
+
+		expect(actual).toEqual([
+			['prefix', ['string', true], 'suffix'],
+			''
+		]);
+	});
+
+	it('should parse true condition', () => {
+		const actual = parse('prefix{string:false}suffix');
+
+		expect(actual).toEqual([
+			['prefix', ['string', false], 'suffix'],
 			''
 		]);
 	});
@@ -52,7 +79,7 @@ describe('parse', () => {
 		const actual = parse('<img class="static "{value:1}" dynamic">');
 
 		expect(actual).toEqual([
-			{ class: [['value', '1'], ' dynamic'], '': ['img.static'] },
+			{ class: [['value', 1], ' dynamic'], '': ['img.static'] },
 			''
 		]);
 	});

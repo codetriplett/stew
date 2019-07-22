@@ -27,7 +27,7 @@ export function traverse (template, state, scope = '', element, object) {
 			expression = [`${classes.join(' ')} `, ...expression];
 		}
 
-		let value = evaluate(expression, state, scope, attribute, object);
+		let value = traverse(expression, state, scope, attribute, object);
 
 		if (generate) {
 			markup += !listener ? ` ${name}="${value}"` : '';
@@ -67,6 +67,7 @@ export function traverse (template, state, scope = '', element, object) {
 			const regex = new RegExp(`^${index}(-|$)`);
 			const states = [];
 			const children = [];
+			let key = scope;
 			let iterate = false;
 
 			if (expression.length) {
@@ -80,6 +81,8 @@ export function traverse (template, state, scope = '', element, object) {
 						states.push(value);
 					}
 				}
+
+				key += `${expression[0]}.`;
 
 				while (node) {
 					const id = node.getAttribute('data--');
@@ -129,7 +132,7 @@ export function traverse (template, state, scope = '', element, object) {
 					}
 				}
 
-				iteration = iterate ? `${scope}.${iteration}` : scope;
+				iteration = iterate ? `${key}${iteration}.` : key;
 				child = traverse(template, item, iteration, child, object);
 
 				if (generate && child !== undefined) {
@@ -144,8 +147,9 @@ export function traverse (template, state, scope = '', element, object) {
 			});
 
 			if (object) {
-				children.forEach(child => {
-					traverse(template, state, scope, child, object);
+				children.forEach((child, iteration) => {
+					iteration = iterate ? `${key}${iteration}.` : key;
+					traverse(template, state, iteration, child, object);
 				});
 			} else {
 				children.forEach(child => element.removeChild(child));

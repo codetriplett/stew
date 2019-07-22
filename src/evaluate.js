@@ -1,18 +1,16 @@
-export function evaluate (expression, state, scope = '', value, object) {
+export function evaluate (expression, state, scope = '', string = '', object) {
 	const { length } = expression;
 	let result = '';
 	let index = 0;
 
 	while (index < length) {
 		let item = expression[index++];
+		let prefix = item;
 
 		if (Array.isArray(item)) {
-			const [definition, condition] = item;
-			const absolute = definition.startsWith('.');
-			const measure = definition.endsWith('#');
-			const compare = condition !== undefined;
-			let key = definition.replace(/^\.|#$/g, '');
+			const compare = item.length > 1;
 			let candidate = expression[index];
+			let [definition] = item;
 
 			if (Array.isArray(candidate)) {
 				candidate = '';
@@ -20,68 +18,77 @@ export function evaluate (expression, state, scope = '', value, object) {
 				index++;
 			}
 
-			if (object) {
-				let index = candidate ? value.indexOf(candidate) : -1;
-
-				if (compare) {
-					item = !index ? candidate : '';
-				} else {
-					item = index > -1 ? value.slice(0, index) : value;
+			const [value, condition] = item.map((item, i) => {
+				if (typeof item !== 'string') {
+					return item;
+				} else if (item === '#') {
+					const keys = scope.split('.').reverse();
+					const index = keys.find(item => !isNaN(item) && item);
+		
+					return index !== undefined ? Number(index) : undefined;
 				}
 
-				if (!measure) {
-					if (!absolute) {
-						key = `${scope.slice(0, !key ? -1 : undefined)}${key}`;
-					}
+				const absolute = item.startsWith('.');
+				const measure = item.endsWith('#');
+				const key = item.replace(/^\.|#$/g, '');
 
-					let value = item;
+				if (object && !i && !absolute) {
+					definition = `${scope}${definition}`;
+				}
+
+				item = (key ? key.split('.') : []).reduce((item, key) => {
+					if (item !== undefined && item !== null) {
+						return item[key];
+					}
+				}, !absolute && scope ? state[''] : state);
+
+				return measure && Array.isArray(item) ? item.length - 1 : item;
+			});
+			
+			item = value;
+
+			if (object) {
+				let index = candidate ? string.indexOf(candidate) : -1;
+
+				if (compare) {
+					prefix = !index && candidate || '';
+				} else {
+					prefix = index > -1 ? string.slice(0, index) : string;
+				}
+
+				if (!definition.endsWith('#') && item === undefined) {
+					let value = prefix;
 
 					if (compare) {
-						value = item === candidate ? condition : '';
-					} else if (item && !isNaN(item)) {
-						value = Number(item);
-					} else if (item === 'true') {
+						value = value === candidate ? condition : '';
+					} else if (value && !isNaN(value)) {
+						value = Number(value);
+					} else if (value === 'true') {
 						value = true;
-					} else if (item === 'false') {
+					} else if (value === 'false') {
 						value = false;
 					}
 
-					if (value !== '') {
-						object[key] = value;
+					if (value !== '' && value !== undefined) {
+						object[definition.replace(/^\.|\.$/g, '')] = value;
+						item = value;
 					}
 				}
-			} else {
-				if (definition === '#') {
-					const keys = scope.split('.').reverse();
-					const index = keys.find(key => !isNaN(key) && key);
-		
-					item = index !== undefined ? Number(index) : undefined;
-				} else {
-					item = (key ? key.split('.') : []).reduce((item, key) => {
-						if (item !== undefined && item !== null) {
-							return item[key];
-						}
-					}, !absolute && state[''] || state);
+			}
+			
+			if (compare && item !== undefined) {
+				item = item === condition;
 
-					if (measure) {
-						item = item.length - 1;
-					}
-				}
-
-				if (compare) {
-					item = item === condition;
-
-					if (candidate !== undefined) {
-						item = item ? candidate : '';
-					}
+				if (candidate !== undefined) {
+					item = item ? candidate : '';
 				}
 			}
 		}
 
 		if (object) {
-			value = value.slice(item.length);
+			string = string.slice(prefix.length);
 		}
-		
+
 		if (length === 1) {
 			result = item;
 		} else if (/^(boolean|number|string)$/.test(typeof item)) {

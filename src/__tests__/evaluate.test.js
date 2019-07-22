@@ -29,7 +29,7 @@ describe('evaluate', () => {
 			const actual = evaluate([['key']], {}, '', '1', object);
 
 			expect(object).toEqual({ key: 1 });
-			expect(actual).toBe('1');
+			expect(actual).toBe(1);
 		});
 
 		it('should provide true', () => {
@@ -41,7 +41,7 @@ describe('evaluate', () => {
 			const actual = evaluate([['key']], {}, '', 'true', object);
 
 			expect(object).toEqual({ key: true });
-			expect(actual).toBe('true');
+			expect(actual).toBe(true);
 		});
 
 		it('should provide false', () => {
@@ -53,7 +53,7 @@ describe('evaluate', () => {
 			const actual = evaluate([['key']], {}, '', 'false', object);
 
 			expect(object).toEqual({ key: false });
-			expect(actual).toBe('false');
+			expect(actual).toBe(false);
 		});
 
 		it('should provide scope', () => {
@@ -77,7 +77,7 @@ describe('evaluate', () => {
 			const actual = evaluate([['key#']], {}, '', '', object);
 
 			expect(object).toEqual({});
-			expect(actual).toBe('');
+			expect(actual).toBeUndefined();
 		});
 
 		it('should provide current index', () => {
@@ -89,7 +89,7 @@ describe('evaluate', () => {
 			const actual = evaluate([['#']], {}, 'a.4.b.2.c', '', object);
 
 			expect(object).toEqual({});
-			expect(actual).toBe('');
+			expect(actual).toBe(2);
 		});
 
 		it('should provide an embedded variable', () => {

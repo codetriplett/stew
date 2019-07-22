@@ -46,7 +46,21 @@ export function parse (markup) {
 				case '{': {
 					const expression = string.split(':', 2);
 
-					array.push(expression.map(value => value.trim()));
+					array.push(expression.map((value, i) => {
+						value = value.trim();
+
+						if (i) {
+							if (!isNaN(value) && value) {
+								return Number(value);
+							} else if (value === 'true') {
+								return true;
+							} else if (value === 'false') {
+								return false;
+							}
+						}
+
+						return value;
+					}));
 
 					break;
 				}

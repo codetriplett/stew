@@ -7,14 +7,16 @@ export default function stew (initialize, ...parameters) {
 	switch (typeof initialize) {
 		case 'string':
 			return parse(initialize)[0];
+		case 'object':
+			return traverse(initialize, ...parameters);
 		case 'function':
 			break;
 		default:
 			return;
 	}
 
-	const store = {};
-	const actions = initialize(store);
+	const state = {};
+	const actions = initialize(state);
 	const set = new Set();
 	let result;
 
@@ -28,10 +30,10 @@ export default function stew (initialize, ...parameters) {
 		if (template) {
 			mount = (update, element) => {
 				const object = {};
-				
+
 				traverse(template, state, '', element, object);
 				update(stitch(object));
-				update(state => traverse(template, state, element, state));
+				update(state => traverse(template, state, '', element));
 			};
 		}
 
@@ -54,13 +56,9 @@ export default function stew (initialize, ...parameters) {
 						resolve = () => set.add(output);
 					}
 
-					populate(props, resolve, store);
+					populate(props, resolve, state);
 
-					if (template && active) {
-						output(store);
-					}
-
-					return store;
+					return state;
 				}, element, ...parameters);
 			});
 
@@ -83,7 +81,7 @@ export default function stew (initialize, ...parameters) {
 	for (const key in actions) {
 		const action = (...parameters) => {
 			actions[key](...parameters);
-			set.forEach(resolve => resolve(store));
+			set.forEach(resolve => resolve(state));
 			set.clear();
 		};
 
@@ -93,7 +91,7 @@ export default function stew (initialize, ...parameters) {
 			enumerable: true
 		};
 
-		Object.defineProperty(store, key, definition);
+		Object.defineProperty(state, key, definition);
 		Object.defineProperty(result, key, definition);
 	}
 
