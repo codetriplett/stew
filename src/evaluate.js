@@ -1,246 +1,93 @@
-import { stitch } from './stitch';
+export function evaluate (expression, state, scope = '', value, object) {
+	const { length } = expression;
+	let result = '';
+	let index = 0;
 
-export function evaluate (template, stack, element, option) {
-	if (typeof template !== 'object') {
-		return template;
-	}
+	while (index < length) {
+		let item = expression[index++];
 
-	const root = !Array.isArray(stack);
-	const generate = element === undefined || typeof element === 'number';
-	const extract = root && !generate;
-	const update = typeof element === 'object' && !extract;
+		if (Array.isArray(item)) {
+			const [definition, condition] = item;
+			const absolute = definition.startsWith('.');
+			const measure = definition.endsWith('#');
+			const compare = condition !== undefined;
+			let key = definition.replace(/^\.|#$/g, '');
+			let candidate = expression[index];
 
-	if (generate && root) {
-		stack = [stack];
-	}
+			if (Array.isArray(candidate)) {
+				candidate = '';
+			} else if (compare) {
+				index++;
+			}
 
-	if (Array.isArray(template)) {
-		if (typeof element === 'object' && element.nodeValue !== null) {
-			element = element.nodeValue;
-		}
+			if (object) {
+				let index = candidate ? value.indexOf(candidate) : -1;
 
-		let index = 0;
-	
-		while (index < template.length) {
-			let value = template[index++];
-	
-			if (Array.isArray(value)) {
-				const next = template[index];
-				const alternating = !Array.isArray(next);
-				const [chain, check] = value;
-				const absolute = chain.startsWith('.');
-				const compare = check !== undefined;
-				let key = chain.replace(/^\.+|\.+$/g, '');
-
-				if (compare && alternating) {
-					index++;
-				}
-
-				if (!extract) {
-					const state = stack[absolute ? stack.length - 1 : 0];
-
-					value = key ? key.split('.').reduce((object, key) => {
-						if (object === undefined || object === null) {
-							return;
-						}
-
-						return object[key];
-					}, state) : state;
-
-					if (compare) {
-						value = value === check;
-		
-						if (alternating) {
-							value = value ? next : '';
-						}
-					}
+				if (compare) {
+					item = !index ? candidate : '';
 				} else {
-					let index = alternating ? element.indexOf(next) : -1;
-	
-					value = index !== -1 ? element.slice(0, index) : element;
+					item = index > -1 ? value.slice(0, index) : value;
+				}
 
+				if (!measure) {
 					if (!absolute) {
-						key = `${option || ''}${key}`;
+						key = `${scope.slice(0, !key ? -1 : undefined)}${key}`;
 					}
+
+					let value = item;
 
 					if (compare) {
-						stack[key] = check;
-					} else if (value && !isNaN(value)) {
-						stack[key] = Number(value);
-					} else {
-						stack[key] = value;
-					}
-				}
-			}
-
-			if (!extract) {
-				element = element === undefined ? value : `${element}${value}`;
-			} else if (element.startsWith(value)) {
-				element = element.slice(value.length);
-			}
-		}
-
-		return extract ? stack : element;
-	}
-
-	const { '': structure, ...attributes } = template;
-	const [definition, ...content] = structure;
-	const [selector] = definition.split(' ');
-	const [tag, ...classes] = selector.split('.');
-	let markup = `<${tag}`;
-
-	for (const name in attributes) {
-		const listener = name.startsWith('on');
-		let attribute = !generate ? element.getAttribute(name) : undefined;
-		let template = attributes[name];
-
-		if (name === 'class' && classes) {
-			template = [`${classes.join(' ')} `, ...template];
-		}
-
-		if (extract && attribute === null) {
-			attribute = '';
-		}
-
-		let value = evaluate(template, stack, attribute, option);
-
-		if (generate && !listener) {
-			markup += ` ${name}="${value}"`;
-		}
-		
-		if (!update) {
-			continue;
-		}
-		
-		const present = element.hasAttribute(name);
-
-		if (listener) {
-			if (!present) {
-				element.addEventListener(name.replace(/^on/, ''), value);
-			}
-
-			value = 'javascript:void(0);';
-		}
-
-		if (value === true && !present) {
-			element.toggleAttribute(name, true);
-		} else if (value === false && present) {
-			element.removeAttribute(name);
-		} else if (String(value) !== element) {
-			element.setAttribute(name, value);
-		}
-	}
-
-	if (generate) {
-		if (typeof element === 'number' && typeof option === 'number') {
-			element += `-${option}`;
-		}
-
-		markup += `${element !== undefined ? ` data--="${element}"` : ''}>`;
-	}
-
-	if (content.length) {
-		let node = !generate ? element.childNodes[0] : undefined;
-		
-		content.forEach((template, index) => {
-			const structure = (template[''] || [''])[0];
-			const [selector, ...expression] = structure.split(' ');
-			const [tag, ...classes] = selector.split('.');
-			const regex = new RegExp(`^${index}(-|$)`);
-			const states = [];
-			const children = [];
-			let iterate = false;
-
-			if (expression.length) {
-				if (!extract) {
-					const value = evaluate([expression], stack);
-
-					if (Array.isArray(value)) {
-						states.push(...value);
-						iterate = true;
-					} else if (value !== undefined && !extract) {
-						states.push(value);
-					}
-				}
-
-				while (node) {
-					const id = node.getAttribute('data--');
-
-					if (!regex.test(id)) {
-						break;
+						value = item === candidate ? condition : '';
+					} else if (item && !isNaN(item)) {
+						value = Number(item);
+					} else if (item === 'true') {
+						value = true;
+					} else if (item === 'false') {
+						value = false;
 					}
 
-					iterate = iterate || id.indexOf('-') !== -1;
-					children.push(node);
-					node = node.nextSibling;
-				}
-			} else if (!expression.length) {
-				if (!extract) {
-					states.push(undefined);
-				}
-
-				if (node) {
-					children.push(node);
-					node = node.nextSibling;
-				}
-			}
-
-			states.forEach((state, iteration) => {
-				const conditional = state !== undefined;
-				const scope = conditional ? [state, ...stack] : stack;
-				let child = children.shift();
-
-				if (generate) {
-					child = conditional ? index : undefined;
-				} else if (!child) {
-					const id = `${index}${iterate ? `-${iteration}` : ''}`;
-
-					if (tag) {
-						child = document.createElement(tag);
-						child.setAttribute('data--', id);
-
-						if (classes.length) {
-							child.className = classes.join(' ');
-						}
-					} else {
-						child = document.createTextNode('');
-					}
-
-					if (node) {
-						element.insertBefore(child, node);
-					} else {
-						element.appendChild(child);
+					if (value !== '') {
+						object[key] = value;
 					}
 				}
-
-				if (!iterate) {
-					iteration = undefined;
-				}
-
-				if (generate) {
-					markup += evaluate(template, scope, child, iteration);
-				}
-			});
-
-			if (!extract) {
-				children.forEach(child => element.removeChild(child));
 			} else {
-				children.forEach(child => {
-					evaluate(template, stack, child, option || '');
-				});
-			}
-		});
+				if (definition === '#') {
+					const keys = scope.split('.').reverse();
+					const index = keys.find(key => !isNaN(key) && key);
+		
+					item = index !== undefined ? Number(index) : undefined;
+				} else {
+					item = (key ? key.split('.') : []).reduce((item, key) => {
+						if (item !== undefined && item !== null) {
+							return item[key];
+						}
+					}, !absolute && state[''] || state);
 
-		if (generate) {
-			markup += `</${tag}>`;
+					if (measure) {
+						item = item.length - 1;
+					}
+				}
+
+				if (compare) {
+					item = item === condition;
+
+					if (candidate !== undefined) {
+						item = item ? candidate : '';
+					}
+				}
+			}
+		}
+
+		if (object) {
+			value = value.slice(item.length);
+		}
+		
+		if (length === 1) {
+			result = item;
+		} else if (/^(boolean|number|string)$/.test(typeof item)) {
+			result += item;
 		}
 	}
 
-	if (!extract) {
-		return markup;
-	} else if (!option) {
-		return stitch(stack);
-	}
-
-	return stack;
+	return result;
 }

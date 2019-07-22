@@ -56,8 +56,9 @@ module.exports = function (grunt) {
 		merge('./dist/stew.min.js', [
 			'./src/parse.js',
 			'./src/populate.js',
-			'./src/stitch.js',
 			'./src/evaluate.js',
+			'./src/traverse.js',
+			'./src/stitch.js',
 			'./src/stew.js',
 		]);
 	});

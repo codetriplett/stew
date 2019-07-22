@@ -1,13 +1,12 @@
 import { parse } from './parse';
 import { populate } from './populate';
-import { evaluate } from './evaluate';
+import { traverse } from './traverse';
+import { stitch } from './stitch';
 
 export default function stew (initialize, ...parameters) {
 	switch (typeof initialize) {
 		case 'string':
 			return parse(initialize)[0];
-		case 'object':
-			return evaluate(initialize, ...parameters);
 		case 'function':
 			break;
 		default:
@@ -24,16 +23,15 @@ export default function stew (initialize, ...parameters) {
 			mount = stew(mount);
 		}
 
-		let template;
+		const template = typeof mount === 'object' ? mount : undefined;
 
-		if (typeof mount === 'object') {
-			const props = {};
-
-			template = mount;
-			
+		if (template) {
 			mount = (update, element) => {
-				update(evaluate(template, props, element));
-				update(state => evaluate(template, state, element));
+				const object = {};
+				
+				traverse(template, state, '', element, object);
+				update(stitch(object));
+				update(state => traverse(template, state, element, state));
 			};
 		}
 
