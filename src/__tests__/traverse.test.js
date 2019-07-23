@@ -126,6 +126,24 @@ describe('traverse', () => {
 				'</container>'
 			].join(''));
 		});
+
+		it('should render with index conditions', () => {
+			const actual = traverse({ '': ['div', {
+				class: [['#', 0], 'f', ['#', -1], 'l', ['.i', '#'], 'a'],
+				'': ['div.p a', [['']]] }
+			] }, {
+				a: ['first', 'second', 'third'],
+				i: 2
+			});
+
+			expect(actual).toBe([
+				'<div>',
+					'<div data--="0-0" class="p f">first</div>',
+					'<div data--="0-1" class="p ">second</div>',
+					'<div data--="0-2" class="p la">third</div>',
+				'</div>'
+			].join(''));
+		});
 	});
 
 	describe('extract', () => {
@@ -164,6 +182,35 @@ describe('traverse', () => {
 				attribute: 'second',
 				content: 'third'
 			});
+		});
+
+		it('should extract with index conditions', () => {
+			const element = _('div', {}, [
+				_('div', { 'data--': '0-0', class: 'p f' }, [_('first')]),
+				_('div', { 'data--': '0-1', class: 'p ' }, [_('second')]),
+				_('div', { 'data--': '0-2', class: 'p la' }, [_('third')]),
+			]);
+
+			traverse({ '': ['div', {
+				class: [['#', 0], 'f', ['#', -1], 'l', ['.i', '#'], 'a'],
+				'': ['div.p a', [['']]] }
+			] }, {}, '', element, object);
+
+			expect(object).toEqual({
+				'a.0': 'first',
+				'a.1': 'second',
+				'a.2': 'third',
+				i: 2
+			});
+
+			const [first, second, third] = element.childNodes;
+
+			expect(first.getAttribute('class')).toBe('p f');
+			expect(first.childNodes[0].nodeValue).toBe('first');
+			expect(second.getAttribute('class')).toBe('p ');
+			expect(second.childNodes[0].nodeValue).toBe('second');
+			expect(third.getAttribute('class')).toBe('p la');
+			expect(third.childNodes[0].nodeValue).toBe('third');
 		});
 	});
 });

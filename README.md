@@ -1,11 +1,11 @@
 # Stew
-This library offers a steamlined way to create interactive websites. Components are written in plain text markup that resembles HTML. Elements on the page automatically update when changes are made to the data that was used to render them.
+This library offers a steamlined way to create interactive websites. Components are written in plain text markup that resembles HTML. Conditions and loops are built into the syntax and elements update automatically when changes are made to the data that was used to render them.
 
 ## Components
 Pass markup to have it parsed into a template object. Pass the template along with data to produce html.
 
 ```js
-const component = stew('<p>{content}</p>');
+const component = stew('<p>{content}</>');
 const html = stew(component, { content: 'Lorem ipsum.' });
 ```
 
@@ -28,14 +28,46 @@ state(component);
 ```
 
 ## Markup
-Any valid HTML will serve as markup for a component. Use curly braces in place of or next to quotes or within inner text to use values from the state. You can also use curly braces after the tag name and before any attributes to affect the scope of that element. If the new scope is undefined, the element will not render. If it is an array, an element will be rendered for each item. A second value can be provided after the key in the curly braces to have the next quoted text render only if the value from the state matches the given value. If a key starts with a dot, it will ignore its current scope.
+Any valid HTML will serve as markup for a component. Use curly braces in place of or next to quotes or within inner text to use values from the state. Be sure the root element has a class that is not conditional or is not the prefix for a conditional class (see below). This is needed to build the selector that finds elements to hydrate automatically. The tag name can be left out of the closing tag if you prefer.
 
 ```html
-<div>
-	<img src="http://image.com/"{name}".jpg">
-	<p {paragraphs}>{}</p>
-	<a {link} href={url}>click here</a>
-</div>
+<div class="image">
+	<img src="http://image.com/"{image}".jpg">
+	<p>{caption}</>
+</>
+```
+
+### Scope
+You can use curly braces after the tag name and before any attributes to affect the scope of that element. If the new scope is undefined, the element will not render. If it is an array, an element will be rendered for each item. A # symbol can be used to get the current index in the array. Keys in curly braces on an element that sets a scope will read from that new scope. The same will be true for its children. A dot can be placed before a key to read a value from the root state passed to the component. If a key is empty, it will use the scope as the value but only if it is a string, a number or a boolean value.
+
+```html
+<ul class="todo">
+	<li {tasks}>
+		{text}
+		<a {url} href={}>{.label}</>
+	</>
+</>
+```
+
+### Conditions
+A second value can be provided after the key in the curly braces to set a condition. These values should be separated by a colon. If the value fetched from the state matches the expected value. It will return a boolean true value. If this condition is followed by quoted text, it will use that instead. Otherwise it will ignore the quoted text that immediately follows it. If a # symbol is used to compare the current index against a negative number, the array length will be added to that number first. If a # symbol is placed after a key it will read the maximum index of an array.
+
+```html
+<div class="slideshow "{index:0}"start "{index:slides#}"finish">
+	<div {slides} class="slide "{#:0}"first "{#:-1}"last "{.index:#}"active">
+		{text}
+	</>
+</>
+```
+
+### Listeners
+Attributes that start will 'on' will be treated as listeners that respond to user input. Pass a key to one of the actions you created when setting up the store to set them up.
+
+```html
+<div class="accordion "{expanded}"expanded">
+	<p>{text}</>
+	<button type="button" onclick={slidePrev}>Show {expanded:false}More{expanded:true}Less</>
+</>
 ```
 
 ## Compatibility

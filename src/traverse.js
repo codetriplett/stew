@@ -18,12 +18,16 @@ export function traverse (template, state, scope = '', element, object) {
 	const [tag, ...classes] = selector.split('.');
 	let markup = `<${tag}`;
 
+	if (generate && classes.length && !attributes.hasOwnProperty('class')) {
+		markup += ` class="${classes.join(' ')}"`;
+	}
+
 	for (const name in attributes) {
 		const listener = name.startsWith('on');
 		let attribute = !generate && element.getAttribute(name) || undefined;
 		let expression = attributes[name];
 
-		if (name === 'class' && classes) {
+		if (name === 'class' && classes.length) {
 			expression = [`${classes.join(' ')} `, ...expression];
 		}
 
@@ -42,6 +46,8 @@ export function traverse (template, state, scope = '', element, object) {
 			}
 
 			value = 'javascript:void(0);';
+		} else if (object) {
+			continue;
 		}
 
 		if (value === true && !present) {
@@ -85,6 +91,10 @@ export function traverse (template, state, scope = '', element, object) {
 				key += `${expression[0]}.`;
 
 				while (node) {
+					if (!node.getAttribute) {
+						break;
+					}
+
 					const id = node.getAttribute('data--');
 
 					if (!regex.test(id)) {

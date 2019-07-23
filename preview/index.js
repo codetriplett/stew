@@ -70,6 +70,9 @@ http.createServer(({ url }, res) => {
 						'width: 100%;',
 						'height: 100%;',
 						'transition: left 500ms, opacity 500ms;',
+						'font-size: 72px;',
+						'line-height: 400px;',
+						'text-align: center;',
 						'background: #ddd;',
 					'}',
 					'.active ~ .slide,',
@@ -94,6 +97,7 @@ http.createServer(({ url }, res) => {
 						'font-family: monospace;',
 						'background: none;',
 						'border: none;',
+						'cursor: pointer;',
 					'}',
 					'.control:hover {',
 						'color: #0056b3;',
@@ -107,7 +111,7 @@ http.createServer(({ url }, res) => {
 				'</style>',
 			'</head>',
 			'<body>',
-				'<div style="width: 1200px; height: 400px; left: calc(50vw - 600px)">',
+				'<div style="height: 400px; padding: 0 calc(50vw - 600px); overflow-x: hidden;">',
 					stew(carousel, {
 						slides: [
 							{ text: 'first' },

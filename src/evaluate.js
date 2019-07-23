@@ -11,6 +11,7 @@ export function evaluate (expression, state, scope = '', string = '', object) {
 			const compare = item.length > 1;
 			let candidate = expression[index];
 			let [definition] = item;
+			let array = state;
 
 			if (Array.isArray(candidate)) {
 				candidate = '';
@@ -23,9 +24,16 @@ export function evaluate (expression, state, scope = '', string = '', object) {
 					return item;
 				} else if (item === '#') {
 					const keys = scope.split('.').reverse();
-					const index = keys.find(item => !isNaN(item) && item);
+					const index = keys.findIndex(item => !isNaN(item) && item);
+					const value = keys[index];
+
+					keys.slice(index + 1).reverse().forEach(key => {
+						if (array !== undefined && array !== null) {
+							array = array[key];
+						}
+					});
 		
-					return index !== undefined ? Number(index) : undefined;
+					return value !== undefined ? Number(value) : undefined;
 				}
 
 				const absolute = item.startsWith('.');
@@ -55,7 +63,7 @@ export function evaluate (expression, state, scope = '', string = '', object) {
 				} else {
 					prefix = index > -1 ? string.slice(0, index) : string;
 				}
-
+				
 				if (!definition.endsWith('#') && item === undefined) {
 					let value = prefix;
 
@@ -77,6 +85,10 @@ export function evaluate (expression, state, scope = '', string = '', object) {
 			}
 			
 			if (compare && item !== undefined) {
+				if (definition === '#' && condition < 0 && array) {
+					item -= array.length;
+				}
+
 				item = item === condition;
 
 				if (candidate !== undefined) {

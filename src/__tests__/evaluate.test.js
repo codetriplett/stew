@@ -81,12 +81,12 @@ describe('evaluate', () => {
 		});
 
 		it('should provide current index', () => {
-			const actual = evaluate([['#']], {}, 'a.4.b.2.c');
+			const actual = evaluate([['#']], {}, 'a.4.b.2.c.');
 			expect(actual).toBe(2);
 		});
 
 		it('should not extract maximum index', () => {
-			const actual = evaluate([['#']], {}, 'a.4.b.2.c', '', object);
+			const actual = evaluate([['#']], {}, 'a.4.b.2.c.', '', object);
 
 			expect(object).toEqual({});
 			expect(actual).toBe(2);
@@ -227,6 +227,36 @@ describe('evaluate', () => {
 			
 			expect(object).toEqual({});
 			expect(actual).toBe('');
+		});
+		
+		it('should match with negative index', () => {
+			const actual = evaluate([['#', -2], 'success'],
+				{ key: [1, 2, 3, 4, 5] }, 'key.3.');
+
+			expect(actual).toBe('success');
+		});
+		
+		it('should not extract index', () => {
+			const actual = evaluate([['#', -2], 'success'],
+				{ key: [1, 2, 3, 4, 5] }, 'key.3.', 'success', object);
+
+			expect(object).toEqual({});
+			expect(actual).toBe('success');
+		});
+
+		it('should join index conditions', () => {
+			const actual = evaluate(['a', ['#', 1], 'a', 'b', ['']],
+				{ key: [1, 2], '': 'b' }, 'key.1.');
+
+			expect(actual).toBe('aabb');
+		});
+
+		it('should extract index conditions', () => {
+			const actual = evaluate(['a', ['#', 1], 'a', 'b', ['']],
+				{}, 'key.1.', 'aabb', object);
+
+			expect(object).toEqual({ 'key.1': 'b' });
+			expect(actual).toBe('aabb');
 		});
 	});
 });
