@@ -68,7 +68,8 @@ export function evaluate (expression, state, scope = '', string = '', object) {
 					let value = prefix;
 
 					if (compare) {
-						value = value === candidate ? condition : '';
+						const fallback = condition === true ? false : '';
+						value = value === candidate ? condition : fallback;
 					} else if (value && !isNaN(value)) {
 						value = Number(value);
 					} else if (value === 'true') {

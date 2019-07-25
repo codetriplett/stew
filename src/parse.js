@@ -29,7 +29,10 @@ export function parse (markup) {
 			let string = markup.slice(0, index);
 
 			switch (symbol) {
-				case ' ': {
+				case ' ':
+				case '\t':
+				case '\r':
+				case '\n': {
 					const index = string.indexOf('=');
 
 					array = [];
@@ -65,12 +68,7 @@ export function parse (markup) {
 					break;
 				}
 				default:
-					string = string.replace(/[\n\r\t]/g, '');
-
-					if (string) {
-						array.push(string.replace(/ +/g, ' '));
-					}
-
+					array.push(string);
 					break;
 			}
 		}
@@ -105,7 +103,7 @@ export function parse (markup) {
 			if (children.length) {
 				structure.push(...children);
 			} else {
-				structure.push(['']);
+				structure.push([]);
 			}
 		}
 
@@ -154,7 +152,35 @@ export function parse (markup) {
 		object = undefined;
 	}
 
-	result = result.filter(item => !Array.isArray(item) || item.length);
+	const first = result[0];
+	const last = result[result.length - 1];
+	const length = Array.isArray(last) && last.length - 1;
+
+	if (Array.isArray(first) && typeof first[0] === 'string') {
+		first[0] = first[0].replace(/^\s+/, '');
+	}
+
+	if (length !== false && typeof last[length] === 'string') {
+		last[length] = last[length].replace(/\s+$/, '');
+	}
+
+	result = result.map((item, i) => {
+		if (Array.isArray(item)) {
+			item = item.map(value => {
+				if (typeof value === 'string') {
+					value = value.replace(/\s+/g, ' ');
+				}
+
+				return value;
+			}).filter(value => value);
+
+			if (!item.length) {
+				return;
+			}
+		}
+
+		return item;
+	}).filter(item => item);
 
 	return result.concat(markup);
 }

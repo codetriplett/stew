@@ -28,11 +28,10 @@ export default function stew (initialize, ...parameters) {
 		const template = typeof mount === 'object' ? mount : undefined;
 
 		if (template) {
-			mount = (update, element) => {
-				const object = {};
+			mount = (update, element, defaults) => {
+				const props = traverse(template, state, '', element, {});
 
-				traverse(template, state, '', element, object);
-				update(stitch(object));
+				update(stitch(props, defaults));
 				update(state => traverse(template, state, '', element));
 			};
 		}

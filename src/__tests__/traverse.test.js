@@ -57,7 +57,7 @@ describe('traverse', () => {
 
 		it('should render container tag', () => {
 			const actual = traverse(
-				{ attribute: 'value', '': ['tag', ['']] }
+				{ attribute: 'value', '': ['tag', []] }
 			);
 
 			expect(actual).toBe('<tag attribute="value"></tag>');

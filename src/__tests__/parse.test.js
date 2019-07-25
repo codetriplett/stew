@@ -56,6 +56,21 @@ describe('parse', () => {
 		]);
 	});
 
+	it('should allow tags to inhabit multiple lines', () => {
+		const actual = parse(`<img src="http://"
+			{domain} ".com"
+			alt="">`);
+
+		expect(actual).toEqual([
+			{
+				src: ['http://', ['domain'], '.com'],
+				alt: [],
+				'': ['img']
+			},
+			''
+		]);
+	});
+
 	it('should parse without prefix or suffix', () => {
 		const actual = parse('<img src={domain}>');
 		expect(actual[0].src).toEqual([['domain']]);
@@ -118,11 +133,23 @@ describe('parse', () => {
 		]);
 	});
 
+	it('should parse content on multiple lines', () => {
+		const actual = parse(`<div>
+			top
+			bottom
+			</div>`);
+
+		expect(actual).toEqual([
+			{ '': ['div', ['top bottom']] },
+			''
+		]);
+	});
+
 	it('should parse empty container', () => {
 		const actual = parse('<div></div>');
 
 		expect(actual).toEqual([
-			{ '': ['div', ['']] },
+			{ '': ['div', []] },
 			''
 		]);
 	});

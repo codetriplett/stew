@@ -171,7 +171,5 @@ export function traverse (template, state, scope = '', element, object) {
 		}
 	}
 
-	if (generate) {
-		return markup;
-	}
+	return generate ? markup : object;
 }

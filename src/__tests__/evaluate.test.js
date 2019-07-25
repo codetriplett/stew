@@ -221,6 +221,14 @@ describe('evaluate', () => {
 			expect(actual).toBe('');
 		});
 
+		it('should extract false for denied string', () => {
+			const actual = evaluate([['key', true], 'failure'],
+				{}, '', '', object);
+			
+			expect(object).toEqual({ key: false });
+			expect(actual).toBe('');
+		});
+
 		it('should not extract a denied string', () => {
 			const actual = evaluate([['key', 1], 'failure'],
 				{}, '', '', object);

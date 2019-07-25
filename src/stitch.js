@@ -1,4 +1,20 @@
-export function stitch (object) {
+function merge (defaults, updates) {
+	if (updates === undefined || Array.isArray(defaults)) {
+		return defaults;
+	} else if (typeof defaults === 'object') {
+		const array = Array.isArray(updates) ? updates : [updates];
+
+		for (const updates of array) {
+			for (const key in defaults) {
+				updates[key] = merge(defaults[key], updates[key]);
+			}
+		}
+	}
+
+	return updates;
+}
+
+export function stitch (object, defaults) {
 	const result = {};
 
 	for (const chain in object) {
@@ -27,6 +43,10 @@ export function stitch (object) {
 
 			return intermediate;
 		}, result);
+	}
+
+	if (defaults) {
+		merge(defaults, result);
 	}
 
 	return result;
