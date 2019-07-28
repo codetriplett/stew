@@ -38,7 +38,7 @@ Any valid HTML will serve as markup for a component. Use curly braces in place o
 ```
 
 ### Scope
-You can use curly braces after the tag name and before any attributes to affect the scope of that element. If the new scope is undefined, the element will not render. If it is an array, an element will be rendered for each item. A # symbol can be used to get the current index in the array. Keys in curly braces on an element that sets a scope will read from that new scope. The same will be true for its children. A dot can be placed before a key to read a value from the root state passed to the component. If a key is empty, it will use the scope as the value but only if it is a string, a number or a boolean value.
+You can use curly braces after the tag name and before any attributes to affect the scope of that element. If the new scope is undefined, the element will not render. If it is an array, an element will be rendered for each item. A dot can be used on its own to get the current index in the array. Keys in curly braces on an element that sets a scope will read from that new scope. The same will be true for its children. A dot can be placed before a key to read a value from the root state passed to the component. If a key is empty, it will use the scope as the value but only if it is a string, a number or a boolean value.
 
 ```html
 <ul class="todo">
@@ -50,11 +50,11 @@ You can use curly braces after the tag name and before any attributes to affect 
 ```
 
 ### Conditions
-A second value can be provided after the key in the curly braces to set a condition. These values should be separated by a colon. If the value fetched from the state matches the expected value. It will return a boolean true value. If this condition is followed by quoted text, it will use that instead. Otherwise it will ignore the quoted text that immediately follows it. If a # symbol is used to compare the current index against a negative number, the array length will be added to that number first. If a # symbol is placed after a key it will read the maximum index of an array.
+A second value can be provided after the key in the curly braces to set a condition. These values should be separated by a space. If the value fetched from the state matches the expected value. It will return a boolean true value. If this condition is followed by quoted text, it will use that instead. Otherwise it will ignore the quoted text that immediately follows it. If a dot is used to compare the current index against a negative number, the array length will be added to that number first. If a dot is placed at the end of a key it will read the maximum index of an array.
 
 ```html
-<div class="slideshow "{index:0}"start "{index:slides#}"finish">
-	<div {slides} class="slide "{#:0}"first "{#:-1}"last "{.index:#}"active">
+<div class="slideshow "{index 0}"start "{index slides.}"finish">
+	<div {slides} class="slide "{. 0}"first "{. -1}"last "{.index .}"active">
 		{text}
 	</>
 </>
@@ -64,9 +64,11 @@ A second value can be provided after the key in the curly braces to set a condit
 Attributes that start will 'on' will be treated as listeners that respond to user input. Pass a key to one of the actions you created when setting up the store to set them up.
 
 ```html
-<div class="accordion "{expanded}"expanded">
-	<p>{text}</>
-	<button type="button" onclick={slidePrev}>Show {expanded:false}More{expanded:true}Less</>
+<div class="accordion">
+	<p {expanded true}>{text}</>
+	<button type="button" onclick={slidePrev}>
+		Show {expanded false}More{expanded true}Less
+	</>
 </>
 ```
 

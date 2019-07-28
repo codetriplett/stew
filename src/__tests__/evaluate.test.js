@@ -56,16 +56,6 @@ describe('evaluate', () => {
 			expect(actual).toBe(false);
 		});
 
-		it('should provide existence', () => {
-			const actual = evaluate([['key?']], { key: 1 });
-			expect(actual).toBe(true);
-		});
-
-		it('should provide non existence', () => {
-			const actual = evaluate([['key?']], {});
-			expect(actual).toBe(false);
-		});
-
 		it('should provide scope', () => {
 			const actual = evaluate([['']], { '': 'value' }, 'key.');
 			expect(actual).toBe('value');
@@ -79,24 +69,24 @@ describe('evaluate', () => {
 		});
 
 		it('should provide maximum index', () => {
-			const actual = evaluate([['key#']], { key: [1, 2, 3] });
+			const actual = evaluate([['key.']], { key: [1, 2, 3] });
 			expect(actual).toBe(2);
 		});
 
 		it('should not extract maximum index', () => {
-			const actual = evaluate([['key#']], {}, '', '', object);
+			const actual = evaluate([['key.']], {}, '', '', object);
 
 			expect(object).toEqual({});
 			expect(actual).toBeUndefined();
 		});
 
 		it('should provide current index', () => {
-			const actual = evaluate([['#']], {}, 'a.4.b.2.c.');
+			const actual = evaluate([['.']], {}, 'a.4.b.2.c.');
 			expect(actual).toBe(2);
 		});
 
 		it('should not extract maximum index', () => {
-			const actual = evaluate([['#']], {}, 'a.4.b.2.c.', '', object);
+			const actual = evaluate([['.']], {}, 'a.4.b.2.c.', '', object);
 
 			expect(object).toEqual({});
 			expect(actual).toBe(2);
@@ -248,14 +238,14 @@ describe('evaluate', () => {
 		});
 		
 		it('should match with negative index', () => {
-			const actual = evaluate([['#', -2], 'success'],
+			const actual = evaluate([['.', -2], 'success'],
 				{ key: [1, 2, 3, 4, 5] }, 'key.3.');
 
 			expect(actual).toBe('success');
 		});
 		
 		it('should not extract index', () => {
-			const actual = evaluate([['#', -2], 'success'],
+			const actual = evaluate([['.', -2], 'success'],
 				{ key: [1, 2, 3, 4, 5] }, 'key.3.', 'success', object);
 
 			expect(object).toEqual({});
@@ -263,14 +253,14 @@ describe('evaluate', () => {
 		});
 
 		it('should join index conditions', () => {
-			const actual = evaluate(['a', ['#', 1], 'a', 'b', ['']],
+			const actual = evaluate(['a', ['.', 1], 'a', 'b', ['']],
 				{ key: [1, 2], '': 'b' }, 'key.1.');
 
 			expect(actual).toBe('aabb');
 		});
 
 		it('should extract index conditions', () => {
-			const actual = evaluate(['a', ['#', 1], 'a', 'b', ['']],
+			const actual = evaluate(['a', ['.', 1], 'a', 'b', ['']],
 				{}, 'key.1.', 'aabb', object);
 
 			expect(object).toEqual({ 'key.1': 'b' });

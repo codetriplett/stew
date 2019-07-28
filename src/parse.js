@@ -26,14 +26,7 @@ export function parse (markup) {
 		const index = markup.search(new RegExp(`${pattern}|$`));
 
 		if (!object || index && symbol && symbol !== '}') {
-			let string = markup.slice(0, index).replace(/&[a-z]+;/, match => {
-				switch (match) {
-					case '&lang;':
-						return '\u3008';
-					case '&rang;':
-						return '\u3009';
-				}
-			});
+			const string = markup.slice(0, index);
 
 			switch (symbol) {
 				case ' ':
@@ -54,7 +47,7 @@ export function parse (markup) {
 					break;
 				}
 				case '{': {
-					const expression = string.split(':', 2);
+					const expression = string.split(/\s+/, 2);
 
 					array.push(expression.map((value, i) => {
 						value = value.trim();
@@ -97,7 +90,11 @@ export function parse (markup) {
 		}
 
 		const { '': structure, ...attributes } = object || {};
-		const definition = structure[0].flat().map(value => value.trim());
+
+		const definition = structure[0].flat().map(value => {
+			return typeof value === 'string' ? value.trim() : value;
+		});
+
 		let [tag] = definition;
 		
 		if (structure && /^\//.test(tag)) {

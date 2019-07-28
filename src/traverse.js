@@ -82,18 +82,35 @@ export function traverse (template, state, scope = '', element, object) {
 			const regex = new RegExp(`^${index}(-|$)`);
 			const states = [];
 			const children = [];
+			let conditional = expression.length;
 			let key = scope;
 			let iterate = false;
 
-			if (expression.length) {
+			if (conditional) {
 				if (!object) {
-					const value = evaluate([expression], state, scope);
+					const array = expression.map((value, i) => {
+						value = value.trim();
+
+						if (i) {
+							if (!isNaN(value) && value) {
+								return Number(value);
+							} else if (value === 'true') {
+								return true;
+							} else if (value === 'false') {
+								return false;
+							}
+						}
+
+						return value;
+					});
+
+					const value = evaluate([array], state, scope);
 
 					if (Array.isArray(value)) {
 						states.push(...value);
 						iterate = true;
-					} else if (value !== undefined) {
-						states.push(value !== true ? value : undefined);
+					} else if (value) {
+						states.push(expression.length > 1 ? state : value);
 					}
 				}
 
@@ -126,7 +143,6 @@ export function traverse (template, state, scope = '', element, object) {
 			}
 
 			states.forEach((item, iteration) => {
-				const conditional = item !== undefined;
 				const id = `${index}${iterate ? `-${iteration}` : ''}`;
 				let child = children.shift();
 

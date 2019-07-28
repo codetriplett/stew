@@ -22,7 +22,7 @@ export function evaluate (expression, state, scope = '', string = '', object) {
 			const [value, condition] = item.map((item, i) => {
 				if (typeof item !== 'string') {
 					return item;
-				} else if (item === '#') {
+				} else if (item === '.') {
 					const keys = scope.split('.').reverse();
 					const index = keys.findIndex(item => !isNaN(item) && item);
 					const value = keys[index];
@@ -32,17 +32,16 @@ export function evaluate (expression, state, scope = '', string = '', object) {
 							array = array[key];
 						}
 					});
-		
+
 					return value !== undefined ? Number(value) : undefined;
 				}
 
 				const absolute = item.startsWith('.');
-				const measure = item.endsWith('#');
-				const verify = item.endsWith('?');
-				const key = item.replace(/^\.|[#?]$/g, '');
+				const measure = item.endsWith('.');
+				const key = item.replace(/^\.|\.$/g, '');
 
 				if (object && !i && !absolute) {
-					definition = `${scope}${definition}`;
+					definition = `${scope}${item}`.replace(/\.$/, '');
 				}
 
 				item = (key ? key.split('.') : []).reduce((item, key) => {
@@ -55,11 +54,11 @@ export function evaluate (expression, state, scope = '', string = '', object) {
 					}
 				}, !absolute && scope ? state[''] : state);
 
-				if (measure) {
-					return Array.isArray(item) ? item.length - 1 : undefined;
+				if (!measure || typeof item !== 'object') {
+					return item;
 				}
-
-				return verify ? item !== undefined : item;
+				
+				return Array.isArray(item) ? item.length - 1 : undefined;
 			});
 			
 			item = value;
@@ -73,7 +72,7 @@ export function evaluate (expression, state, scope = '', string = '', object) {
 					prefix = index > -1 ? string.slice(0, index) : string;
 				}
 				
-				if (!definition.endsWith('#') && item === undefined) {
+				if (!definition.endsWith('.') && item === undefined) {
 					let value = prefix;
 
 					if (compare) {
@@ -95,7 +94,7 @@ export function evaluate (expression, state, scope = '', string = '', object) {
 			}
 			
 			if (compare && item !== undefined) {
-				if (definition === '#' && condition < 0 && array) {
+				if (definition === '.' && condition < 0 && array) {
 					item -= array.length;
 				}
 

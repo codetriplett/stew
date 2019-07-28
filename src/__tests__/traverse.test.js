@@ -74,7 +74,7 @@ describe('traverse', () => {
 
 		it('should use the current index in string', () => {
 			const actual = traverse(
-				{ '': ['container', { '': ['tag array', [['#']]] }] },
+				{ '': ['container', { '': ['tag array', [['.']]] }] },
 				{ array: [1, 2, 3] }
 			);
 	
@@ -127,9 +127,24 @@ describe('traverse', () => {
 			].join(''));
 		});
 
+		it('should render conditional child', () => {
+			const actual = traverse({ '': ['container',
+				{ attribute: ['(', ['string'], ')'], '': ['tag valid true'] }
+			] }, {
+				string: 'string',
+				valid: true
+			});
+	
+			expect(actual).toBe([
+				'<container>',
+					'<tag data--="0" attribute="(string)">',
+				'</container>'
+			].join(''));
+		});
+
 		it('should render with index conditions', () => {
 			const actual = traverse({ '': ['div', {
-				class: [['#', 0], 'f', ['#', -1], 'l', ['.i', '#'], 'a'],
+				class: [['.', 0], 'f', ['.', -1], 'l', ['.i', '.'], 'a'],
 				'': ['div.p a', [['']]] }
 			] }, {
 				a: ['first', 'second', 'third'],
@@ -192,7 +207,7 @@ describe('traverse', () => {
 			]);
 
 			traverse({ '': ['div', {
-				class: [['#', 0], 'f', ['#', -1], 'l', ['.i', '#'], 'a'],
+				class: [['.', 0], 'f', ['.', -1], 'l', ['.i', '.'], 'a'],
 				'': ['div.p a', [['']]] }
 			] }, {}, '', element, object);
 

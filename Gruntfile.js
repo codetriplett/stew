@@ -80,15 +80,15 @@ module.exports = function (grunt) {
 		const stew = require('./dist/stew.min');
 
 		const components = [
-			'./preview/carousel.html',
-			'./preview/accordion.html'
+			'./preview/carousel.stew',
+			'./preview/accordion.stew'
 		];
 
 		components.forEach(path => {
 			const template = stew(grunt.file.read(path));
 			const file = `module.exports = ${JSON.stringify(template)};`;
 
-			grunt.file.write(path.replace(/\.html$/, '.min.js'), file);
+			grunt.file.write(path.replace(/\.stew$/, '.min.js'), file);
 		});
 
 		merge('./preview/preview.min.js', [

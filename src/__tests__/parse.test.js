@@ -12,7 +12,7 @@ describe('parse', () => {
 	});
 
 	it('should parse conditional text', () => {
-		const actual = parse('prefix{string:value}suffix');
+		const actual = parse('prefix{string value}suffix');
 
 		expect(actual).toEqual([
 			['prefix', ['string', 'value'], 'suffix'],
@@ -21,7 +21,7 @@ describe('parse', () => {
 	});
 
 	it('should parse number condition', () => {
-		const actual = parse('prefix{string:1}suffix');
+		const actual = parse('prefix{string 1}suffix');
 
 		expect(actual).toEqual([
 			['prefix', ['string', 1], 'suffix'],
@@ -30,7 +30,7 @@ describe('parse', () => {
 	});
 
 	it('should parse true condition', () => {
-		const actual = parse('prefix{string:true}suffix');
+		const actual = parse('prefix{string true}suffix');
 
 		expect(actual).toEqual([
 			['prefix', ['string', true], 'suffix'],
@@ -39,7 +39,7 @@ describe('parse', () => {
 	});
 
 	it('should parse true condition', () => {
-		const actual = parse('prefix{string:false}suffix');
+		const actual = parse('prefix{string false}suffix');
 
 		expect(actual).toEqual([
 			['prefix', ['string', false], 'suffix'],
@@ -91,7 +91,7 @@ describe('parse', () => {
 	});
 
 	it('should not add conditional classes to selector', () => {
-		const actual = parse('<img class="static "{value:1}" dynamic">');
+		const actual = parse('<img class="static "{value 1}" dynamic">');
 
 		expect(actual).toEqual([
 			{ class: [['value', 1], ' dynamic'], '': ['img.static'] },
@@ -117,6 +117,11 @@ describe('parse', () => {
 	it('should parse scope', () => {
 		const actual = parse('<img {value}>');
 		expect(actual).toEqual([{ '': ['img value'] }, '']);
+	});
+
+	it('should parse scope with condition', () => {
+		const actual = parse('<img {value true}>');
+		expect(actual).toEqual([{ '': ['img value true'] }, '']);
 	});
 
 	it('should parse scope with static class', () => {
