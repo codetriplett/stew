@@ -2,6 +2,10 @@ export function populate (props, resolve, store) {
 	if (props === store) {
 		return store;
 	} else if (typeof props === 'function') {
+		if (!(resolve instanceof Set)) {
+			return props;
+		}
+
 		if (resolve.has(props)) {
 			resolve.delete(props);
 

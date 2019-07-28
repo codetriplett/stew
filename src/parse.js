@@ -26,7 +26,14 @@ export function parse (markup) {
 		const index = markup.search(new RegExp(`${pattern}|$`));
 
 		if (!object || index && symbol && symbol !== '}') {
-			let string = markup.slice(0, index);
+			let string = markup.slice(0, index).replace(/&[a-z]+;/, match => {
+				switch (match) {
+					case '&lang;':
+						return '\u3008';
+					case '&rang;':
+						return '\u3009';
+				}
+			});
 
 			switch (symbol) {
 				case ' ':

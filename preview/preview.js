@@ -1,8 +1,11 @@
 import carousel from './carousel.min';
+import accordion from './accordion.min';
 
-const state = stew(state => ({
-	slidePrev: () => state.index = (state.index || state.slides.length) - 1,
-	slideNext: () => state.index = (state.index + 1) % state.slides.length
-}));
+stew(carousel, {
+	slidePrev: state => state.index = (state.index || state.slides.length) - 1,
+	slideNext: state => state.index = (state.index + 1) % state.slides.length
+});
 
-state(carousel);
+stew(accordion, {
+	expand: state => state.expanded = !state.expanded
+});

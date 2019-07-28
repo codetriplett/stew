@@ -80,7 +80,8 @@ module.exports = function (grunt) {
 		const stew = require('./dist/stew.min');
 
 		const components = [
-			'./preview/carousel.html'
+			'./preview/carousel.html',
+			'./preview/accordion.html'
 		];
 
 		components.forEach(path => {
@@ -92,6 +93,7 @@ module.exports = function (grunt) {
 
 		merge('./preview/preview.min.js', [
 			'./preview/carousel.min.js',
+			'./preview/accordion.min.js',
 			'./preview/preview.js',
 		], (file, name) => {
 			if (name === 'preview') {

@@ -1,14 +1,19 @@
 import { evaluate } from './evaluate';
 
 export function traverse (template, state, scope = '', element, object) {
+	
 	if (typeof template !== 'object') {
 		return template;
 	} else if (Array.isArray(template)) {
-		if (typeof element === 'object') {
-			element = element.nodeValue || '';
+		const update = typeof element === 'object';
+		const existing = update ? element.nodeValue : element;
+		const value = evaluate(template, state, scope, existing, object);
+
+		if (update && value !== existing) {
+			element.nodeValue = value;
 		}
 
-		return evaluate(template, state, scope, element, object);
+		return value;
 	}
 
 	const generate = element === undefined;
@@ -29,6 +34,10 @@ export function traverse (template, state, scope = '', element, object) {
 
 		if (name === 'class' && classes.length) {
 			expression = [`${classes.join(' ')} `, ...expression];
+		}
+
+		if (listener && !object) {
+			continue;
 		}
 
 		let value = traverse(expression, state, scope, attribute, object);
@@ -84,7 +93,7 @@ export function traverse (template, state, scope = '', element, object) {
 						states.push(...value);
 						iterate = true;
 					} else if (value !== undefined) {
-						states.push(value);
+						states.push(value !== true ? value : undefined);
 					}
 				}
 

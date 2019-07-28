@@ -38,7 +38,8 @@ export function evaluate (expression, state, scope = '', string = '', object) {
 
 				const absolute = item.startsWith('.');
 				const measure = item.endsWith('#');
-				const key = item.replace(/^\.|#$/g, '');
+				const verify = item.endsWith('?');
+				const key = item.replace(/^\.|[#?]$/g, '');
 
 				if (object && !i && !absolute) {
 					definition = `${scope}${definition}`;
@@ -46,11 +47,19 @@ export function evaluate (expression, state, scope = '', string = '', object) {
 
 				item = (key ? key.split('.') : []).reduce((item, key) => {
 					if (item !== undefined && item !== null) {
+						if (!item.hasOwnProperty(key) && object) {
+							return object[key];
+						}
+
 						return item[key];
 					}
 				}, !absolute && scope ? state[''] : state);
 
-				return measure && Array.isArray(item) ? item.length - 1 : item;
+				if (measure) {
+					return Array.isArray(item) ? item.length - 1 : undefined;
+				}
+
+				return verify ? item !== undefined : item;
 			});
 			
 			item = value;

@@ -56,6 +56,16 @@ describe('evaluate', () => {
 			expect(actual).toBe(false);
 		});
 
+		it('should provide existence', () => {
+			const actual = evaluate([['key?']], { key: 1 });
+			expect(actual).toBe(true);
+		});
+
+		it('should provide non existence', () => {
+			const actual = evaluate([['key?']], {});
+			expect(actual).toBe(false);
+		});
+
 		it('should provide scope', () => {
 			const actual = evaluate([['']], { '': 'value' }, 'key.');
 			expect(actual).toBe('value');

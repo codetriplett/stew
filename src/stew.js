@@ -3,12 +3,23 @@ import { populate } from './populate';
 import { traverse } from './traverse';
 import { stitch } from './stitch';
 
+const client = [
+	typeof window === 'object',
+	typeof document === 'object',
+	typeof Element === 'function'
+].every(check => check);
+
 export default function stew (initialize, ...parameters) {
 	switch (typeof initialize) {
 		case 'string':
 			return parse(initialize)[0];
 		case 'object':
+			if (client) {
+				return stew(() => {})(initialize, ...parameters);
+			}
+
 			return traverse(initialize, ...parameters);
+		case 'undefined':
 		case 'function':
 			break;
 		default:
@@ -16,7 +27,7 @@ export default function stew (initialize, ...parameters) {
 	}
 
 	const state = {};
-	const actions = initialize(state);
+	const actions = initialize ? initialize(state) : {};
 	const set = new Set();
 	let result;
 
@@ -26,10 +37,23 @@ export default function stew (initialize, ...parameters) {
 		}
 
 		const template = typeof mount === 'object' ? mount : undefined;
+		let actions = {};
 
 		if (template) {
-			mount = (update, element, defaults) => {
-				const props = traverse(template, state, '', element, {});
+			mount = (update, element, defaults = {}) => {
+				for (const key in defaults) {
+					let action = defaults[key];
+
+					if (typeof action === 'function') {
+						actions[key] = (...parameters) => {
+							action(state, ...parameters);
+							set.forEach(resolve => resolve(state));
+							set.clear();
+						};
+					}
+				}
+
+				const props = traverse(template, state, '', element, actions);
 
 				update(stitch(props, defaults));
 				update(state => traverse(template, state, '', element));
@@ -40,18 +64,23 @@ export default function stew (initialize, ...parameters) {
 			const elements = document.querySelectorAll(selector) || [];
 
 			elements.forEach(element => {
-				let props;
+				let props = {};
 				let resolve;
 
 				mount(output => {
 					if (typeof output === 'object') {
-						props = output;
+						for (const key in output) {
+							let value = output[key];
+
+							if (typeof value !== 'function') {
+								props[key] = value;
+							}
+						}
+
 						return;
 					}
 
-					const active = typeof output === 'function';
-
-					if (active) {
+					if (typeof output === 'function') {
 						resolve = () => set.add(output);
 					}
 
