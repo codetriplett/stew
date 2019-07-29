@@ -42,7 +42,7 @@ export default function stew (initialize, ...parameters) {
 		if (template) {
 			mount = (update, element, defaults = {}) => {
 				for (const key in defaults) {
-					let action = defaults[key];
+					const action = defaults[key];
 
 					if (typeof action === 'function') {
 						actions[key] = (...parameters) => {
@@ -52,6 +52,27 @@ export default function stew (initialize, ...parameters) {
 						};
 					}
 				}
+
+				actions[''] = (name, keys) => {
+					const key = keys.pop();
+
+					let action = event => {
+						const object = keys.reduce((item = {}, key) => {
+							return item[key];
+						}, state);
+
+						switch (name) {
+							case 'onclick':
+								return object[key] = !object[key];
+						}
+					};
+
+					return (...parameters) => {
+						action(...parameters);
+						set.forEach(resolve => resolve(state));
+						set.clear();
+					};
+				};
 
 				const props = traverse(template, state, '', element, actions);
 

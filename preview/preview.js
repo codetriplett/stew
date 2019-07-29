@@ -6,6 +6,4 @@ stew(carousel, {
 	slideNext: state => state.index = (state.index + 1) % state.slides.length
 });
 
-stew(accordion, {
-	expand: state => state.expanded = !state.expanded
-});
+stew(accordion);

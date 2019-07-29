@@ -1,6 +1,6 @@
 <div class="accordion">
 	<p {expanded true}>Hello</p>
-	<button type="button" onclick={expand}>
+	<button type="button" onclick={expanded}>
 		Show {expanded true}Less{expanded false}More
 	</>
 </>

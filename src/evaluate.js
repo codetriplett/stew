@@ -1,4 +1,4 @@
-export function evaluate (expression, state, scope = '', string = '', object) {
+export function evaluate (expression, state, scope, string, object, name) {
 	const { length } = expression;
 	let result = '';
 	let index = 0;
@@ -39,12 +39,13 @@ export function evaluate (expression, state, scope = '', string = '', object) {
 				const absolute = item.startsWith('.');
 				const measure = item.endsWith('.');
 				const key = item.replace(/^\.|\.$/g, '');
+				const keys = (key ? key.split('.') : []);
 
 				if (object && !i && !absolute) {
 					definition = `${scope}${item}`.replace(/\.$/, '');
 				}
 
-				item = (key ? key.split('.') : []).reduce((item, key) => {
+				item = keys.reduce((item, key) => {
 					if (item !== undefined && item !== null) {
 						if (!item.hasOwnProperty(key) && object) {
 							return object[key];
@@ -53,6 +54,15 @@ export function evaluate (expression, state, scope = '', string = '', object) {
 						return item[key];
 					}
 				}, !absolute && scope ? state[''] : state);
+
+				if (object && item === undefined && /^on/.test(name) && key) {
+					const keys = `${scope}${key}`.split('.');
+
+					switch (name) {
+						case 'onclick':
+							item = object[''](name, keys);
+					}
+				}
 
 				if (!measure || typeof item !== 'object') {
 					return item;
@@ -106,7 +116,7 @@ export function evaluate (expression, state, scope = '', string = '', object) {
 			}
 		}
 
-		if (object) {
+		if (object && string) {
 			string = string.slice(prefix.length);
 		}
 

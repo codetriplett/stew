@@ -1,13 +1,12 @@
 import { evaluate } from './evaluate';
 
-export function traverse (template, state, scope = '', element, object) {
-	
+export function traverse (template, state, scope = '', element, object, name) {
 	if (typeof template !== 'object') {
 		return template;
 	} else if (Array.isArray(template)) {
 		const update = typeof element === 'object';
 		const existing = update ? element.nodeValue : element;
-		const value = evaluate(template, state, scope, existing, object);
+		const value = evaluate(template, state, scope, existing, object, name);
 
 		if (update && value !== existing) {
 			element.nodeValue = value;
@@ -29,7 +28,7 @@ export function traverse (template, state, scope = '', element, object) {
 
 	for (const name in attributes) {
 		const listener = name.startsWith('on');
-		let attribute = !generate && element.getAttribute(name) || undefined;
+		let string = !generate && element.getAttribute(name) || undefined;
 		let expression = attributes[name];
 
 		if (name === 'class' && classes.length) {
@@ -40,7 +39,7 @@ export function traverse (template, state, scope = '', element, object) {
 			continue;
 		}
 
-		let value = traverse(expression, state, scope, attribute, object);
+		let value = traverse(expression, state, scope, string, object, name);
 
 		if (generate) {
 			markup += !listener ? ` ${name}="${value}"` : '';
