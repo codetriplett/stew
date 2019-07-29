@@ -81,7 +81,7 @@ export function traverse (template, state, scope = '', element, object, name) {
 			const regex = new RegExp(`^${index}(-|$)`);
 			const states = [];
 			const children = [];
-			let conditional = expression.length;
+			let conditional = expression.length > 0;
 			let key = scope;
 			let iterate = false;
 
@@ -109,11 +109,13 @@ export function traverse (template, state, scope = '', element, object, name) {
 						states.push(...value);
 						iterate = true;
 					} else if (value) {
-						states.push(expression.length > 1 ? state : value);
+						states.push(expression.length > 1 ? undefined : value);
 					}
 				}
 
-				key += `${expression[0]}.`;
+				if (expression.length === 1) {
+					key += `${expression[0]}.`;
+				}
 
 				while (node) {
 					if (!node.getAttribute) {
@@ -144,8 +146,12 @@ export function traverse (template, state, scope = '', element, object, name) {
 			states.forEach((item, iteration) => {
 				const id = `${index}${iterate ? `-${iteration}` : ''}`;
 				let child = children.shift();
-
-				item = conditional ? { ...state, '': item } : state;
+				
+				if (conditional && item !== undefined) {
+					item = { ...state, '': item };
+				} else {
+					item = state;
+				}
 
 				if (!generate && !child) {
 					if (tag) {

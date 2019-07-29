@@ -123,7 +123,16 @@ http.createServer(({ url }, res) => {
 					}),
 				'</div>',
 				stew(accordion, {
-					expanded: false
+					sets: [
+						{
+							text: 'first',
+							expanded: true
+						},
+						{
+							text: 'second',
+							expanded: true
+						}
+					]
 				}),
 				'<script src="/preview.min.js"></script>',
 			'</body>',

@@ -29,7 +29,7 @@ export function populate (props, resolve, store) {
 		}
 
 		if (additive) {
-			store.push(...props);
+			store.push(...props.map(prop => populate(prop, resolve)));
 		} else {
 			store = props.map(prop => {
 				const index = store.indexOf(prop);
