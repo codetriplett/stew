@@ -2,7 +2,7 @@
 	"name": "@triplett/stew",
 	"version": "0.5.0",
 	"description": "A steamlined way to create interactive websites.",
-	"main": "dist/stew.min.js",
+	"main": "lib/stew.js",
 	"scripts": {
 		"test": "jest --watch --runInBand",
 		"build": "rimraf dist && grunt",

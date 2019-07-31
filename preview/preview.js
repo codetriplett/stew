@@ -1,5 +1,5 @@
-import carousel from './carousel.min';
-import accordion from './accordion.min';
+import carousel from './carousel';
+import accordion from './accordion';
 
 stew(carousel, {
 	slidePrev: state => state.index = (state.index || state.slides.length) - 1,

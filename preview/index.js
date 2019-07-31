@@ -1,8 +1,8 @@
 const http = require('http');
 const fs = require('fs');
 const stew = require('../dist/stew.min');
-const carousel = require('./carousel.min');
-const accordion = require('./accordion.min');
+const carousel = require('./carousel');
+const accordion = require('./accordion');
 
 const port = 8080;
 
@@ -56,72 +56,8 @@ http.createServer(({ url }, res) => {
 			'<head>',
 				'<title>Preview</title>',
 				'<script src="/stew.min.js"></script>',
-				'<style>',
-					'html,',
-					'body {',
-						'margin: 0;',
-					'}',
-					'.slideshow {',
-						'position: relative;',
-					'}',
-					'.slide {',
-						'opacity: 0;',
-						'position: absolute;',
-						'top: 0;',
-						'width: 100%;',
-						'height: 100%;',
-						'transition: left 500ms, opacity 500ms;',
-						'font-size: 72px;',
-						'line-height: 400px;',
-						'text-align: center;',
-						'background: #ddd;',
-					'}',
-					'.active ~ .slide,',
-					'.finish .first {',
-						'left: 100%;',
-					'}',
-					'.slide,',
-					'.start .last {',
-						'left: -100%;',
-					'}',
-					'.active {',
-						'opacity: 1;',
-						'position: relative;',
-						'left: 0;',
-					'}',
-					'.control {',
-						'position: absolute;',
-						'top: 0;',
-						'width: 10%;',
-						'height: 100%;',
-						'font-size: 54px;',
-						'font-family: monospace;',
-						'background: none;',
-						'border: none;',
-						'cursor: pointer;',
-					'}',
-					'.control:hover {',
-						'color: #0056b3;',
-					'}',
-					'.prev {',
-						'left: 0;',
-					'}',
-					'.next {',
-						'right: 0;',
-					'}',
-				'</style>',
 			'</head>',
 			'<body>',
-				'<div style="height: 400px; padding: 0 calc(50vw - 600px); overflow-x: hidden;">',
-					stew(carousel, {
-						slides: [
-							{ text: 'first' },
-							{ text: 'second' },
-							{ text: 'third' }
-						],
-						index: 0
-					}),
-				'</div>',
 				stew(accordion, {
 					sets: [
 						{
@@ -134,7 +70,7 @@ http.createServer(({ url }, res) => {
 						}
 					]
 				}),
-				'<script src="/preview.min.js"></script>',
+				'<script src="/accordion.js"></script>',
 			'</body>',
 		'</html>'
 	].join(''), 'text/html', true);

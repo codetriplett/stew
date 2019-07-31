@@ -1,9 +1,12 @@
+const stew = require('./lib/stew');
+
 module.exports = function (grunt) {
 	function merge (path, files, resolve) {
-		const regex = /(^|[ \r\n]*)(import[^;]*;[ \r\n]*|export (default )?|module.exports = )/g;
+		const lib = path.startsWith('./lib/');
+		const regex = lib ? /^/ : /(^|[ \r\n]*)(import[^;]*;[ \r\n]*|export (default )?|module.exports = )/g;
 
 		grunt.file.write(path, files.map(path => {
-			const file = grunt.file.read(path).replace(regex, '');
+			let file = grunt.file.read(path).replace(regex, '');
 
 			if (!resolve) {
 				return file;
@@ -18,7 +21,14 @@ module.exports = function (grunt) {
 		babel: {
 			stew: {
 				files: {
-					'dist/stew.min.js': 'dist/stew.min.js'
+					'dist/stew.min.js': 'dist/stew.min.js',
+					'lib/parse.js': 'src/parse.js',
+					'lib/grunt.js': 'src/grunt.js',
+					'lib/populate.js': 'src/populate.js',
+					'lib/evaluate.js': 'src/evaluate.js',
+					'lib/traverse.js': 'src/traverse.js',
+					'lib/stitch.js': 'src/stitch.js',
+					'lib/stew.js': 'lib/stew.js',
 				}
 			},
 			preview: {
@@ -46,6 +56,17 @@ module.exports = function (grunt) {
 					'preview/preview.min.js': 'preview/preview.min.js'
 				}
 			}
+		},
+		stew: {
+			main: {
+				files: [
+					{
+						cwd: 'preview/',
+						src: '**/*.stew',
+						dest: 'preview/'
+					}
+				]
+			}
 		}
 	});
 
@@ -61,6 +82,15 @@ module.exports = function (grunt) {
 			'./src/stitch.js',
 			'./src/stew.js',
 		]);
+		
+		merge('./lib/stew.js', [
+			'./src/stew.js',
+		], file => {
+			return file.replace(
+				/(?=export default )/,
+				'export { grunt } from \'./grunt\';\n\n'
+			);
+		});
 	});
 
 	grunt.registerTask('after', function () {
@@ -75,25 +105,13 @@ module.exports = function (grunt) {
 			}
 		})();`);
 	});
+	
+	stew.grunt(grunt);
 
 	grunt.registerTask('preview', function () {
-		const stew = require('./dist/stew.min');
-
-		const components = [
-			'./preview/carousel.stew',
-			'./preview/accordion.stew'
-		];
-
-		components.forEach(path => {
-			const template = stew(grunt.file.read(path));
-			const file = `module.exports = ${JSON.stringify(template)};`;
-
-			grunt.file.write(path.replace(/\.stew$/, '.min.js'), file);
-		});
-
 		merge('./preview/preview.min.js', [
-			'./preview/carousel.min.js',
-			'./preview/accordion.min.js',
+			'./preview/carousel.js',
+			'./preview/accordion.js',
 			'./preview/preview.js',
 		], (file, name) => {
 			if (name === 'preview') {
@@ -109,6 +127,7 @@ module.exports = function (grunt) {
 		'babel:stew',
 		'after',
 		'uglify:stew',
+		'stew',
 		'preview',
 		'babel:preview',
 		'uglify:preview'
