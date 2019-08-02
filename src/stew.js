@@ -1,148 +1,44 @@
 import { parse } from './parse';
-import { populate } from './populate';
 import { traverse } from './traverse';
 import { stitch } from './stitch';
 
-const client = [
-	typeof window === 'object',
-	typeof document === 'object',
-	typeof Element === 'function'
-].every(check => check);
-
-export default function stew (initialize, ...parameters) {
-	switch (typeof initialize) {
-		case 'string':
-			return parse(initialize)[0];
-		case 'object':
-			if (client) {
-				return stew(() => {})(initialize, ...parameters);
-			}
-
-			return traverse(initialize, ...parameters);
-		case 'undefined':
-		case 'function':
-			break;
-		default:
-			return;
+export default function stew (template, state) {
+	if (typeof template === 'string') {
+		return parse(template)[0];
+	} else if (typeof template !== 'object') {
+		return;
 	}
 
-	const state = {};
-	const actions = initialize ? initialize(state) : {};
-	const set = new Set();
-	let result;
+	if (typeof state === 'object') {
+		return traverse(template, state);
+	} else if (state !== undefined || typeof document === 'undefined') {
+		return;
+	}
 
-	function register (mount, ...parameters) {
-		if (typeof mount === 'string') {
-			mount = stew(mount);
-		}
+	const selector = template[''][0].split(' ')[0];
+	const elements = document.querySelectorAll(selector) || [];
 
-		const template = typeof mount === 'object' ? mount : undefined;
-		let actions = {};
+	elements.forEach(element => {
+		const actions = {
+			'': (name, keys) => {
+				const key = keys.pop();
 
-		if (template) {
-			mount = (update, element, defaults = {}) => {
-				for (const key in defaults) {
-					const action = defaults[key];
+				return event => {
+					const object = keys.reduce((item = {}, key) => {
+						return item[key];
+					}, state);
 
-					if (typeof action === 'function') {
-						actions[key] = (...parameters) => {
-							action(state, ...parameters);
-							set.forEach(resolve => resolve(state));
-							set.clear();
-						};
+					switch (name) {
+						case 'onclick':
+							object[key] = !object[key];
+							break;
 					}
-				}
 
-				actions[''] = (name, keys) => {
-					const key = keys.pop();
-
-					let action = event => {
-						const object = keys.reduce((item = {}, key) => {
-							return item[key];
-						}, state);
-
-						switch (name) {
-							case 'onclick':
-								return object[key] = !object[key];
-						}
-					};
-
-					return (...parameters) => {
-						action(...parameters);
-						set.forEach(resolve => resolve(state));
-						set.clear();
-					};
+					traverse(template, state, '', element);
 				};
-
-				const props = traverse(template, state, '', element, actions);
-
-				update(stitch(props, defaults));
-				update(state => traverse(template, state, '', element));
-			};
-		}
-
-		function create (selector, ...parameters) {
-			const elements = document.querySelectorAll(selector) || [];
-
-			elements.forEach(element => {
-				let props = {};
-				let resolve;
-
-				mount(output => {
-					if (typeof output === 'object') {
-						for (const key in output) {
-							let value = output[key];
-
-							if (typeof value !== 'function') {
-								props[key] = value;
-							}
-						}
-
-						return;
-					}
-
-					if (typeof output === 'function') {
-						resolve = () => set.add(output);
-					}
-
-					populate(props, resolve, state);
-
-					return state;
-				}, element, ...parameters);
-			});
-
-			return create;
-		}
-
-		if (template) {
-			parameters.unshift(template[''][0]);
-		} else if (!parameters.length) {
-			return create;
-		}
-
-		create(...parameters);
-
-		return register;
-	}
-
-	result = parameters.length ? register(...parameters) : register;
-
-	for (const key in actions) {
-		const action = (...parameters) => {
-			actions[key](...parameters);
-			set.forEach(resolve => resolve(state));
-			set.clear();
+			}
 		};
 
-		const definition = {
-			get: () => action,
-			set: () => {},
-			enumerable: true
-		};
-
-		Object.defineProperty(state, key, definition);
-		Object.defineProperty(result, key, definition);
-	}
-
-	return result;
+		state = stitch(traverse(template, {}, '', element, actions));
+	});
 }

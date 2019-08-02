@@ -1,7 +1,6 @@
 const http = require('http');
 const fs = require('fs');
 const stew = require('../dist/stew.min');
-const carousel = require('./carousel');
 const accordion = require('./accordion');
 
 const port = 8080;
@@ -55,7 +54,6 @@ http.createServer(({ url }, res) => {
 		'<html>',
 			'<head>',
 				'<title>Preview</title>',
-				'<script src="/stew.min.js"></script>',
 			'</head>',
 			'<body>',
 				stew(accordion, {
@@ -70,6 +68,7 @@ http.createServer(({ url }, res) => {
 						}
 					]
 				}),
+				'<script src="/stew.min.js"></script>',
 				'<script src="/accordion.js"></script>',
 			'</body>',
 		'</html>'
