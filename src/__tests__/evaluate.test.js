@@ -1,270 +1,230 @@
 import { evaluate } from '../evaluate';
 
 describe('evaluate', () => {
-	describe('single variable', () => {
-		let object;
-
-		beforeEach(() => {
-			object = {};
-		});
-
-		it('should provide string', () => {
-			const actual = evaluate([['key']], { key: 'value' });
+	describe('basics', () => {
+		it('returns string content', () => {
+			const actual = evaluate(['value'], {});
 			expect(actual).toBe('value');
 		});
 
-		it('should extract string', () => {
-			const actual = evaluate([['key']], {}, '', 'value', object);
-			
-			expect(object).toEqual({ key: 'value' });
-			expect(actual).toBe('value');
+		it('returns string attribute', () => {
+			const actual = evaluate(['value'], {}, 'attribute');
+			expect(actual).toBe(' attribute="value"');
 		});
 
-		it('should provide number', () => {
-			const actual = evaluate([['key']], { key: 1 });
-			expect(actual).toBe(1);
-		});
-
-		it('should extract number', () => {
-			const actual = evaluate([['key']], {}, '', '1', object);
-
-			expect(object).toEqual({ key: 1 });
-			expect(actual).toBe(1);
-		});
-
-		it('should provide true', () => {
-			const actual = evaluate([['key']], { key: true });
-			expect(actual).toBe(true);
-		});
-
-		it('should extract true', () => {
-			const actual = evaluate([['key']], {}, '', 'true', object);
-
-			expect(object).toEqual({ key: true });
-			expect(actual).toBe(true);
-		});
-
-		it('should provide false', () => {
-			const actual = evaluate([['key']], { key: false });
-			expect(actual).toBe(false);
-		});
-
-		it('should extract false', () => {
-			const actual = evaluate([['key']], {}, '', 'false', object);
-
-			expect(object).toEqual({ key: false });
-			expect(actual).toBe(false);
-		});
-
-		it('should provide scope', () => {
-			const actual = evaluate([['']], { '': 'value' }, 'key.');
-			expect(actual).toBe('value');
-		});
-
-		it('should extract scope', () => {
-			const actual = evaluate([['']], {}, 'key.', 'value', object);
-			
-			expect(object).toEqual({ key: 'value' });
-			expect(actual).toBe('value');
-		});
-
-		it('should provide maximum index', () => {
-			const actual = evaluate([['key.']], { key: [1, 2, 3] });
-			expect(actual).toBe(2);
-		});
-
-		it('should not extract maximum index', () => {
-			const actual = evaluate([['key.']], {}, '', '', object);
-
-			expect(object).toEqual({});
-			expect(actual).toBeUndefined();
-		});
-
-		it('should provide current index', () => {
-			const actual = evaluate([['.']], {}, 'a.4.b.2.c.');
-			expect(actual).toBe(2);
-		});
-
-		it('should not extract maximum index', () => {
-			const actual = evaluate([['.']], {}, 'a.4.b.2.c.', '', object);
-
-			expect(object).toEqual({});
-			expect(actual).toBe(2);
-		});
-
-		it('should provide an embedded variable', () => {
-			const actual = evaluate([['a.b']], { a: { b: 'value' } });
-			expect(actual).toBe('value');
-		});
-
-		it('should extract an embedded variable', () => {
-			const actual = evaluate([['a.b']], {}, '', 'value', object);
-
-			expect(object).toEqual({ 'a.b': 'value' });
-			expect(actual).toBe('value');
-		});
-
-		it('should provide a scoped variable', () => {
-			const actual = evaluate([['b']], { '': { b: 'value' } }, 'a.');
-			expect(actual).toBe('value');
-		});
-
-		it('should extract a scoped variable', () => {
-			const actual = evaluate([['b']], {}, 'a.', 'value', object);
-
-			expect(object).toEqual({ 'a.b': 'value' });
-			expect(actual).toBe('value');
-		});
-
-		it('should provide a root variable', () => {
-			const actual = evaluate([['.b']], { b: 'value' }, 'a.');
-			expect(actual).toBe('value');
-		});
-
-		it('should extract a root variable', () => {
-			const actual = evaluate([['.b']], {}, 'a.', 'value', object);
-
-			expect(object).toEqual({ 'b': 'value' });
-			expect(actual).toBe('value');
+		it('skips empty attribute', () => {
+			const actual = evaluate([['x']], {}, 'attribute');
+			expect(actual).toBe('');
 		});
 	});
 
-	describe('strings and variables', () => {
-		let object;
+	describe('variables', () => {
+		let template;
 
 		beforeEach(() => {
-			object = {};
+			template = ['(', ['x'], ')'];
 		});
 
-		it('should join variable between strings', () => {
-			const actual = evaluate(['(', ['key'], ')'], { key: 'value' });
+		it('ignores missing property', () => {
+			const actual = evaluate(template, {});
+			expect(actual).toBe('()');
+		});
+
+		it('ignores undefined property', () => {
+			const actual = evaluate(template, { x: undefined });
+			expect(actual).toBe('()');
+		});
+
+		it('ignores null property', () => {
+			const actual = evaluate(template, { x: null });
+			expect(actual).toBe('()');
+		});
+
+		it('ignores function property', () => {
+			const actual = evaluate(template, { x: () => {} });
+			expect(actual).toBe('()');
+		});
+
+		it('includes true property', () => {
+			const actual = evaluate(template, { x: true });
+			expect(actual).toBe('(true)');
+		});
+
+		it('includes false property', () => {
+			const actual = evaluate(template, { x: false });
+			expect(actual).toBe('(false)');
+		});
+
+		it('includes number property', () => {
+			const actual = evaluate(template, { x: 1 });
+			expect(actual).toBe('(1)');
+		});
+
+		it('includes string property', () => {
+			const actual = evaluate(template, { x: 'value' });
 			expect(actual).toBe('(value)');
 		});
 
-		it('should parse variable between strings', () => {
-			const actual = evaluate(['(', ['key'], ')'],
-				{}, '', '(value)', object);
-
-			expect(object).toEqual({ key: 'value' });
-			expect(actual).toBe('(value)');
-		});
-
-		it('should join variables around string', () => {
-			const actual = evaluate([['a'], ':', ['b']], { a: 1, b: 2 });
-			expect(actual).toBe('1:2');
-		});
-
-		it('should parse variables around string', () => {
-			const actual = evaluate([['a'], ':', ['b']],
-				{}, '', '1:2', object);
-			
-			expect(object).toEqual({ a: 1, b: 2 });
-			expect(actual).toBe('1:2');
-		});
-
-		it('should not join undefined', () => {
-			const actual = evaluate(['(', ['key'], ')'], {});
-			expect(actual).toBe('()');
-		});
-
-		it('should not join object', () => {
-			const actual = evaluate(['(', ['key'], ')'], { key: {} });
-			expect(actual).toBe('()');
-		});
-
-		it('should not join function', () => {
-			const actual = evaluate(['(', ['key'], ')'], { key: () => {} });
-			expect(actual).toBe('()');
-		});
-
-		it('should not parse missing variable', () => {
-			const actual = evaluate(['(', ['key'], ')'],
-				{}, '', '()', object);
-
-			expect(object).toEqual({});
-			expect(actual).toBe('()');
+		it('includes index property', () => {
+			const actual = evaluate(['(', ['.'], ')'], { '.': 1 });
+			expect(actual).toBe('(1)');
 		});
 	});
 
 	describe('conditions', () => {
-		let object;
+		it('returns positive comparison', () => {
+			const actual = evaluate([['x', 1]], { x: 1 }, 'attribute');
+			expect(actual).toBe(' attribute');
+		});
 
+		it('returns negative comparison', () => {
+			const actual = evaluate([['x', 2]], { x: 1 }, 'attribute');
+			expect(actual).toBe('');
+		});
+
+		it('returns conditional string', () => {
+			const actual = evaluate([['x', 1], 'value'], { x: 1 });
+			expect(actual).toBe('value');
+		});
+
+		it('ignores conditional string', () => {
+			const actual = evaluate([['x', 2], 'value'], { x: 1 });
+			expect(actual).toBe('');
+		});
+	});
+
+	describe('hydration', () => {
+		const getAttribute = jest.fn();
+		const addEventListener = jest.fn();
+		const update = jest.fn();
+		let state;
+		let element;
+		let action;
+		let template;
+	
 		beforeEach(() => {
-			object = {};
-		});
+			getAttribute.mockClear();
 
-		it('should report a match', () => {
-			const actual = evaluate([['key', 1]], { key: 1 });
-			expect(actual).toBe(true);
-		});
+			addEventListener.mockClear().mockImplementation((name, value) => {
+				action = value;
+			});
 
-		it('should report a mismatch', () => {
-			const actual = evaluate([['key', 1]], { key: 2 });
-			expect(actual).toBe(false);
-		});
-
-		it('should provide an allowed string', () => {
-			const actual = evaluate([['key', 1], 'success'], { key: 1 });
-			expect(actual).toBe('success');
-		});
-
-		it('should extract an allowed string', () => {
-			const actual = evaluate([['key', 1], 'success'],
-				{}, '', 'success', object);
-
-			expect(object).toEqual({ key: 1 });
-			expect(actual).toBe('success');
-		});
-
-		it('should not provide a denied string', () => {
-			const actual = evaluate([['key', 1], 'failure'], { key: 2 });
-			expect(actual).toBe('');
-		});
-
-		it('should extract false for denied string', () => {
-			const actual = evaluate([['key', true], 'failure'],
-				{}, '', '', object);
-			
-			expect(object).toEqual({ key: false });
-			expect(actual).toBe('');
-		});
-
-		it('should not extract a denied string', () => {
-			const actual = evaluate([['key', 1], 'failure'],
-				{}, '', '', object);
-			
-			expect(object).toEqual({});
-			expect(actual).toBe('');
+			template = ['(', ['x'], ')'];
+			state = {};
+	
+			element = {
+				getAttribute,
+				addEventListener
+			};
 		});
 		
-		it('should match with negative index', () => {
-			const actual = evaluate([['.', -2], 'success'],
-				{ key: [1, 2, 3, 4, 5] }, 'key.3.');
-
-			expect(actual).toBe('success');
-		});
-		
-		it('should not extract index', () => {
-			const actual = evaluate([['.', -2], 'success'],
-				{ key: [1, 2, 3, 4, 5] }, 'key.3.', 'success', object);
-
-			expect(object).toEqual({});
-			expect(actual).toBe('success');
+		it('skips action', () => {
+			const actual = evaluate([['x']], state, 'onclick');
+			expect(actual).toBe('');
 		});
 
-		it('should join index conditions', () => {
-			const actual = evaluate(['a', ['.', 1], 'a', 'b', ['']],
-				{ key: [1, 2], '': 'b' }, 'key.1.');
+		it('creates action', () => {
+			evaluate([['x']], state, 'onclick', element, update);
 
-			expect(actual).toBe('aabb');
+			expect(addEventListener).toHaveBeenCalledWith('click', action);
+			expect(state).toEqual({});
+
+			action();
+
+			expect(state.x).toBe(true);
+			expect(update).toHaveBeenCalled();
 		});
 
-		it('should extract index conditions', () => {
-			const actual = evaluate(['a', ['.', 1], 'a', 'b', ['']],
-				{}, 'key.1.', 'aabb', object);
+		it('extracts string from attribute', () => {
+			getAttribute.mockReturnValue('(value)');
+	
+			evaluate(template, state, 'attribute', element, update);
+	
+			expect(state).toEqual({ x: 'value' });
+		});
 
-			expect(object).toEqual({ 'key.1': 'b' });
-			expect(actual).toBe('aabb');
+		it('extracts string', () => {
+			element.nodeValue = '(value)';
+	
+			evaluate(template, state, '', element, update);
+	
+			expect(state).toEqual({ x: 'value' });
+		});
+
+		it('extracts number', () => {
+			element.nodeValue = '(1)';
+	
+			evaluate(template, state, '', element, update);
+	
+			expect(state).toEqual({ x: 1 });
+		});
+
+		it('extracts true', () => {
+			element.nodeValue = '(true)';
+	
+			evaluate(template, state, '', element, update);
+	
+			expect(state).toEqual({ x: true });
+		});
+
+		it('extracts false', () => {
+			element.nodeValue = '(false)';
+	
+			evaluate(template, state, '', element, update);
+	
+			expect(state).toEqual({ x: false });
+		});
+
+		it('ignores index', () => {
+			element.nodeValue = '(1)';
+	
+			evaluate(['(', ['.'], ')'], state, '', element, update);
+	
+			expect(state).toEqual({});
+		});
+
+		it('ignores empty', () => {
+			element.nodeValue = '()';
+	
+			evaluate(template, state, '', element, update);
+	
+			expect(state).toEqual({});
+		});
+
+		it('extracts condition', () => {
+			element.nodeValue = 'value';
+	
+			evaluate([['x', 1], 'value'], state, '', element, update);
+	
+			expect(state).toEqual({ x: 1 });
+		});
+
+		it('extracts index', () => {
+			state['.'] = 1;
+			element.nodeValue = 'value';
+	
+			evaluate([['x', '.'], 'value'], state, '', element, update);
+	
+			expect(state).toEqual({
+				'.': 1,
+				x: 1
+			});
+		});
+
+		it('ignores condition', () => {
+			element.nodeValue = 'value';
+	
+			evaluate([['x', 1], 'other value'], state, '', element, update);
+	
+			expect(state).toEqual({});
+		});
+
+		it('ignores index keyed condition', () => {
+			element.nodeValue = 'value';
+	
+			evaluate([['.', 1], 'value'], state, '', element, update);
+	
+			expect(state).toEqual(state);
 		});
 	});
 });

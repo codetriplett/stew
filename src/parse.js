@@ -6,7 +6,7 @@ const independent = new RegExp([
 const openers = '<{"\'';
 const closers = '>}"\'';
 
-export function parse (markup) {
+export function parse (markup, children) {
 	let array = [];
 	let result = [array];
 	let object;
@@ -52,17 +52,17 @@ export function parse (markup) {
 					array.push(expression.map((value, i) => {
 						value = value.trim();
 
-						if (i) {
-							if (!isNaN(value) && value) {
-								return Number(value);
-							} else if (value === 'true') {
-								return true;
-							} else if (value === 'false') {
-								return false;
-							}
+						if (!isNaN(value) && value) {
+							return Number(value);
+						} else if (value === 'true') {
+							return true;
+						} else if (value === 'false') {
+							return false;
+						} else if (value.startsWith('.')) {
+							return value.slice(1);
 						}
 
-						return value;
+						return i ? value : `.${value}`;
 					}));
 
 					break;
@@ -100,9 +100,9 @@ export function parse (markup) {
 		if (structure && /^\//.test(tag)) {
 			break;
 		} else if (!independent.test(tag)) {
-			const children = parse(markup);
+			const children = [];
 
-			markup = children.pop();
+			markup = parse(markup, children);
 
 			if (children.length) {
 				structure.push(...children);
@@ -186,5 +186,9 @@ export function parse (markup) {
 		return item;
 	}).filter(item => item);
 
-	return result.concat(markup);
+	if (children) {
+		children.push(...result);
+	}
+
+	return children ? markup : result[0];
 }

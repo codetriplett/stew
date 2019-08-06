@@ -1,131 +1,81 @@
-export function evaluate (expression, state, scope, string, object, name) {
+import { fetch } from './fetch';
+
+export function evaluate (expression, state, name = '', element, update) {
 	const { length } = expression;
-	let result = '';
+	const activate = name.startsWith('on');
+	let values = [];
 	let index = 0;
+	let existing;
+	
+	if (activate) {
+		existing = (object, key, event) => {
+			if (name === 'onclick') {
+				object[key] = !object[key];
+			}
+
+			update();
+		};
+	} else if (element) {
+		existing = name ? element.getAttribute(name) : element.nodeValue;
+	}
 
 	while (index < length) {
-		let item = expression[index++];
-		let prefix = item;
+		const query = expression[index++];
+		const compare = query.length > 1;
+		let candidate = expression[index];
 
-		if (Array.isArray(item)) {
-			const compare = item.length > 1;
-			let candidate = expression[index];
-			let [definition] = item;
-			let array = state;
+		if (Array.isArray(candidate)) {
+			candidate = '';
+		} else if (compare) {
+			index++;
+		}
 
-			if (Array.isArray(candidate)) {
-				candidate = '';
-			} else if (compare) {
-				index++;
-			}
+		const value = fetch(query, state, candidate, existing);
+		const convert = typeof value === 'boolean' && !compare;
 
-			const [value, condition] = item.map((item, i) => {
-				if (typeof item !== 'string') {
-					return item;
-				} else if (item === '.') {
-					const keys = scope.split('.').reverse();
-					const index = keys.findIndex(item => !isNaN(item) && item);
-					const value = keys[index];
+		if (update && !activate) {
+			existing = value;
+			continue;
+		}
 
-					keys.slice(index + 1).reverse().forEach(key => {
-						if (array !== undefined && array !== null) {
-							array = array[key];
-						}
-					});
+		values.push(convert ? String(value) : value);
+	}
 
-					return value !== undefined ? Number(value) : undefined;
-				}
-
-				const absolute = item.startsWith('.');
-				const measure = item.endsWith('.');
-				const key = item.replace(/^\.|\.$/g, '');
-				const keys = (key ? key.split('.') : []);
-
-				if (object && !i && !absolute) {
-					definition = `${scope}${item}`.replace(/\.$/, '');
-				}
-
-				item = keys.reduce((item, key) => {
-					if (item !== undefined && item !== null) {
-						if (!item.hasOwnProperty(key) && object) {
-							return object[key];
-						}
-
-						return item[key];
-					}
-				}, !absolute && scope ? state[''] : state);
-
-				if (object && item === undefined && /^on/.test(name) && key) {
-					const keys = `${scope}${key}`.split('.');
-
-					switch (name) {
-						case 'onclick':
-							item = object[''](name, keys);
-					}
-				}
-
-				if (!measure || typeof item !== 'object') {
-					return item;
-				}
-				
-				return Array.isArray(item) ? item.length - 1 : undefined;
+	if (update) {
+		if (activate) {
+			values = values.filter(value => typeof value === 'function');
+	
+			element.addEventListener(name.slice(2), event => {
+				values.forEach(action => action(event));
 			});
-			
-			item = value;
-
-			if (object) {
-				let index = candidate ? string.indexOf(candidate) : -1;
-
-				if (compare) {
-					prefix = !index && candidate || '';
-				} else {
-					prefix = index > -1 ? string.slice(0, index) : string;
-				}
-				
-				if (!definition.endsWith('.') && item === undefined) {
-					let value = prefix;
-
-					if (compare) {
-						const fallback = condition === true ? false : '';
-						value = value === candidate ? condition : fallback;
-					} else if (value && !isNaN(value)) {
-						value = Number(value);
-					} else if (value === 'true') {
-						value = true;
-					} else if (value === 'false') {
-						value = false;
-					}
-
-					if (value !== '' && value !== undefined) {
-						object[definition.replace(/^\.|\.$/g, '')] = value;
-						item = value;
-					}
-				}
-			}
-			
-			if (compare && item !== undefined) {
-				if (definition === '.' && condition < 0 && array) {
-					item -= array.length;
-				}
-
-				item = item === condition;
-
-				if (candidate !== undefined) {
-					item = item ? candidate : '';
-				}
-			}
 		}
 
-		if (object && string) {
-			string = string.slice(prefix.length);
-		}
+		return '';
+	}
 
-		if (length === 1) {
-			result = item;
-		} else if (/^(boolean|number|string)$/.test(typeof item)) {
-			result += item;
+	const strings = values.filter(value => {
+		return /^(number|string)$/.test(typeof value);
+	});
+
+	const value = strings.join('');
+	
+	if (!element) {
+		if (!name) {
+			return value;
+		} else if (strings.length) {
+			return ` ${name}="${value}"`
+		} else if (values.some(value => value === true)) {
+			return ` ${name}`;
+		}
+	} else if (value !== value) {
+		if (!name) {
+			element.nodeValue = value;
+		} else if (values.length) {
+			element.setAttribute(name, value);
+		} else {
+			element.removeAttribute(name);
 		}
 	}
 
-	return result;
+	return '';
 }
