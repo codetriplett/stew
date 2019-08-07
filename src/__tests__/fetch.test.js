@@ -113,6 +113,20 @@ describe('fetch', () => {
 		expect(actual).toBe('suffix');
 	});
 
+	it('extracts condition at end', () => {
+		const actual = fetch(['value', 1], state, undefined, '');
+
+		expect(state).toEqual({ value: 1 });
+		expect(actual).toBe('');
+	});
+
+	it('ignores condition at end', () => {
+		const actual = fetch(['value', 1], state, undefined, null);
+
+		expect(state).toEqual({});
+		expect(actual).toBe(null);
+	});
+
 	it('creates click action', () => {
 		const state = {};
 		const update = jest.fn();

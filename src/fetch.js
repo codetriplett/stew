@@ -1,5 +1,7 @@
 export function fetch (query, state, candidate, remainder) {
-	if (typeof query === 'string') {
+	if (remainder === null) {
+		return remainder;
+	} else if (typeof query === 'string') {
 		if (remainder === undefined) {
 			return query;
 		} else if (!remainder.startsWith(query)) {
@@ -30,7 +32,7 @@ export function fetch (query, state, candidate, remainder) {
 	}, state);
 
 	if (remainder === undefined) {
-		if (key) {
+		if (key || !keys.length) {
 			value = object[key];
 		} else if (Array.isArray(object)) {
 			value = object.length - 1;
@@ -41,7 +43,7 @@ export function fetch (query, state, candidate, remainder) {
 		}
 		
 		value = value === comparison;
-		
+
 		return value && candidate || value;
 	} else if (typeof remainder === 'function') {
 		return event => remainder(object, key, event);
@@ -51,11 +53,11 @@ export function fetch (query, state, candidate, remainder) {
 	let prefix = index > -1 ? remainder.slice(0, index) : remainder;
 
 	if (compare) {
-		prefix = !prefix && candidate || '';
+		prefix = remainder && !prefix && candidate || '';
 	}
 
-	if (!prefix) {
-		return '';
+	if (!prefix && (remainder || !compare)) {
+		return remainder;
 	}
 
 	if (compare) {

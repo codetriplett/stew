@@ -6,8 +6,13 @@ export function evaluate (expression, state, name = '', element, update) {
 	let values = [];
 	let index = 0;
 	let existing;
-	
+	let final;
+
 	if (activate) {
+		if (!update) {
+			return '';
+		}
+
 		existing = (object, key, event) => {
 			if (name === 'onclick') {
 				object[key] = !object[key];
@@ -30,15 +35,16 @@ export function evaluate (expression, state, name = '', element, update) {
 			index++;
 		}
 
-		const value = fetch(query, state, candidate, existing);
-		const convert = typeof value === 'boolean' && !compare;
+		final = fetch(query, state, candidate, update ? existing : undefined);
 
 		if (update && !activate) {
-			existing = value;
+			existing = final;
 			continue;
+		} else if (typeof final === 'boolean' && !compare) {
+			final = String(final);
 		}
 
-		values.push(convert ? String(value) : value);
+		values.push(final);
 	}
 
 	if (update) {
@@ -50,32 +56,34 @@ export function evaluate (expression, state, name = '', element, update) {
 			});
 		}
 
-		return '';
+		return;
 	}
 
 	const strings = values.filter(value => {
 		return /^(number|string)$/.test(typeof value);
 	});
 
-	const value = strings.join('');
-	
+	const value = final === false ? null : strings.join('');
+
 	if (!element) {
 		if (!name) {
 			return value;
-		} else if (strings.length) {
-			return ` ${name}="${value}"`
-		} else if (values.some(value => value === true)) {
+		} else if (final === true) {
 			return ` ${name}`;
+		} else if (final === false) {
+			return '';
 		}
-	} else if (value !== value) {
+		
+		return ` ${name}="${value}"`;
+	} else if (value !== existing) {
 		if (!name) {
 			element.nodeValue = value;
-		} else if (values.length) {
-			element.setAttribute(name, value);
-		} else {
+		} else if (final === true) {
+			element.toggleAttribute(name, true);
+		} else if (final === false) {
 			element.removeAttribute(name);
+		} else {
+			element.setAttribute(name, value);
 		}
 	}
-
-	return '';
 }
