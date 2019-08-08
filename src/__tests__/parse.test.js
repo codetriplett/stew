@@ -11,6 +11,11 @@ describe('parse', () => {
 		expect(actual).toEqual(['prefix', ['.string'], 'suffix']);
 	});
 
+	it('should parse literal text', () => {
+		const actual = parse('prefix{}suffix');
+		expect(actual).toEqual(['prefix', [''], 'suffix']);
+	});
+
 	it('should parse conditional text', () => {
 		const actual = parse('prefix{string value}suffix');
 		expect(actual).toEqual(['prefix', ['.string', 'value'], 'suffix']);
@@ -49,6 +54,26 @@ describe('parse', () => {
 			src: ['http://', ['.domain'], '.com'],
 			alt: [],
 			'': ['img']
+		});
+	});
+
+	it('should trim newlines', () => {
+		const actual = parse(`
+			<div>
+				<img>
+				<img> <img>
+				<img>
+			</div>
+		`);
+
+		expect(actual).toEqual({
+			'': ['div',
+				{ '': ['img'] },
+				{ '': ['img'] },
+				[' '],
+				{ '': ['img'] },
+				{ '': ['img'] }
+			]
 		});
 	});
 

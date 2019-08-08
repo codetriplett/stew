@@ -1,205 +1,93 @@
+import { fetch } from './fetch';
 import { evaluate } from './evaluate';
 
-export function traverse (template, state, scope = '', element, object, name) {
-	if (typeof template !== 'object') {
-		return template;
-	} else if (Array.isArray(template)) {
-		const update = typeof element === 'object';
-		const existing = update ? element.nodeValue : element;
-		const value = evaluate(template, state, scope, existing, object, name);
-
-		if (update && value !== existing) {
-			element.nodeValue = value;
-		}
-
-		return value;
+export function traverse (template, state, id, element, update) {
+	if (Array.isArray(template)) {
+		return evaluate(template, state, '', element, update);
 	}
 
-	const generate = element === undefined;
 	const { '': structure, ...attributes } = template;
 	const [definition, ...content] = structure;
-	const [selector] = definition.split(' ');
-	const [tag, ...classes] = selector.split('.');
-	let markup = `<${tag}`;
+	const [selector, ...query] = definition.split(' ');
 
-	if (generate && classes.length && !attributes.hasOwnProperty('class')) {
-		markup += ` class="${classes.join(' ')}"`;
+	if (state === undefined) {
+		const elements = document.querySelectorAll(selector) || [];
+	
+		elements.forEach(element => {
+			const state = traverse(template, {}, element, () => {
+				traverse(template, state, element);
+			});
+		});
+
+		return;
+	} else if (typeof state !== 'object') {
+		return;
+	} else if (id !== undefined && query.length) {
+		if (typeof id === 'number') {
+			const value = fetch(query, state);
+
+			if (Array.isArray(value)) {
+				const { '': scope, '.': index } = state;
+
+				const children = value.map((item, i) => {
+					Object.assign(state, { '': item, '.': i });
+					i = `${id}-${i}`;
+
+					return traverse(template, state, i, element, update);
+				});
+
+				Object.assign(state, { '': scope, '.': index });
+
+				return element ? '' : children.join('');
+			} else if (value === undefined || value === false) {
+				return '';
+			}
+
+			state[''] = value;
+		}
+
+		id = ` data--"${id}"`;
+	} else {
+		id = '';
+	}
+	
+	const [tag, ...classes] = selector.split('.');
+
+	if (classes.length && !attributes.hasOwnProperty('class')) {
+		attributes.class = [];
 	}
 
-	for (const name in attributes) {
-		const listener = name.startsWith('on');
-		let string = !generate && element.getAttribute(name) || undefined;
+	const names = Object.keys(attributes).sort();
+
+	let markup = `<${tag}${id}${names.map(name => {
 		let expression = attributes[name];
 
 		if (name === 'class' && classes.length) {
 			expression = [`${classes.join(' ')} `, ...expression];
 		}
 
-		if (listener && !object) {
-			continue;
-		}
-
-		let value = traverse(expression, state, scope, string, object, name);
-
-		if (generate) {
-			markup += !listener ? ` ${name}="${value}"` : '';
-			continue;
-		}
-		
-		const present = element.hasAttribute(name);
-
-		if (listener) {
-			if (!present) {
-				element.addEventListener(name.replace(/^on/, ''), value);
-			}
-
-			value = 'javascript:void(0);';
-		} else if (object) {
-			continue;
-		}
-
-		if (value === true && !present) {
-			element.toggleAttribute(name, true);
-		} else if (value === false && present) {
-			element.removeAttribute(name);
-		} else if (String(value) !== element) {
-			element.setAttribute(name, value);
-		}
-	}
-
-	if (generate) {
-		markup += '>';
-	}
+		return evaluate(expression, state, name, element, update)
+	}).join('')}>`;
 
 	if (content.length) {
-		let node = !generate ? element.childNodes[0] : undefined;
+		const scope = state[''];
+		let node = element ? element.childNodes[0] : undefined;
 		
-		content.forEach((template, index) => {
-			const structure = (template[''] || [''])[0];
-			const [selector, ...expression] = structure.split(' ');
-			const [tag, ...classes] = selector.split('.');
-			const regex = new RegExp(`^${index}(-|$)`);
-			const states = [];
-			const children = [];
-			let conditional = expression.length > 0;
-			let key = scope;
-			let iterate = false;
+		markup += `${content.map((template, i) => {
+			const child = traverse(template, state, i, node, update);
+			state[''] = scope;
 
-			if (conditional) {
-				if (!object) {
-					const array = expression.map((value, i) => {
-						value = value.trim();
-
-						if (i) {
-							if (!isNaN(value) && value) {
-								return Number(value);
-							} else if (value === 'true') {
-								return true;
-							} else if (value === 'false') {
-								return false;
-							}
-						}
-
-						return value;
-					});
-
-					const value = evaluate([array], state, scope);
-
-					if (Array.isArray(value)) {
-						states.push(...value);
-						iterate = true;
-					} else if (value) {
-						states.push(expression.length > 1 ? undefined : value);
-					}
-				}
-
-				if (expression.length === 1) {
-					key += `${expression[0]}.`;
-				}
-
-				while (node) {
-					if (!node.getAttribute) {
-						break;
-					}
-
-					const id = node.getAttribute('data--');
-
-					if (!regex.test(id)) {
-						break;
-					}
-
-					iterate = iterate || id.indexOf('-') !== -1;
-					children.push(node);
-					node = node.nextSibling;
-				}
-			} else {
-				if (!object) {
-					states.push(undefined);
-				}
-
-				if (node) {
-					children.push(node);
-					node = node.nextSibling;
-				}
+			if (element) {
+				node = child;
 			}
 
-			states.forEach((item, iteration) => {
-				const id = `${index}${iterate ? `-${iteration}` : ''}`;
-				let child = children.shift();
-				
-				if (conditional && item !== undefined) {
-					item = { ...state, '': item };
-				} else {
-					item = state;
-				}
-
-				if (!generate && !child) {
-					if (tag) {
-						child = document.createElement(tag);
-						child.setAttribute('data--', id);
-
-						if (classes.length) {
-							child.className = classes.join(' ');
-						}
-					} else {
-						child = document.createTextNode('');
-					}
-
-					if (node) {
-						element.insertBefore(child, node);
-					} else {
-						element.appendChild(child);
-					}
-				}
-
-				iteration = iterate ? `${key}${iteration}.` : key;
-				child = traverse(template, item, iteration, child, object);
-
-				if (generate && child !== undefined) {
-					if (conditional) {
-						child = String(child).replace(/<[a-z]+/, match => {
-							return `${match} data--="${id}"`;
-						});
-					}
-
-					markup += child;
-				}
-			});
-
-			if (object) {
-				children.forEach((child, iteration) => {
-					iteration = iterate ? `${key}${iteration}.` : key;
-					traverse(template, state, iteration, child, object);
-				});
-			} else {
-				children.forEach(child => element.removeChild(child));
-			}
-		});
-
-		if (generate) {
-			markup += `</${tag}>`;
-		}
+			return element ? '' : child;
+		}).join('')}</${tag}>`;
 	}
 
-	return generate ? markup : object;
+	if (update) {
+		return state;
+	}
+	
+	return element || markup;
 }

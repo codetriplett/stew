@@ -1,5 +1,5 @@
 export function fetch (query, state, candidate, remainder) {
-	if (remainder === null) {
+	if (remainder === null || candidate && remainder === '') {
 		return remainder;
 	} else if (typeof query === 'string') {
 		if (remainder === undefined) {

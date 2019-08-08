@@ -1,231 +1,125 @@
+import { parse } from '../parse';
 import { traverse } from '../traverse'
 
-const setAttribute = jest.fn();
-const toggleAttribute = jest.fn();
-const insertBefore = jest.fn();
-const appendChild = jest.fn();
-const removeChild = jest.fn();
-
-function _ (string, object, array = []) {
-	if (!object) {
-		return { nodeValue: string };
-	}
-
-	array.forEach((item, i) => item.nextSibling = array[i + 1]);
-
-	return {
-		getAttribute: name => object[name],
-		hasAttribute: name => object.hasOwnProperty(name),
-		tagName: string,
-		childNodes: array,
-		nodeValue: null,
-		setAttribute,
-		toggleAttribute,
-		insertBefore,
-		appendChild,
-		removeChild
-	};
-}
-
 describe('traverse', () => {
-	it('should return a given string', () => {
-		const actual = traverse(['value'], [{}]);
-		expect(actual).toBe('value');
-	});
-
-	it('should join string and variable', () => {
-		const actual = traverse(['a:', ['b']], { b: 'beta' });
-		expect(actual).toBe('a:beta');
-	});
-
-	it('should extract string and variable', () => {
-		const object = {};
-		const actual = traverse(['a:', ['b']], {}, '', 'a:beta', object);
-		
-		expect(object).toEqual({ b: 'beta' });
-		expect(actual).toBe('a:beta');
-	});
-
 	describe('generate', () => {
-		it('should generate a self closing tag', () => {
-			const actual = traverse(
-				{ attribute: 'value', '': ['tag'] }
+		let state;
+
+		beforeEach(() => {
+			state = { value: 'string' };
+			state[''] = state;
+		});
+
+		it('renders attributes', () => {
+			const template = parse('<img class="value" attribute={value}>');
+			const actual = traverse(template, state);
+
+			expect(actual).toBe('<img attribute="string" class="value ">');;
+		});
+		
+		it('renders content', () => {
+			const template = parse('<div>({value})</>');
+			const actual = traverse(template, state);
+
+			expect(actual).toBe('<div>(string)</div>');;
+		});
+		
+		it('renders children', () => {
+			const template = parse('<div>(<span>{value}</span>)</>');
+			const actual = traverse(template, state);
+
+			expect(actual).toBe('<div>(<span>string</span>)</div>');
+		});
+		
+		it('renders conditional element', () => {
+			const template = parse('<div {value}>{}</>');
+			const actual = traverse(template, state, 0);
+
+			expect(actual).toBe('<div data--"0">string</div>');
+		});
+		
+		it('ignores conditional element', () => {
+			const template = parse('<div {other}>{}</>');
+			const actual = traverse(template, state, 0);
+
+			expect(actual).toBe('');
+		});
+		
+		it('renders iteration', () => {
+			state = { value: ['one', 'two'], '': state.value, '.': 0 };
+
+			const template = parse('<div {value}>{}</>');
+			const actual = traverse(template, state, '0-0');
+
+			expect(actual).toBe('<div data--"0-0">string</div>');
+		});
+		
+		it('renders all iterations', () => {
+			state.value = ['one', 'two'];
+
+			const template = parse('<div {value}>{}</>');
+			const actual = traverse(template, state, 0);
+
+			expect(actual).toBe(
+				'<div data--"0-0">one</div><div data--"0-1">two</div>'
 			);
-
-			expect(actual).toBe('<tag attribute="value">');
 		});
 
-		it('should render container tag', () => {
-			const actual = traverse(
-				{ attribute: 'value', '': ['tag', []] }
-			);
+		it('renders something more complicated', () => {
+			state = {
+				headline: 'Headline',
+				stories: [
+					{
+						highlight: true,
+						title: 'First',
+						media: {
+							image: 'first.jpg',
+							alt: 'f',
+							caption: 'first'
+						},
+						description: 'First.'
+					},
+					{
+						title: 'Second',
+						description: 'Second.'
+					}
+				]
+			};
+			state[''] = state;
 
-			expect(actual).toBe('<tag attribute="value"></tag>');
-		});
+			const template = parse(`
+				<div class="container">
+					<h1>{headline}</h1>
+					<div {stories} class="story "{highlight true}"highlighted">
+						<h2>{title}</h2>
+						<div {media}>
+							<img src="http://domain.com/"{image} alt=""{alt}>
+							<p>name: {caption}</p>
+						</div>
+						<p>{description}</p>
+					</>
+				</>
+			`);
 
-		it('should render dynamic attribute', () => {
-			const actual = traverse(
-				{ attribute: ['(', ['string'], ')'], '': ['tag'] },
-				{ string: 'dynamic' }
-			);
-	
-			expect(actual).toBe('<tag attribute="(dynamic)">');
-		});
-
-		it('should use the current index in string', () => {
-			const actual = traverse(
-				{ '': ['container', { '': ['tag array', [['.']]] }] },
-				{ array: [1, 2, 3] }
-			);
-	
-			expect(actual).toBe([
-				'<container>',
-					'<tag data--="0-0">0</tag>',
-					'<tag data--="0-1">1</tag>',
-					'<tag data--="0-2">2</tag>',
-				'</container>'
-			].join(''));
-		});
-
-		it('should render children', () => {
-			const actual = traverse({ '': ['container',
-				'static',
-				{ attribute: ['(', ['string'], ')'], '': ['tag'] },
-				['(', ['string'], ')']
-			] }, { string: 'dynamic' });
-	
-			expect(actual).toBe([
-				'<container>',
-					'static',
-					'<tag attribute="(dynamic)">',
-					'(dynamic)',
-				'</container>'
-			].join(''));
-		});
-
-		it('should render scoped children', () => {
-			const actual = traverse({ '': ['container',
-				{ attribute: ['(', [''], ')'], '': ['tag missing'] },
-				{ attribute: ['(', [''], ')'], '': ['tag string'] },
-				{ attribute: ['(', ['value'], ')'], '': ['tag object'] },
-				{ attribute: ['(', [''], ')'], '': ['tag empty'] },
-				{ attribute: ['(', [''], ')'], '': ['tag array'] },
-			] }, {
-				empty: [],
-				string: 'string',
-				object: { value: 'object' },
-				array: ['first', 'second']
-			});
-	
-			expect(actual).toBe([
-				'<container>',
-					'<tag data--="1" attribute="(string)">',
-					'<tag data--="2" attribute="(object)">',
-					'<tag data--="4-0" attribute="(first)">',
-					'<tag data--="4-1" attribute="(second)">',
-				'</container>'
-			].join(''));
-		});
-
-		it('should render conditional child', () => {
-			const actual = traverse({ '': ['container',
-				{ attribute: ['(', ['string'], ')'], '': ['tag valid true'] }
-			] }, {
-				string: 'string',
-				valid: true
-			});
-	
-			expect(actual).toBe([
-				'<container>',
-					'<tag data--="0" attribute="(string)">',
-				'</container>'
-			].join(''));
-		});
-
-		it('should render with index conditions', () => {
-			const actual = traverse({ '': ['div', {
-				class: [['.', 0], 'f', ['.', -1], 'l', ['.i', '.'], 'a'],
-				'': ['div.p a', [['']]] }
-			] }, {
-				a: ['first', 'second', 'third'],
-				i: 2
-			});
+			const actual = traverse(template, state);
 
 			expect(actual).toBe([
-				'<div>',
-					'<div data--="0-0" class="p f">first</div>',
-					'<div data--="0-1" class="p ">second</div>',
-					'<div data--="0-2" class="p la">third</div>',
+				'<div class="container ">',
+					'<h1>Headline</h1>',
+					'<div data--"1-0" class="story highlighted">',
+						'<h2>First</h2>',
+						'<div data--"1">',
+							'<img alt="f" src="http://domain.com/first.jpg">',
+							'<p>name: first</p>',
+						'</div>',
+						'<p>First.</p>',
+					'</div>',
+					'<div data--"1-1" class="story ">',
+						'<h2>Second</h2>',
+						'<p>Second.</p>',
+					'</div>',
 				'</div>'
 			].join(''));
-		});
-	});
-
-	describe('extract', () => {
-		let object;
-		
-		beforeEach(() => {
-			object = {};
-		});
-
-		it('should extract from attribute', () => {
-			traverse(
-				{ attribute: [['string']], '': ['div'] },
-				{},
-				'',
-				_('tag', { attribute: 'old' }),
-				object
-			);
-	
-			expect(object).toEqual({ string: 'old' });
-		});
-		
-		it('should extract from children', () => {
-			const element = _('div', {}, [
-				_('first'),
-				_('hr', { attribute: '(second)' }),
-				_('(third)')
-			]);
-
-			traverse({ '': ['div',
-				['static'],
-				{ attribute: ['(', ['attribute'], ')'], '': ['hr'] },
-				['(', ['content'], ')']
-			] }, {}, '', element, object);
-	
-			expect(object).toEqual({
-				attribute: 'second',
-				content: 'third'
-			});
-		});
-
-		it('should extract with index conditions', () => {
-			const element = _('div', {}, [
-				_('div', { 'data--': '0-0', class: 'p f' }, [_('first')]),
-				_('div', { 'data--': '0-1', class: 'p ' }, [_('second')]),
-				_('div', { 'data--': '0-2', class: 'p la' }, [_('third')]),
-			]);
-
-			traverse({ '': ['div', {
-				class: [['.', 0], 'f', ['.', -1], 'l', ['.i', '.'], 'a'],
-				'': ['div.p a', [['']]] }
-			] }, {}, '', element, object);
-
-			expect(object).toEqual({
-				'a.0': 'first',
-				'a.1': 'second',
-				'a.2': 'third',
-				i: 2
-			});
-
-			const [first, second, third] = element.childNodes;
-
-			expect(first.getAttribute('class')).toBe('p f');
-			expect(first.childNodes[0].nodeValue).toBe('first');
-			expect(second.getAttribute('class')).toBe('p ');
-			expect(second.childNodes[0].nodeValue).toBe('second');
-			expect(third.getAttribute('class')).toBe('p la');
-			expect(third.childNodes[0].nodeValue).toBe('third');
 		});
 	});
 });

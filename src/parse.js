@@ -62,7 +62,7 @@ export function parse (markup, children) {
 							return value.slice(1);
 						}
 
-						return i ? value : `.${value}`;
+						return i || !value ? value : `.${value}`;
 					}));
 
 					break;
@@ -169,21 +169,23 @@ export function parse (markup, children) {
 	}
 
 	result = result.map((item, i) => {
-		if (Array.isArray(item)) {
-			item = item.map(value => {
-				if (typeof value === 'string') {
-					value = value.replace(/\s+/g, ' ');
-				}
-
-				return value;
-			}).filter(value => value);
-
-			if (!item.length) {
-				return;
-			}
+		if (!Array.isArray(item)) {
+			return item;
 		}
 
-		return item;
+		item = item.map(value => {
+			if (typeof value !== 'string') {
+				return value;
+			}
+
+			return value
+				.replace(/^[\n\r\t]+|[\n\r\t]+$/g, '')
+				.replace(/\s+/g, ' ');
+		}).filter(value => value);
+
+		if (item.length) {
+			return item;
+		}
 	}).filter(item => item);
 
 	if (children) {

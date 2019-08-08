@@ -36,6 +36,18 @@ describe('evaluate', () => {
 			const actual = evaluate(template, state, 'onclick');
 			expect(actual).toBe('');
 		});
+		
+		it('forms something more complicated', () => {
+			const template = [
+				'prefix ',
+				['value', 'string'], 'suffix',
+				['value', 'other'], 'extra'
+			];
+
+			const actual = evaluate(template, state);
+			
+			expect(actual).toBe('prefix suffix');
+		});
 	});
 
 	describe('hydrate', () => {
@@ -98,6 +110,20 @@ describe('evaluate', () => {
 			);
 			
 			expect(state).toEqual({});
+		});
+		
+		it('extracts something more complicated', () => {
+			const template = [
+				'prefix ',
+				['value', 'string'], 'suffix',
+				['value', 'other'], 'extra'
+			];
+
+			element.nodeValue = 'prefix suffix';
+
+			evaluate(template, state, '', element, update);
+			
+			expect(state).toEqual({ value: 'string' });
 		});
 	});
 

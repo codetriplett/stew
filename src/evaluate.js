@@ -42,6 +42,8 @@ export function evaluate (expression, state, name = '', element, update) {
 			continue;
 		} else if (typeof final === 'boolean' && !compare) {
 			final = String(final);
+		} else if (final === false && candidate !== undefined) {
+			final = '';
 		}
 
 		values.push(final);
