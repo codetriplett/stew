@@ -1,217 +1,149 @@
+import $, { mock } from './mock';
 import { evaluate } from '../evaluate';
 
 describe('evaluate', () => {
 	describe('generate', () => {
-		let template;
-		let state;
-
-		beforeEach(() => {
-			template = [['value']];
-			state = { value: 'string' };
-		});
-
 		it('forms content', () => {
-			const actual = evaluate(template, state);
-			expect(actual).toBe('string');
+			const actual = evaluate($('({x})'), $({ x: 'y' }));
+			expect(actual).toBe('(y)');
 		});
 
 		it('forms attribute', () => {
-			const actual = evaluate(template, state, 'attribute');
-			expect(actual).toBe(' attribute="string"');
+			const actual = evaluate($('({x})'), $({ x: 'y' }), 'z');
+			expect(actual).toBe(' z="(y)"');
+		});
+
+		it('cleans class attribute', () => {
+			const actual = evaluate($(' a {x y} b '), $({ x: 'y' }), 'class');
+			expect(actual).toBe(' class="a b"');
 		});
 
 		it('forms flag', () => {
-			template[0].push('string');
-			const actual = evaluate(template, state, 'attribute');
-			expect(actual).toBe(' attribute');
+			const actual = evaluate($('{x y}'), $({ x: 'y' }), 'z');
+			expect(actual).toBe(' z');
 		});
 
 		it('clears attribute', () => {
-			template = ['string', ['value', 'other']];
-			const actual = evaluate(template, state, 'attribute');
+			const actual = evaluate($('a{x Y}'), $({ x: 'y' }), 'z');
 			expect(actual).toBe('');
 		});
 		
 		it('ignores action', () => {
-			const actual = evaluate(template, state, 'onclick');
+			const actual = evaluate($('{x}'), $({ x: () => {} }), 'onclick');
 			expect(actual).toBe('');
 		});
 		
 		it('forms something more complicated', () => {
-			const template = [
-				'prefix ',
-				['value', 'string'], 'suffix',
-				['value', 'other'], 'extra'
-			];
-
-			const actual = evaluate(template, state);
-			
-			expect(actual).toBe('prefix suffix');
+			const actual = evaluate($('a {x y}b{X Y}B'), $({ x: 'y' }));
+			expect(actual).toBe('a b');
 		});
 	});
 
 	describe('hydrate', () => {
-		const addEventListener = jest.fn();
 		const update = jest.fn();
-		let template;
 		let state;
-		let element;
 
 		beforeEach(() => {
-			addEventListener.mockClear();
 			update.mockClear();
-			template = [['value']];
-			state = {};
-
-			element = {
-				nodeValue: 'content',
-				getAttribute: name => name === 'flag' ? '' : name,
-				addEventListener
-			};
+			state = $({});
 		});
 
 		it('extracts content', () => {
-			evaluate(template, state, '', element, update);
-			expect(state).toEqual({ value: 'content' });
+			const element = $('y');
+			const actual = evaluate($('{x}'), state, '', element, update);
+
+			expect(state).toEqual($({ x: 'y' }));
+			expect(actual).toBe(element)
+		});
+
+		it('extracts literal content', () => {
+			const element = $('y');
+			const actual = evaluate($('{}'), state, '', element, update);
+
+			expect(state).toEqual({ '': 'y' });
+			expect(actual).toBe(element);
 		});
 
 		it('extracts attribute', () => {
-			evaluate(template, state, 'attribute', element, update);
-			expect(state).toEqual({ value: 'attribute' });
+			evaluate($('{x}'), state, 'z', $('div', { z: 'y' }), update);
+			expect(state).toEqual($({ x: 'y' }));
 		});
 
 		it('ignores missing attribute', () => {
-			element.getAttribute = () => '';
-			evaluate(template, state, 'attribute', element, update);
-			expect(state).toEqual({});
+			evaluate($('{x}'), state, 'z', $('div', {}), update);
+			expect(state).toEqual($({}));
 		});
 
 		it('extracts flag', () => {
-			template[0].push('flag');
-			element.getAttribute = () => '';
-			evaluate(template, state, 'flag', element, update);
-
-			expect(state).toEqual({ value: 'flag' });
+			evaluate($('{x y}'), state, 'z', $('div', { z: '' }), update);
+			expect(state).toEqual($({ x: 'y' }));
 		});
 
 		it('ignores missing flag', () => {
-			template = ['string', ['value', 'flag']];
-			element.getAttribute = () => null;
-			evaluate(template, state, 'flag', element);
-
-			expect(state).toEqual({});
+			evaluate($('{x y}'), state, 'z', $('div', {}), update);
+			expect(state).toEqual($({}));
 		});
 		
 		it('sets action', () => {
-			evaluate(template, state, 'onclick', element, update);
+			evaluate($('{x}'), state, 'onclick', $('div', {}), update);
 
-			expect(addEventListener).toHaveBeenCalledWith(
-				'click', expect.any(Function)
-			);
+			expect(mock.mock.calls).toEqual([
+				['div', 'listen', 'click', expect.any(Function)]
+			]);
 			
-			expect(state).toEqual({});
+			expect(state).toEqual($({}));
 		});
 		
 		it('extracts something more complicated', () => {
-			const template = [
-				'prefix ',
-				['value', 'string'], 'suffix',
-				['value', 'other'], 'extra'
-			];
-
-			element.nodeValue = 'prefix suffix';
-
-			evaluate(template, state, '', element, update);
-			
-			expect(state).toEqual({ value: 'string' });
+			evaluate($('a {x y}b{x Y}c'), state, '', $('a b'), update);
+			expect(state).toEqual($({ x: 'y' }));
 		});
 	});
 
 	describe('update', () => {
-		const setNodeValue = jest.fn();
-		const addEventListener = jest.fn();
-		const toggleAttribute = jest.fn();
-		const removeAttribute = jest.fn();
-		const setAttribute = jest.fn();
-		let template;
-		let state;
-		let element;
-
-		beforeEach(() => {
-			setNodeValue.mockClear();
-			addEventListener.mockClear();
-			toggleAttribute.mockClear();
-			removeAttribute.mockClear();
-			setAttribute.mockClear();
-			template = [['value']];
-			state = { value: 'string' };
-
-			element = {
-				getAttribute: name => name === 'flag' ? '' : name,
-				addEventListener,
-				toggleAttribute,
-				removeAttribute,
-				setAttribute
-			};
-
-			Object.defineProperty(element, 'nodeValue', {
-				get: () => 'content',
-				set: value => setNodeValue(value)
-			});
-		});
-
 		it('updates content', () => {
-			evaluate(template, state, '', element);
-			expect(setNodeValue).toHaveBeenCalledWith('string');
+			evaluate($('{x}'), $({ x: 'Y' }), '', $('y'));
+			expect(mock.mock.calls).toEqual([['y', 'nodeValue', 'Y']]);
 		});
 
 		it('ignores content', () => {
-			state.value = 'content';
-			evaluate(template, state, '', element);
-			expect(setNodeValue).not.toHaveBeenCalled();
+			evaluate($('{x}'), $({ x: 'y' }), '', $('y'));
+			expect(mock).not.toHaveBeenCalled();
 		});
 
 		it('updates attribute', () => {
-			evaluate(template, state, 'attribute', element);
-			expect(setAttribute).toHaveBeenCalledWith('attribute', 'string');
+			evaluate($('{x}'), $({ x: 'Y' }), 'z', $('div', { z: 'y' }));
+			expect(mock.mock.calls).toEqual([['div', 'set', 'z', 'Y']]);
 		});
 
 		it('ignores attribute', () => {
-			element.getAttribute = () => 'attribute';
-			evaluate(template, state, 'attribute', element);
-			expect(setAttribute).toHaveBeenCalledWith('attribute', 'string');
+			evaluate($('{x}'), $({ x: 'y' }), 'z', $('div', { z: 'y' }));
+			expect(mock).not.toHaveBeenCalled();
 		});
 
 		it('sets flag', () => {
-			element.getAttribute = () => null;
-			template[0].push('string');
-			evaluate(template, state, 'flag', element);
-
-			expect(toggleAttribute).toHaveBeenCalledWith('flag', true);
+			evaluate($('{x y}'), $({ x: 'y' }), 'z', $('div', {}));
+			expect(mock.mock.calls).toEqual([['div', 'toggle', 'z', true]]);
 		});
 
 		it('does not set flag', () => {
-			template[0].push('string');
-			evaluate(template, state, 'flag', element);
-			expect(toggleAttribute).not.toHaveBeenCalled();
+			evaluate($('{x y}'), $({ x: 'y' }), 'z', $('div', { z: '' }));
+			expect(mock).not.toHaveBeenCalled();
 		});
 
 		it('clears flag', () => {
-			template[0].push('other');
-			evaluate(template, state, 'flag', element);
-			expect(removeAttribute).toHaveBeenCalledWith('flag');
+			evaluate($('{x y}'), $({ x: 'Y' }), 'z', $('div', { z: '' }));
+			expect(mock.mock.calls).toEqual([['div', 'remove', 'z']]);
 		});
 
-		it('does not clear flag', () => {
-			element.getAttribute = () => null;
-			template[0].push('other');
-			evaluate(template, state, 'flag', element);
-			expect(removeAttribute).not.toHaveBeenCalled();
+		it('clears flag', () => {
+			evaluate($('{x y}'), $({ x: 'Y' }), 'z', $('div', {}));
+			expect(mock).not.toHaveBeenCalled();
 		});
 		
 		it('ignores action', () => {
-			evaluate(template, state, 'onclick', element);
-			expect(addEventListener).not.toHaveBeenCalled();
+			evaluate($('{x}'), $({}), 'onclick', $('div', {}));
+			expect(mock).not.toHaveBeenCalled();
 		});
 	});
 });

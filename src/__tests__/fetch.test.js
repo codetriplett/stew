@@ -76,17 +76,24 @@ describe('fetch', () => {
 			expect(actual).toBe('after');
 		});
 
-		it('extracts literal state', () => {
+		it('extracts string property at the end', () => {
+			const actual = fetch(['value'], state, undefined, 'string');
+
+			expect(state).toEqual({ value: 'string' });
+			expect(actual).toBe('');
+		});
+
+		it('extracts literal property before another', () => {
 			const actual = fetch([''], state, 'after', 'stringafter');
 
 			expect(state).toEqual({ '': 'string' });
 			expect(actual).toBe('after');
 		});
 
-		it('extracts string property at the end', () => {
-			const actual = fetch(['value'], state, '', 'string');
+		it('extracts literal property at the end', () => {
+			const actual = fetch([''], state, undefined, 'string');
 
-			expect(state).toEqual({ value: 'string' });
+			expect(state).toEqual({ '': 'string' });
 			expect(actual).toBe('');
 		});
 

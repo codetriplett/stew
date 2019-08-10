@@ -58,14 +58,18 @@ export function evaluate (expression, state, name = '', element, update) {
 			});
 		}
 
-		return;
+		return name ? '' : element;
 	}
 
 	const strings = values.filter(value => {
 		return /^(number|string)$/.test(typeof value);
 	});
 
-	const value = final === false ? null : strings.join('');
+	let value = final === false ? null : strings.join('');
+
+	if (name === 'class') {
+		value = value.trim().replace(/\s+/, ' ');
+	}
 
 	if (!element) {
 		if (!name) {
@@ -88,4 +92,6 @@ export function evaluate (expression, state, name = '', element, update) {
 			element.setAttribute(name, value);
 		}
 	}
+
+	return name ? '' : element;
 }
