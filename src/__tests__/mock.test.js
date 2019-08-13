@@ -1,4 +1,4 @@
-import $ from './mock';
+import $ from '../mock';
 
 describe('mock', () => {
 	it('should prepare state', () => {
@@ -15,7 +15,13 @@ describe('mock', () => {
 
 	it('should prepare state with iteration', () => {
 		const actual = $({ value: ['one', 'two'] }, 'value.1');
-		expect(actual).toEqual({ '': 'two', '.': 1, value: ['one', 'two'] });
+		
+		expect(actual).toEqual({
+			'': 'two',
+			'.': 1,
+			'..': 2,
+			value: ['one', 'two']
+		});
 	});
 
 	it('should prepare expression', () => {

@@ -1,5 +1,4 @@
-import { parse } from '../parse';
-import { fetch } from '../fetch';
+import { parse } from './parse';
 
 export const mock = jest.fn();
 
@@ -8,15 +7,21 @@ export default function (string, ...objects) {
 		string[''] = string;
 
 		if (objects.length) {
-			string[''] = fetch(objects, string);
+			string[''] = objects[0].split('.').reduce((object, key) => {
+				if (key && !isNaN(key)) {
+					string['.'] = Number(key);
+				}
 
-			const index = objects[0].split('.').reverse().find(value => {
-				return value && !isNaN(value);
-			});
+				if (object.hasOwnProperty(key)) {
+					object = object[key];
+				}
 
-			if (index) {
-				string['.'] = Number(index);
-			}
+				if (Array.isArray(object)) {
+					string['..'] = object.length;
+				}
+
+				return object;
+			}, string);
 		}
 
 		return string;

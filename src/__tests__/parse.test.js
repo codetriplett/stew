@@ -3,7 +3,7 @@ import { parse } from '../parse';
 describe('parse', () => {
 	it('should parse static text', () => {
 		const actual = parse('value');
-		expect(actual).toEqual(['value']);
+		expect(actual).toEqual('value');
 	});
 
 	it('should parse dynamic text', () => {
@@ -52,7 +52,7 @@ describe('parse', () => {
 
 		expect(actual).toEqual({
 			src: ['http://', ['.domain'], '.com'],
-			alt: [],
+			alt: '',
 			'': ['img']
 		});
 	});
@@ -70,7 +70,7 @@ describe('parse', () => {
 			'': ['div',
 				{ '': ['img'] },
 				{ '': ['img'] },
-				[' '],
+				' ',
 				{ '': ['img'] },
 				{ '': ['img'] }
 			]
@@ -85,6 +85,11 @@ describe('parse', () => {
 	it('should parse without variable', () => {
 		const actual = parse('<img src="http://image.com">');
 		expect(actual.src).toBe('http://image.com');
+	});
+
+	it('should parse empty attribute', () => {
+		const actual = parse('<img src="">');
+		expect(actual.src).toBe('');
 	});
 
 	it('should add static classes to selector', () => {
@@ -135,7 +140,12 @@ describe('parse', () => {
 		expect(actual).toEqual({ '': ['img.static .value'] });
 	});
 
-	it('should parse content', () => {
+	it('should parse static content', () => {
+		const actual = parse('<div>value</div>');
+		expect(actual).toEqual({ '': ['div', 'value'] });
+	});
+
+	it('should parse dynamic content', () => {
 		const actual = parse('<div>({value})</div>');
 		expect(actual).toEqual({ '': ['div', ['(', ['.value'], ')']] });
 	});
@@ -146,7 +156,7 @@ describe('parse', () => {
 			bottom
 			</div>`);
 
-		expect(actual).toEqual({ '': ['div', ['top bottom']] });
+		expect(actual).toEqual({ '': ['div', 'top bottom'] });
 	});
 
 	it('should parse empty container', () => {
@@ -159,11 +169,11 @@ describe('parse', () => {
 
 		expect(actual['']).toEqual([
 			'div',
-			['('],
+			'(',
 			{ src: 'a', '': ['img'] },
-			[' '],
+			' ',
 			{ src: 'b', '': ['img'] },
-			[')']
+			')'
 		]);
 	});
 });

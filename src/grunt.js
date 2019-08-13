@@ -26,7 +26,7 @@ export function grunt (grunt) {
 		}
 
 		for (const destination in files) {
-			const template = parse(grunt.file.read(files[destination]))[0];
+			const template = parse(grunt.file.read(files[destination]));
 
 			const file = [
 				'(function(t){',

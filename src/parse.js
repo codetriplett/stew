@@ -25,7 +25,7 @@ export function parse (markup, children) {
 
 		const index = markup.search(new RegExp(`${pattern}|$`));
 
-		if (!object || index && symbol && symbol !== '}') {
+		if (!object || symbol === '{' || index && symbol && symbol !== '}') {
 			const string = markup.slice(0, index);
 
 			switch (symbol) {
@@ -58,6 +58,8 @@ export function parse (markup, children) {
 							return true;
 						} else if (value === 'false') {
 							return false;
+						} else if (value === '.') {
+							return value;
 						} else if (value.startsWith('.')) {
 							return value.slice(1);
 						}
@@ -115,8 +117,8 @@ export function parse (markup, children) {
 			let array = object[key];
 			
 			if (key !== 'class') {
-				if (array.length === 1 && typeof array[0] === 'string') {
-					object[key] = array[0];
+				if (array.length < 2 && !Array.isArray(array[0])) {
+					object[key] = array[0] || '';
 				}
 
 				continue;
@@ -183,7 +185,9 @@ export function parse (markup, children) {
 				.replace(/\s+/g, ' ');
 		}).filter(value => value);
 
-		if (item.length) {
+		if (item.length < 2 && !Array.isArray(item[0])) {
+			return item[0];
+		} else if (item.length) {
 			return item;
 		}
 	}).filter(item => item);
