@@ -3,19 +3,39 @@ import { traverse } from '../traverse'
 
 describe('traverse', () => {
 	describe('generate', () => {
-		it('should render self closing tag', () => {
-			const actual = traverse($('<img>'));
-			expect(actual).toBe('<img>');
-		});
+		describe('static', () => {
+			it('content', () => {
+				const actual = traverse('content');
+				expect(actual).toBe('content');
+			});
 
-		it('should attributes', () => {
-			const actual = traverse($('<img src="image.jpg" alt="">'));
-			expect(actual).toBe('<img alt="" src="image.jpg">');
-		});
+			it('leaf', () => {
+				const template = $('<img>');
+				const actual = traverse(template);
 
-		it('should render content', () => {
-			const actual = traverse($('<div>before<img>after</>'));
-			expect(actual).toBe('<div>before<img>after</div>');
+				expect(actual).toBe('<img>');
+			});
+
+			it('attributes', () => {
+				const template = $('<img src="image.jpg" alt="">');
+				const actual = traverse(template);
+
+				expect(actual).toBe('<img alt="" src="image.jpg">');
+			});
+
+			it('class', () => {
+				const template = $('<img class="before after">');
+				const actual = traverse(template);
+
+				expect(actual).toBe('<img class="before after">');
+			});
+
+			it('container', () => {
+				const template = $('<div>before<img>after</>');
+				const actual = traverse(template);
+				
+				expect(actual).toBe('<div>before<img>after</div>');
+			});
 		});
 	});
 });

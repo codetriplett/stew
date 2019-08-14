@@ -19,24 +19,20 @@ module.exports = function (grunt) {
 	grunt.initConfig({
 		pkg: grunt.file.readJSON('package.json'),
 		babel: {
-			stew: {
+			main: {
 				files: {
 					'dist/stew.min.js': 'dist/stew.min.js',
 					'lib/parse.js': 'src/parse.js',
 					'lib/grunt.js': 'src/grunt.js',
+					'lib/fetch.js': 'src/fetch.js',
 					'lib/evaluate.js': 'src/evaluate.js',
 					'lib/traverse.js': 'src/traverse.js',
 					'lib/stew.js': 'lib/stew.js',
 				}
-			},
-			preview: {
-				files: {
-					'preview/preview.min.js': 'preview/preview.min.js'
-				}
 			}
 		},
 		uglify: {
-			stew: {
+			main: {
 				options: {
 					banner: [
 						'/*! ',
@@ -47,11 +43,6 @@ module.exports = function (grunt) {
 				},
 				files: {
 					'dist/stew.min.js': 'dist/stew.min.js'
-				}
-			},
-			preview: {
-				files: {
-					'preview/preview.min.js': 'preview/preview.min.js'
 				}
 			}
 		},
@@ -74,6 +65,7 @@ module.exports = function (grunt) {
 	grunt.registerTask('before', () => {
 		merge('./dist/stew.min.js', [
 			'./src/parse.js',
+			'./src/fetch.js',
 			'./src/evaluate.js',
 			'./src/traverse.js',
 			'./src/stew.js',
@@ -104,28 +96,11 @@ module.exports = function (grunt) {
 	
 	stew.grunt(grunt);
 
-	grunt.registerTask('preview', function () {
-		merge('./preview/preview.min.js', [
-			'./preview/carousel.js',
-			'./preview/accordion.js',
-			'./preview/preview.js',
-		], (file, name) => {
-			if (name === 'preview') {
-				return file;
-			}
-			
-			return `const ${name} = ${file}`;
-		});
-	});
-
 	grunt.registerTask('default', [
 		'before',
-		'babel:stew',
+		'babel',
 		'after',
-		'uglify:stew',
+		'uglify',
 		'stew',
-		'preview',
-		'babel:preview',
-		'uglify:preview'
 	]);
 };

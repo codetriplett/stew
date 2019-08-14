@@ -92,6 +92,11 @@ describe('parse', () => {
 		expect(actual.src).toBe('');
 	});
 
+	it('should parse boolean attribute', () => {
+		const actual = parse('<input disabled>');
+		expect(actual).toEqual({ '': ['input'], disabled: true });
+	});
+
 	it('should add static classes to selector', () => {
 		const actual = parse('<img class="first before"{value}"after last">');
 
