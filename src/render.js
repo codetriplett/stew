@@ -3,11 +3,6 @@ import { dynamo } from './dynamo';
 export function render (item, state) {
 	const { '': [...children], ...attributes } = item;
 	const names = Object.keys(attributes).sort();
-
-	if (Array.isArray(children[0])) {
-		state = dynamo(state, children.shift());
-	}
-
 	const tag = children.shift();
 
 	const markup = `<${tag}${names.map(name => {
