@@ -1,17 +1,7 @@
-export function clean (result) {
-	const first = result[0];
-	const last = result[result.length - 1];
-	const length = Array.isArray(last) && last.length - 1;
+export function clean (items) {
+	const regex = /^\s+|[\n\r\t]+|\s+$/g;
 
-	if (Array.isArray(first) && typeof first[0] === 'string') {
-		first[0] = first[0].replace(/^\s+/, '');
-	}
-
-	if (length !== false && typeof last[length] === 'string') {
-		last[length] = last[length].replace(/\s+$/, '');
-	}
-
-	return result.map(item => {
+	return items.map(item => {
 		if (!Array.isArray(item)) {
 			return item;
 		}
@@ -21,7 +11,7 @@ export function clean (result) {
 				return value;
 			}
 
-			return value.replace(/\n[\n\r\t]*/g, '').replace(/\s+/g, ' ');
+			return value.replace(regex, '').replace(/\s+/g, ' ');
 		}).filter(value => value);
 
 		if (item.length) {

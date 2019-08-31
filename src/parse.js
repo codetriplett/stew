@@ -1,13 +1,14 @@
 import { clean } from './clean';
 
+const independent = new RegExp([
+	'^(wbr|track|source|param|meta|link|keygen|input',
+	'|img|hr|embed|command|col|br|base|area|!doctype)$'
+].join(''));
+
+const openers = '<{"\'';
+const closers = '>}"\'';
+
 export function parse (markup, children) {
-	const independent = new RegExp([
-		'^(wbr|track|source|param|meta|link|keygen|input',
-		'|img|hr|embed|command|col|br|base|area|!doctype)$'
-	].join(''));
-	
-	const openers = '<{"\'';
-	const closers = '>}"\'';
 	let array = [];
 	let result = [array];
 	let object;
@@ -26,7 +27,7 @@ export function parse (markup, children) {
 
 		const index = markup.search(new RegExp(`${pattern}|$`));
 
-		if (!object || index && symbol && symbol !== '}') {
+		if (!object || symbol === '"' || symbol && index) {
 			const string = markup.slice(0, index);
 
 			switch (symbol) {
@@ -39,10 +40,12 @@ export function parse (markup, children) {
 					array = [];
 
 					if (index === -1) {
-						object[string] = true;
+						object[string] = [true];
 					} else {
-						const value = string.slice(index + 1);
-						object[string.slice(0, index)] = value || array;
+						const value = string.slice(index + 1).trim();
+
+						value && array.push(value);
+						object[string.slice(0, index)] = array;
 					}
 					
 					break;
@@ -99,7 +102,7 @@ export function parse (markup, children) {
 		object = undefined;
 	}
 
-	result = clean(result);
+	result = clean(result).flat();
 
 	if (children) {
 		children.push(...result);

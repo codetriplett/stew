@@ -1,23 +1,40 @@
 import stew from '../stew';
 
 describe('stew', () => {
-	it('generates html', () => {
-		const actual = stew({
-			'': ['div',
-				'(',
-				{ '': ['img'], src: ['(', ['string'], ')'], alt: '' },
-				{ '': ['span', '(', ['string'], ')'] },
-				')'
-			]
-		}, { string: 'abc' });
+	const markup = `
+		<div>
+			(
+				<img src="("{string}")" alt="">
+				<span>({string})</span>
+			)
+		</div>
+	`;
 
-		expect(actual).toBe([
-			'<div>',
-				'(',
-				'<img alt="" src="(abc)">',
-				'<span>(abc)</span>',
-				')',
-			'</div>'
-		].join(''));
+	const template = {
+		'': ['div',
+			'(',
+			{ '': ['img'], src: ['(', ['string'], ')'], alt: [''] },
+			{ '': ['span', '(', ['string'], ')'] },
+			')'
+		]
+	};
+
+	const html = [
+		'<div>',
+			'(',
+			'<img alt="" src="(abc)">',
+			'<span>(abc)</span>',
+			')',
+		'</div>'
+	].join('');
+
+	it('parses markup', () => {
+		const actual = stew(markup);
+		expect(actual).toEqual(template);
+	});
+
+	it('renders html', () => {
+		const actual = stew(template, { string: 'abc' });
+		expect(actual).toBe(html);
 	});
 });
