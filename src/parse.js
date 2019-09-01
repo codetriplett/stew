@@ -27,7 +27,7 @@ export function parse (markup, children) {
 
 		const index = markup.search(new RegExp(`${pattern}|$`));
 
-		if (!object || symbol === '"' || symbol && index) {
+		if (!object || symbol && symbol !== '}') {
 			const string = markup.slice(0, index);
 
 			switch (symbol) {
@@ -42,9 +42,6 @@ export function parse (markup, children) {
 					if (index === -1) {
 						object[string] = [true];
 					} else {
-						const value = string.slice(index + 1).trim();
-
-						value && array.push(value);
 						object[string.slice(0, index)] = array;
 					}
 					

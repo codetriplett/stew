@@ -10,8 +10,13 @@ describe('clean', () => {
 		const actual = clean([[' ', ' before  after ', ' ']]);
 		expect(actual).toEqual([['before after']]);
 	});
+	
+	it('clears empty attributes', () => {
+		const actual = clean([{ key: [] }]);
+		expect(actual).toEqual([{}]);
+	});
 
-	it('clears empty arrays', () => {
+	it('clears empty children', () => {
 		const actual = clean([
 			[''],
 			{ key: 'before' },

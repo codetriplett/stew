@@ -3,6 +3,12 @@ export function clean (items) {
 
 	return items.map(item => {
 		if (!Array.isArray(item)) {
+			if (typeof item === 'object') {
+				Object.keys(item).forEach(key => {
+					!item[key].length && delete item[key];
+				});
+			}
+
 			return item;
 		}
 

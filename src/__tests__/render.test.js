@@ -1,14 +1,13 @@
 import { dynamo } from '../dynamo';
 import { render } from '../render';
 
-jest.mock('../dynamo');
+jest.mock('../dynamo', () => ({ dynamo: jest.fn() }));
 
 describe('render', () => {
 	const state = {};
 
 	beforeEach(() => {
-		jest.clearAllMocks();
-		dynamo.mockReturnValue('content');
+		dynamo.mockClear().mockReturnValue(['(', 'value', ')']);
 	});
 
 	it('renders tag', () => {
@@ -21,8 +20,8 @@ describe('render', () => {
 			'': ['img'], src: 'value', alt: '', width: ['key']
 		}, state);
 
-		expect(dynamo.mock.calls).toEqual([[state, 'key']]);
-		expect(actual).toBe('<img alt="" src="value" width="content">');
+		expect(dynamo.mock.calls).toEqual([[state, ['key']]]);
+		expect(actual).toBe('<img alt="" src="value" width="(value)">');
 	});
 
 	it('renders children', () => {
@@ -31,9 +30,9 @@ describe('render', () => {
 		}, state);
 
 		expect(dynamo.mock.calls).toEqual([
-			[state, '(', { '': ['p', 'value'] }, ')']
+			[state, ['(', { '': ['p', 'value'] }, ')']]
 		]);
 
-		expect(actual).toBe('<div>content</div>');
+		expect(actual).toBe('<div>(value)</div>');
 	});
 });

@@ -1,16 +1,15 @@
-import { evaluate } from './evaluate';
+import { fetch } from './fetch';
 import { render } from './render';
 
-export function dynamo (state, item, ...items) {
-	if (Array.isArray(item)) {
-		item = evaluate(item, state);
-	} else if (typeof item === 'object') {
-		item = render(item, state);
+export function dynamo (state, [value, ...items], element, update) {
+	const values = items.length ? dynamo(state, items, element, update) : [];
+
+	if (Array.isArray(value)) {
+		fetch(value) && values.shift();
+		value = value && fetch(value, state, element, update);
+	} else if (typeof value === 'object') {
+		value = render(value, state, element, update);
 	}
 
-	if (!items.length) {
-		return item;
-	}
-	
-	return `${item}${dynamo(state, ...items)}`;
+	return value ? [value, ...values] : values;
 }

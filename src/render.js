@@ -9,7 +9,7 @@ export function render (item, state) {
 		let value = attributes[name];
 		
 		if (Array.isArray(value)) {
-			value = dynamo(state, ...value);
+			value = dynamo(state, value).join('');
 		}
 
 		return ` ${name}="${value}"`;
@@ -19,5 +19,7 @@ export function render (item, state) {
 		return markup;
 	}
 
-	return `${markup}${dynamo(state, ...children)}</${tag}>`;
+	const content = dynamo(state, children).join('');
+
+	return `${markup}${content}</${tag}>`;
 }

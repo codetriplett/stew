@@ -12,7 +12,11 @@ export default function (string, ...objects) {
 		object[''] = object;
 
 		return string;
-	} else if (/[{<]/.test(string)) {
+	} else if (/[{]/.test(string)) {
+		const children = [];
+		parse(string, children);
+		return children;
+	} else if (/[<]/.test(string)) {
 		return parse(string);
 	} else if (!objects.length) {
 		const child = document.createTextNode(string);

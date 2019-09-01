@@ -30,11 +30,11 @@ describe('parse', () => {
 	});
 
 	it('parses element', () => {
-		const actual = parse('<img src="http://"{domain}".com" alt="">');
+		const actual = parse('<img src="("{}")" alt="" flag>');
 
 		expect(clean).toHaveBeenCalledWith([
 			[''],
-			{ '': ['img'], src: ['http://', ['domain'], '.com'], alt: [''] },
+			{ '': ['img'], src: ['(', [''], ')'], alt: [''], flag: [true] },
 			[]
 		]);
 
@@ -79,24 +79,12 @@ describe('parse', () => {
 		expect(actual).toBe('clean');
 	});
 
-	it('parses without quotes', () => {
+	it('ignores unwrapped values', () => {
 		const actual = parse('<img src=prefix{value}suffix>');
 
 		expect(clean).toHaveBeenCalledWith([
 			[''],
-			{ '': ['img'], src: ['prefix', ['value'], 'suffix'] },
-			[]
-		]);
-
-		expect(actual).toBe('clean');
-	});
-
-	it('parses without quotes or variables', () => {
-		const actual = parse('<img src=http://image.com>');
-
-		expect(clean).toHaveBeenCalledWith([
-			[''],
-			{ '': ['img'], src: ['http://image.com'] },
+			{ '': ['img'], src: [['value']] },
 			[]
 		]);
 
