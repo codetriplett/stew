@@ -1,15 +1,22 @@
 import { fetch } from './fetch';
 import { render } from './render';
 
-export function dynamo (state, [value, ...items], element, update) {
-	const values = items.length ? dynamo(state, items, element, update) : [];
+export function dynamo ([value, ...values], ...parameters) {
+	values = values.length ? dynamo(values, ...parameters) : [];
 
 	if (Array.isArray(value)) {
-		fetch(value) && values.shift();
-		value = value && fetch(value, state, element, update);
+		const compare = fetch(value);
+		const previous = compare && values.length ? values.shift() : true;
+		const current = previous && fetch(value, ...parameters);
+
+		value = compare ? previous : current;
 	} else if (typeof value === 'object') {
-		value = render(value, state, element, update);
+		value = render(value, ...parameters);
 	}
 
-	return value ? [value, ...values] : values;
+	if (typeof values[0] === 'boolean') {
+		values.shift();
+	}
+
+	return [value, ...values];
 }

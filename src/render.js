@@ -1,25 +1,21 @@
+import { modify } from './modify';
 import { dynamo } from './dynamo';
+import { stitch } from './stitch';
 
-export function render (item, state) {
+export function render (item, state, ...parameters) {
 	const { '': [...children], ...attributes } = item;
 	const names = Object.keys(attributes).sort();
 	const tag = children.shift();
 
 	const markup = `<${tag}${names.map(name => {
-		let value = attributes[name];
-		
-		if (Array.isArray(value)) {
-			value = dynamo(state, value).join('');
-		}
-
-		return ` ${name}="${value}"`;
+		const values = dynamo(attributes[name], state, ...parameters);
+		return modify(values, name, ...parameters);
 	}).join('')}>`;
 
 	if (!children.length) {
 		return markup;
 	}
 
-	const content = dynamo(state, children).join('');
-
-	return `${markup}${content}</${tag}>`;
+	const values = dynamo(children, state, ...parameters);
+	return `${markup}${stitch(values, ...parameters)}</${tag}>`;
 }

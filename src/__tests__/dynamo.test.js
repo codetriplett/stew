@@ -12,7 +12,7 @@ describe('dynamo', () => {
 	const template = { '': ['div'] };
 	const value = 'value';
 	const element = '<element>';
-	const state = {};
+	const parameters = ['first', 'second'];
 
 	beforeEach(() => {
 		fetch.mockClear().mockImplementation((item, state) => {
@@ -22,68 +22,73 @@ describe('dynamo', () => {
 		render.mockClear().mockReturnValue(element);
 	});
 
-	it('adds nothing', () => {
-		const actual = dynamo(state, []);
-		expect(actual).toEqual([]);
-	});
-
 	it('adds text', () => {
-		const actual = dynamo(state, [text]);
+		const actual = dynamo([text], ...parameters);
+
+		expect(fetch).not.toHaveBeenCalled();
 		expect(actual).toEqual([text]);
 	});
 
 	it('adds variable', () => {
-		const actual = dynamo(state, [variable]);
+		const actual = dynamo([variable], ...parameters);
+		
+		expect(fetch.mock.calls).toEqual([
+			[variable],
+			[variable, ...parameters]
+		]);
+
 		expect(actual).toEqual([value]);
 	});
 
 	it('adds element', () => {
-		const actual = dynamo(state, [template]);
+		const actual = dynamo([template], ...parameters);
+		
+		expect(render).toHaveBeenCalledWith(template, ...parameters);
 		expect(actual).toEqual([element]);
 	});
 
 	it('adds text before text', () => {
-		const actual = dynamo(state, [text, text]);
+		const actual = dynamo([text, text], ...parameters);
 		expect(actual).toEqual([text, text]);
 	});
 
 	it('adds value before text', () => {
-		const actual = dynamo(state, [variable, text]);
+		const actual = dynamo([variable, text], ...parameters);
 		expect(actual).toEqual([value, text]);
 	});
 
 	it('adds element before text', () => {
-		const actual = dynamo(state, [template, text]);
+		const actual = dynamo([template, text], ...parameters);
 		expect(actual).toEqual([element, text]);
 	});
 
 	it('adds text before value', () => {
-		const actual = dynamo(state, [text, variable]);
+		const actual = dynamo([text, variable], ...parameters);
 		expect(actual).toEqual([text, value]);
 	});
 
 	it('adds value before value', () => {
-		const actual = dynamo(state, [variable, variable]);
+		const actual = dynamo([variable, variable], ...parameters);
 		expect(actual).toEqual([value, value]);
 	});
 
 	it('adds element before value', () => {
-		const actual = dynamo(state, [template, variable]);
+		const actual = dynamo([template, variable], ...parameters);
 		expect(actual).toEqual([element, value]);
 	});
 
 	it('adds text before element', () => {
-		const actual = dynamo(state, [text, template]);
+		const actual = dynamo([text, template], ...parameters);
 		expect(actual).toEqual([text, element]);
 	});
 
 	it('adds value before element', () => {
-		const actual = dynamo(state, [variable, template]);
+		const actual = dynamo([variable, template], ...parameters);
 		expect(actual).toEqual([value, element]);
 	});
 
 	it('adds element before element', () => {
-		const actual = dynamo(state, [template, template]);
+		const actual = dynamo([template, template], ...parameters);
 		expect(actual).toEqual([element, element]);
 	});
 });
