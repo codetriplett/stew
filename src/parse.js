@@ -1,10 +1,9 @@
-import { clean } from './clean';
-
 const independent = new RegExp([
 	'^(wbr|track|source|param|meta|link|keygen|input',
 	'|img|hr|embed|command|col|br|base|area|!doctype)$'
 ].join(''));
 
+const newlines = /^\s+|[\n\r\t]+|\s+$/g;
 const openers = '<{"\'';
 const closers = '>}"\'';
 
@@ -99,7 +98,29 @@ export function parse (markup, children) {
 		object = undefined;
 	}
 
-	result = clean(result).flat();
+	result = result.map(item => {
+		if (!Array.isArray(item)) {
+			if (typeof item === 'object') {
+				Object.keys(item).forEach(key => {
+					!item[key].length && delete item[key];
+				});
+			}
+
+			return item;
+		}
+
+		item = item.map(value => {
+			if (typeof value !== 'string') {
+				return value;
+			}
+
+			return value.replace(newlines, '').replace(/\s+/g, ' ');
+		}).filter(value => value);
+
+		if (item.length) {
+			return item;
+		}
+	}).filter(item => item).flat();
 
 	if (children) {
 		children.push(...result);

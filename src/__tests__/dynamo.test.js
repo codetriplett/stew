@@ -1,17 +1,15 @@
 import { fetch } from '../fetch';
-import { render } from '../render';
 import { modify } from '../modify';
 import { dynamo } from '../dynamo';
 
 jest.mock('../fetch', () => ({ fetch: jest.fn() }));
-jest.mock('../render', () => ({ render: jest.fn() }));
 jest.mock('../modify', () => ({ modify: jest.fn() }));
 
 describe('dynamo', () => {
 	const variable = ['key'];
 	const match = ['key', true];
 	const mismatch = ['key', false];
-	const template = { '': ['div'] };
+	const template = { '': ['img'] };
 	const parameters = [{}, () => {}];
 
 	beforeEach(() => {
@@ -23,8 +21,30 @@ describe('dynamo', () => {
 			return state ? 'value' : false;
 		});
 
-		render.mockClear().mockReturnValue('element');
-		modify.mockClear().mockReturnValue('content');
+		modify.mockClear().mockImplementation((item, name) => {
+			return name ? ` ${name}` : 'content';
+		});
+	});
+	
+	it('renders tag', () => {
+		const actual = dynamo(template, ...parameters);
+		expect(actual).toBe('<img>');
+	});
+
+	it('renders attributes', () => {
+		const actual = dynamo({
+			'': ['img'], src: ['value'], alt: [''], width: [['key']]
+		}, ...parameters);
+
+		expect(actual).toBe('<img alt src width>');
+	});
+
+	it('renders children', () => {
+		const actual = dynamo({
+			'': ['div', '(', { '': ['p', 'value'] }, ')']
+		}, ...parameters);
+		
+		expect(actual).toBe('<div>content</div>');
 	});
 
 	it('adds text', () => {
@@ -47,9 +67,7 @@ describe('dynamo', () => {
 
 	it('adds element', () => {
 		const actual = dynamo([template], ...parameters);
-		
-		expect(render).toHaveBeenCalledWith(template, ...parameters);
-		expect(actual).toEqual(['element']);
+		expect(actual).toEqual(['<img>']);
 	});
 
 	it('adds text before text', () => {
@@ -64,7 +82,7 @@ describe('dynamo', () => {
 
 	it('adds element before text', () => {
 		const actual = dynamo([template, 'text'], ...parameters);
-		expect(actual).toEqual(['element', 'text']);
+		expect(actual).toEqual(['<img>', 'text']);
 	});
 
 	it('adds text before value', () => {
@@ -79,29 +97,29 @@ describe('dynamo', () => {
 
 	it('adds element before value', () => {
 		const actual = dynamo([template, variable], ...parameters);
-		expect(actual).toEqual(['element', 'value']);
+		expect(actual).toEqual(['<img>', 'value']);
 	});
 
 	it('adds text before element', () => {
 		const actual = dynamo(['text', template], ...parameters);
-		expect(actual).toEqual(['text', 'element']);
+		expect(actual).toEqual(['text', '<img>']);
 	});
 
 	it('adds value before element', () => {
 		const actual = dynamo([variable, template], ...parameters);
-		expect(actual).toEqual(['value', 'element']);
+		expect(actual).toEqual(['value', '<img>']);
 	});
 
 	it('adds element before element', () => {
 		const actual = dynamo([template, template], ...parameters);
-		expect(actual).toEqual(['element', 'element']);
+		expect(actual).toEqual(['<img>', '<img>']);
 	});
 	
 	it('modifies content', () => {
-		const actual = dynamo(['text', variable], 'name', ...parameters);
+		const actual = dynamo(['text', variable], '', ...parameters);
 
 		expect(modify).toHaveBeenCalledWith(
-			['text', 'value'], 'name', ...parameters.slice(1)
+			['text', 'value'], '', ...parameters.slice(1)
 		);
 
 		expect(actual).toBe('content');
@@ -169,7 +187,7 @@ describe('dynamo', () => {
 
 	it('accepts content', () => {
 		const actual = dynamo([template, match], ...parameters);
-		expect(actual).toEqual(['element']);
+		expect(actual).toEqual(['<img>']);
 	});
 
 	it('denies content', () => {

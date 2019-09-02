@@ -1,14 +1,28 @@
 import { fetch } from './fetch';
-import { render } from './render';
 import { modify } from './modify';
 
-export function dynamo ([value, ...values], ...parameters) {
-	if (typeof parameters[0] === 'string') {
+export function dynamo (template, ...parameters) {
+	if (!Array.isArray(template)) {
+		const { '': [...children], ...attributes } = template;
+		const names = Object.keys(attributes).sort();
+		const tag = children.shift();
+
+		const markup = `<${tag}${names.map(name => {
+			return dynamo(attributes[name], name, ...parameters);
+		}).join('')}>`;
+
+		if (!children.length) {
+			return markup;
+		}
+
+		return `${markup}${dynamo(children, '', ...parameters)}</${tag}>`;
+	} else if (typeof parameters[0] === 'string') {
 		const name = parameters.shift();
-		values = dynamo([value, ...values], ...parameters);
+		values = dynamo(template, ...parameters);
 		return modify(values, name, ...parameters.slice(1));
 	}
 
+	let [value, ...values] = template;
 	values = values.length ? dynamo(values, ...parameters) : [];
 
 	if (values[0] === false) {
@@ -23,7 +37,7 @@ export function dynamo ([value, ...values], ...parameters) {
 			value = value ? previous : '';
 		}
 	} else if (typeof value === 'object') {
-		value = render(value, ...parameters);
+		value = dynamo(value, ...parameters);
 	}
 	
 	if (values[0] === true) {
