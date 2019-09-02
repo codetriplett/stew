@@ -1,21 +1,16 @@
 import { dynamo } from '../dynamo';
-import { modify } from '../modify';
-import { stitch } from '../stitch';
 import { render } from '../render';
 
 jest.mock('../dynamo', () => ({ dynamo: jest.fn() }));
-jest.mock('../modify', () => ({ modify: jest.fn() }));
-jest.mock('../stitch', () => ({ stitch: jest.fn() }));
 
 describe('render', () => {
 	const parameters = ['first', 'second'];
-	const values = [];
 	const state = {};
 
 	beforeEach(() => {
-		dynamo.mockClear().mockReturnValue(values);
-		modify.mockClear().mockImplementation((values, name) => ` ${name}`);
-		stitch.mockClear().mockReturnValue('content');
+		dynamo.mockClear().mockImplementation((expression, name) => {
+			return name ? ` ${name}` : 'content';
+		});
 	});
 
 	it('renders tag', () => {
@@ -31,15 +26,9 @@ describe('render', () => {
 		}, state, ...parameters);
 
 		expect(dynamo.mock.calls).toEqual([
-			[[''], state, ...parameters],
-			[['value'], state, ...parameters],
-			[[['key']], state, ...parameters]
-		]);
-		
-		expect(modify.mock.calls).toEqual([
-			[values, 'alt', ...parameters],
-			[values, 'src', ...parameters],
-			[values, 'width', ...parameters]
+			[[''], 'alt', state, ...parameters],
+			[['value'], 'src', state, ...parameters],
+			[[['key']], 'width', state, ...parameters]
 		]);
 
 		expect(actual).toBe('<img alt src width>');
@@ -51,10 +40,9 @@ describe('render', () => {
 		}, state, ...parameters);
 
 		expect(dynamo.mock.calls).toEqual([
-			[['(', { '': ['p', 'value'] }, ')'], state, ...parameters]
+			[['(', { '': ['p', 'value'] }, ')'], '', state, ...parameters]
 		]);
 		
-		expect(stitch.mock.calls).toEqual([[values, ...parameters]]);
 		expect(actual).toBe('<div>content</div>');
 	});
 });
