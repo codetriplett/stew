@@ -16,6 +16,8 @@ export function dynamo (template, ...parameters) {
 		}
 
 		return `${markup}${dynamo(children, '', ...parameters)}</${tag}>`;
+	} else if (!parameters.length) {
+		return template.length > 1;
 	} else if (typeof parameters[0] === 'string') {
 		const name = parameters.shift();
 		values = dynamo(template, ...parameters);
@@ -28,7 +30,7 @@ export function dynamo (template, ...parameters) {
 	if (values[0] === false) {
 		return values;
 	} else if (Array.isArray(value)) {
-		const compare = fetch(value);
+		const compare = dynamo(value);
 		const previous = compare && values.length ? values.shift() : true;
 
 		value = previous && fetch(value, ...parameters);

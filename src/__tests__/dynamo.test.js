@@ -57,11 +57,7 @@ describe('dynamo', () => {
 	it('adds variable', () => {
 		const actual = dynamo([variable], ...parameters);
 		
-		expect(fetch.mock.calls).toEqual([
-			[variable],
-			[variable, ...parameters]
-		]);
-
+		expect(fetch).toHaveBeenCalledWith(variable, ...parameters);
 		expect(actual).toEqual(['value']);
 	});
 
@@ -129,9 +125,7 @@ describe('dynamo', () => {
 		const actual = dynamo([variable, match], ...parameters);
 
 		expect(fetch.mock.calls).toEqual([
-			[match],
 			[match, ...parameters],
-			[variable],
 			[variable, ...parameters]
 		]);
 
@@ -142,9 +136,7 @@ describe('dynamo', () => {
 		const actual = dynamo([match, match], ...parameters);
 
 		expect(fetch.mock.calls).toEqual([
-			[match],
 			[match, ...parameters],
-			[match],
 			[match, ...parameters]
 		]);
 
@@ -155,7 +147,6 @@ describe('dynamo', () => {
 		const actual = dynamo([variable, mismatch], ...parameters);
 
 		expect(fetch.mock.calls).toEqual([
-			[mismatch],
 			[mismatch, ...parameters]
 		]);
 
@@ -166,7 +157,6 @@ describe('dynamo', () => {
 		const actual = dynamo([match, 'text'], ...parameters);
 
 		expect(fetch.mock.calls).toEqual([
-			[match],
 			[match, ...parameters]
 		]);
 
@@ -177,9 +167,7 @@ describe('dynamo', () => {
 		const actual = dynamo([match, mismatch, 'text'], ...parameters);
 
 		expect(fetch.mock.calls).toEqual([
-			[mismatch],
-			[mismatch, ...parameters],
-			[match]
+			[mismatch, ...parameters]
 		]);
 
 		expect(actual).toEqual(['']);
