@@ -1,10 +1,10 @@
 import { parse } from './parse';
-import { dynamo } from './dynamo';
+import { render } from './render';
 
 export default function (input, state) {
 	if (typeof input === 'string') {
 		return parse(input);
 	}
 
-	return dynamo(input, state);
+	return render(input, state);
 }

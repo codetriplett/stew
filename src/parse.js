@@ -120,7 +120,7 @@ export function parse (markup, children) {
 		if (item.length) {
 			return item;
 		}
-	}).filter(item => item).flat();
+	}).filter(item => item);
 
 	if (children) {
 		children.push(...result);

@@ -10,21 +10,21 @@ describe('parse', () => {
 	it('parses static text', () => {
 		const actual = parse('value', children);
 
-		expect(children).toEqual(['value']);
+		expect(children).toEqual([['value']]);
 		expect(actual).toBe('');
 	});
 
 	it('parses dynamic text', () => {
 		const actual = parse('prefix{string}suffix', children);
 
-		expect(children).toEqual(['prefix', ['string'], 'suffix']);
+		expect(children).toEqual([['prefix', ['string'], 'suffix']]);
 		expect(actual).toBe('');
 	});
 
 	it('parses literal text', () => {
 		const actual = parse('prefix{}suffix', children);
 
-		expect(children).toEqual(['prefix', [''], 'suffix']);
+		expect(children).toEqual([['prefix', [''], 'suffix']]);
 		expect(actual).toBe('');
 	});
 
@@ -70,7 +70,7 @@ describe('parse', () => {
 
 	it('parses content', () => {
 		const actual = parse('<div>({value})</div>');
-		expect(actual).toEqual({ '': ['div', '(', ['value'], ')'] });
+		expect(actual).toEqual({ '': ['div', ['(', ['value'], ')']] });
 	});
 
 	it('parses content that inhabits multiple lines', () => {
@@ -81,7 +81,7 @@ describe('parse', () => {
 			</div>
 		`);
 	
-		expect(actual).toEqual({'': ['div', 'topbottom']});
+		expect(actual).toEqual({'': ['div', ['topbottom']]});
 	});
 
 	it('parses children', () => {
