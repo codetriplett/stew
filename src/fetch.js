@@ -1,4 +1,4 @@
-export function fetch ([key, flag], state, value) {
+export function fetch ([key, flag, comparison], state, value) {
 	const compare = flag !== undefined;
 
 	if (value === undefined) {
@@ -12,5 +12,10 @@ export function fetch ([key, flag], state, value) {
 		return value === flag;
 	} else if (!compare) {
 		state[key] = value;
+		return value;
+	} else if (comparison !== undefined) {
+		state[key] = comparison;
 	}
+
+	return true;
 }

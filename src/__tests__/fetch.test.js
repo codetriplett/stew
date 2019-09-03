@@ -6,6 +6,11 @@ describe('fetch', () => {
 		expect(actual).toBe('abc');
 	});
 
+	it('reads comparison', () => {
+		const actual = fetch(['string', true, 'abc'], { string: 'abc' });
+		expect(actual).toBe(true);
+	});
+
 	it('reads presence', () => {
 		const actual = fetch(['string', true], { string: 'abc' });
 		expect(actual).toBe(true);
@@ -23,7 +28,14 @@ describe('fetch', () => {
 		expect(state).toEqual({ string: 'abc'});
 	});
 
-	it('does not write with only flag', () => {
+	it('writes comparison', () => {
+		const state = {};
+		fetch(['string', true, 'abc'], state, 'abc');
+
+		expect(state).toEqual({ string: 'abc' });
+	});
+
+	it('does not write presence', () => {
 		const state = {};
 		fetch(['string', true], state, 'abc');
 

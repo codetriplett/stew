@@ -1,24 +1,37 @@
 import { fetch } from './fetch';
 
-export function evaluate ([value, ...values], state) {
-	values = values.length ? evaluate(values, state) : [];
+export function evaluate ([item, ...items], state, value) {
+	const dynamic = Array.isArray(item);
 
-	if (values[0] === false) {
-		return values;
-	} else if (Array.isArray(value)) {
-		const compare = value.some(item => typeof item === 'boolean');
-		const previous = compare && values.length ? values.shift() : true;
+	if (value && !dynamic) {
+		value = value.slice(value.indexOf(item) + item.length);
+	}
 
-		value = previous && fetch(value, state);
+	items = items.length ? evaluate(items, state, value) : [];
 
-		if (previous !== true) {
-			value = value ? previous : '';
+	if (items[0] === false) {
+		return items;
+	} else if (dynamic) {
+		const compare = item.some(item => typeof item === 'boolean');
+		const partial = typeof items[0] === 'string';
+
+		if (!compare) {
+			if (value && partial) {
+				value = value.slice(0, value.indexOf(items[0]));
+			}
+
+			item = fetch(item, state, value);
+		} else if (partial) {
+			const previous = items.shift();
+			item = previous && fetch(item, state, value) && previous || '';
+		} else {
+			item = fetch(item, state, value);
 		}
 	}
 	
-	if (values[0] === true) {
-		values.shift();
+	if (items[0] === true) {
+		items.shift();
 	}
 
-	return [value, ...values];
+	return [item, ...items];
 }
