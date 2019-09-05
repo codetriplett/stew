@@ -47,7 +47,18 @@ export function parse (markup, children) {
 					break;
 				}
 				case '{': {
-					array.push([string]);
+					const values = string.split(/\s+/, 2);
+					const comparison = values[1];
+
+					if (comparison && !isNaN(comparison)) {
+						values[1] = Number(comparison);
+					} else if (comparison === 'true') {
+						values[1] = true;
+					} else if (comparison === 'false') {
+						values[1] = false;
+					}
+
+					array.push(values);
 					break;
 				}
 				default:

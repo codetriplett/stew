@@ -21,6 +21,34 @@ describe('parse', () => {
 		expect(actual).toBe('');
 	});
 
+	it('parses comparison with true', () => {
+		const actual = parse('prefix{boolean true}suffix', children);
+
+		expect(children).toEqual([['prefix', ['boolean', true], 'suffix']]);
+		expect(actual).toBe('');
+	});
+
+	it('parses comparison with false', () => {
+		const actual = parse('prefix{boolean false}suffix', children);
+
+		expect(children).toEqual([['prefix', ['boolean', false], 'suffix']]);
+		expect(actual).toBe('');
+	});
+
+	it('parses comparison with false', () => {
+		const actual = parse('prefix{number 1}suffix', children);
+
+		expect(children).toEqual([['prefix', ['number', 1], 'suffix']]);
+		expect(actual).toBe('');
+	});
+
+	it('parses comparison with another key', () => {
+		const actual = parse('prefix{first second}suffix', children);
+
+		expect(children).toEqual([['prefix', ['first', 'second'], 'suffix']]);
+		expect(actual).toBe('');
+	});
+
 	it('parses literal text', () => {
 		const actual = parse('prefix{}suffix', children);
 

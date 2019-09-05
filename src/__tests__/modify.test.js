@@ -37,5 +37,16 @@ describe('modify', () => {
 				expect(actual).toBe(' name="(value)"');
 			});
 		});
+
+		describe('hydrate', () => {		
+			it('sets action', () => {
+				const action = () => {};
+				const addEventListener = jest.fn();
+				const element = { addEventListener };
+				modify(action, 'onclick', element);
+
+				expect(addEventListener).toHaveBeenCalledWith('click', action);
+			});
+		});
 	});
 });

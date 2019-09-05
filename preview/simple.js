@@ -1,1 +1,1 @@
-(function(t){if(typeof stew==='function'){stew(t);}else{module.exports=t;}})({"":["div.simple",{"":["p","Simple"]}]});
+(function(t){if(typeof stew==='function'){stew(t);}else{module.exports=t;}})({"":["div",{"":["p",[["flag",true],"on",["flag",false],"off"]],"onclick":[["flag"]]}],"class":["simple"]});

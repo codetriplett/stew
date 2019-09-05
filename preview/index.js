@@ -56,7 +56,7 @@ http.createServer(({ url }, res) => {
 				'<title>Preview</title>',
 			'</head>',
 			'<body>',
-				stew(simple, {}),
+				stew(simple, { flag: false }),
 				'<script src="/stew.min.js"></script>',
 				'<script src="/simple.js"></script>',
 			'</body>',

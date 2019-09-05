@@ -4,15 +4,23 @@ export function evaluate ([item, ...items], state, value) {
 	const dynamic = Array.isArray(item);
 
 	if (value && !dynamic) {
-		value = value.slice(value.indexOf(item) + item.length);
+		const index = value.indexOf(item);
+
+		if (index !== -1) {
+			value = value.slice(index + item.length);
+		}
 	}
 
-	items = items.length ? evaluate(items, state, value) : [];
+	if (items.length) {
+		items = evaluate(items, state, value);
+	} else if (value === '') {
+		value = true;
+	}
 
 	if (items[0] === false) {
 		return items;
 	} else if (dynamic) {
-		const compare = item.some(item => typeof item === 'boolean');
+		const compare = item.length > 1;
 		const partial = typeof items[0] === 'string';
 
 		if (!compare) {
@@ -23,7 +31,9 @@ export function evaluate ([item, ...items], state, value) {
 			item = fetch(item, state, value);
 		} else if (partial) {
 			const previous = items.shift();
-			item = previous && fetch(item, state, value) && previous || '';
+			const valid = !value || previous && value.startsWith(previous);
+
+			item = valid && fetch(item, state, value) && previous || '';
 		} else {
 			item = fetch(item, state, value);
 		}
