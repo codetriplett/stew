@@ -1,3 +1,6 @@
 <div class="simple">
-	<p onclick={flag}>{flag true}on{flag false}off</p>
+	<div {object}>
+		<p>is {flag true}on{flag false}off</>
+		<button type="button" onclick={flag}>toggle</>
+	</div>
 </>

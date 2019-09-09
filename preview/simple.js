@@ -1,1 +1,1 @@
-(function(t){if(typeof stew==='function'){stew(t);}else{module.exports=t;}})({"":["div",{"":["p",[["flag",true],"on",["flag",false],"off"]],"onclick":[["flag"]]}],"class":["simple"]});
+(function(t){if(typeof stew==='function'){stew(t);}else{module.exports=t;}})({"":["div",{"":[[["object"]],"div",{"":["p",["is ",["flag",true],"on",["flag",false],"off"]]},{"":["button",["toggle"]],"type":["button"],"onclick":[["flag"]]}]}],"class":["simple"]});

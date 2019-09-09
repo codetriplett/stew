@@ -15,9 +15,9 @@ describe('parse', () => {
 	});
 
 	it('parses dynamic text', () => {
-		const actual = parse('prefix{string}suffix', children);
+		const actual = parse('prefix {string} suffix', children);
 
-		expect(children).toEqual([['prefix', ['string'], 'suffix']]);
+		expect(children).toEqual([['prefix ', ['string'], ' suffix']]);
 		expect(actual).toBe('');
 	});
 
@@ -93,7 +93,7 @@ describe('parse', () => {
 
 	it('parses scope', () => {
 		const actual = parse('<img {value}>');
-		expect(actual).toEqual({ '': [['value'], 'img'] });
+		expect(actual).toEqual({ '': [[['value']], 'img'] });
 	});
 
 	it('parses content', () => {
@@ -109,7 +109,7 @@ describe('parse', () => {
 			</div>
 		`);
 	
-		expect(actual).toEqual({'': ['div', ['topbottom']]});
+		expect(actual).toEqual({'': ['div', ['top bottom']]});
 	});
 
 	it('parses children', () => {

@@ -103,7 +103,12 @@ export function parse (markup, children) {
 			}
 		}
 
-		structure.splice(0, 1, ...scope, tag);
+		structure.splice(0, 1, tag);
+
+		if (scope.length) {
+			structure.unshift(scope);
+		}
+
 		array = [];
 		result.push(array);
 		object = undefined;
@@ -120,12 +125,17 @@ export function parse (markup, children) {
 			return item;
 		}
 
-		item = item.map(value => {
+		item = item.map((value, i) => {
 			if (typeof value !== 'string') {
 				return value;
 			}
 
-			return value.replace(newlines, '').replace(/\s+/g, ' ');
+			const ends = new RegExp([
+				!i ? '^\\s+' : '',
+				i === item.length - 1 ? '\\s+$' : ''
+			].filter(item => item).join('|'), 'g');
+
+			return value.replace(ends, '').replace(/\s+/g, ' ');
 		}).filter(value => value);
 
 		if (item.length) {

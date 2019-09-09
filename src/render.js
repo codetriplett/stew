@@ -1,26 +1,32 @@
 import { fetch } from './fetch';
 import { evaluate } from './evaluate';
 import { modify } from './modify';
-import { traverse } from './traverse';
 
-export function render (value, state, element, update) {
-	const { '': [...children], ...attributes } = value;
+export function render (template, state, index, nodes, update) {
 	const names = Object.keys(attributes).sort();
-	const tag = children.shift();
-	const hydrate = !!update;
+	let [tag, ...children] = structure;
+	let id = '';
 
-	const markup = `<${tag}${names.map(name => {
-		const attribute = attributes[name];
+	if (Array.isArray(tag)) {
+		state = fetch(tag[0], state);
 
-		if (name.startsWith('on') !== hydrate) {
-			if (hydrate) {
-				evaluate(attribute, state, element.getAttribute(name));
-			}
+		if (state === undefined) {
+			state = [];
+		} else if (!Array.isArray(state)) {
+			state = [state];
+		}
 
+		return state.map(state => {
+			render(children, attributes, state, element, update);
+		});
+	} else if (typeof tag === 'number') {
+		id = ` data--"${tag}"`;
+		tag = children.shift();
+	}
+
+	const markup = `<${tag}${id}${names.map(name => {
+		if (name.startsWith('on')) {
 			return '';
-		} else if (hydrate) {
-			const action = fetch(attribute[0], state, name, update);
-			return modify(action, name, element);
 		}
 
 		const values = evaluate(attribute, state);
@@ -31,5 +37,5 @@ export function render (value, state, element, update) {
 		return markup;
 	}
 
-	return `${markup}${traverse(children, state, element, update)}</${tag}>`;
+	return `${markup}${}</${tag}>`;
 }

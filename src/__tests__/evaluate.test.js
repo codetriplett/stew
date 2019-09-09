@@ -1,213 +1,79 @@
 import { evaluate } from '../evaluate';
 
 describe('evaluate', () => {
-	describe('generate', () => {
-		let state;
-
-		beforeEach(() => {
-			state = { a: '(a)', b: '(b)', c: '(c)' };
-		});
-
-		it('static', () => {
-			const actual = evaluate(['a'], state);
-			expect(actual).toEqual(['a']);
-		});
-
-		it('dynamic', () => {
-			const actual = evaluate([['a']], state);
-			expect(actual).toEqual(['(a)']);
-		});
-
-		it('match', () => {
-			const actual = evaluate([['a', '(a)']], state);
-			expect(actual).toEqual([true]);
-		});
-
-		it('mismatch', () => {
-			const actual = evaluate([['a', '()']], state);
-			expect(actual).toEqual([false]);
-		});
-
-		it('static static', () => {
-			const actual = evaluate(['a', 'b'], state);
-			expect(actual).toEqual(['a', 'b']);
-		});
-		
-		it('static dyamic', () => {
-			const actual = evaluate(['a', ['b']], state);
-			expect(actual).toEqual(['a', '(b)']);
-		});
-		
-		it('static match', () => {
-			const actual = evaluate(['a', ['b', '(b)']], state);
-			expect(actual).toEqual(['a']);
-		});
-		
-		it('static mismatch', () => {
-			const actual = evaluate(['a', ['b', '()']], state);
-			expect(actual).toEqual([false]);
-		});
-
-		it('dynamic static', () => {
-			const actual = evaluate([['a'], 'b'], state);
-			expect(actual).toEqual(['(a)', 'b']);
-		});
-		
-		it('dynamic static dyamic', () => {
-			const actual = evaluate([['a'], 'b', ['c']], state);
-			expect(actual).toEqual(['(a)', 'b', '(c)']);
-		});
-		
-		it('dynamic match', () => {
-			const actual = evaluate([['a'], ['b', '(b)']], state);
-			expect(actual).toEqual(['(a)']);
-		});
-		
-		it('dynamic mismatch', () => {
-			const actual = evaluate([['a'], ['b', '()']], state);
-			expect(actual).toEqual([false]);
-		});
-
-		it('match static', () => {
-			const actual = evaluate([['a', '(a)'], 'b'], state);
-			expect(actual).toEqual(['b']);
-		});
-		
-		it('match dyamic', () => {
-			const actual = evaluate([['a', '(a)'], ['b']], state);
-			expect(actual).toEqual(['(b)']);
-		});
-		
-		it('match match', () => {
-			const actual = evaluate([['a', '(a)'], ['b', '(b)']], state);
-			expect(actual).toEqual([true]);
-		});
-		
-		it('match mismatch', () => {
-			const actual = evaluate(
-				[['a', '(a)'], ['b', '()']], state
-			);
-
-			expect(actual).toEqual([false]);
-		});
-
-		it('mismatch static', () => {
-			const actual = evaluate([['a', '()'], 'b'], state);
-			expect(actual).toEqual(['']);
-		});
-		
-		it('mismatch dyamic', () => {
-			const actual = evaluate([['a', '()'], ['b']], state);
-			expect(actual).toEqual(['']);
-		});
-		
-		it('mismatch match', () => {
-			const actual = evaluate(
-				[['a', '()'], ['b', '(b)']], state
-			);
-
-			expect(actual).toEqual([false]);
-		});
-		
-		it('mismatch mismatch', () => {
-			const actual = evaluate(
-				[['a', '()'], ['b', '()']], state
-			);
-
-			expect(actual).toEqual([false]);
-		});
+	it('reads value', () => {
+		const actual = evaluate(['string'], { string: 'abc' });
+		expect(actual).toBe('abc');
 	});
 
-	describe('hydrate', () => {
-		let state;
+	it('reads comparison', () => {
+		const actual = evaluate(['string', 'abc'], { string: 'abc' });
+		expect(actual).toBe(true);
+	});
 
-		beforeEach(() => {
-			state = {};
-		});
+	it('does not read boolean if not compared', () => {
+		const actual = evaluate(['boolean'], { boolean: true });
+		expect(actual).toBeUndefined();
+	});
 
-		it('static', () => {
-			evaluate(['a'], state, 'a');
-			expect(state).toEqual({});
-		});
+	it('writes value', () => {
+		const state = {};
+		const actual = evaluate(['string'], state, 'abc');
 
-		it('dynamic', () => {
-			evaluate([['a']], state, '(a)');
-			expect(state).toEqual({ a: '(a)' });
-		});
+		expect(state).toEqual({ string: 'abc' });
+		expect(actual).toBe('abc');
+	});
 
-		it('match', () => {
-			evaluate([['a', '(a)']], state, true);
-			expect(state).toEqual({ a: '(a)' });
-		});
+	it('writes comparison', () => {
+		const state = {};
+		const actual = evaluate(['string', 'abc'], state, 'abc');
 
-		it('mismatch', () => {
-			evaluate([['a', '()']], state, false);
-			expect(state).toEqual({});
-		});
+		expect(state).toEqual({ string: 'abc' });
+		expect(actual).toBe('abc');
+	});
 
-		it('static static', () => {
-			evaluate(['a', 'b'], state, 'ab');
-			expect(state).toEqual({});
-		});
-		
-		it('static dyamic', () => {
-			evaluate(['a', ['b']], state, 'a(b)');
-			expect(state).toEqual({ 'b': '(b)' });
-		});
-		
-		it('static match', () => {
-			evaluate(['a', ['b', '(b)']], state, 'a');
-			expect(state).toEqual({ b: '(b)' });
-		});
+	it('writes suffix', () => {
+		const state = {};
+		const actual = evaluate(['string'], state, 'abcxyz', ['abc']);
 
-		it('dynamic static', () => {
-			evaluate([['a'], 'b'], state, '(a)b');
-			expect(state).toEqual({ a: '(a)' });
-		});
-		
-		it('dynamic static dyamic', () => {
-			evaluate([['a'], 'b', ['c']], state, '(a)b(c)');
-			expect(state).toEqual({ a: '(a)', c: '(c)' });
-		});
-		
-		it('dynamic match', () => {
-			evaluate([['a'], ['b', '(b)']], state, '(a)');
-			expect(state).toEqual({ a: '(a)', b: '(b)' });
-		});
+		expect(state).toEqual({ string: 'xyz'});
+		expect(actual).toBe('xyz');
+	});
 
-		it('match static', () => {
-			evaluate([['a', '(a)'], 'b'], state, 'b');
-			expect(state).toEqual({ a: '(a)' });
-		});
+	it('writes alternate suffix', () => {
+		const state = {};
+		const actual = evaluate(['string'], state, 'abcxyz', ['cba', 'abc']);
+
+		expect(state).toEqual({ string: 'xyz'});
+		expect(actual).toBe('xyz');
+	});
+
+	it('does not write when false', () => {
+		const state = {};
+		const actual = evaluate(['string', 'abc'], state, false);
+
+		expect(state).toEqual({});
+		expect(actual).toBe(false);
+	});
+
+	it('does not write when empty', () => {
+		const state = {};
+		const actual = evaluate(['string', 'abc'], state, '');
+
+		expect(state).toEqual({});
+		expect(actual).toBe(false);
+	});
+
+	it('create toggle action', () => {
+		const update = jest.fn();
+		const state = { value: false };
+		const action = evaluate(['value'], state, 'onclick', update);
+
+		expect(action).toEqual(expect.any(Function));
 		
-		it('match dyamic', () => {
-			evaluate([['a', '(a)'], ['b']], state, '(b)');
-			expect(state).toEqual({ a: '(a)', b: '(b)' });
-		});
-		
-		it('match match', () => {
-			evaluate([['a', '(a)'], ['b', '(b)']], state, true);
-			expect(state).toEqual({ a: '(a)', b: '(b)' });
-		});
-		
-		it('match string match string', () => {
-			evaluate([['a', '(a)'], 'b', ['c', '(c)'], 'd'], state, 'bd');
-			expect(state).toEqual({ a: '(a)', c: '(c)' });
-		});
-		
-		it('match string mismatch string', () => {
-			evaluate([['a', '(a)'], 'b', ['c', '()'], 'd'], state, 'b');
-			expect(state).toEqual({ a: '(a)' });
-		});
-		
-		it('mismatch string match string', () => {
-			evaluate([['a', '()'], 'b', ['c', '(c)'], 'd'], state, 'd');
-			expect(state).toEqual({ c: '(c)' });
-		});
-		
-		it('mismatch string mismatch string', () => {
-			evaluate([['a', '()'], 'b', ['c', '()'], 'd'], state, false);
-			expect(state).toEqual({});
-		});
+		action();
+
+		expect(state.value).toBe(true);
+		expect(update).toHaveBeenCalled();
 	});
 });
