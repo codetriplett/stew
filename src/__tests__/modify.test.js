@@ -1,52 +1,118 @@
 import { modify } from '../modify';
 
+const addEventListener = jest.fn();
+const hasAttribute = jest.fn();
+const toggleAttribute = jest.fn();
+const removeAttribute = jest.fn();
+const getAttribute = jest.fn();
+const setAttribute = jest.fn();
+
+function prepare (value) {
+	jest.clearAllMocks();
+	hasAttribute.mockReturnValue(value !== null);
+	getAttribute.mockReturnValue(value);
+
+	return {
+		addEventListener,
+		hasAttribute,
+		toggleAttribute,
+		removeAttribute,
+		getAttribute,
+		setAttribute
+	};
+}
+
 describe('modify', () => {
 	describe('content', () => {
-		describe('generate', () => {
-			it('does not return content when false', () => {
-				const actual = modify([false]);
-				expect(actual).toBe('');
-			});
+		it('accepts string', () => {
+			const actual = modify('abc');
+			expect(actual).toBe('abc');
+		});
 
-			it('does not return content when true', () => {
-				const actual = modify([true]);
-				expect(actual).toBe('');
-			});
+		it('rejects true', () => {
+			const actual = modify(false);
+			expect(actual).toBe('');
+		});
 
-			it('joins strings to form content', () => {
-				const actual = modify(['(', 'value', ')']);
-				expect(actual).toBe('(value)');
-			});
+		it('rejects false', () => {
+			const actual = modify(true);
+			expect(actual).toBe('');
+		});
+
+		it('updates element', () => {
+			const element = { nodeValue: 'abc' };
+			modify('xyz', element);
+
+			expect(element.nodeValue).toBe('xyz');
 		});
 	});
 
 	describe('attribute', () => {
-		describe('generate', () => {
-			it('does not return attribute when false', () => {
-				const actual = modify([false], 'name');
-				expect(actual).toBe('');
-			});
-
-			it('returns boolean attribute when true', () => {
-				const actual = modify([true], 'name');
-				expect(actual).toBe(' name');
-			});
-
-			it('joins strings to form attribute', () => {
-				const actual = modify(['(', 'value', ')'], 'name');
-				expect(actual).toBe(' name="(value)"');
-			});
+		it('accepts string', () => {
+			const actual = modify('abc', 'name');
+			expect(actual).toBe(' name="abc"');
 		});
 
-		describe('hydrate', () => {		
-			it('sets action', () => {
-				const action = () => {};
-				const addEventListener = jest.fn();
-				const element = { addEventListener };
-				modify(action, 'onclick', element);
+		it('accepts true', () => {
+			const actual = modify(true, 'name');
+			expect(actual).toBe(' name');
+		});
 
-				expect(addEventListener).toHaveBeenCalledWith('click', action);
-			});
+		it('rejects false', () => {
+			const actual = modify(false, 'name');
+			expect(actual).toBe('');
+		});
+
+		it('updates value', () => {
+			const element = prepare('abc');
+			modify('xyz', element, 'name');
+
+			expect(setAttribute).toHaveBeenCalledWith('name', 'xyz');
+		});
+
+		it('keeps value', () => {
+			const element = prepare('abc');
+			modify('abc', element, 'name');
+
+			expect(setAttribute).not.toHaveBeenCalled();
+		});
+
+		it('toggles on', () => {
+			const element = prepare(null);
+			modify(true, element, 'name');
+
+			expect(toggleAttribute).toHaveBeenCalledWith('name', true);
+		});
+
+		it('keeps on', () => {
+			const element = prepare('');
+			modify(true, element, 'name');
+
+			expect(toggleAttribute).not.toHaveBeenCalled();
+		});
+
+		it('toggles off', () => {
+			const element = prepare('');
+			modify(false, element, 'name');
+
+			expect(removeAttribute).toHaveBeenCalledWith('name');
+		});
+
+		it('keeps off', () => {
+			const element = prepare(null);
+			modify(false, element, 'name');
+
+			expect(removeAttribute).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('listener', () => {
+		it('sets action', () => {
+			const action = () => {};
+			const element = prepare();
+			modify(action, element, 'onclick');
+
+			expect(addEventListener).toHaveBeenCalledWith('click', action);
 		});
 	});
 });

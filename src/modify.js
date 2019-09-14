@@ -1,44 +1,31 @@
-export function modify (values, name, element) {
-	if (typeof values === 'function') {
+export function modify (value, element, name) {
+	if (typeof value === 'function') {
 		if (element) {
-			element.addEventListener(name.slice(2), values);
+			element.addEventListener(name.slice(2), value);
+		}
+	} else if (typeof element === 'string') {
+		if (value === true) {
+			return ` ${element}`;
 		}
 
-		return '';
-	}
+		return value !== false ? ` ${element}="${value}"` : '';
+	} else if (!name) {
+		const text = typeof value === 'string' ? value : '';
 
-	const toggle = typeof values[0] === 'boolean';
-	const value = toggle ? values[0] : values.join('');
-
-	if (!name) {
-		const text = toggle ? '' : value;
-
-		if (element && element.nodeValue !== text) {
+		if (!element) {
+			return text;
+		} else if (text !== element.nodeValue) {
 			element.nodeValue = text;
 		}
-
-		return text;
-	} else if (!element) {
-		if (!toggle) {
-			return ` ${name}="${value}"`;
-		}
-
-		return value ? ` ${name}` : '';
-	} else if (toggle) {
+	} else if (typeof value === 'boolean') {
 		const exists = element.hasAttribute(name);
-
-		if (value === true && !exists) {
+	
+		if (value && !exists) {
 			element.toggleAttribute(name, true);
-		} else if (value === false && exists) {
+		} else if (!value && exists) {
 			element.removeAttribute(name);
 		}
-	} else {
-		const existing = element.getAttribute(name);
-
-		if (value !== existing) {
-			element.setAttribute(name, value);
-		}
+	} else if (value !== element.getAttribute(name)) {
+		element.setAttribute(name, value);
 	}
-
-	return '';
 }

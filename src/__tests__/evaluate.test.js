@@ -1,79 +1,215 @@
 import { evaluate } from '../evaluate';
 
 describe('evaluate', () => {
-	it('reads value', () => {
-		const actual = evaluate(['string'], { string: 'abc' });
-		expect(actual).toBe('abc');
+	describe('generate', () => {
+		let state;
+		let value;
+	
+		beforeEach(() => {
+			state = { string: 'abc' };
+			value = {};
+		});
+
+		it('resolves string', () => {
+			const actual = evaluate(['abc'], state, value);
+			expect(actual).toBe('abc');
+		});
+
+		it('resolves value', () => {
+			const actual = evaluate([['string']], state, value);
+			expect(actual).toBe('abc');
+		});
+
+		it('resolves match', () => {
+			const actual = evaluate([['string', 'abc']], state, value);
+			expect(actual).toBe(true);
+		});
+
+		it('resolves mismatch', () => {
+			const actual = evaluate([['string', 'xyz']], state, value);
+			expect(actual).toBe(false);
+		});
+
+		it('resolves string and string', () => {
+			const actual = evaluate(['abc', 'xyz'], state, value);
+			expect(actual).toBe('abcxyz');
+		});
+
+		it('resolves string and value', () => {
+			const actual = evaluate(['xyz', ['string']], state, value);
+			expect(actual).toBe('xyzabc');
+		});
+
+		it('resolves string and match', () => {
+			const actual = evaluate(['xyz', ['string', 'abc']], state, value);
+			expect(actual).toBe('xyz');
+		});
+
+		it('resolves string and mismatch', () => {
+			const actual = evaluate(['xyz', ['string', 'xyz']], state, value);
+			expect(actual).toBe(false);
+		});
+
+		it('resolves value and string', () => {
+			const actual = evaluate([['string'], 'xyz'], state, value);
+			expect(actual).toBe('abcxyz');
+		});
+
+		it('resolves value and value', () => {
+			const actual = evaluate([['string'], ['string']], state, value);
+			expect(actual).toBe('abcabc');
+		});
+
+		it('resolves value and match', () => {
+			const actual = evaluate(
+				[['string'], ['string', 'abc']], state, value
+			);
+
+			expect(actual).toBe('abc');
+		});
+
+		it('resolves value and mismatch', () => {
+			const actual = evaluate(
+				[['string'], ['string', 'xyz']], state, value
+			);
+
+			expect(actual).toBe(false);
+		});
+
+		it('resolves match and string', () => {
+			const actual = evaluate([['string', 'abc'], 'xyz'], state, value);
+			expect(actual).toBe('xyz');
+		});
+
+		it('resolves match and value', () => {
+			const actual = evaluate(
+				[['string', 'abc'], ['string']], state, value
+			);
+
+			expect(actual).toBe('abc');
+		});
+
+		it('resolves match and match', () => {
+			const actual = evaluate(
+				[['string', 'abc'], ['string', 'abc']], state, value
+			);
+
+			expect(actual).toBe(true);
+		});
+
+		it('resolves match and mismatch', () => {
+			const actual = evaluate(
+				[['string', 'abc'], ['string', 'xyz']], state, value
+			);
+
+			expect(actual).toBe(false);
+		});
+
+		it('resolves mismatch and string', () => {
+			const actual = evaluate([['string', 'xyz'], 'xyz'], state, value);
+			expect(actual).toBe('');
+		});
+
+		it('resolves mismatch and value', () => {
+			const actual = evaluate(
+				[['string', 'xyz'], ['string']], state, value
+			);
+
+			expect(actual).toBe('');
+		});
+
+		it('resolves mismatch and match', () => {
+			const actual = evaluate(
+				[['string', 'xyz'], ['string', 'abc']], state, value
+			);
+
+			expect(actual).toBe(false);
+		});
+
+		it('resolves mismatch and mismatch', () => {
+			const actual = evaluate(
+				[['string', 'xyz'], ['string', 'xyz']], state, value
+			);
+
+			expect(actual).toBe(false);
+		});
 	});
 
-	it('reads comparison', () => {
-		const actual = evaluate(['string', 'abc'], { string: 'abc' });
-		expect(actual).toBe(true);
-	});
+	describe('extract', () => {
+		let state;
 
-	it('does not read boolean if not compared', () => {
-		const actual = evaluate(['boolean'], { boolean: true });
-		expect(actual).toBeUndefined();
-	});
+		beforeEach(() => {
+			state = {};
+		});
 
-	it('writes value', () => {
-		const state = {};
-		const actual = evaluate(['string'], state, 'abc');
+		it('resolves string', () => {
+			evaluate(['abc'], state, 'abc');
+			expect(state).toEqual({});
+		});
 
-		expect(state).toEqual({ string: 'abc' });
-		expect(actual).toBe('abc');
-	});
+		it('resolves value', () => {
+			evaluate([['string']], state, 'abc');
+			expect(state).toEqual({ string: 'abc' });
+		});
 
-	it('writes comparison', () => {
-		const state = {};
-		const actual = evaluate(['string', 'abc'], state, 'abc');
+		it('resolves match', () => {
+			evaluate([['string', 'abc']], state, '');
+			expect(state).toEqual({ string: 'abc' });
+		});
 
-		expect(state).toEqual({ string: 'abc' });
-		expect(actual).toBe('abc');
-	});
+		it('resolves string and string', () => {
+			evaluate(['abc', 'xyz'], state, 'abcxyz');
+			expect(state).toEqual({});
+		});
 
-	it('writes suffix', () => {
-		const state = {};
-		const actual = evaluate(['string'], state, 'abcxyz', ['abc']);
+		it('resolves string and value', () => {
+			evaluate(['xyz', ['string']], state, 'xyzabc');
+			expect(state).toEqual({ string: 'abc' });
+		});
 
-		expect(state).toEqual({ string: 'xyz'});
-		expect(actual).toBe('xyz');
-	});
+		it('resolves string and match', () => {
+			evaluate(['xyz', ['string', 'abc']], state, 'xyz');
+			expect(state).toEqual({ string: 'abc' });
+		});
 
-	it('writes alternate suffix', () => {
-		const state = {};
-		const actual = evaluate(['string'], state, 'abcxyz', ['cba', 'abc']);
+		it('resolves value and string', () => {
+			evaluate([['string'], 'xyz'], state, 'abcxyz');
+			expect(state).toEqual({ string: 'abc' });
+		});
 
-		expect(state).toEqual({ string: 'xyz'});
-		expect(actual).toBe('xyz');
-	});
+		it('resolves value and value', () => {
+			evaluate([['string'], ['string']], state, 'abcabc');
+			expect(state).toEqual({ string: 'abcabc' });
+		});
 
-	it('does not write when false', () => {
-		const state = {};
-		const actual = evaluate(['string', 'abc'], state, false);
+		it('resolves value and match', () => {
+			evaluate([['string'], ['string', 'abc']], state, 'abc');
+			expect(state).toEqual({ string: 'abc' });
+		});
 
-		expect(state).toEqual({});
-		expect(actual).toBe(false);
-	});
+		it('resolves match and string', () => {
+			evaluate([['string', 'abc'], 'xyz'], state, 'xyz');
+			expect(state).toEqual({ string: 'abc' });
+		});
 
-	it('does not write when empty', () => {
-		const state = {};
-		const actual = evaluate(['string', 'abc'], state, '');
+		it('resolves match and value', () => {
+			evaluate([['string', 'abc'], ['string']], state, 'abc');
+			expect(state).toEqual({ string: 'abc' });
+		});
 
-		expect(state).toEqual({});
-		expect(actual).toBe(false);
-	});
+		it('resolves match and match', () => {
+			evaluate([['string', 'abc'], ['string', 'abc']], state, 'abc');
+			expect(state).toEqual({ string: 'abc' });
+		});
 
-	it('create toggle action', () => {
-		const update = jest.fn();
-		const state = { value: false };
-		const action = evaluate(['value'], state, 'onclick', update);
+		it('resolves mismatch and string', () => {
+			evaluate([['string', 'xyz'], 'xyz'], state, '');
+			expect(state).toEqual({});
+		});
 
-		expect(action).toEqual(expect.any(Function));
-		
-		action();
-
-		expect(state.value).toBe(true);
-		expect(update).toHaveBeenCalled();
+		it('resolves mismatch and value', () => {
+			evaluate([['string', 'xyz'], ['string']], state, '');
+			expect(state).toEqual({});
+		});
 	});
 });
