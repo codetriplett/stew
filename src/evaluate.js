@@ -1,18 +1,17 @@
 import { fetch } from './fetch';
 
-export function dynamo (items, state, element, name) {
+export function evaluate (items, state, content, element) {
 	const strings = items.filter(item => typeof item === 'string').reverse();
-	const generate = !element || element.constructor === Object;
-	const hydrate = !generate && !state['.dispatch'];
+	let hydrate = !state['.dispatch'];
 	let candidate = '';
 	let existing;
 
-	if (!generate) {
-		if (name) {
-			existing = element.getAttribute(name) || '';
-		} else {
-			existing = element.nodeValue || '';
-		}
+	if (element) {
+		existing = element.getAttribute(content) || '';
+	} else if (typeof content === 'object') {
+		existing = content.nodeValue || '';
+	} else {
+		hydrate = false;
 	}
 
 	let value = items.reduceRight((value, item) => {
@@ -85,29 +84,29 @@ export function dynamo (items, state, element, name) {
 		value = value.length ? value.join('') : true;
 	}
 
-	if (!name) {
+	if (typeof content !== 'string') {
 		value = typeof value === 'string' ? value : '';
 
-		if (generate) {
+		if (!content) {
 			return value;
 		} else if (value !== existing) {
-			element.nodeValue = value;
+			content.nodeValue = value;
 		}
-	} else if (generate) {
+	} else if (!element) {
 		if (value === true) {
-			return ` ${name}`;
+			return ` ${content}`;
 		}
 
-		return value !== false ? ` ${name}="${value}"` : '';
+		return value !== false ? ` ${content}="${value}"` : '';
 	} else if (typeof value === 'boolean') {
-		const exists = element.hasAttribute(name);
+		const exists = element.hasAttribute(content);
 
 		if (value && !exists) {
-			element.toggleAttribute(name, true);
+			element.toggleAttribute(content, true);
 		} else if (!value && exists) {
-			element.removeAttribute(name);
+			element.removeAttribute(content);
 		}
-	} else if (value !== element.getAttribute(name)) {
-		element.setAttribute(name, value);
+	} else if (value !== element.getAttribute(content)) {
+		element.setAttribute(content, value);
 	}
 }

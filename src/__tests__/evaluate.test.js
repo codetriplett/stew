@@ -1,4 +1,4 @@
-import { dynamo } from '../dynamo';
+import { evaluate } from '../evaluate';
 
 const addEventListener = jest.fn();
 const hasAttribute = jest.fn();
@@ -26,7 +26,7 @@ function Element (value) {
 	});
 }
 
-describe('dynamo', () => {
+describe('evaluate', () => {
 	describe('generate', () => {
 		let state;
 	
@@ -35,117 +35,117 @@ describe('dynamo', () => {
 		});
 
 		it('resolves string', () => {
-			const actual = dynamo(['abc'], state, {});
+			const actual = evaluate(['abc'], state);
 			expect(actual).toBe('abc');
 		});
 
 		it('resolves value', () => {
-			const actual = dynamo([['key']], state, {});
+			const actual = evaluate([['key']], state);
 			expect(actual).toBe('abc');
 		});
 
 		it('resolves match', () => {
-			const actual = dynamo([['key', 'abc']], state, {});
+			const actual = evaluate([['key', 'abc']], state);
 			expect(actual).toBe('');
 		});
 
 		it('resolves mismatch', () => {
-			const actual = dynamo([['key', 'xyz']], state, {});
+			const actual = evaluate([['key', 'xyz']], state);
 			expect(actual).toBe('');
 		});
 
 		it('resolves string and string', () => {
-			const actual = dynamo(['abc', 'xyz'], state, {});
+			const actual = evaluate(['abc', 'xyz'], state);
 			expect(actual).toBe('abcxyz');
 		});
 
 		it('resolves string and value', () => {
-			const actual = dynamo(['xyz', ['key']], state, {});
+			const actual = evaluate(['xyz', ['key']], state);
 			expect(actual).toBe('xyzabc');
 		});
 
 		it('resolves string and match', () => {
-			const actual = dynamo(['xyz', ['key', 'abc']], state, {});
+			const actual = evaluate(['xyz', ['key', 'abc']], state);
 			expect(actual).toBe('xyz');
 		});
 
 		it('resolves string and mismatch', () => {
-			const actual = dynamo(['xyz', ['key', 'xyz']], state, {});
+			const actual = evaluate(['xyz', ['key', 'xyz']], state);
 			expect(actual).toBe('');
 		});
 
 		it('resolves value and string', () => {
-			const actual = dynamo([['key'], 'xyz'], state, {});
+			const actual = evaluate([['key'], 'xyz'], state);
 			expect(actual).toBe('abcxyz');
 		});
 
 		it('resolves value and value', () => {
-			const actual = dynamo([['key'], ['key']], state, {});
+			const actual = evaluate([['key'], ['key']], state);
 			expect(actual).toBe('abcabc');
 		});
 
 		it('resolves value and match', () => {
-			const actual = dynamo([['key'], ['key', 'abc']], state, {});
+			const actual = evaluate([['key'], ['key', 'abc']], state);
 			expect(actual).toBe('abc');
 		});
 
 		it('resolves value and mismatch', () => {
-			const actual = dynamo([['key'], ['key', 'xyz']], state, {});
+			const actual = evaluate([['key'], ['key', 'xyz']], state);
 			expect(actual).toBe('');
 		});
 
 		it('resolves match and string', () => {
-			const actual = dynamo([['key', 'abc'], 'xyz'], state, {});
+			const actual = evaluate([['key', 'abc'], 'xyz'], state);
 			expect(actual).toBe('xyz');
 		});
 
 		it('resolves match and value', () => {
-			const actual = dynamo([['key', 'abc'], ['key']], state, {});
+			const actual = evaluate([['key', 'abc'], ['key']], state);
 			expect(actual).toBe('abc');
 		});
 
 		it('resolves match and match', () => {
-			const actual = dynamo([['key', 'abc'], ['key', 'abc']], state, {});
+			const actual = evaluate([['key', 'abc'], ['key', 'abc']], state);
 			expect(actual).toBe('');
 		});
 
 		it('resolves match and mismatch', () => {
-			const actual = dynamo([['key', 'abc'], ['key', 'xyz']], state, {});
+			const actual = evaluate([['key', 'abc'], ['key', 'xyz']], state);
 			expect(actual).toBe('');
 		});
 
 		it('resolves mismatch and string', () => {
-			const actual = dynamo([['key', 'xyz'], 'xyz'], state, {});
+			const actual = evaluate([['key', 'xyz'], 'xyz'], state);
 			expect(actual).toBe('');
 		});
 
 		it('resolves mismatch and value', () => {
-			const actual = dynamo([['key', 'xyz'], ['key']], state, {});
+			const actual = evaluate([['key', 'xyz'], ['key']], state);
 			expect(actual).toBe('');
 		});
 
 		it('resolves mismatch and match', () => {
-			const actual = dynamo([['key', 'xyz'], ['key', 'abc']], state, {});
+			const actual = evaluate([['key', 'xyz'], ['key', 'abc']], state);
 			expect(actual).toBe('');
 		});
 
 		it('resolves mismatch and mismatch', () => {
-			const actual = dynamo([['key', 'xyz'], ['key', 'xyz']], state, {});
+			const actual = evaluate([['key', 'xyz'], ['key', 'xyz']], state);
 			expect(actual).toBe('');
 		});
 
 		it('resolves value attribute', () => {
-			const actual = dynamo(['abc'], state, {}, 'name');
+			const actual = evaluate(['abc'], state, 'name');
 			expect(actual).toBe(' name="abc"');
 		});
 
 		it('resolves boolean attribute', () => {
-			const actual = dynamo([['key', 'abc']], state, {}, 'name');
+			const actual = evaluate([['key', 'abc']], state, 'name');
 			expect(actual).toBe(' name');
 		});
 
 		it('ignores inactive attribute', () => {
-			const actual = dynamo([['key', 'xyz']], state, {}, 'name');
+			const actual = evaluate([['key', 'xyz']], state, 'name');
 			expect(actual).toBe('');
 		});
 	});
@@ -158,67 +158,67 @@ describe('dynamo', () => {
 		});
 
 		it('resolves string', () => {
-			dynamo(['abc'], state, new Text('abc'));
+			evaluate(['abc'], state, new Text('abc'));
 			expect(state).toEqual({});
 		});
 
 		it('resolves value', () => {
-			dynamo([['key']], state, new Text('abc'));
+			evaluate([['key']], state, new Text('abc'));
 			expect(state).toEqual({ key: 'abc' });
 		});
 
 		it('resolves string and string', () => {
-			dynamo(['abc', 'xyz'], state, new Text('abcxyz'));
+			evaluate(['abc', 'xyz'], state, new Text('abcxyz'));
 			expect(state).toEqual({});
 		});
 
 		it('resolves string and value', () => {
-			dynamo(['xyz', ['key']], state, new Text('xyzabc'));
+			evaluate(['xyz', ['key']], state, new Text('xyzabc'));
 			expect(state).toEqual({ key: 'abc' });
 		});
 
 		it('resolves string and match', () => {
-			dynamo(['xyz', ['key', 'abc']], state, new Text('xyz'));
+			evaluate(['xyz', ['key', 'abc']], state, new Text('xyz'));
 			expect(state).toEqual({ key: 'abc' });
 		});
 
 		it('resolves value and string', () => {
-			dynamo([['key'], 'xyz'], state, new Text('abcxyz'));
+			evaluate([['key'], 'xyz'], state, new Text('abcxyz'));
 			expect(state).toEqual({ key: 'abc' });
 		});
 
 		it('resolves value and value', () => {
-			dynamo([['key'], ['key']], state, new Text('abcabc'));
+			evaluate([['key'], ['key']], state, new Text('abcabc'));
 			expect(state).toEqual({ key: 'abcabc' });
 		});
 
 		it('resolves value and match', () => {
-			dynamo([['key'], ['key', 'abc']], state, new Text('abc'));
+			evaluate([['key'], ['key', 'abc']], state, new Text('abc'));
 			expect(state).toEqual({ key: 'abc' });
 		});
 
 		it('resolves match and string', () => {
-			dynamo([['key', 'abc'], 'xyz'], state, new Text('xyz'));
+			evaluate([['key', 'abc'], 'xyz'], state, new Text('xyz'));
 			expect(state).toEqual({ key: 'abc' });
 		});
 
 		it('resolves match and value', () => {
-			dynamo([['key', 'abc'], ['key']], state, new Text('abc'));
+			evaluate([['key', 'abc'], ['key']], state, new Text('abc'));
 			expect(state).toEqual({ key: 'abc' });
 		});
 
 		it('resolves match and match', () => {
-			dynamo([['key', 'abc'], ['key', 'abc']], state, new Text('abc'));
+			evaluate([['key', 'abc'], ['key', 'abc']], state, new Text('abc'));
 			expect(state).toEqual({ key: 'abc' });
 		});
 
 		it('reads value attribute', () => {
-			dynamo([['key']], state, new Element('abc'), 'name');
+			evaluate([['key']], state, 'name', new Element('abc'));
 			expect(state).toEqual({ key: 'abc' });
 		});
 
 		it('reads boolean attribute', () => {
-			dynamo([['key', 'abc']], state, new Element(''), 'name');
+			evaluate([['key', 'abc']], state, 'name', new Element(''));
 			expect(state).toEqual({ key: 'abc' });
 		});
 	});
@@ -232,49 +232,49 @@ describe('dynamo', () => {
 
 		it('updates content', () => {
 			const element = new Text('abc');
-			dynamo([['key']], state, element);
+			evaluate([['key']], state, element);
 			expect(element.nodeValue).toBe('xyz');
 		});
 
 		it('keeps content', () => {
 			const element = new Text('xyz');
-			dynamo([['key']], state, element);
+			evaluate([['key']], state, element);
 			expect(element.nodeValue).toBe('xyz');
 		});
 
 		it('updates value attribute', () => {
 			const element = new Element('abc');
-			dynamo([['key']], state, element, 'name');
+			evaluate([['key']], state, 'name', element);
 			expect(setAttribute).toHaveBeenCalledWith('name', 'xyz');
 		});
 
 		it('keeps value attribute', () => {
 			const element = new Element('xyz');
-			dynamo([['key']], state, element, 'name');
+			evaluate([['key']], state, 'name', element);
 			expect(setAttribute).not.toHaveBeenCalled();
 		});
 
 		it('updates boolean attribute', () => {
 			const element = new Element(null);
-			dynamo([['key', 'xyz']], state, element, 'name');
+			evaluate([['key', 'xyz']], state, 'name', element);
 			expect(toggleAttribute).toHaveBeenCalledWith('name', true);
 		});
 
 		it('keeps boolean attribute', () => {
 			const element = new Element('');
-			dynamo([['key', 'xyz']], state, element, 'name');
+			evaluate([['key', 'xyz']], state, 'name', element);
 			expect(toggleAttribute).not.toHaveBeenCalled();
 		});
 
 		it('updates inactive attribute', () => {
 			const element = new Element('');
-			dynamo([['key', 'abc']], state, element, 'name');
+			evaluate([['key', 'abc']], state, 'name', element);
 			expect(removeAttribute).toHaveBeenCalledWith('name');
 		});
 
 		it('keeps boolean attribute', () => {
 			const element = new Element(null);
-			dynamo([['key', 'abc']], state, element, 'name');
+			evaluate([['key', 'abc']], state, 'name', element);
 			expect(removeAttribute).not.toHaveBeenCalled();
 		});
 	});
