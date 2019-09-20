@@ -1,8 +1,9 @@
-export function fetch (item, state, value, update) {
+export function fetch (item, state, value) {
 	let [key, comparison] = item;
 	const compare = item.length > 1;
 	const measure = key.endsWith('.');
-	const hydrate = value !== undefined;
+	const generate = value === undefined;
+	const hydrate = typeof value === 'string';
 	const keys = key.replace(/\.$/, '').split('.');
 
 	key = keys.pop();
@@ -24,7 +25,7 @@ export function fetch (item, state, value, update) {
 			return state[key];
 		}, state);
 		
-		if (!hydrate) {
+		if (generate) {
 			value = state[key];
 
 			if (measure) {
@@ -36,16 +37,12 @@ export function fetch (item, state, value, update) {
 					fetch([key], backup, value);
 				}
 			}
-		} else if (update && !compare) {
+		} else if (!hydrate && !compare) {
+			const { update } = state['.'];
+
 			return () => {
 				const { [key]: previous } = state;
-
-				switch (value) {
-					case 'onclick': {
-						state[key] = !previous;
-					}
-				}
-
+				state[key] = !previous;
 				update();
 			};
 		}
@@ -56,11 +53,13 @@ export function fetch (item, state, value, update) {
 	if (compare) {
 		if (typeof comparison === 'string' && comparison.endsWith('.')) {
 			comparison = fetch([comparison], state);
-		} else if (hydrate && !update) {
-			value = state[key] = comparison;
 		}
-
-		if (update) {
+		
+		if (hydrate) {
+			value = state[key] = comparison;
+		} else if (!generate) {
+			const { update } = state['.'];
+			
 			return () => {
 				const { [key]: previous } = state;
 

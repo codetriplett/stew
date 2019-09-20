@@ -58,7 +58,7 @@ export function evaluate (items, state, content, element) {
 		const { length } = value;
 		const skip = length > 0 && item.length > 1 && candidate === '';
 
-		item = skip || fetch(item, state, hydrate && candidate);
+		item = skip || fetch(item, state, hydrate ? candidate : undefined);
 
 		if (item === false) {
 			if (!length) {

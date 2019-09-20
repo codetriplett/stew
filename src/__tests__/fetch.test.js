@@ -196,11 +196,11 @@ describe('fetch', () => {
 
 		beforeEach(() => {
 			update.mockClear();
-			state = { flag: false, index: 0 };
+			state = { '.': { update }, flag: false, index: 0 };
 		});
 
 		it('creates toggle', () => {
-			const actual = fetch(['flag'], state, 'onclick', update);
+			const actual = fetch(['flag'], state, true);
 
 			expect(state).toMatchObject({ flag: false });
 			expect(actual).toEqual(expect.any(Function));
@@ -212,7 +212,7 @@ describe('fetch', () => {
 		});
 
 		it('creates incrementer', () => {
-			const actual = fetch(['index', 2], state, 'onclick', update);
+			const actual = fetch(['index', 2], state, true);
 
 			expect(state).toMatchObject({ index: 0 });
 			expect(actual).toEqual(expect.any(Function));
@@ -234,7 +234,7 @@ describe('fetch', () => {
 		});
 
 		it('creates decrementer', () => {
-			const actual = fetch(['index.', 2], state, 'onclick', update);
+			const actual = fetch(['index.', 2], state, true);
 
 			expect(state).toMatchObject({ index: 0 });
 			expect(actual).toEqual(expect.any(Function));

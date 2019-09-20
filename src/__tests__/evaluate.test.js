@@ -31,7 +31,7 @@ describe('evaluate', () => {
 		let state;
 	
 		beforeEach(() => {
-			state = { key: 'abc' };
+			state = { '.': {}, key: 'abc' };
 		});
 
 		it('resolves string', () => {
