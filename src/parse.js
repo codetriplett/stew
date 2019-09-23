@@ -99,7 +99,7 @@ export function parse (markup, children) {
 			if (children.length) {
 				structure.push(...children);
 			} else {
-				structure.push('');
+				structure.push(['']);
 			}
 		}
 

@@ -97,7 +97,7 @@ describe('parse', () => {
 	});
 
 	it('parses content', () => {
-		const actual = parse('<div>({value})</div>');
+		const actual = parse('<div>({value})</>');
 		expect(actual).toEqual({ '': ['div', ['(', ['value'], ')']] });
 	});
 
@@ -129,7 +129,7 @@ describe('parse', () => {
 				<img>
 				<img> <img>
 				<img>
-			</div>
+			</>
 		`);
 
 		expect(actual).toEqual({
@@ -143,7 +143,7 @@ describe('parse', () => {
 	});
 
 	it('parses empty container', () => {
-		const actual = parse('<div></div>');
-		expect(actual).toEqual({ '': ['div', ''] });
+		const actual = parse('<div></>');
+		expect(actual).toEqual({ '': ['div', ['']] });
 	});
 });

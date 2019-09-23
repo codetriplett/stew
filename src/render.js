@@ -15,7 +15,7 @@ export function render (item, state, element) {
 		iterate = Array.isArray(state);
 		tag = items.shift();
 	}
-	
+
 	if (!iterate) {
 		state = state !== undefined ? [state] : [];
 	}
@@ -25,7 +25,7 @@ export function render (item, state, element) {
 			element = !generate ? document.createElement(tag) : undefined;
 			i = iterate ? `-${i}` : '';
 		}
-	
+
 		const children = items.reduceRight((children, item, i) => {
 			if (Array.isArray(item)) {
 				item = evaluate(item, state);
