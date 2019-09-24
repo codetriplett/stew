@@ -1,11 +1,11 @@
-export function fetch (item, state, values) {
-	const hydrate = Array.isArray(values);
+export function fetch (item, state, value) {
+	const hydrate = Array.isArray(value);
 
 	if (!Array.isArray(item)) {
 		if (!hydrate) {
 			return item;
-		} else if (item === values[0]) {
-			return values.shift();
+		} else if (item === value[0]) {
+			return value.shift();
 		}
 
 		return '';
@@ -31,27 +31,30 @@ export function fetch (item, state, values) {
 	} else if (measure) {
 		key = key.slice(0, -1);
 	} else if (hydrate) {
-		let value = compare ? comparison : values.shift();
+		value = compare ? comparison : value.shift();
 
-		if (state.hasOwnProperty(key)) {
-			value = state[key];
-		} else if (value === undefined || value === '') {
-			return '';
-		} else if (!compare && !isNaN(value)) {
-			value = Number(value);
+		if (value !== undefined && value !== '') {
+			if (!compare && !isNaN(value)) {
+				value = Number(value);
+			}
+
+			state[key] = value;
 		}
-
-		state[key] = value;
 	}
 
-	let { [key]: scope = state[key] = {} } = state;
-	const iterative = Array.isArray(scope);
+	if (state.hasOwnProperty(key) || measure) {
+		value = state[key];
+	}
+
+	const iterative = Array.isArray(value);
 
 	if (measure && iterative) {
-		scope = scope.length - 1;
-	} else if (scope[''] === state) {
-		return scope;
-	} else if (!hydrate && typeof scope === 'object') {
+		value = value.length - 1;
+	} else if (!hydrate && /^(undefined|object)$/.test(typeof value)) {
+		if (value && value[''] === state) {
+			return value;
+		}
+		
 		const { '.': { ...settings } } = state;
 
 		if (backup) {
@@ -63,21 +66,21 @@ export function fetch (item, state, values) {
 			state = state[''];
 		}
 
-		scope = state[key] = iterative ? [...scope] : { ...scope };
-		Object.assign(scope, { '': state, '.': settings });
+		value = state[key] = iterative ? [...value] : { ...value };
+		Object.assign(value, { '': state, '.': settings });
 
 		if (iterative) {
-			for (let i = 0; i < scope.length; i++) {
-				scope[i] = fetch([i], scope);
+			for (let i = 0; i < value.length; i++) {
+				value[i] = fetch([i], value);
 			}
 		}
 	} else if (measure && backup) {
-		backup[key] = scope;
+		backup[key] = value;
 	}
 
 	if (compare) {
-		return scope === comparison;
+		return value !== undefined && value === comparison;
 	}
 
-	return typeof scope !== 'boolean' ? scope : '';
+	return typeof value !== 'boolean' ? value : '';
 }

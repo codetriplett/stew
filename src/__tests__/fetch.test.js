@@ -197,26 +197,28 @@ describe('fetch', () => {
 			expect(actual).toBe(true);
 		});
 
-		it.skip('ignore match with missing', () => {
+		it('ignore match with missing', () => {
 			const actual = fetch(['string', 'value.'], state, values);
 
 			expect(state).toEqual({ '.': settings });
 			expect(values).toEqual(['abc', 'xyz']);
-			expect(actual).toBe(true);
+			expect(actual).toBe(false);
 		});
 
-		it.skip('index', () => {
-			const actual = fetch(['.'], state, '1');
+		it('index', () => {
+			const actual = fetch(['.'], state, values);
 
-			expect(state).toEqual({});
-			expect(actual).toBe('1');
+			expect(state).toEqual({ '.': settings });
+			expect(values).toEqual(['abc', 'xyz']);
+			expect(actual).toBe(0);
 		});
 
-		it.skip('length', () => {
-			const actual = fetch(['array.'], state, '1');
+		it('length', () => {
+			const actual = fetch(['array.'], state, values);
 
-			expect(state).toEqual({});
-			expect(actual).toBe('1');
+			expect(state).toEqual({ '.': settings });
+			expect(values).toEqual(['abc', 'xyz']);
+			expect(actual).toBe(undefined);
 		});
 	});
 });
