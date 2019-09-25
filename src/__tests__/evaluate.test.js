@@ -31,7 +31,7 @@ describe('evaluate', () => {
 		let state;
 	
 		beforeEach(() => {
-			state = { '.': {}, key: 'abc' };
+			state = { key: 'abc', '.': [{}] };
 		});
 
 		it('resolves string', () => {
@@ -151,83 +151,86 @@ describe('evaluate', () => {
 	});
 
 	describe('hydrate', () => {
+		const update = jest.fn();
 		let state;
 
 		beforeEach(() => {
-			state = {};
+			state = { '.': [update] };
 		});
 
 		it('resolves string', () => {
 			evaluate(['abc'], state, new Text('abc'));
-			expect(state).toEqual({});
+			expect(state).toEqual({ '.': [update] });
 		});
 
 		it('resolves value', () => {
 			evaluate([['key']], state, new Text('abc'));
-			expect(state).toEqual({ key: 'abc' });
+			expect(state).toEqual({ '.': [update], key: 'abc' });
 		});
 
 		it('resolves string and string', () => {
 			evaluate(['abc', 'xyz'], state, new Text('abcxyz'));
-			expect(state).toEqual({});
+			expect(state).toEqual({ '.': [update] });
 		});
 
 		it('resolves string and value', () => {
 			evaluate(['xyz', ['key']], state, new Text('xyzabc'));
-			expect(state).toEqual({ key: 'abc' });
+			expect(state).toEqual({ '.': [update], key: 'abc' });
 		});
 
 		it('resolves string and match', () => {
 			evaluate(['xyz', ['key', 'abc']], state, new Text('xyz'));
-			expect(state).toEqual({ key: 'abc' });
+			expect(state).toEqual({ '.': [update], key: 'abc' });
 		});
 
 		it('resolves value and string', () => {
 			evaluate([['key'], 'xyz'], state, new Text('abcxyz'));
-			expect(state).toEqual({ key: 'abc' });
+			expect(state).toEqual({ '.': [update], key: 'abc' });
 		});
 
 		it('resolves value and value', () => {
 			evaluate([['key'], ['key']], state, new Text('abcabc'));
-			expect(state).toEqual({ key: 'abcabc' });
+			expect(state).toEqual({ '.': [update], key: 'abcabc' });
 		});
 
 		it('resolves value and match', () => {
 			evaluate([['key'], ['key', 'abc']], state, new Text('abc'));
-			expect(state).toEqual({ key: 'abc' });
+			expect(state).toEqual({ '.': [update], key: 'abc' });
 		});
 
 		it('resolves match and string', () => {
 			evaluate([['key', 'abc'], 'xyz'], state, new Text('xyz'));
-			expect(state).toEqual({ key: 'abc' });
+			expect(state).toEqual({ '.': [update], key: 'abc' });
 		});
 
 		it('resolves match and value', () => {
 			evaluate([['key', 'abc'], ['key']], state, new Text('abc'));
-			expect(state).toEqual({ key: 'abc' });
+			expect(state).toEqual({ '.': [update], key: 'abc' });
 		});
 
 		it('resolves match and match', () => {
 			evaluate([['key', 'abc'], ['key', 'abc']], state, new Text('abc'));
-			expect(state).toEqual({ key: 'abc' });
+			expect(state).toEqual({ '.': [update], key: 'abc' });
 		});
 
 		it('reads value attribute', () => {
 			evaluate([['key']], state, 'name', new Element('abc'));
-			expect(state).toEqual({ key: 'abc' });
+			expect(state).toEqual({ '.': [update], key: 'abc' });
 		});
 
 		it('reads boolean attribute', () => {
 			evaluate([['key', 'abc']], state, 'name', new Element(''));
-			expect(state).toEqual({ key: 'abc' });
+			expect(state).toEqual({ '.': [update], key: 'abc' });
 		});
 	});
 
 	describe('update', () => {
+		const update = jest.fn();
 		let state;
 	
 		beforeEach(() => {
-			state = { key: 'xyz', '.dispatch': () => {} };
+			update[''] = true;
+			state = { '.': [update], key: 'xyz' };
 		});
 
 		it('updates content', () => {

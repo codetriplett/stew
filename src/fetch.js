@@ -1,14 +1,11 @@
+export const TOGGLE = 0;
+
 export function fetch (item, state, value) {
-	const hydrate = Array.isArray(value);
+	const hydrate = typeof value === 'string';
+	const activate = typeof value === 'number';
 
 	if (!Array.isArray(item)) {
-		if (!hydrate) {
-			return item;
-		} else if (item === value[0]) {
-			return value.shift();
-		}
-
-		return '';
+		return !hydrate || item === value ? item : '';
 	}
 
 	let [key, comparison] = item;
@@ -18,20 +15,31 @@ export function fetch (item, state, value) {
 	const measure = !iteration && key.endsWith('.');
 
 	if (typeof comparison === 'string' && comparison.endsWith('.')) {
-		comparison = fetch([comparison], state, []);
+		comparison = fetch([comparison], state, value);
 	}
-	
+
 	key = keys.pop();
 	state = keys.reduce((state, key) => fetch([key], state), state);
 
-	const { '.': { '': indices, backup } } = state;
+	let { '.': [option, label, ...indices] } = state;
+	const generate = typeof option === 'object';
 
-	if (/^\.+$/.test(key)) {
-		return indices[key.length] || 0;
-	} else if (measure) {
-		key = key.slice(0, -1);
+	if (key === '') {
+		state = state[''];
+		key = label;
+	}
+	
+	if (measure) {
+		const { length } = key.match(/\.+$/)[0];
+		key = key.slice(0, -length);
+
+		if (!key && !activate) {
+			value = indices[length - 1];
+		}
 	} else if (hydrate) {
-		value = compare ? comparison : value.shift();
+		if (compare) {
+			value = comparison;
+		}
 
 		if (value !== undefined && value !== '') {
 			if (!compare && !isNaN(value)) {
@@ -42,7 +50,14 @@ export function fetch (item, state, value) {
 		}
 	}
 
-	if (state.hasOwnProperty(key) || measure) {
+	if (activate) {
+		const { [key]: previous } = state;
+
+		return () => {
+			state[key] = !previous;
+			option();
+		};
+	} else if (!measure && state.hasOwnProperty(key) || measure && key) {
 		value = state[key];
 	}
 
@@ -53,29 +68,28 @@ export function fetch (item, state, value) {
 	} else if (!hydrate && /^(undefined|object)$/.test(typeof value)) {
 		if (value && value[''] === state) {
 			return value;
-		}
-		
-		const { '.': { ...settings } } = state;
-
-		if (backup) {
-			settings.backup = backup[key] = iterative ? [] : {};
-		}
-		
-		if (iteration && !iterative) {
-			settings[''] = [key, ...indices];
-			state = state[''];
+		} else if (generate) {
+			option = option[key] = iterative ? [] : {};
 		}
 
 		value = state[key] = iterative ? [...value] : { ...value };
-		Object.assign(value, { '': state, '.': settings });
+
+		if (iteration) {
+			indices.unshift(key);
+			state = state[''];
+		} else {
+			label = key;
+		}
+
+		Object.assign(value, { '': state, '.': [option, label, ...indices] });
 
 		if (iterative) {
 			for (let i = 0; i < value.length; i++) {
 				value[i] = fetch([i], value);
 			}
 		}
-	} else if (measure && backup) {
-		backup[key] = value;
+	} else if (measure && generate) {
+		option[key] = value;
 	}
 
 	if (compare) {

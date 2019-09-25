@@ -1,11 +1,10 @@
 import { fetch } from '../fetch';
 
 describe('fetch', () => {
-	describe('retrieve', () => {
+	describe('generate', () => {
 		let data;
 		let copy;
 		let backup;
-		let settings;
 		let state;
 
 		beforeEach(() => {
@@ -17,11 +16,9 @@ describe('fetch', () => {
 			};
 
 			copy = JSON.parse(JSON.stringify(data));
-			state = { ...data };
 			backup = {};
-			settings = { '': [0], backup };
-
-			Object.assign(state, { '': state, '.': settings });
+			state = { ...data, '.': [backup] };
+			state[''] = state;
 		});
 
 		it('string', () => {
@@ -31,6 +28,16 @@ describe('fetch', () => {
 
 		it('variable', () => {
 			const actual = fetch(['string'], state);
+			expect(actual).toBe('abc');
+		});
+
+		it('parent', () => {
+			state = Object.assign('abc', {
+				'': { string: 'abc' },
+				'.': [{}, 'string']
+			});
+
+			const actual = fetch([''], state);
 			expect(actual).toBe('abc');
 		});
 
@@ -54,10 +61,7 @@ describe('fetch', () => {
 
 			expect(actual).toEqual({
 				'': state,
-				'.': {
-					...settings,
-					backup: backup.object
-				},
+				'.': [backup.object, 'object'],
 				string: 'xyz'
 			});
 		});
@@ -67,10 +71,7 @@ describe('fetch', () => {
 
 			expect(actual).toEqual(Object.assign(['abc', 'xyz'], {
 				'': state,
-				'.': {
-					...settings,
-					backup: backup.strings
-				}
+				'.': [backup.strings, 'strings']
 			}));
 		});
 
@@ -80,26 +81,17 @@ describe('fetch', () => {
 			expect(actual).toEqual(Object.assign([
 				{
 					'': state,
-					'.': {
-						'': [0, 0],
-						backup: backup.objects[0]
-					},
+					'.': [backup.objects[0], 'objects', 0],
 					string: 'abc'
 				},
 				{
 					'': state,
-					'.': {
-						'': [1, 0],
-						backup: backup.objects[1]
-					},
+					'.': [backup.objects[1], 'objects', 1],
 					string: 'xyz'
 				}
 			], {
 				'': state,
-				'.': {
-					...settings,
-					backup: backup.objects
-				}
+				'.': [backup.objects, 'objects'],
 			}));
 		});
 
@@ -116,8 +108,15 @@ describe('fetch', () => {
 		});
 
 		it('index', () => {
+			state['.'].push('strings', 3, 1);
 			const actual = fetch(['.'], state);
-			expect(actual).toBe(0);
+			expect(actual).toBe(3);
+		});
+
+		it('parent index', () => {
+			state['.'].push('strings', 3, 1);
+			const actual = fetch(['..'], state);
+			expect(actual).toBe(1);
 		});
 
 		it('length', () => {
@@ -126,99 +125,133 @@ describe('fetch', () => {
 		});
 	});
 
-	describe('store', () => {
-		let settings;
+	describe('hydrate', () => {
+		const update = jest.fn();
 		let state;
-		let values;
 
 		beforeEach(() => {
-			settings = { '': [0] };
-			state = { '.': settings };
-			values = ['abc', 'xyz'];
+			state = { '.': [update] };
+			state[''] = state;
 		});
 
 		it('includes string', () => {
-			const actual = fetch('abc', state, values);
+			const actual = fetch('abc', state, 'abc');
 
-			expect(state).toEqual({ '.': settings });
-			expect(values).toEqual(['xyz']);
+			expect(state).toEqual({ '': state, '.': [update] });
 			expect(actual).toBe('abc');
 		});
 
 		it('ignores string', () => {
-			const actual = fetch('cba', state, values);
+			const actual = fetch('abc', state, 'cba');
 
-			expect(state).toEqual({ '.': settings });
-			expect(values).toEqual(['abc', 'xyz']);
+			expect(state).toEqual({ '': state, '.': [update] });
 			expect(actual).toBe('');
 		});
 
 		it('includes variable', () => {
-			const actual = fetch(['string'], state, values);
+			const actual = fetch(['string'], state, 'abc');
 
-			expect(state).toEqual({ '.': settings, string: 'abc' });
-			expect(values).toEqual(['xyz']);
+			expect(state).toEqual({ '': state, '.': [update], string: 'abc' });
 			expect(actual).toBe('abc');
 		});
 
 		it('ignores variable', () => {
-			values[0] = '';
-			const actual = fetch(['string'], state, values);
+			const actual = fetch(['string'], state, '');
 
-			expect(state).toEqual({ '.': settings });
-			expect(values).toEqual(['xyz']);
+			expect(state).toEqual({ '': state, '.': [update] });
 			expect(actual).toBe('');
 		});
 
 		it('number', () => {
-			const actual = fetch(['number'], state, ['123']);
+			const actual = fetch(['number'], state, '123');
 
-			expect(state).toEqual({ '.': settings, number: 123 });
+			expect(state).toEqual({ '': state, '.': [update], number: 123 });
 			expect(actual).toBe(123);
 		});
 
 		it('match', () => {
-			const actual = fetch(['string', 'cba'], state, values);
+			const actual = fetch(['string', 'cba'], state, 'xyz');
 
-			expect(state).toEqual({ '.': settings, string: 'cba' });
-			expect(values).toEqual(['abc', 'xyz']);
+			expect(state).toEqual({ '': state, '.': [update], string: 'cba' });
 			expect(actual).toBe(true);
 		});
 
 		it('match with variable', () => {
 			state.value = 'abc';
-			const actual = fetch(['string', 'value.'], state, values);
+			const actual = fetch(['string', 'value.'], state, 'xyz');
 
 			expect(state).toEqual({
-				'.': settings, value: 'abc', string: 'abc'
+				'': state, '.': [update], value: 'abc', string: 'abc'
 			});
 
-			expect(values).toEqual(['abc', 'xyz']);
 			expect(actual).toBe(true);
 		});
 
 		it('ignore match with missing', () => {
-			const actual = fetch(['string', 'value.'], state, values);
+			const actual = fetch(['string', 'value.'], state, 'xyz');
 
-			expect(state).toEqual({ '.': settings });
-			expect(values).toEqual(['abc', 'xyz']);
+			expect(state).toEqual({ '': state, '.': [update] });
 			expect(actual).toBe(false);
 		});
 
 		it('index', () => {
-			const actual = fetch(['.'], state, values);
+			state['.'].push('strings', 3, 1);
+			const actual = fetch(['.'], state, '');
 
-			expect(state).toEqual({ '.': settings });
-			expect(values).toEqual(['abc', 'xyz']);
-			expect(actual).toBe(0);
+			expect(state).toEqual({
+				'': state, '.': [update, 'strings', 3, 1]
+			});
+
+			expect(actual).toBe(3);
+		});
+
+		it('parent index', () => {
+			state['.'].push('strings', 3, 1);
+			const actual = fetch(['..'], state, '');
+
+			expect(state).toEqual({
+				'': state, '.': [update, 'strings', 3, 1]
+			});
+
+			expect(actual).toBe(1);
 		});
 
 		it('length', () => {
-			const actual = fetch(['array.'], state, values);
+			const actual = fetch(['array.'], state, '1');
 
-			expect(state).toEqual({ '.': settings });
-			expect(values).toEqual(['abc', 'xyz']);
+			expect(state).toEqual({ '': state, '.': [update] });
 			expect(actual).toBe(undefined);
+		});
+	});
+
+	describe('activate', () => {
+		const update = jest.fn();
+		let state;
+
+		beforeEach(() => {
+			state = { boolean: false, '.': [update] };
+		});
+
+		it('creates toggle action', () => {
+			const actual = fetch(['boolean'], state, 0);
+
+			expect(actual).toEqual(expect.any(Function));
+			expect(state.boolean).toBe(false);
+		});
+
+		it('toggles boolean on', () => {
+			const actual = fetch(['boolean'], state, 0);
+
+			actual();
+			expect(state).toEqual({ boolean: true, '.': [update] });
+		});
+
+		it('toggles boolean off', () => {
+			state.boolean = true;
+			const actual = fetch(['boolean'], state, 0);
+
+			actual();
+			expect(state).toEqual({ boolean: false, '.': [update] });
 		});
 	});
 });

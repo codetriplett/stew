@@ -2,7 +2,7 @@ import { fetch } from './fetch';
 
 export function evaluate (items, state, content, element) {
 	const strings = items.filter(item => typeof item === 'string').reverse();
-	let hydrate = !state['.dispatch'];
+	let hydrate = !state['.'][0][''];
 	let candidate = '';
 	let existing;
 
@@ -10,6 +10,8 @@ export function evaluate (items, state, content, element) {
 		existing = element.getAttribute(content) || '';
 	} else if (typeof content === 'object') {
 		existing = content.nodeValue || '';
+	} else if (content && content.startsWith('on')) {
+		return '';
 	} else {
 		hydrate = false;
 	}
