@@ -5,7 +5,7 @@ export function render (item, state, element) {
 	let { '': [tag, ...items], ...attributes } = item;
 	const { length } = items;
 	const names = Object.keys(attributes).sort();
-	const generate = state['.'].hasOwnProperty('backup');
+	const generate = typeof state['.'][0] === 'object';
 	const index = typeof element !== 'object' ? element : '';
 	const conditional = Array.isArray(tag);
 	let iterate = false;
@@ -36,18 +36,30 @@ export function render (item, state, element) {
 			children.unshift(item);
 			return children;
 		}, []);
-	
+
 		const values = names.map(name => {
 			return evaluate(attributes[name], state, name, element);
 		}).filter(value => value);
 
-		const content = length ? `${children.join('')}</${tag}>` : '';
-		const id = conditional ? ` data--="${`${index}${i}`}"` : '';
+		if (generate) {
+			const content = length ? `${children.join('')}</${tag}>` : '';
+			const id = conditional ? ` data--="${`${index}${i}`}"` : '';
 
-		elements.unshift(`<${tag}${id}${values.join('')}>${content}`);
+			elements.unshift(`<${tag}${id}${values.join('')}>${content}`);
+		} else {
+			children.forEach(child => {
+				if (typeof child === 'string') {
+					child = [document.createTextNode(child)];
+				}
+
+				child.forEach(child => element.appendChild(child));
+			});
+
+			elements.unshift(element);
+		}
 
 		return elements;
 	}, []);
 
-	return elements.join('');
+	return generate ? elements.join('') : elements;
 }

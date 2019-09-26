@@ -148,6 +148,11 @@ describe('evaluate', () => {
 			const actual = evaluate([['key', 'xyz']], state, 'name');
 			expect(actual).toBe('');
 		});
+
+		it('ignores listeners', () => {
+			const actual = evaluate(['key'], state, 'onclick');
+			expect(actual).toBe('');
+		});
 	});
 
 	describe('hydrate', () => {
@@ -222,6 +227,14 @@ describe('evaluate', () => {
 			evaluate([['key', 'abc']], state, 'name', new Element(''));
 			expect(state).toEqual({ '.': [update], key: 'abc' });
 		});
+
+		it('attaches listener', () => {
+			const element = new Element('');
+			evaluate([['key']], state, 'onclick', element);
+
+			expect(state).toEqual({ '.': [update] });
+			expect(element.onclick).toEqual(expect.any(Function));
+		});
 	});
 
 	describe('update', () => {
@@ -279,6 +292,21 @@ describe('evaluate', () => {
 			const element = new Element(null);
 			evaluate([['key', 'abc']], state, 'name', element);
 			expect(removeAttribute).not.toHaveBeenCalled();
+		});
+
+		it('attaches listener', () => {
+			const element = new Element('');
+			evaluate([['key']], state, 'onclick', element);
+			expect(element.onclick).toEqual(expect.any(Function));
+		});
+
+		it('leaves previously attached listener', () => {
+			const action = () => {};
+			const element = new Element('');
+			element.onclick = action;
+
+			evaluate([['key']], state, 'onclick', element);
+			expect(element.onclick).toBe(action);
 		});
 	});
 });

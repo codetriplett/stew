@@ -31,7 +31,17 @@ describe('fetch', () => {
 			expect(actual).toBe('abc');
 		});
 
-		it('parent', () => {
+		it('sibling', () => {
+			Object.assign(state, {
+				'': { '': state, '.': [{}], number: 123 },
+				'.': [{}, 'string']
+			});
+
+			const actual = fetch(['.number'], state);
+			expect(actual).toBe(123);
+		});
+
+		it('self', () => {
 			state = Object.assign('abc', {
 				'': { string: 'abc' },
 				'.': [{}, 'string']
@@ -93,6 +103,11 @@ describe('fetch', () => {
 				'': state,
 				'.': [backup.objects, 'objects'],
 			}));
+		});
+
+		it('does not set up missing property', () => {
+			const actual = fetch(['missing'], state);
+			expect(actual).toBeUndefined();
 		});
 
 		it('does not mutate data', () => {
@@ -192,6 +207,29 @@ describe('fetch', () => {
 
 			expect(state).toEqual({ '': state, '.': [update] });
 			expect(actual).toBe(false);
+		});
+
+		it('creates object', () => {
+			const actual = fetch(['object'], state);
+			const object = { '': state, '.': [update, 'object'] }
+
+			expect(state).toEqual({ '': state, '.': [update], object });
+			expect(actual).toEqual(object);
+		});
+
+		it('uses existing object', () => {
+			const object = { '': 'abc', '.': [update, 'abc'] };
+			state.object = object;
+			const actual = fetch(['object'], state);
+
+			expect(state).toEqual({ '': state, '.': [update], object });
+			expect(actual).toEqual(object);
+		});
+
+		it('does not create object when updating', () => {
+			state['.'][0][''] = true;
+			const actual = fetch(['missing'], state);
+			expect(actual).toBeUndefined();
 		});
 
 		it('index', () => {

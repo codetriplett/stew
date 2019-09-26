@@ -1,17 +1,24 @@
-import { fetch } from './fetch';
+import { fetch, TOGGLE } from './fetch';
 
 export function evaluate (items, state, content, element) {
 	const strings = items.filter(item => typeof item === 'string').reverse();
-	let hydrate = !state['.'][0][''];
+	const activate = typeof content === 'string' && content.startsWith('on');
+	let hydrate = !activate && !state['.'][0][''];
 	let candidate = '';
 	let existing;
+	let option;
 
-	if (element) {
+	if (activate) {
+		if (!element || element[content]) {
+			return '';
+		}
+
+		option = TOGGLE;
+		items = items.slice(0, 1);
+	} else if (element) {
 		existing = element.getAttribute(content) || '';
 	} else if (typeof content === 'object') {
 		existing = content.nodeValue || '';
-	} else if (content && content.startsWith('on')) {
-		return '';
 	} else {
 		hydrate = false;
 	}
@@ -60,7 +67,7 @@ export function evaluate (items, state, content, element) {
 		const { length } = value;
 		const skip = length > 0 && item.length > 1 && candidate === '';
 
-		item = skip || fetch(item, state, hydrate ? candidate : undefined);
+		item = skip || fetch(item, state, hydrate ? candidate : option);
 
 		if (item === false) {
 			if (!length) {
@@ -81,6 +88,9 @@ export function evaluate (items, state, content, element) {
 	}, []);
 
 	if (hydrate) {
+		return;
+	} else if (activate) {
+		element[content] = value.shift();
 		return;
 	} else if (value) {
 		value = value.length ? value.join('') : true;

@@ -19,14 +19,17 @@ export function fetch (item, state, value) {
 	}
 
 	key = keys.pop();
-	state = keys.reduce((state, key) => fetch([key], state), state);
+
+	state = keys.reduce((state, key) => {
+		return key ? fetch([key], state) : state[key];
+	}, state);
 
 	let { '.': [option, label, ...indices] } = state;
 	const generate = typeof option === 'object';
 
 	if (key === '') {
 		state = state[''];
-		key = label;
+		key = label || '';
 	}
 	
 	if (measure) {
@@ -62,10 +65,12 @@ export function fetch (item, state, value) {
 	}
 
 	const iterative = Array.isArray(value);
+	const relate = generate && typeof value === 'object';
+	const create = !hydrate && !generate && !option[''] && value === undefined;
 
 	if (measure && iterative) {
 		value = value.length - 1;
-	} else if (!hydrate && /^(undefined|object)$/.test(typeof value)) {
+	} else if (relate || create) {
 		if (value && value[''] === state) {
 			return value;
 		} else if (generate) {
