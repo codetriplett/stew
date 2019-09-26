@@ -21,106 +21,89 @@ function normalize (elements) {
 	});
 }
 
+const data = {
+	number: 123,
+	string: 'abc',
+	object: { string: 'xyz' },
+	array: [
+		{ string: 'abc' },
+		{ string: 'xyz' }
+	]
+};
+
 describe('render', () => {
 	describe('generate', () => {
 		let backup = {};
 		let state;
+
+		function generate (markup, expectedElements, expectedBackup) {
+			const template = parse(markup);
+			const actual = render(template, state, 1);
+
+			expect(actual).toEqual(expectedElements);
+
+			if (expectedBackup) {
+				expect(backup).toEqual(expectedBackup);
+			}
+		}
 
 		beforeEach(() => {
 			backup = {};
 
 			state = {
 				'.': [backup],
-				number: 123,
-				string: 'abc',
-				object: { string: 'xyz' },
-				array: [
-					{ string: 'abc' },
-					{ string: 'xyz' }
-				]
+				...JSON.parse(JSON.stringify(data))
 			};
 
 			state[''] = state;
 		});
 
 		it('tag', () => {
-			const template = parse('<br>');
-			const actual = render(template, state, 1);
-
-			expect(actual).toBe('<br>');
+			generate('<br>', '<br>');
 		});
 
 		it('attributes', () => {
-			const template = parse('<img src="("{string}")" alt="">');
-			const actual = render(template, state, 1);
-
-			expect(actual).toBe('<img alt="" src="(abc)">');
+			generate(
+				'<img src="("{string}")" alt="">',
+				'<img alt="" src="(abc)">'
+			);
 		});
 
 		it('empty', () => {
-			const template = parse('<div></>');
-			const actual = render(template, state, 1);
-
-			expect(actual).toBe('<div></div>');
+			generate('<div></>', '<div></div>');
 		});
 
 		it('content', () => {
-			const template = parse('<p>({string})</>');
-			const actual = render(template, state, 1);
-
-			expect(actual).toBe('<p>(abc)</p>');
+			generate('<p>({string})</>', '<p>(abc)</p>');
 		});
 
 		it('children', () => {
-			const template = parse('<div>(<br><br>)</>');
-			const actual = render(template, state, 1);
-
-			expect(actual).toBe('<div>(<br><br>)</div>');
+			generate('<div>(<br><br>)</>', '<div>(<br><br>)</div>');
 		});
 
 		it('conditional', () => {
-			const template = parse('<p {object}>({string})</p>');
-			const actual = render(template, state, 1);
-
-			expect(actual).toBe('<p data--="1">(xyz)</p>');
+			generate('<p {object}>({string})</p>', '<p data--="1">(xyz)</p>');
 		});
 
 		it('hidden', () => {
-			const template = parse('<p {missing}>({string})</p>');
-			const actual = render(template, state, 1);
-
-			expect(actual).toBe('');
+			generate('<p {missing}>({string})</p>', '');
 		});
 
 		it('iterate', () => {
-			const template = parse('<p {array}>({string})</p>');
-			const actual = render(template, state, 1);
-
-			expect(actual).toBe([
+			generate('<p {array}>({string})</p>', [
 				'<p data--="1-0">(abc)</p>',
 				'<p data--="1-1">(xyz)</p>'
 			].join(''));
 		});
 
 		it('complex', () => {
-			const template = parse(`
+			generate(`
 				<div {array}>
 					<img src="("{string.}")" alt="">
 					<br>
 					<p>({.number})</p>
 				</>
-			`);
-
-			const actual = render(template, state, 1);
-
-			expect(backup).toEqual({
-				array: [
-					{ string: 'abc' },
-					{ string: 'xyz' }
-				]
-			});
-
-			expect(actual).toBe([
+			`, [
 				'<div data--="1-0">',
 					'<img alt="" src="(abc)">',
 					'<br>',
@@ -131,13 +114,26 @@ describe('render', () => {
 					'<br>',
 					'<p>(123)</p>',
 				'</div>'
-			].join(''));
+			].join(''), {
+				array: [
+					{ string: 'abc' },
+					{ string: 'xyz' }
+				]
+			});
 		});
 	});
 
 	describe('create', () => {
 		const update = jest.fn();
 		let state;
+
+		function create (markup, expected) {
+			const template = parse(markup);
+			const actual = render(template, state, 1);
+			const elements = normalize(actual);
+
+			expect(elements).toEqual(expected);
+		}
 
 		beforeEach(() => {
 			update[''] = true;
@@ -157,112 +153,181 @@ describe('render', () => {
 		});
 
 		it('tag', () => {
-			const template = parse('<br>');
-			const actual = render(template, state, 1);
-			const [element] = normalize(actual);
-
-			expect(actual).toHaveLength(1);
-			expect(element).toEqual({ '': ['br'] });
+			create('<br>', [{ '': ['br'] }]);
 		});
 
 		it('attributes', () => {
-			const template = parse('<img src="("{string}")" alt="">');
-			const actual = render(template, state, 1);
-			const [element] = normalize(actual);
-
-			expect(actual).toHaveLength(1);
-			expect(element).toEqual({ '': ['img'], alt: '', src: '(abc)'});
+			create('<img src="("{string}")" alt="">', [
+				{ '': ['img'], alt: '', src: '(abc)' }
+			]);
 		});
 
 		it('empty', () => {
-			const template = parse('<div></>');
-			const actual = render(template, state, 1);
-			const [element] = normalize(actual);
-
-			expect(actual).toHaveLength(1);
-			expect(element).toEqual({ '': ['div', ''] });
+			create('<div></>', [{ '': ['div', ''] }]);
 		});
 
 		it('content', () => {
-			const template = parse('<p>({string})</>');
-			const actual = render(template, state, 1);
-			const [element] = normalize(actual);
-
-			expect(actual).toHaveLength(1);
-			expect(element).toEqual({ '': ['p', '(abc)'] });
+			create('<p>({string})</>', [{ '': ['p', '(abc)'] }]);
 		});
 
 		it('children', () => {
-			const template = parse('<div>(<br><br>)</>');
-			const actual = render(template, state, 1);
-			const [element] = normalize(actual);
-
-			expect(actual).toHaveLength(1);
-
-			expect(element).toEqual({
-				'': ['div', '(', { '': ['br'] }, { '': ['br'] }, ')']
-			});
+			create('<div>(<br><br>)</>', [
+				{ '': ['div', '(', { '': ['br'] }, { '': ['br'] }, ')'] }
+			]);
 		});
 
-		it.skip('conditional', () => {
-			const template = parse('<p {object}>({string})</p>');
-			const actual = render(template, state, 1);
-			const [element] = normalize(actual);
-
-			expect(actual).toHaveLength(1);
-
-			expect(element).toEqual({
-				'': ['p', '(abc)']
-			});
+		it('conditional', () => {
+			create('<p {object}>({string})</p>', [
+				{ '': ['p', '(xyz)'], 'data--': '1' }
+			]);
 		});
 
-		it.skip('hidden', () => {
-			const template = parse('<p {missing}>({string})</p>');
-			const actual = render(template, state, 1);
-
-			expect(actual).toBe('');
+		it('hidden', () => {
+			create('<p {missing}>({string})</p>', []);
 		});
 
-		it.skip('iterate', () => {
-			const template = parse('<p {array}>({string})</p>');
-			const actual = render(template, state, 1);
-
-			expect(actual).toBe([
-				'<p data--="1-0">(abc)</p>',
-				'<p data--="1-1">(xyz)</p>'
-			].join(''));
+		it('iterate', () => {
+			create('<p {array}>({string})</p>', [
+				{ '': ['p', '(abc)'], 'data--': '1-0' },
+				{ '': ['p', '(xyz)'], 'data--': '1-1' }
+			]);
 		});
 
-		it.skip('complex', () => {
-			const template = parse(`
+		it('complex', () => {
+			create(`
 				<div {array}>
 					<img src="("{string.}")" alt="">
 					<br>
 					<p>({.number})</p>
 				</>
-			`);
+			`, [
+				{ '': ['div',
+					{ '': ['img'], alt: '', src: '(abc)' },
+					{ '': ['br'] },
+					{ '': ['p', '(123)'] }
+				], 'data--': '1-0' },
+				{ '': ['div',
+					{ '': ['img'], alt: '', src: '(xyz)' },
+					{ '': ['br'] },
+					{ '': ['p', '(123)'] }
+				], 'data--': '1-1' }
+			]);
+		});
+	});
 
-			const actual = render(template, state, 1);
+	describe('hydrate', () => {
+		const update = jest.fn();
+		let state;
+		
+		function hydrate (markup, expectedState, expectedElements) {
+			update[''] = true;
 
-			expect(backup).toEqual({
-				array: [
-					{ string: 'abc' },
-					{ string: 'xyz' }
-				]
+			const template = parse(markup);
+			const actual = render(template, { ...data, ...state }, 1);
+
+			update[''] = undefined;
+			actual.forEach(element => render(template, state, element));
+
+			expect(state).toEqual({
+				'': state, '.': [update], ...expectedState
 			});
 
-			expect(actual).toBe([
-				'<div data--="1-0">',
-					'<img alt="" src="(abc)">',
-					'<br>',
-					'<p>(123)</p>',
-				'</div>',
-				'<div data--="1-1">',
-					'<img alt="" src="(xyz)">',
-					'<br>',
-					'<p>(123)</p>',
-				'</div>'
-			].join(''));
+			if (expectedElements) {
+				const elements = normalize(actual);
+				expect(elements).toEqual(expectedElements);
+			}
+		}
+
+		beforeEach(() => {
+			state = { '.': [update] };
+			state[''] = state;
 		});
+
+		it('tag', () => {
+			hydrate('<br>', {}, [{ '': ['br'] }]);
+		});
+
+		it('attributes', () => {
+			hydrate('<img src="("{string}")" alt="">', {
+				string: 'abc'
+			}, [{ '': ['img'], alt: '', src: '(abc)'}]);
+		});
+
+		it('empty', () => {
+			hydrate('<div></>', {}, [{ '': ['div', ''] }]);
+		});
+
+		it.only('content', () => {
+			hydrate('<p>({string})</>', {
+				string: 'abc'
+			}, { '': ['p', '(abc)'] });
+		});
+
+		// it('children', () => {
+		// 	const template = parse('<div>(<br><br>)</>');
+		// 	const actual = render(template, state, 1);
+		// 	const [element] = normalize(actual);
+
+		// 	expect(actual).toHaveLength(1);
+
+		// 	expect(element).toEqual({
+		// 		'': ['div', '(', { '': ['br'] }, { '': ['br'] }, ')']
+		// 	});
+		// });
+
+		// it('conditional', () => {
+		// 	const template = parse('<p {object}>({string})</p>');
+		// 	const actual = render(template, state, 1);
+		// 	const [element] = normalize(actual);
+
+		// 	expect(actual).toHaveLength(1);
+		// 	expect(element).toEqual({ '': ['p', '(xyz)'], 'data--': '1' });
+		// });
+
+		// it('hidden', () => {
+		// 	const template = parse('<p {missing}>({string})</p>');
+		// 	const actual = render(template, state, 1);
+
+		// 	expect(actual).toHaveLength(0);
+		// });
+
+		// it('iterate', () => {
+		// 	const template = parse('<p {array}>({string})</p>');
+		// 	const actual = render(template, state, 1);
+		// 	const elements = normalize(actual);
+
+		// 	expect(actual).toHaveLength(2);
+
+		// 	expect(elements).toEqual([
+		// 		{ '': ['p', '(abc)'], 'data--': '1-0' },
+		// 		{ '': ['p', '(xyz)'], 'data--': '1-1' }
+		// 	]);
+		// });
+
+		// it('complex', () => {
+		// 	const template = parse(`
+		// 		<div {array}>
+		// 			<img src="("{string.}")" alt="">
+		// 			<br>
+		// 			<p>({.number})</p>
+		// 		</>
+		// 	`);
+
+		// 	const actual = render(template, state, 1);
+		// 	const elements = normalize(actual);
+
+		// 	expect(elements).toEqual([
+		// 		{ '': ['div',
+		// 			{ '': ['img'], alt: '', src: '(abc)' },
+		// 			{ '': ['br'] },
+		// 			{ '': ['p', '(123)'] }
+		// 		], 'data--': '1-0' },
+		// 		{ '': ['div',
+		// 			{ '': ['img'], alt: '', src: '(xyz)' },
+		// 			{ '': ['br'] },
+		// 			{ '': ['p', '(123)'] }
+		// 		], 'data--': '1-1' }
+		// 	]);
+		// });
 	});
 });

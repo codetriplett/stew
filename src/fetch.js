@@ -65,7 +65,7 @@ export function fetch (item, state, value) {
 	}
 
 	const iterative = Array.isArray(value);
-	const relate = generate && typeof value === 'object';
+	const relate = typeof value === 'object' && !value.hasOwnProperty('');
 	const create = !hydrate && !generate && !option[''] && value === undefined;
 
 	if (measure && iterative) {

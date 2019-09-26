@@ -4,11 +4,18 @@ import { evaluate } from './evaluate';
 export function render (item, state, element) {
 	let { '': [tag, ...items], ...attributes } = item;
 	const { length } = items;
+	const { '.': [option] } = state;
 	const names = Object.keys(attributes).sort();
-	const generate = typeof state['.'][0] === 'object';
-	const index = typeof element !== 'object' ? element : '';
+	const generate = typeof option === 'object';
+	const hydrate = !generate && !option[''];
 	const conditional = Array.isArray(tag);
 	let iterate = false;
+	let index;
+
+	if (typeof element !== 'object') {
+		index = element;
+		element = undefined;
+	}
 
 	if (conditional) {
 		state = fetch(tag[0], state);
@@ -21,9 +28,16 @@ export function render (item, state, element) {
 	}
 
 	const elements = state.reduceRight((elements, state, i) => {
-		if (index) {
-			element = !generate ? document.createElement(tag) : undefined;
-			i = iterate ? `-${i}` : '';
+		if (index !== undefined) {
+			i = `${index}${iterate ? `-${i}` : ''}`;
+
+			if (!generate) {
+				element = document.createElement(tag);
+
+				if (conditional) {
+					element.setAttribute('data--', i);
+				}
+			}
 		}
 
 		const children = items.reduceRight((children, item, i) => {
@@ -43,10 +57,10 @@ export function render (item, state, element) {
 
 		if (generate) {
 			const content = length ? `${children.join('')}</${tag}>` : '';
-			const id = conditional ? ` data--="${`${index}${i}`}"` : '';
+			const id = conditional ? ` data--="${i}"` : '';
 
 			elements.unshift(`<${tag}${id}${values.join('')}>${content}`);
-		} else {
+		} else if (!hydrate) {
 			children.forEach(child => {
 				if (typeof child === 'string') {
 					child = [document.createTextNode(child)];
