@@ -164,76 +164,119 @@ describe('evaluate', () => {
 		});
 
 		it('resolves string', () => {
-			evaluate(['abc'], state, new Text('abc'));
+			const element = new Text('abc');
+			const actual = evaluate(['abc'], state, element);
+
 			expect(state).toEqual({ '.': [update] });
+			expect(actual).toBe(element);
 		});
 
 		it('resolves value', () => {
-			evaluate([['key']], state, new Text('abc'));
+			const element = new Text('abc');
+			const actual = evaluate([['key']], state, element);
+
 			expect(state).toEqual({ '.': [update], key: 'abc' });
+			expect(actual).toBe(element);
 		});
 
 		it('resolves string and string', () => {
-			evaluate(['abc', 'xyz'], state, new Text('abcxyz'));
+			const element = new Text('abcxyz');
+			const actual = evaluate(['abc', 'xyz'], state, element);
+
 			expect(state).toEqual({ '.': [update] });
+			expect(actual).toBe(element);
 		});
 
 		it('resolves string and value', () => {
-			evaluate(['xyz', ['key']], state, new Text('xyzabc'));
+			const element = new Text('xyzabc');
+			const actual = evaluate(['xyz', ['key']], state, element);
+
 			expect(state).toEqual({ '.': [update], key: 'abc' });
+			expect(actual).toBe(element);
 		});
 
 		it('resolves string and match', () => {
-			evaluate(['xyz', ['key', 'abc']], state, new Text('xyz'));
+			const element = new Text('xyz');
+			const actual = evaluate(['xyz', ['key', 'abc']], state, element);
+
 			expect(state).toEqual({ '.': [update], key: 'abc' });
+			expect(actual).toBe(element);
 		});
 
 		it('resolves value and string', () => {
-			evaluate([['key'], 'xyz'], state, new Text('abcxyz'));
+			const element = new Text('abcxyz');
+			const actual = evaluate([['key'], 'xyz'], state, element);
+
 			expect(state).toEqual({ '.': [update], key: 'abc' });
+			expect(actual).toBe(element);
 		});
 
 		it('resolves value and value', () => {
-			evaluate([['key'], ['key']], state, new Text('abcabc'));
+			const element = new Text('abcabc');
+			const actual = evaluate([['key'], ['key']], state, element);
+
 			expect(state).toEqual({ '.': [update], key: 'abcabc' });
+			expect(actual).toBe(element);
 		});
 
 		it('resolves value and match', () => {
-			evaluate([['key'], ['key', 'abc']], state, new Text('abc'));
+			const element = new Text('abc');
+			const actual = evaluate([['key'], ['key', 'abc']], state, element);
+
 			expect(state).toEqual({ '.': [update], key: 'abc' });
+			expect(actual).toBe(element);
 		});
 
 		it('resolves match and string', () => {
-			evaluate([['key', 'abc'], 'xyz'], state, new Text('xyz'));
+			const element = new Text('xyz');
+			const actual = evaluate([['key', 'abc'], 'xyz'], state, element);
+
 			expect(state).toEqual({ '.': [update], key: 'abc' });
+			expect(actual).toBe(element);
 		});
 
 		it('resolves match and value', () => {
-			evaluate([['key', 'abc'], ['key']], state, new Text('abc'));
+			const element = new Text('abc');
+			const actual = evaluate([['key', 'abc'], ['key']], state, element);
+
 			expect(state).toEqual({ '.': [update], key: 'abc' });
+			expect(actual).toBe(element);
 		});
 
 		it('resolves match and match', () => {
-			evaluate([['key', 'abc'], ['key', 'abc']], state, new Text('abc'));
+			const element = new Text('abc');
+
+			const actual = evaluate(
+				[['key', 'abc'], ['key', 'abc']], state, element
+			);
+
 			expect(state).toEqual({ '.': [update], key: 'abc' });
+			expect(actual).toBe(element);
 		});
 
 		it('reads value attribute', () => {
-			evaluate([['key']], state, 'name', new Element('abc'));
+			const element = new Element('abc');
+			const actual = evaluate([['key']], state, 'name', element);
+
 			expect(state).toEqual({ '.': [update], key: 'abc' });
+			expect(actual).toBe('name');
 		});
 
 		it('reads boolean attribute', () => {
-			evaluate([['key', 'abc']], state, 'name', new Element(''));
+			const element = new Element('');
+			const actual = evaluate([['key', 'abc']], state, 'name', element);
+
 			expect(state).toEqual({ '.': [update], key: 'abc' });
+			expect(actual).toBe('name');
 		});
 
 		it('attaches listener', () => {
 			const element = new Element('');
-			evaluate([['key']], state, 'onclick', element);
+			const actual = evaluate([['key']], state, 'onclick', element);
 
 			expect(state).toEqual({ '.': [update] });
 			expect(element.onclick).toEqual(expect.any(Function));
+			expect(actual).toBe('');
 		});
 	});
 
@@ -248,65 +291,84 @@ describe('evaluate', () => {
 
 		it('updates content', () => {
 			const element = new Text('abc');
-			evaluate([['key']], state, element);
+			const actual = evaluate([['key']], state, element);
+
 			expect(element.nodeValue).toBe('xyz');
+			expect(actual).toBe(element);
 		});
 
 		it('keeps content', () => {
 			const element = new Text('xyz');
-			evaluate([['key']], state, element);
+			const actual = evaluate([['key']], state, element);
+			
 			expect(element.nodeValue).toBe('xyz');
+			expect(actual).toBe(element);
 		});
 
 		it('updates value attribute', () => {
 			const element = new Element('abc');
-			evaluate([['key']], state, 'name', element);
+			const actual = evaluate([['key']], state, 'name', element);
+			
 			expect(setAttribute).toHaveBeenCalledWith('name', 'xyz');
+			expect(actual).toBe('');
 		});
 
 		it('keeps value attribute', () => {
 			const element = new Element('xyz');
-			evaluate([['key']], state, 'name', element);
+			const actual = evaluate([['key']], state, 'name', element);
+			
 			expect(setAttribute).not.toHaveBeenCalled();
+			expect(actual).toBe('');
 		});
 
 		it('updates boolean attribute', () => {
 			const element = new Element(null);
-			evaluate([['key', 'xyz']], state, 'name', element);
+			const actual = evaluate([['key', 'xyz']], state, 'name', element);
+			
 			expect(toggleAttribute).toHaveBeenCalledWith('name', true);
+			expect(actual).toBe('');
 		});
 
 		it('keeps boolean attribute', () => {
 			const element = new Element('');
-			evaluate([['key', 'xyz']], state, 'name', element);
+			const actual = evaluate([['key', 'xyz']], state, 'name', element);
+			
 			expect(toggleAttribute).not.toHaveBeenCalled();
+			expect(actual).toBe('');
 		});
 
 		it('updates inactive attribute', () => {
 			const element = new Element('');
-			evaluate([['key', 'abc']], state, 'name', element);
+			const actual = evaluate([['key', 'abc']], state, 'name', element);
+			
 			expect(removeAttribute).toHaveBeenCalledWith('name');
+			expect(actual).toBe('');
 		});
 
 		it('keeps boolean attribute', () => {
 			const element = new Element(null);
-			evaluate([['key', 'abc']], state, 'name', element);
+			const actual = evaluate([['key', 'abc']], state, 'name', element);
+			
 			expect(removeAttribute).not.toHaveBeenCalled();
+			expect(actual).toBe('');
 		});
 
 		it('attaches listener', () => {
 			const element = new Element('');
-			evaluate([['key']], state, 'onclick', element);
+			const actual = evaluate([['key']], state, 'onclick', element);
+			
 			expect(element.onclick).toEqual(expect.any(Function));
+			expect(actual).toBe('');
 		});
 
 		it('leaves previously attached listener', () => {
 			const action = () => {};
 			const element = new Element('');
 			element.onclick = action;
+			const actual = evaluate([['key']], state, 'onclick', element);
 
-			evaluate([['key']], state, 'onclick', element);
 			expect(element.onclick).toBe(action);
+			expect(actual).toBe('');
 		});
 	});
 });

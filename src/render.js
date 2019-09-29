@@ -1,79 +1,127 @@
 import { fetch } from './fetch';
 import { evaluate } from './evaluate';
 
-export function render (item, state, element) {
-	let { '': [tag, ...items], ...attributes } = item;
-	const { length } = items;
-	const { '.': [option] } = state;
-	const names = Object.keys(attributes).sort();
-	const generate = typeof option === 'object';
-	const hydrate = !generate && !option[''];
-	const conditional = Array.isArray(tag);
-	let iterate = false;
-	let index;
+export function render (state, item, name = '', element = '', previous) {
+	const generate = typeof element !== 'object';
+	let traverse = false;
+	let value;
 
-	if (typeof element !== 'object') {
-		index = element;
-		element = undefined;
-	}
+	if (/^\d/.test(name) || !Array.isArray(item)) {
+		let { '': [tag, ...items] = [''], ...attributes } = item;
+		const conditional = Array.isArray(tag);
 
-	if (conditional) {
-		state = fetch(tag[0], state);
-		iterate = Array.isArray(state);
-		tag = items.shift();
-	}
+		if (!Array.isArray(item)) {
+			if (conditional) {
+				const scope = fetch(tag[0], state);
+				tag = items.shift();
 
-	if (!iterate) {
-		state = state !== undefined ? [state] : [];
-	}
+				if (name) {
+					attributes['data--'] = [name];
+				}
 
-	const elements = state.reduceRight((elements, state, i) => {
-		if (index !== undefined) {
-			i = `${index}${iterate ? `-${i}` : ''}`;
-
-			if (!generate) {
-				element = document.createElement(tag);
-
-				if (conditional) {
-					element.setAttribute('data--', i);
+				if (scope === null || scope === false) {
+					state = undefined;
+				} else if (scope !== true) {
+					state = scope;
 				}
 			}
+
+			item = items;
+			items = Object.keys(attributes).sort();
 		}
 
-		const children = items.reduceRight((children, item, i) => {
-			if (Array.isArray(item)) {
-				item = evaluate(item, state);
+		if (!tag && item.length < 2 && !item[0] || state === undefined) {
+			return previous || '';
+		} else if (!Array.isArray(state)) {
+			state = [state];
+		}
+
+		return state.reduceRight((previous, state) => {
+			let node = previous ? previous.previousNode : element.lastChild;
+
+			if (name && generate) {
+				node = tag ? `<${tag}` : '';
 			} else {
-				item = render(item, state, i);
+				const id = node && node.tagName && node.getAttribute('data--');
+
+				if (!node || id !== (conditional ? name : null)) {
+					if (tag) {
+						node = document.createElement(tag);
+					} else {
+						node = document.createTextNode('');
+					}
+
+					if (!generate) {
+						if (previous) {
+							element.insertBefore(node, previous);
+						} else {
+							element.appendChild(node);
+						}
+					}
+				}
 			}
 
-			children.unshift(item);
-			return children;
-		}, []);
+			node = items.reduce((node, name) => {
+				return render(state, attributes[name], name, node);
+			}, node);
 
-		const values = names.map(name => {
-			return evaluate(attributes[name], state, name, element);
-		}).filter(value => value);
+			return render(state, item, node, previous);
+		}, previous);
+	} else if (typeof name === 'string' && !generate) {
+		previous = element.getAttribute(name);
+	} else if (name && typeof name.nodeValue === 'string') {
+		previous = name.nodeValue;
+	} else if (name && !/^\w/.test(name)) {
+		traverse = true;
+	}
 
-		if (generate) {
-			const content = length ? `${children.join('')}</${tag}>` : '';
-			const id = conditional ? ` data--="${i}"` : '';
+	if (traverse) {
+		value = item.reduceRight((previous, item, i) => {
+			return render(state, item, String(i), name, previous);
+		}, undefined);
+	} else {
+		value = evaluate(item, state, previous);
 
-			elements.unshift(`<${tag}${id}${values.join('')}>${content}`);
-		} else if (!hydrate) {
-			children.forEach(child => {
-				if (typeof child === 'string') {
-					child = [document.createTextNode(child)];
-				}
+		if (value) {
+			value = value.length ? value.join('') : true;
+		}
+	}
 
-				child.forEach(child => element.appendChild(child));
-			});
-
-			elements.unshift(element);
+	if (traverse) {
+		if (typeof name === 'object') {
+			return name;
+		} else if (item.length) {
+			element = `${value}</${name.match(/\S*/)[0].slice(1)}>${element}`;
 		}
 
-		return elements;
-	}, []);
+		return `${name}>${element}`;
+	} else if (!/^\w/.test(name)) {
+		value = typeof value === 'string' ? value : '';
 
-	return generate ? elements.join('') : elements;
+		if (previous === undefined) {
+			return `${value}${element}`;
+		} else if (value !== previous) {
+			name.nodeValue = value;
+		}
+
+		return name;
+	} else if (generate) {
+		if (value === true) {
+			return `${element} ${name}`;
+		}
+
+		return `${element}${value !== false ? ` ${name}="${value}"` : ''}`;
+	} else if (typeof value === 'boolean') {
+		const exists = element.hasAttribute(name);
+
+		if (value && !exists) {
+			element.toggleAttribute(name, true);
+		} else if (!value && exists) {
+			element.removeAttribute(name);
+		}
+	} else if (value !== previous) {
+		element.setAttribute(name, value);
+	}
+
+	return element;
 }
