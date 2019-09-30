@@ -1,22 +1,24 @@
 import { parse } from '../parse';
 import { render } from '../render';
 
-function normalize ({ tagName, attributes, childNodes, nodeValue }) {
-	if (nodeValue !== null) {
-		return nodeValue;
-	}
+function normalize (elements) {
+	return elements.map(({ tagName, attributes, childNodes, nodeValue }) => {
+		if (nodeValue !== null) {
+			return nodeValue;
+		}
 
-	tagName = tagName.toLowerCase();
-	attributes = Array.from(attributes);
-	childNodes = Array.from(childNodes).map(normalize);
+		tagName = tagName.toLowerCase();
+		attributes = Array.from(attributes);
+		childNodes = normalize(Array.from(childNodes));
 
-	const object = { '': [tagName, ...childNodes] };
+		const object = { '': [tagName, ...childNodes] };
 
-	for (const { name, value } of attributes) {
-		object[name] = value;
-	}
+		for (const { name, value } of attributes) {
+			object[name] = value;
+		}
 
-	return object;
+		return object;
+	});
 }
 
 const data = {
@@ -36,7 +38,7 @@ describe('render', () => {
 
 		function generate (markup, expectedElements, expectedBackup) {
 			const template = parse(markup);
-			const actual = render(state, template, '1');
+			const actual = render(state, template, '1', '');
 
 			expect(actual).toEqual(expectedElements);
 
@@ -63,7 +65,7 @@ describe('render', () => {
 		it('attributes', () => {
 			generate(
 				'<img src="("{string}")" alt="">',
-				'<img alt="" src="(abc)">'
+				'<img src="(abc)" alt="">'
 			);
 		});
 
@@ -89,8 +91,8 @@ describe('render', () => {
 
 		it('iterate', () => {
 			generate('<p {array}>({string})</p>', [
-				'<p data--="1">(abc)</p>',
-				'<p data--="1">(xyz)</p>'
+				'<p data--="1-0">(abc)</p>',
+				'<p data--="1-1">(xyz)</p>'
 			].join(''));
 		});
 
@@ -102,13 +104,13 @@ describe('render', () => {
 					<p>({.number})</p>
 				</>
 			`, [
-				'<div data--="1">',
-					'<img alt="" src="(abc)">',
+				'<div data--="1-0">',
+					'<img src="(abc)" alt="">',
 					'<br>',
 					'<p>(123)</p>',
 				'</div>',
-				'<div data--="1">',
-					'<img alt="" src="(xyz)">',
+				'<div data--="1-1">',
+					'<img src="(xyz)" alt="">',
 					'<br>',
 					'<p>(123)</p>',
 				'</div>'
@@ -151,46 +153,48 @@ describe('render', () => {
 		});
 
 		it('tag', () => {
-			create('<br>', { '': ['br'] });
+			create('<br>', [{ '': ['br'] }]);
 		});
 
 		it('attributes', () => {
-			create('<img src="("{string}")" alt="">', {
-				'': ['img'], alt: '', src: '(abc)'
-			});
+			create('<img src="("{string}")" alt="">', [
+				{ '': ['img'], alt: '', src: '(abc)' }
+			]);
 		});
 
 		it('empty', () => {
-			create('<div></>', { '': ['div'] });
+			create('<div></>', [{ '': ['div'] }]);
 		});
 
 		it('content', () => {
-			create('<p>({string})</>', { '': ['p', '(abc)'] });
+			create('<p>({string})</>', [{ '': ['p', '(abc)'] }]);
 		});
 
 		it('children', () => {
-			create('<div>(<br><br>)</>', {
-				'': ['div', '(', { '': ['br'] }, { '': ['br'] }, ')']
-			});
+			create('<div>(<br><br>)</>', [
+				{ '': ['div', '(', { '': ['br'] }, { '': ['br'] }, ')'] }
+			]);
 		});
 
 		it('conditional', () => {
-			create('<div><p {object}>({string})</p></div>', {
-				'': ['div', { '': ['p', '(xyz)'], 'data--': '0' }]
-			});
+			create('<div><p {object}>({string})</p></div>', [
+				{ '': ['div', { '': ['p', '(xyz)'], 'data--': '0' }] }
+			]);
 		});
 
 		it('hidden', () => {
-			create('<div><p {missing}>({string})</p></div>', { '': ['div']});
+			create('<div><p {missing}>({string})</p></div>', [{ '': ['div'] }]);
 		});
 
 		it('iterate', () => {
-			create('<div><p {array}>({string})</p></div>', {
-				'': ['div',
-					{ '': ['p', '(abc)'], 'data--': '0' },
-					{ '': ['p', '(xyz)'], 'data--': '0' }
-				]
-			});
+			create('<div><p {array}>({string})</p></div>', [
+				{
+					'': ['div',
+						{ '': ['p', '(abc)'], 'data--': '0-0' },
+						{ '': ['p', '(xyz)'], 'data--': '0-1' }
+					]
+				}
+			]);
 		});
 
 		it('complex', () => {
@@ -202,24 +206,26 @@ describe('render', () => {
 						<p>({.number})</p>
 					</>
 				</div>
-			`, {
-				'': ['div',
-					{ '': ['div',
-						{ '': ['img'], alt: '', src: '(abc)' },
-						{ '': ['br'] },
-						{ '': ['p', '(123)'] }
-					], 'data--': '0' },
-					{ '': ['div',
-						{ '': ['img'], alt: '', src: '(xyz)' },
-						{ '': ['br'] },
-						{ '': ['p', '(123)'] }
-					], 'data--': '0' }
-				]
-			});
+			`, [
+				{
+					'': ['div',
+						{ '': ['div',
+							{ '': ['img'], alt: '', src: '(abc)' },
+							{ '': ['br'] },
+							{ '': ['p', '(123)'] }
+						], 'data--': '0-0' },
+						{ '': ['div',
+							{ '': ['img'], alt: '', src: '(xyz)' },
+							{ '': ['br'] },
+							{ '': ['p', '(123)'] }
+						], 'data--': '0-1' }
+					]
+				}
+			]);
 		});
 	});
 
-	describe.skip('hydrate', () => {
+	describe('hydrate', () => {
 		const update = jest.fn();
 		let state;
 		
@@ -230,7 +236,7 @@ describe('render', () => {
 			const actual = render({ ...data, ...state }, template);
 
 			update[''] = undefined;
-			actual.forEach(element => render(state, template, element));
+			render(state, template, 0, actual[0]);
 
 			expect(state).toEqual({
 				'': state, '.': [update], ...expectedState
@@ -248,7 +254,7 @@ describe('render', () => {
 		});
 
 		it('tag', () => {
-			hydrate('<br>', {}, { '': ['br'] });
+			hydrate('<br>', {}, [{ '': ['br'] }]);
 		});
 
 		it('attributes', () => {
@@ -258,35 +264,23 @@ describe('render', () => {
 		});
 
 		it('empty', () => {
-			hydrate('<div></>', {}, [{ '': ['div', ''] }]);
+			hydrate('<div></>', {}, [{ '': ['div'] }]);
 		});
 
 		it('content', () => {
 			hydrate('<p>({string})</>', {
 				string: 'abc'
-			}, { '': ['p', '(abc)'] });
+			}, [{ '': ['p', '(abc)'] }]);
 		});
 
-		// it('children', () => {
-		// 	const template = parse('<div>(<br><br>)</>');
-		// 	const actual = render(template, state, 1);
-		// 	const [element] = normalize(actual);
 
-		// 	expect(actual).toHaveLength(1);
-
-		// 	expect(element).toEqual({
-		// 		'': ['div', '(', { '': ['br'] }, { '': ['br'] }, ')']
-		// 	});
-		// });
-
-		// it('conditional', () => {
-		// 	const template = parse('<p {object}>({string})</p>');
-		// 	const actual = render(template, state, 1);
-		// 	const [element] = normalize(actual);
-
-		// 	expect(actual).toHaveLength(1);
-		// 	expect(element).toEqual({ '': ['p', '(xyz)'], 'data--': '1' });
-		// });
+		it.only('conditional', () => {
+			hydrate('<div><p {object}>({string})</p></div>', {
+				object: {}
+			}, [
+				{ '': ['div', { '': ['p', '(xyz)'], 'data--': '0' }] }
+			]);
+		});
 
 		// it('hidden', () => {
 		// 	const template = parse('<p {missing}>({string})</p>');

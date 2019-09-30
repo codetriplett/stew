@@ -31,7 +31,7 @@ export function fetch (item, state, value) {
 		state = state[''];
 		key = label || '';
 	}
-	
+
 	if (measure) {
 		const { length } = key.match(/\.+$/)[0];
 		key = key.slice(0, -length);
@@ -93,7 +93,7 @@ export function fetch (item, state, value) {
 				value[i] = fetch([i], value);
 			}
 		}
-	} else if (measure && generate) {
+	} else if (measure && key && generate) {
 		option[key] = value;
 	}
 
