@@ -1,26 +1,31 @@
-export function locate (candidate, tag, index, count) {
-	const { tagName: name = '', parentElement: container } = candidate;
+export function locate (node, tag, index, count) {
 	const nodes = [];
+	let { tagName, parentElement, previousSibling, nextSibling } = node;
+	previousSibling = node;
 
-	while (candidate) {
+	while (previousSibling) {
 		if (count) {
 			count--;
 		}
 
-		const id = name && candidate.getAttribute('data--') || '';
+		node = previousSibling;
+		({ previousSibling } = previousSibling);
+
+		const id = tagName && node.getAttribute('data--') || '';
 		const [prefix, suffix] = id.match(/^(\d+)?.*?(\d+)?$/).slice(1);
 		const related = String(prefix) === String(index);
 		const identified = related && String(suffix) === String(count);
-		let node = candidate
 
 		if (!identified) {
+			if (related && suffix > count) {
+				parentElement.removeChild(node);
+				continue;
+			}
+
+			previousSibling = node;
+
 			if (!tag) {
 				node = document.createTextNode('');
-			} else if (related && suffix > count) {
-				container.removeChild(node);
-				node = undefined;
-
-				continue;
 			} else {
 				node = document.createElement(tag);
 
@@ -29,16 +34,20 @@ export function locate (candidate, tag, index, count) {
 					node.setAttribute('data--', `${index}${iteration}`);
 				}
 			}
+
+			if (nextSibling) {
+				parentElement.insertBefore(node, nextSibling);
+			} else {
+				parentElement.appendChild(node);
+			}
+
+			nextSibling = node;
 		}
 
-		if (node) {
-			nodes.push(node);
-		}
+		nodes.push(node);
 
 		if (!count) {
 			break;
-		} else if (identified || !node) {
-			candidate = candidate.previousSibling;
 		}
 	}
 
