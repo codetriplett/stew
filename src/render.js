@@ -1,5 +1,6 @@
 import { fetch } from './fetch';
 import { evaluate } from './evaluate';
+import { locate } from './locate';
 
 export function render (state, view, name, node) {
 	const iterative = typeof name !== 'string';
@@ -10,21 +11,30 @@ export function render (state, view, name, node) {
 	if (!Array.isArray(view)) {
 		let { '': [tag, ...children], key = [['.']], ...attributes } = view;
 		let iterate = false;
+		let elements;
+		let count;
 
 		if (Array.isArray(tag)) {
-			const scope = fetch(tag[0], state);
+			const [query] = tag;
+
+			tag = children.shift();
+			elements = hydrate && locate(node);
+			count = Array.isArray(elements) ? elements.length : undefined;
+
+			const scope = fetch(query, state, count);
 
 			if (scope === undefined || scope === null || scope === false) {
 				return generate ? '' : [];
 			} else if (scope !== true) {
 				state = scope;
-				iterate = Array.isArray(scope);
 			}
-			
-			tag = children.shift();
-			attributes['data--'] = iterate ? [`${name}-`, ...key] : [name];
 		} else {
-			name = '';
+			name = undefined;
+		}
+		
+		if (!elements) {
+			count = iterate ? scope.length : undefined;
+			elements = locate(node, tag, name, count);
 		}
 
 		if (!iterate) {

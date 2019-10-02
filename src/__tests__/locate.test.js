@@ -23,71 +23,112 @@ describe('locate', () => {
 		container.appendChild(element);
 	});
 
-	it('locates text', () => {
-		const actual = locate(text);
-		expect(actual).toBe(text);
-	});
-
-	it('creates text', () => {
-		container.removeChild(text);
-		const actual = locate(iterations);
-
-		expect(actual).toEqual(text);
-		expect(actual.parentElement).toBe(container);
-	});
-
-	it('locates element', () => {
-		const actual = locate(element, 'br');
-		expect(actual).toBe(element);
-	});
-
-	it('creates element', () => {
-		container.removeChild(element);
-		const actual = locate(conditional, 'br');
+	it('first child', () => {
+		container.innerHTML = '';
+		const actual = locate({ parentElement: container }, 'br');
 
 		expect(actual).toEqual(element);
 		expect(actual.parentElement).toBe(container);
 	});
 
-	it('locates conditional', () => {
-		const actual = locate(conditional, 'br', '0');
-		expect(actual).toBe(conditional);
+	it('root element', () => {
+		const actual = locate({}, 'br');
+
+		expect(actual).toEqual(element);
+		expect(actual.parentElement).toBe(null);
 	});
 
-	it('creates conditional', () => {
-		container.removeChild(element);
-		const actual = locate(text, 'br', '0');
-		
-		expect(actual).toMatchObject(element);
-		expect(actual.getAttribute('data--')).toBe('0');
-		expect(actual.parentElement).toBe(container);
+	describe('generate', () => {
+		it('text', () => {
+			const actual = locate('...');
+			expect(actual).toEqual(['', '...']);
+		});
+
+		it('element', () => {
+			const actual = locate('...', 'br');
+			expect(actual).toEqual(['<br', '...']);
+		});
+
+		it('conditional', () => {
+			const actual = locate('...', 'br', 0);
+			expect(actual).toEqual(['<br data--="0"', '...']);
+		});
+
+		it('iterations', () => {
+			const actual = locate('...', 'br', 1, 2);
+
+			expect(actual).toEqual([
+				'<br data--="1-0"', '<br data--="1-1"', '...'
+			]);
+		});
 	});
 
-	it('locates iterations', () => {
-		const actual = locate(iterations, 'br', '1', 2);
+	describe('hydrate', () => {
+		it('text', () => {
+			const actual = locate(text);
+			expect(actual).toBe(text);
+		});
 
-		expect(actual).toHaveLength(2);
-		expect(actual[0]).toBe(iterations);
-		expect(actual[1]).toBe(iterations.previousSibling);
+		it('element', () => {
+			const actual = locate(element);
+			expect(actual).toBe(element);
+		});
+
+		it('conditional', () => {
+			const actual = locate(conditional);
+			expect(actual).toBe(conditional);
+		});
+
+		it('iterations', () => {
+			const actual = locate(iterations);
+			const [first, second] = actual;
+	
+			expect(actual).toHaveLength(2);
+			expect(first).toBe(iterations.previousSibling);
+			expect(second).toBe(iterations);
+		});
 	});
 
-	it('creates iterations', () => {
-		const sibling = iterations.previousSibling;
-		const actual = locate(iterations, 'br', '1', 3);
+	describe('update', () => {
+		it('element', () => {
+			const actual = locate(element, 'br');
+			expect(actual).toBe(element);
+		});
 
-		expect(actual).toHaveLength(3);
-		expect(actual[0]).toMatchObject(element);
-		expect(actual[0].getAttribute('data--')).toBe('1-2');
-		expect(actual[0].parentElement).toBe(container);
-		expect(actual[1]).toBe(iterations);
-		expect(actual[2]).toBe(sibling);
-	});
+		it('conditional', () => {
+			const actual = locate(conditional, 'br', 0);
+			expect(actual).toBe(conditional);
+		});
 
-	it('removes iterations', () => {
-		const sibling = iterations.previousSibling;
-		const actual = locate(iterations, 'br', '1', 1);
+		it('iterations', () => {
+			const actual = locate(iterations, 'br', 1, 2);
+			const [first, second] = actual;
+	
+			expect(actual).toHaveLength(2);
+			expect(first).toBe(iterations.previousSibling);
+			expect(second).toBe(iterations);
+		});
 
-		expect(actual).toHaveLength(1);
-		expect(actual[0]).toBe(sibling);
+		it('creates iterations', () => {
+			const sibling = iterations.previousSibling;
+			const actual = locate(iterations, 'br', '1', 3);
+			const [first, second, third] = actual;
+	
+			expect(actual).toHaveLength(3);
+			expect(first).toBe(sibling);
+			expect(second).toBe(iterations);
+			expect(third).toMatchObject(element);
+			expect(third.getAttribute('data--')).toBe('1-2');
+			expect(third.parentElement).toBe(container);
+		});
+	
+		it('removes iterations', () => {
+			const sibling = iterations.previousSibling;
+			const actual = locate(iterations, 'br', '1', 1);
+			const [node] = actual;
+	
+			expect(actual).toHaveLength(1);
+			expect(node).toBe(sibling);
+		});
 	});
 });

@@ -176,7 +176,7 @@ describe('render', () => {
 			]);
 		});
 
-		it('conditional', () => {
+		it.only('conditional', () => {
 			create('<div><p {object}>({string})</p></div>', [
 				{ '': ['div', { '': ['p', '(xyz)'], 'data--': '0' }] }
 			]);
@@ -274,7 +274,7 @@ describe('render', () => {
 		});
 
 
-		it.only('conditional', () => {
+		it.skip('conditional', () => {
 			hydrate('<div><p {object}>({string})</p></div>', {
 				object: {}
 			}, [
