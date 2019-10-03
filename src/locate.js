@@ -1,11 +1,13 @@
 export function locate (node, tag, index, count) {
 	const generate = typeof node === 'string';
-	const nodes = generate ? [node] : [];
+	const hydrate = typeof tag !== 'string';
 	let { tagName, parentElement, previousSibling, nextSibling } = node;
-	let identified = false;
+	let candidate = generate ? [node] : node;
 
-	if (index !== undefined) {
-		index = String(index);
+	if (hydrate) {
+		candidate = 0;
+		index = tag;
+		tag = undefined;
 	}
 
 	previousSibling = node;
@@ -16,48 +18,52 @@ export function locate (node, tag, index, count) {
 		}
 
 		node = previousSibling;
+		({ previousSibling } = previousSibling);
 
-		if (!generate) {
-			const id = tagName && node.getAttribute('data--') || '';
-			let [prefix, suffix] = id.match(/^(\d+)?.*?(\d+)?$/).slice(1);
+		let id = tagName && node.getAttribute('data--') || '';
+		const [prefix, suffix] = id.match(/^(\d+)?.*?(\d+)?$/).slice(1);
+		const possible = hydrate || !tag === !tagName;
+		let identified = possible && String(prefix) === String(index);
 
-			if (tag && !tagName) {
-				prefix = '';
-			} else if (!tag) {
-				index = prefix;
-				count = suffix && Number(suffix);
+		if (identified) {
+			if (suffix > count) {
+				candidate = previousSibling;
+				parentElement.removeChild(node);
+
+				continue;
+			} else if (!tag && suffix) {
+				count = Number(suffix);
+				candidate = candidate || count + 1;
 			}
 
-			({ previousSibling } = previousSibling);
-			identified = prefix === index;
-
-			if (identified) {
-				if (suffix > count) {
-					parentElement.removeChild(node);
-					continue;
-				}
-
-				identified = String(suffix) === String(count);
-			}
+			identified = String(suffix) === String(count);
 		}
 
 		if (!identified) {
+			if (tag === undefined) {
+				candidate = undefined;
+				break;
+			}
+			
+			suffix = count !== undefined ? `-${count}` : '';
+			id = index !== undefined ? `${index}${suffix}` : '';
 			previousSibling = node;
-
+			
 			if (generate) {
-				const iteration = count !== undefined ? `-${count}` : '';
-				const id = index !== undefined ? ` data--="${index}${iteration}"` : '';
-
-				node = tag ? `<${tag}${id}` : '';
+				node = tag ? `<${tag}${id ? ` data--="${id}"` : ''}` : '';
+				candidate.unshift(node);
 			} else if (!tag) {
 				node = document.createTextNode('');
-			} else {
+			} else  {
 				node = document.createElement(tag);
 
-				if (index !== undefined) { 
-					const iteration = count ? `-${count}` : '';
-					node.setAttribute('data--', `${index}${iteration}`);
+				if (id) { 
+					node.setAttribute('data--', id);
 				}
+			}
+
+			if (previousSibling === candidate) {
+				candidate = node;
 			}
 
 			if (nextSibling) {
@@ -67,16 +73,12 @@ export function locate (node, tag, index, count) {
 			}
 		}
 
-		nodes.unshift(node);
-
-		if (!generate) {
-			nextSibling = node;
-		}
-
 		if (!count) {
 			break;
+		} else if (!generate) {
+			nextSibling = node;
 		}
 	}
 
-	return !generate && count === undefined ? nodes[0] : nodes;
+	return candidate;
 }

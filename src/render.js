@@ -10,21 +10,14 @@ export function render (state, view, name, node) {
 
 	if (!Array.isArray(view)) {
 		let { '': [tag, ...children], key = [['.']], ...attributes } = view;
-		let iterate = false;
-		let elements;
-		let count;
+		let count = hydrate ? locate(node, name) : undefined;
 
 		if (Array.isArray(tag)) {
-			const [query] = tag;
-
+			const scope = fetch(tag[0], state, count);
 			tag = children.shift();
-			elements = hydrate && locate(node);
-			count = Array.isArray(elements) ? elements.length : undefined;
 
-			const scope = fetch(query, state, count);
-
-			if (scope === undefined || scope === null || scope === false) {
-				return generate ? '' : [];
+			if (scope === null || scope === false) {
+				state = undefined;
 			} else if (scope !== true) {
 				state = scope;
 			}
@@ -32,60 +25,29 @@ export function render (state, view, name, node) {
 			name = undefined;
 		}
 		
-		if (!elements) {
-			count = iterate ? scope.length : undefined;
-			elements = locate(node, tag, name, count);
+		if (!count) {
+			count = Array.isArray(state) ? state.length : undefined;
+			node = locate(node, tag, name, count);
 		}
 
-		if (!iterate) {
+		if (state === undefined || node === undefined) {
+			return generate ? '' : undefined;
+		} else if (count !== undefined) {
 			state = [state];
 		}
 
-		return state.reduceRight((siblings, state) => {
-			if (siblings.length) {
-				node = generate ? siblings : siblings[0].previousNode;
-			}
-
-			const id = node && node.tagName && node.getAttribute('data--');
-			const index = id && id.split('-')[0] || node && '';
-			let element;
-
-			if (generate) {
-				element = `<${tag}`;
-			} else {
-				element = index === name ? node : document.createElement(tag);
-			}
-
+		return state.reduceRight((node, state) => {
 			for (const name in attributes) {
-				element = render(state, attributes[name], name, element);
+				node = render(state, attributes[name], name, node);
 			}
 
-			if (generate) {
-				return `${element}>${children.reduceRight((node, item, i) => {
-					return render(state, item, i, node);
-				}, `${children.length ? `</${tag}>` : ''}${node}`)}`;
-			}
+			const nodes = children.reduceRight((node, item, i) => {
+				// TODO: form object with parentElement and nextSibling when creating
+				node = render(state, item, i, node);
+			}, generate ? node : node.lastChild);
 
-			children.reduceRight((node, item, i) => {
-				const candidate = node ? node.previousNode : element.lastChild;
-				const children = render(state, item, i, candidate);
-
-				return children.reduceRight((node, child) => {
-					if (!child.parentElement) {
-						if (node) {
-							element.insertBefore(child, node);
-						} else {
-							element.appendChild(child);
-						}
-					}
-
-					return child;
-				}, node);
-			}, undefined);
-
-			siblings.unshift(element);
-			return siblings;
-		}, generate ? '' : []);
+			return generate ? nodes.join('') : node.previousNode;
+		}, node);
 	} else if (!generate && node) {
 		previous = iterative ? node.nodeValue : node.getAttribute(name);
 	}
