@@ -10,7 +10,7 @@ describe('stew', () => {
 		const template = stew(`
 			<div>
 				(
-					<img src="("{string}")" alt="">
+					<img src="("{string.}")" alt="">
 					<span>({string})</span>
 				)
 			</div>
@@ -19,9 +19,9 @@ describe('stew', () => {
 		const actual = stew(template, { string: 'abc' });
 
 		expect(actual).toEqual([
-			'<div>',
+			'<div data--="{"string":"abc"}">',
 				'(',
-				'<img alt="" src="(abc)">',
+				'<img src="(abc)" alt="">',
 				'<span>(abc)</span>',
 				')',
 			'</div>'

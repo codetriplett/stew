@@ -57,12 +57,16 @@ export function fetch (item, state, value) {
 	const exists = state.hasOwnProperty(key);
 
 	if (activate) {
-		const { [key]: previous } = state;
-
-		return () => {
-			state[key] = !previous;
-			option();
-		};
+		switch (value) {
+			case TOGGLE:
+				return () => {
+					const { [key]: previous } = state;
+					state[key] = !previous;
+					option();
+				}
+			default:
+				return () => {}
+		}
 	} else if (!exists && create) {
 		value = value > 0 ? Array(value).fill(0).map(() => ({})) : {};
 	} else if (!measure && exists || measure && key) {

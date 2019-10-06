@@ -12,7 +12,19 @@ export default function stew (input, state) {
 	let [tag] = structure;
 
 	if (typeof state === 'object') {
-		return render(structure, attributes, state);
+		let data = {};
+
+		state = { ...state, '.': [data] };
+		state[''] = state;
+
+		const html = render(state, input, '0', '');
+
+		if (!Object.keys(data).length) {
+			return html;
+		}
+
+		data = JSON.stringify(data).replace('\'', '\\\'');
+		return html.replace(/^\s*<\w+/, match => `${match} data--='${data}'`);
 	} else if (typeof document === 'undefined') {
 		return;
 	} else if (Array.isArray(tag)) {
@@ -26,8 +38,11 @@ export default function stew (input, state) {
 
 	elements.forEach(element => {
 		const state = {};
-		const update = () => render(structure, attributes, state, element);
+		const update = () => render(state, input, '0', element);
+		const data = JSON.parse(element.getAttribute('data--') || '{}');
 
-		render(structure, attributes, state, element, update);
+		Object.assign(state, { '': state, '.': [update], ...data });
+		render(state, input, '0', element);
+		update[''] = true;
 	});
 }

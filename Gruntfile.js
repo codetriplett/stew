@@ -26,8 +26,7 @@ module.exports = function (grunt) {
 					'lib/grunt.js': 'src/grunt.js',
 					'lib/fetch.js': 'src/fetch.js',
 					'lib/evaluate.js': 'src/evaluate.js',
-					'lib/modify.js': 'src/modify.js',
-					'lib/traverse.js': 'src/traverse.js',
+					'lib/locate.js': 'src/locate.js',
 					'lib/render.js': 'src/render.js',
 					'lib/stew.js': 'lib/stew.js',
 				}
@@ -69,8 +68,7 @@ module.exports = function (grunt) {
 			'./src/parse.js',
 			'./src/fetch.js',
 			'./src/evaluate.js',
-			'./src/modify.js',
-			'./src/traverse.js',
+			'./src/locate.js',
 			'./src/render.js',
 			'./src/stew.js',
 		]);
