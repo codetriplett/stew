@@ -13,6 +13,7 @@
 		"url": "https://github.com/codetriplett/stew.git"
 	},
 	"files": [
+		"lib",
 		"dist"
 	],
 	"author": "triplett",
@@ -29,9 +30,9 @@
 		"testURL": "http://localhost"
 	},
 	"devDependencies": {
-		"@babel/cli": "^7.4.4",
-		"@babel/core": "^7.4.5",
-		"@babel/preset-env": "^7.4.5",
+		"@babel/cli": "^7.6.2",
+		"@babel/core": "^7.6.2",
+		"@babel/preset-env": "^7.6.2",
 		"@babel/preset-react": "^7.0.0",
 		"grunt": "^1.0.4",
 		"grunt-babel": "^8.0.0",
@@ -40,7 +41,7 @@
 		"grunt-contrib-concat": "^1.0.1",
 		"grunt-contrib-uglify": "^4.0.1",
 		"grunt-string-replace": "^1.3.1",
-		"jest": "^24.8.0",
-		"rimraf": "^2.6.3"
+		"jest": "^24.9.0",
+		"rimraf": "^2.7.1"
 	}
 }

@@ -1,8 +1,0 @@
-<div class="simple">
-	<div {array}>
-		<p {expanded true}>{string.} ({.} of {.array.})</>
-		<button type="button" onclick={expanded}>
-			Show {expanded false}more{expanded true}less
-		</>
-	</>
-</>

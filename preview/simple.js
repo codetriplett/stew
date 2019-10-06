@@ -1,1 +1,0 @@
-(function(t){if(typeof stew==='function'){stew(t);}else{module.exports=t;}})({"":["div",{"":[[["array"]],"div",{"":[[["expanded",true]],"p",[["string."]," (",["."]," of ",[".array."],")"]]},{"":["button",["Show ",["expanded",false],"more",["expanded",true],"less"]],"type":["button"],"onclick":[["expanded"]]}]}],"class":["simple"]});

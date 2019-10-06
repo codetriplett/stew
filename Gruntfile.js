@@ -1,5 +1,3 @@
-const { grunt: stewTask } = require('./lib/stew');
-
 module.exports = function (grunt) {
 	function merge (path, files, resolve) {
 		const lib = path.startsWith('./lib/');
@@ -47,17 +45,6 @@ module.exports = function (grunt) {
 					'dist/stew.min.js': 'dist/stew.min.js'
 				}
 			}
-		},
-		stew: {
-			main: {
-				files: [
-					{
-						cwd: 'preview/',
-						src: '**/*.stew',
-						dest: 'preview/'
-					}
-				]
-			}
 		}
 	});
 
@@ -98,13 +85,10 @@ module.exports = function (grunt) {
 		})();`);
 	});
 
-	stewTask(grunt);
-
 	grunt.registerTask('default', [
 		'before',
 		'babel',
 		'after',
-		'uglify',
-		'stew',
+		'uglify'
 	]);
 };
