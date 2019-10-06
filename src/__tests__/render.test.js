@@ -118,7 +118,19 @@ describe('render', () => {
 					'<p data--="0">present</p>',
 					'<p>(abc)</p>',
 				'</div>'
-			].join(''), {});
+			].join(''));
+		});
+
+		it('backup', () => {
+			generate('<p>({string.})</>', '<p>(abc)</p>', { string: 'abc' });
+		});
+
+		it('hidden backup', () => {
+			generate(
+				'<div {flag false}><p>({string.})</></>',
+				'',
+				{ string: 'abc' }
+			);
 		});
 
 		it('complex', () => {

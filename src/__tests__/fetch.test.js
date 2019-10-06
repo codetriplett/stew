@@ -66,6 +66,11 @@ describe('fetch', () => {
 			expect(actual).toBe(true);
 		});
 
+		it('mismatch with undefined', () => {
+			const actual = fetch(['missing', false], state);
+			expect(actual).toBe(true);
+		});
+
 		it('object', () => {
 			const actual = fetch(['object'], state);
 
@@ -214,6 +219,13 @@ describe('fetch', () => {
 
 			expect(state).toEqual({ '': state, '.': [update] });
 			expect(actual).toBe(false);
+		});
+
+		it('ignore match with empty', () => {
+			const actual = fetch(['string', false], state, 'xyz');
+
+			expect(state).toEqual({ '': state, '.': [update] });
+			expect(actual).toBe(true);
 		});
 
 		it('creates object', () => {

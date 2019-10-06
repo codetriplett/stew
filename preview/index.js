@@ -57,7 +57,10 @@ http.createServer(({ url }, res) => {
 			'</head>',
 			'<body>',
 				stew(simple, {
-					object: { flag: false }
+					array: [
+						{ string: 'Lorem' },
+						{ string: 'Ipsum' }
+					]
 				}),
 				'<script src="/stew.min.js"></script>',
 				'<script src="/simple.js"></script>',

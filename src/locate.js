@@ -63,7 +63,7 @@ export function locate (node, tag, index, count) {
 				}
 			} else {
 				if (parentElement && tagName) {
-					candidate = previousSibling;
+					candidate = undefined;
 					parentElement.removeChild(node);
 				}
 

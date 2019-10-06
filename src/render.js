@@ -17,6 +17,7 @@ export function render (state, view, name, node) {
 	const hydrate = !generate && !state['.'][0][''];
 	let { '': [tag, ...children], key = [['.']], ...attributes } = view;
 	const conditional = Array.isArray(tag);
+	let ignore = false;
 	let count;
 	
 	if (hydrate) {
@@ -31,8 +32,12 @@ export function render (state, view, name, node) {
 		const scope = fetch(tag[0], state, count);
 		tag = children.shift();
 
-		if (scope === null || scope === false) {
-			state = undefined;
+		if (scope === null || scope === false || scope === undefined) {
+			ignore = true;
+			
+			if (!generate) {
+				state = undefined;
+			}
 		} else if (scope !== true) {
 			state = scope;
 		}
@@ -55,7 +60,7 @@ export function render (state, view, name, node) {
 	}
 
 	if (generate) {
-		return state.map((state, i) => {
+		node = state.map((state, i) => {
 			let instance = node[i];
 
 			for (const name in attributes) {
@@ -70,6 +75,8 @@ export function render (state, view, name, node) {
 				return render(state, child, i, '');
 			}).join('')}</${tag}>`;
 		}).join('');
+
+		return !ignore ? node : '';
 	}
 
 	return state.reduceRight((node, state, i) => {
@@ -85,10 +92,11 @@ export function render (state, view, name, node) {
 		let started = false;
 
 		children.reduceRight((node, child, i) => {
+			const { previousSibling } = node || {};
 			let candidate = node;
 
 			if (candidate && started) {
-				candidate = candidate.previousSibling;
+				candidate = previousSibling;
 			}
 
 			if (!candidate) {
@@ -98,7 +106,11 @@ export function render (state, view, name, node) {
 			candidate = render(state, child, i, candidate);
 			started = started || !!candidate;
 
-			return candidate || node;
+			if (candidate) {
+				return candidate;
+			}
+			
+			return node && node.parentElement ? node : previousSibling;
 		}, node.lastChild);
 
 		return node;

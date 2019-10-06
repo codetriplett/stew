@@ -127,6 +127,13 @@ describe('locate', () => {
 			expect(actual).not.toBe(conditional);
 		});
 
+		it('removes conditional', () => {
+			const actual = locate(conditional, 'br', 1, 0);
+
+			expect(actual).toBeUndefined();
+			expect(conditional.parentElement).toBe(null);
+		});
+
 		it('gathers iterations', () => {
 			const actual = locate(iterations, 'br', 1, 2);
 			expect(actual).toBe(iterations);

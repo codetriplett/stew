@@ -47,7 +47,7 @@ export function fetch (item, state, value) {
 		}
 	} else if (hydrate) {
 		if (compare) {
-			value = comparison;
+			value = comparison !== false ? comparison : undefined;
 		}
 
 		if (value !== undefined && value !== '') {
@@ -110,7 +110,11 @@ export function fetch (item, state, value) {
 	}
 
 	if (compare) {
-		return value !== undefined && value === comparison;
+		if (value === undefined) {
+			value = false;
+		}
+		
+		return value === comparison;
 	}
 
 	return typeof value !== 'boolean' ? value : '';

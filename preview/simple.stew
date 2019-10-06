@@ -1,6 +1,8 @@
 <div class="simple">
-	<div {object}>
-		<p>is {flag true}on{flag false}off</>
-		<button type="button" onclick={flag}>toggle</>
+	<div {array}>
+		<p {expanded true}>{string.}</>
+		<button type="button" onclick={expanded}>
+			Show {expanded false}more{expanded true}less
+		</>
 	</div>
 </>

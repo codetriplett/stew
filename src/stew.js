@@ -43,6 +43,7 @@ export default function stew (input, state) {
 		const update = () => render(state, input, '0', element);
 		const data = JSON.parse(element.getAttribute('data--') || '{}');
 
+		element.removeAttribute('data--');
 		Object.assign(state, { '': state, '.': [update], ...data });
 		render(state, input, '0', element);
 		update[''] = true;

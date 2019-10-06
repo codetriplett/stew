@@ -1,1 +1,1 @@
-(function(t){if(typeof stew==='function'){stew(t);}else{module.exports=t;}})({"":["div",{"":[[["object"]],"div",{"":["p",["is ",["flag",true],"on",["flag",false],"off"]]},{"":["button",["toggle"]],"type":["button"],"onclick":[["flag"]]}]}],"class":["simple"]});
+(function(t){if(typeof stew==='function'){stew(t);}else{module.exports=t;}})({"":["div",{"":[[["array"]],"div",{"":[[["expanded",true]],"p",[["string."]]]},{"":["button",["Show ",["expanded",false],"more",["expanded",true],"less"]],"type":["button"],"onclick":[["expanded"]]}]}],"class":["simple"]});
