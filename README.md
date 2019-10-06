@@ -1,107 +1,84 @@
 # Stew
-This library offers a steamlined way to create interactive websites. Components are written in plain text markup that resembles HTML. Conditions and loops are built into the syntax and elements update automatically when changes are made to the data that was used to render them.
+This library offers a simple way to create interactive components without having to write any client-side JavaScript.
 
-## Components
-Pass markup to have it parsed into a template object. Pass the template along with data to produce html.
-
-```js
-const component = stew('<p>{content}</>');
-const html = stew(component, { content: 'Lorem ipsum.' });
-```
-
-## State
-Pass a function to have it set up a state. This function must return the actions that will be used to modify the state. These actions can be used by components or called directly.
-
-```js
-const state = stew(state => ({
-    toggleMenu: () => state.expanded = !state.expanded
-}));
-
-state.toggleMenu();
-```
-
-## Hydrate
-Pass either markup or the template object to the state to hydrate any matching elements on the page. The original data will be extracted from each element it finds to populate the store. If any of this data is modified later on, the element will automatically update to reflect the changes.
-
-```js
-state(component);
-```
-
-## Markup
-Any valid HTML will serve as markup for a component. Use curly braces in place of or next to quotes or within inner text to use values from the state. Be sure the root element has a class that is not conditional or is not the prefix for a conditional class (see below). This is needed to build the selector that finds elements to hydrate automatically. The tag name can be left out of the closing tag if you prefer.
-
+## Variables
+Curly braces are used to insert values into your HTML. They can be set in place of or adjacent to regular attribute text or anywhere within the inner text of an element. Any number of strings and variables can be used to form the final value.
 ```html
-<div class="image">
-	<img src="http://image.com/"{image}".jpg">
-	<p>{caption}</>
+<p>{text}</>
+<img src="https://domain.com/"{src}".jpg" alt={alt}>
+```
+
+## Conditions
+A second value can be passed within curly braces to compare the variable against. If the variable matches the expected value, the text that follows it will be included. If a condition is placed last, it will control whether to include the attribute or inner text at all. Conditions will create boolean attributes if there is no adjacent text. When comparing against false, the condition will be satisfied if the value is either false, undefined or null.
+```html
+<p class="status "{ready true}"ready">
+<button disabled={ready false}>Click here</>
+```
+
+## Scope
+A variable can be applied directly to an element to set a new scope for itself and its children. Place a curly brace after the tag name but before any attribute names to achieve this. If the scope is empty, the element will not render. If the scope is an array, an element for each item in the array will be rendered. If the scope is a condition that is satisfied, the element will render but its scope will not change.
+```html
+<img {image} "https://domain.com/"{src}".jpg" alt={alt}>
+<p {valid false}>There was an error: {error}</>
+<ul>
+	<li {items}>{text}</>
 </>
 ```
 
-### Scope
-You can use curly braces after the tag name and before any attributes to affect the scope of that element. If the new scope is undefined, the element will not render. If it is an array, an element will be rendered for each item. A dot can be used on its own to get the current index in the array. Keys in curly braces on an element that sets a scope will read from that new scope. The same will be true for its children. A dot can be placed before a key to read a value from the root state passed to the component. If a key is empty, it will use the scope as the value but only if it is a string, a number or a boolean value.
-
+## Listeners
+If a variable is set to an onclick attribute, its value will toggle between true and false and it will trigger the component to update whenever it is clicked.
 ```html
-<ul class="todo">
-	<li {tasks}>
-		{text}
-		<a {url} href={}>{.label}</>
-	</>
-</>
+<button onclick={expanded}>Click here</>
 ```
 
-### Conditions
-A second value can be provided after the key in the curly braces to set a condition. These values should be separated by a space. If the value fetched from the state matches the expected value. It will return a boolean true value. If this condition is followed by quoted text, it will use that instead. Otherwise it will ignore the quoted text that immediately follows it. If a dot is used to compare the current index against a negative number, the array length will be added to that number first. If a dot is placed at the end of a key it will read the maximum index of an array.
-
-```html
-<div class="slideshow "{index 0}"start "{index slides.}"finish">
-	<div {slides} class="slide "{. 0}"first "{. -1}"last "{.index .}"active">
-		{text}
-	</>
-</>
-```
-
-### Listeners
-Attributes that start will 'on' will be treated as listeners that respond to user input. Pass a key to one of the actions you created when setting up the store to set them up.
-
-```html
-<div class="accordion">
-	<p {expanded true}>{text}</>
-	<button type="button" onclick={slidePrev}>
-		Show {expanded false}More{expanded true}Less
-	</>
-</>
-```
-
-## Compatibility
-Pass a function in place of markup or template object to create a custom component. The function must accept a mount function and element as its first and second parameters. The remaining parameters will be whatever was passed to the custom component after the selector. Call the mount function first with the properties you wish to register to the state. Then call it with an update function that you wish to be called when those properties are modified. You can also call it with no parameters to have it stop listening to the state. The following example uses React.
-
+## Building templates
+Pass your markup to the main function of this library to have it converted into a template that can be used to generate html.
 ```js
-import React, { Component, Children, createElement } from 'react';
-import { hydrate } from 'react-dom';
-import Menu from './menu';
+import stew from 'stew';
+const template = stew('<div class="component">...</div>');
+```
 
-class Stew extends Component {
-	constructor (props) {
-		super(props);
-		this.state = this.props.mount(this.setState.bind(this));
-	}
+## Rendering HTML
+Pass a template along with data to generate HTML.
+```js
+import stew from 'stew';
+const html = stew(template, { text: 'Lorem ipsum' });
+```
 
-	render () {
-		return Children.map(this.props.children, ({ type }) => {
-			return createElement(type, this.state);
-		});
-	}
-}
+## Activating Elements
+Pass a template on its own to cause it to locate all matching elements and set them up for user interactions. The template will be used to extract content from the DOM and form the original state of each component.
+```js
+stew(template);
+```
 
-const state = stew(state => ({
-    toggleMenu: () => state.expanded = !state.expanded
-}));
+## Grunt Task
+There is a Grunt task that can be used to simplify builds. It will convert markup in the files you provide and create their .js files. These files will export the template for use in server-side code or trigger elements to activate when placed on the page. Be sure to place the scripts below the elements they are meant to activate. Also be sure the main stew script is already loaded onto the page.
+```js
+const stew = require('./lib/stew');
 
-state((mount, element, props, Component) => {
-	mount(props);
-    hydrate(<Stew mount={mount}><Component /></Stew>, element.parentNode);
-});
+module.exports = function (grunt) {
+	grunt.initConfig({
+		stew: {
+			main: {
+				files: [
+					{
+						cwd: 'src/',
+						src: '**/*.stew',
+						dest: 'dist/'
+					}
+				]
+			}
+		}
+	});
 
-state('.menu', { expanded: false }, Menu);
-state.toggleMenu();
+	stew.grunt(grunt);
+	grunt.registerTask('default', ['stew']);
+};
+```
+```html
+<body>
+	<div class="component">...</div>
+	<script src="/stew.min.js">
+	<script src="/component.js">
+</body>
 ```

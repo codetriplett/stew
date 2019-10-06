@@ -1,8 +1,0 @@
-<div class="accordion">
-	<div {sets}>
-		<p {expanded true}>{text}</p>
-		<button type="button" onclick={expanded}>
-			Show {expanded true}Less{expanded false}More
-		</>
-	</>
-</>

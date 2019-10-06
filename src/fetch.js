@@ -110,7 +110,7 @@ export function fetch (item, state, value) {
 	}
 
 	if (compare) {
-		if (value === undefined) {
+		if (value === undefined || value === null) {
 			value = false;
 		}
 		

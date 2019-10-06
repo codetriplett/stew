@@ -25,7 +25,7 @@ export default function stew (input, state) {
 			return html;
 		}
 
-		data = JSON.stringify(data).replace('\'', '\\\'');
+		data = JSON.stringify(data).replace('\'', '&#39;');
 		return html.replace(/^\s*<\w+/, match => `${match} data--='${data}'`);
 	} else if (typeof document === 'undefined') {
 		return;
@@ -36,6 +36,11 @@ export default function stew (input, state) {
 	const { class: [item, ...items] } = attributes;
 	const classes = `${item}${items.length ? '' : ' '}`.split(/\s+/);
 	const selector = `${tag}.${classes.slice(0, -1).join('.')}`;
+
+	if (selector.endsWith('.')) {
+		return;
+	}
+
 	const elements = document.querySelectorAll(selector) || [];
 
 	elements.forEach(element => {

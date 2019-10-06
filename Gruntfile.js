@@ -1,4 +1,4 @@
-const stew = require('./lib/stew');
+const { grunt: stewTask } = require('./lib/stew');
 
 module.exports = function (grunt) {
 	function merge (path, files, resolve) {
@@ -98,7 +98,7 @@ module.exports = function (grunt) {
 		})();`);
 	});
 
-	stew.grunt(grunt);
+	stewTask(grunt);
 
 	grunt.registerTask('default', [
 		'before',
