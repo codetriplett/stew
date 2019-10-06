@@ -16,9 +16,18 @@ export function render (state, view, name, node) {
 
 	const hydrate = !generate && !state['.'][0][''];
 	let { '': [tag, ...children], key = [['.']], ...attributes } = view;
-	let count = hydrate ? locate(node, name) : undefined;
+	const conditional = Array.isArray(tag);
+	let count;
+	
+	if (hydrate) {
+		count = locate(node, conditional ? name : undefined);
 
-	if (Array.isArray(tag)) {
+		if (typeof count !== 'number') {
+			return;
+		}
+	}
+
+	if (conditional) {
 		const scope = fetch(tag[0], state, count);
 		tag = children.shift();
 
@@ -30,7 +39,7 @@ export function render (state, view, name, node) {
 	} else {
 		name = undefined;
 	}
-	
+
 	if (count === undefined) {
 		if (!state || Array.isArray(state)) {
 			count = state ? state.length : 0;
@@ -73,11 +82,12 @@ export function render (state, view, name, node) {
 		}
 
 		const lastChild = { parentElement: node, tagName: false };
+		let started = false;
 
 		children.reduceRight((node, child, i) => {
 			let candidate = node;
 
-			if (candidate && i < children.length - 1) {
+			if (candidate && started) {
 				candidate = candidate.previousSibling;
 			}
 
@@ -85,7 +95,10 @@ export function render (state, view, name, node) {
 				candidate = { ...lastChild, nextSibling: node };
 			}
 
-			return render(state, child, i, candidate) || candidate;
+			candidate = render(state, child, i, candidate);
+			started = started || !!candidate;
+
+			return candidate || node;
 		}, node.lastChild);
 
 		return node;

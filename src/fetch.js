@@ -1,9 +1,9 @@
 export const TOGGLE = -1;
 
 export function fetch (item, state, value) {
-	const create = typeof value === 'number';
-	const hydrate = typeof value === 'string';
 	const activate = value < 0;
+	let create = typeof value === 'number';
+	let hydrate = typeof value === 'string';
 
 	if (!Array.isArray(item)) {
 		return !hydrate || item === value ? item : '';
@@ -14,6 +14,11 @@ export function fetch (item, state, value) {
 	const iteration = Array.isArray(state);
 	const keys = iteration ? [key] : key.split(/\.(?!\.*$)/);
 	const measure = !iteration && key.endsWith('.');
+
+	if (create && compare) {
+		create = false;
+		hydrate = true;
+	}
 
 	if (typeof comparison === 'string' && comparison.endsWith('.')) {
 		comparison = fetch([comparison], state, value);

@@ -202,6 +202,13 @@ describe('fetch', () => {
 			expect(actual).toBe(true);
 		});
 
+		it('match for scope', () => {
+			const actual = fetch(['string', 'cba'], state, 0);
+
+			expect(state).toEqual({ '': state, '.': [update], string: 'cba' });
+			expect(actual).toBe(true);
+		});
+
 		it('ignore match with missing', () => {
 			const actual = fetch(['string', 'value.'], state, 'xyz');
 

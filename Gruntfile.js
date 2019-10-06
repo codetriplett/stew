@@ -28,6 +28,7 @@ module.exports = function (grunt) {
 					'lib/evaluate.js': 'src/evaluate.js',
 					'lib/locate.js': 'src/locate.js',
 					'lib/render.js': 'src/render.js',
+					'lib/clean.js': 'src/clean.js',
 					'lib/stew.js': 'lib/stew.js',
 				}
 			}
@@ -70,6 +71,7 @@ module.exports = function (grunt) {
 			'./src/evaluate.js',
 			'./src/locate.js',
 			'./src/render.js',
+			'./src/clean.js',
 			'./src/stew.js',
 		]);
 		

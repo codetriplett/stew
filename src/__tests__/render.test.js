@@ -20,6 +20,7 @@ function normalize ({ tagName, attributes, childNodes, nodeValue }) {
 }
 
 const data = {
+	flag: true,
 	number: 123,
 	string: 'abc',
 	object: { string: 'xyz' },
@@ -36,7 +37,7 @@ describe('render', () => {
 
 		function generate (markup, expectedElements, expectedBackup) {
 			const template = parse(markup);
-			const actual = render(state, template, '1', '');
+			const actual = render(state, template, 1, '');
 
 			expect(actual).toEqual(expectedElements);
 
@@ -79,8 +80,19 @@ describe('render', () => {
 			generate('<div>(<br><br>)</>', '<div>(<br><br>)</div>');
 		});
 
-		it('conditional', () => {
+		it('scoped', () => {
 			generate('<p {object}>({string})</p>', '<p data--="1">(xyz)</p>');
+		});
+
+		it('presence', () => {
+			generate(
+				'<p {flag true}>({string})</p>',
+				'<p data--="1">(abc)</p>'
+			);
+		});
+
+		it('absence', () => {
+			generate('<p {flag false}>({string})</p>', '');
 		});
 
 		it('hidden', () => {
@@ -92,6 +104,21 @@ describe('render', () => {
 				'<p data--="1-0">(abc)</p>',
 				'<p data--="1-1">(xyz)</p>'
 			].join(''));
+		});
+
+		it('conditional children', () => {
+			generate(`
+				<div>
+					<p {flag true}>present</>
+					<p>({string})</>
+					<p {flag false}>absent</>
+				</>
+			`, [
+				'<div>',
+					'<p data--="0">present</p>',
+					'<p>(abc)</p>',
+				'</div>'
+			].join(''), {});
 		});
 
 		it('complex', () => {
@@ -127,7 +154,7 @@ describe('render', () => {
 
 		function create (markup, expected) {
 			const template = parse(markup);
-			const actual = render(state, template, '1', {});
+			const actual = render(state, template, 1, {});
 			const elements = normalize(actual);
 
 			expect(elements).toEqual(expected);
@@ -138,13 +165,7 @@ describe('render', () => {
 			
 			state = {
 				'.': [update],
-				number: 123,
-				string: 'abc',
-				object: { string: 'xyz' },
-				array: [
-					{ string: 'abc' },
-					{ string: 'xyz' }
-				]
+				...JSON.parse(JSON.stringify(data))
 			};
 
 			state[''] = state;
@@ -174,9 +195,21 @@ describe('render', () => {
 			});
 		});
 
-		it('conditional', () => {
+		it('scoped', () => {
 			create('<div><p {object}>({string})</p></div>', {
 				'': ['div', { '': ['p', '(xyz)'], 'data--': '0' }]
+			});
+		});
+
+		it('presence', () => {
+			create('<div><p {flag true}>({string})</p></div>', {
+				'': ['div', { '': ['p', '(abc)'], 'data--': '0' }]
+			});
+		});
+
+		it('absence', () => {
+			create('<div><p {flag false}>({string})</p></div>', {
+				'': ['div']
 			});
 		});
 
@@ -189,6 +222,21 @@ describe('render', () => {
 				'': ['div',
 					{ '': ['p', '(abc)'], 'data--': '0-0' },
 					{ '': ['p', '(xyz)'], 'data--': '0-1' }
+				]
+			});
+		});
+
+		it('conditional children', () => {
+			create(`
+				<div>
+					<p {flag true}>present</>
+					<p>({string})</>
+					<p {flag false}>absent</>
+				</>
+			`, {
+				'': ['div',
+					{ '': ['p', 'present'], 'data--': '0' },
+					{ '': ['p', '(abc)'] }
 				]
 			});
 		});
@@ -227,11 +275,11 @@ describe('render', () => {
 			update[''] = true;
 
 			const template = parse(markup);
-			const actual = render({ ...data, ...state }, template, '1', {});
+			const actual = render({ ...data, ...state }, template, 1, {});
 
 			if (actual) {
 				update[''] = undefined;
-				render(state, template, '1', actual);
+				render(state, template, 1, actual);
 			}
 
 			if (typeof expectedState === 'function') {
@@ -273,11 +321,23 @@ describe('render', () => {
 			}, { '': ['p', '(abc)'] });
 		});
 
-
-		it('conditional', () => {
+		it('scoped', () => {
 			hydrate('<div><p {object}>({string})</></>', (state, u) => ({
 				object: { '': state, '.': [u, 'object'], string: 'xyz' }
 			}), { '': ['div', { '': ['p', '(xyz)'], 'data--': '0' }] });
+		});
+
+		it('presence', () => {
+			hydrate('<div><p {flag true}>({string})</></>', {
+				flag: true,
+				string: 'abc'
+			}, { '': ['div', { '': ['p', '(abc)'], 'data--': '0' }] });
+		});
+
+		it('absence', () => {
+			hydrate('<div><p {flag false}>({string})</></>', {}, {
+				'': ['div']
+			});
 		});
 
 		it('hidden', () => {
@@ -294,6 +354,24 @@ describe('render', () => {
 				'': ['div',
 					{ '': ['p', '(abc)'], 'data--': '0-0' },
 					{ '': ['p', '(xyz)'], 'data--': '0-1' }
+				]
+			});
+		});
+
+		it('conditional children', () => {
+			hydrate(`
+				<div>
+					<p {flag true}>present</>
+					<p>({string})</>
+					<p {flag false}>absent</>
+				</>
+			`, {
+				flag: true,
+				string: 'abc'
+			}, {
+				'': ['div',
+					{ '': ['p', 'present'], 'data--': '0' },
+					{ '': ['p', '(abc)'] }
 				]
 			});
 		});

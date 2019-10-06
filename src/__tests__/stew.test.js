@@ -19,12 +19,19 @@ describe('stew', () => {
 		const actual = stew(template, { string: 'abc' });
 
 		expect(actual).toEqual([
-			'<div data--="{"string":"abc"}">',
+			'<div data--=\'{"string":"abc"}\'>',
 				'(',
 				'<img src="(abc)" alt="">',
 				'<span>(abc)</span>',
 				')',
 			'</div>'
 		].join(''));
+	});
+
+	it('renders without data attribute', () => {
+		const template = stew('<p>({string})</>');
+		const actual = stew(template, { string: 'abc' });
+
+		expect(actual).toBe('<p>(abc)</p>');
 	});
 });

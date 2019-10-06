@@ -29,6 +29,7 @@ export function locate (node, tag, index, count) {
 			if (suffix > count) {
 				candidate = previousSibling;
 				parentElement.removeChild(node);
+				count++;
 
 				continue;
 			} else if (!tag && suffix) {

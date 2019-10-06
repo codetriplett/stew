@@ -1,5 +1,6 @@
 import { parse } from './parse';
 import { render } from './render';
+import { clean } from './clean';
 
 export default function stew (input, state) {
 	if (typeof input === 'string') {
@@ -18,8 +19,9 @@ export default function stew (input, state) {
 		state[''] = state;
 
 		const html = render(state, input, '0', '');
+		data = clean(data);
 
-		if (!Object.keys(data).length) {
+		if (!data) {
 			return html;
 		}
 
