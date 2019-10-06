@@ -1,98 +1,93 @@
 import { fetch } from './fetch';
-import { evaluate } from './evaluate';
 import { locate } from './locate';
+import { evaluate } from './evaluate';
 
 export function render (state, view, name, node) {
-	const iterative = typeof name !== 'string';
 	const generate = typeof node === 'string';
+
+	if (Array.isArray(view)) {
+		if (view.length < 2 && !view[0]) {
+			return;
+		}
+
+		node = !generate ? locate(node, '') : undefined;
+		return evaluate(view, state, node);
+	}
+
 	const hydrate = !generate && !state['.'][0][''];
-	let previous;
+	let { '': [tag, ...children], key = [['.']], ...attributes } = view;
+	let count = hydrate ? locate(node, name) : undefined;
 
-	if (!Array.isArray(view)) {
-		let { '': [tag, ...children], key = [['.']], ...attributes } = view;
-		let count = hydrate ? locate(node, name) : undefined;
+	if (Array.isArray(tag)) {
+		const scope = fetch(tag[0], state, count);
+		tag = children.shift();
 
-		if (Array.isArray(tag)) {
-			const scope = fetch(tag[0], state, count);
-			tag = children.shift();
-
-			if (scope === null || scope === false) {
-				state = undefined;
-			} else if (scope !== true) {
-				state = scope;
-			}
-		} else {
-			name = undefined;
+		if (scope === null || scope === false) {
+			state = undefined;
+		} else if (scope !== true) {
+			state = scope;
 		}
-		
-		if (!count) {
-			count = Array.isArray(state) ? state.length : undefined;
-			node = locate(node, tag, name, count);
+	} else {
+		name = undefined;
+	}
+	
+	if (count === undefined) {
+		if (!state || Array.isArray(state)) {
+			count = state ? state.length : 0;
 		}
 
-		if (state === undefined || node === undefined) {
-			return generate ? '' : undefined;
-		} else if (count !== undefined) {
-			state = [state];
-		}
+		node = locate(node, tag, name, count);
+	}
 
-		return state.reduceRight((node, state) => {
+	if (state === undefined || node === undefined) {
+		return generate ? '' : undefined;
+	} else if (!Array.isArray(state)) {
+		state = [state];
+	}
+
+	if (generate) {
+		return state.map((state, i) => {
+			let instance = node[i];
+
 			for (const name in attributes) {
-				node = render(state, attributes[name], name, node);
+				instance = evaluate(attributes[name], state, name, instance);
 			}
 
-			const nodes = children.reduceRight((node, item, i) => {
-				// TODO: form object with parentElement and nextSibling when creating
-				node = render(state, item, i, node);
-			}, generate ? node : node.lastChild);
+			if (!children.length) {
+				return instance;
+			}
 
-			return generate ? nodes.join('') : node.previousNode;
-		}, node);
-	} else if (!generate && node) {
-		previous = iterative ? node.nodeValue : node.getAttribute(name);
+			return `${instance}${children.map((child, i) => {
+				return render(state, child, i, '');
+			}).join('')}</${tag}>`;
+		}).join('');
 	}
 
-	let value = evaluate(view, state, previous);
-
-	if (value) {
-		value = value.length ? value.join('') : true;
-	}
-
-	if (typeof name !== 'string') {
-		if (typeof value !== 'string') {
-			value = '';
+	return state.reduceRight((node, state, i) => {
+		if (count && i < count - 1) {
+			node = node.previousSibling;
 		}
 
-		if (generate) {
-			return `${value}${node}`;
-		} else if (!value) {
-			return [];
-		} else if (!node) {
-			node = document.createTextNode(value);
-		} else if (!hydrate && value !== previous) {
-			node.nodeValue = value;
+		for (const name in attributes) {
+			evaluate(attributes[name], state, name, node);
 		}
 
-		return [node];
-	} else if (generate) {
-		if (value === true) {
-			return `${node} ${name}`;
-		}
+		const lastChild = { parentElement: node, tagName: false };
 
-		return `${node}${value !== false ? ` ${name}="${value}"` : ''}`;
-	} else if (hydrate) {
+		children.reduceRight((node, child, i) => {
+			let candidate = node;
+
+			if (candidate && i < children.length - 1) {
+				candidate = candidate.previousSibling;
+			}
+
+			if (!candidate) {
+				candidate = { ...lastChild, nextSibling: node };
+			}
+
+			return render(state, child, i, candidate) || candidate;
+		}, node.lastChild);
+
 		return node;
-	} else if (typeof value === 'boolean') {
-		const exists = node.hasAttribute(name);
-
-		if (value && !exists) {
-			node.toggleAttribute(name, true);
-		} else if (!value && exists) {
-			node.removeAttribute(name);
-		}
-	} else if (value !== previous) {
-		node.setAttribute(name, value);
-	}
-
-	return node;
+	}, node);
 }

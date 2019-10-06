@@ -1,4 +1,4 @@
-import { fetch } from '../fetch';
+import { fetch, TOGGLE } from '../fetch';
 
 describe('fetch', () => {
 	describe('generate', () => {
@@ -210,17 +210,32 @@ describe('fetch', () => {
 		});
 
 		it('creates object', () => {
-			const actual = fetch(['object'], state);
+			const actual = fetch(['object'], state, 0);
 			const object = { '': state, '.': [update, 'object'] }
 
 			expect(state).toEqual({ '': state, '.': [update], object });
 			expect(actual).toEqual(object);
 		});
 
+		it('creates array', () => {
+			const actual = fetch(['array'], state, 2);
+
+			const array = Object.assign([
+				{ '': state, '.': [update, 'array', 0] },
+				{ '': state, '.': [update, 'array', 1] }
+			], {
+				'': state,
+				'.': [update, 'array']
+			});
+
+			expect(state).toEqual({ '': state, '.': [update], array });
+			expect(actual).toEqual(array);
+		});
+
 		it('uses existing object', () => {
 			const object = { '': 'abc', '.': [update, 'abc'] };
 			state.object = object;
-			const actual = fetch(['object'], state);
+			const actual = fetch(['object'], state, 0);
 
 			expect(state).toEqual({ '': state, '.': [update], object });
 			expect(actual).toEqual(object);
@@ -271,14 +286,14 @@ describe('fetch', () => {
 		});
 
 		it('creates toggle action', () => {
-			const actual = fetch(['boolean'], state, 0);
+			const actual = fetch(['boolean'], state, TOGGLE);
 
 			expect(actual).toEqual(expect.any(Function));
 			expect(state.boolean).toBe(false);
 		});
 
 		it('toggles boolean on', () => {
-			const actual = fetch(['boolean'], state, 0);
+			const actual = fetch(['boolean'], state, TOGGLE);
 
 			actual();
 			expect(state).toEqual({ boolean: true, '.': [update] });
@@ -286,7 +301,7 @@ describe('fetch', () => {
 
 		it('toggles boolean off', () => {
 			state.boolean = true;
-			const actual = fetch(['boolean'], state, 0);
+			const actual = fetch(['boolean'], state, TOGGLE);
 
 			actual();
 			expect(state).toEqual({ boolean: false, '.': [update] });

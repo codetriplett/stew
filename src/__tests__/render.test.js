@@ -1,24 +1,22 @@
 import { parse } from '../parse';
 import { render } from '../render';
 
-function normalize (elements) {
-	return elements.map(({ tagName, attributes, childNodes, nodeValue }) => {
-		if (nodeValue !== null) {
-			return nodeValue;
-		}
+function normalize ({ tagName, attributes, childNodes, nodeValue }) {
+	if (nodeValue !== null) {
+		return nodeValue;
+	}
 
-		tagName = tagName.toLowerCase();
-		attributes = Array.from(attributes);
-		childNodes = normalize(Array.from(childNodes));
+	tagName = tagName.toLowerCase();
+	attributes = Array.from(attributes);
+	childNodes = Array.from(childNodes).map(normalize);
 
-		const object = { '': [tagName, ...childNodes] };
+	const object = { '': [tagName, ...childNodes] };
 
-		for (const { name, value } of attributes) {
-			object[name] = value;
-		}
+	for (const { name, value } of attributes) {
+		object[name] = value;
+	}
 
-		return object;
-	});
+	return object;
 }
 
 const data = {
@@ -129,7 +127,7 @@ describe('render', () => {
 
 		function create (markup, expected) {
 			const template = parse(markup);
-			const actual = render(state, template);
+			const actual = render(state, template, '1', {});
 			const elements = normalize(actual);
 
 			expect(elements).toEqual(expected);
@@ -153,48 +151,46 @@ describe('render', () => {
 		});
 
 		it('tag', () => {
-			create('<br>', [{ '': ['br'] }]);
+			create('<br>', { '': ['br'] });
 		});
 
 		it('attributes', () => {
-			create('<img src="("{string}")" alt="">', [
-				{ '': ['img'], alt: '', src: '(abc)' }
-			]);
+			create('<img src="("{string}")" alt="">', {
+				'': ['img'], alt: '', src: '(abc)'
+			});
 		});
 
 		it('empty', () => {
-			create('<div></>', [{ '': ['div'] }]);
+			create('<div></>', { '': ['div'] });
 		});
 
 		it('content', () => {
-			create('<p>({string})</>', [{ '': ['p', '(abc)'] }]);
+			create('<p>({string})</>', { '': ['p', '(abc)'] });
 		});
 
 		it('children', () => {
-			create('<div>(<br><br>)</>', [
-				{ '': ['div', '(', { '': ['br'] }, { '': ['br'] }, ')'] }
-			]);
+			create('<div>(<br><br>)</>', {
+				'': ['div', '(', { '': ['br'] }, { '': ['br'] }, ')']
+			});
 		});
 
-		it.only('conditional', () => {
-			create('<div><p {object}>({string})</p></div>', [
-				{ '': ['div', { '': ['p', '(xyz)'], 'data--': '0' }] }
-			]);
+		it('conditional', () => {
+			create('<div><p {object}>({string})</p></div>', {
+				'': ['div', { '': ['p', '(xyz)'], 'data--': '0' }]
+			});
 		});
 
 		it('hidden', () => {
-			create('<div><p {missing}>({string})</p></div>', [{ '': ['div'] }]);
+			create('<div><p {missing}>({string})</p></div>', { '': ['div'] });
 		});
 
 		it('iterate', () => {
-			create('<div><p {array}>({string})</p></div>', [
-				{
-					'': ['div',
-						{ '': ['p', '(abc)'], 'data--': '0-0' },
-						{ '': ['p', '(xyz)'], 'data--': '0-1' }
-					]
-				}
-			]);
+			create('<div><p {array}>({string})</p></div>', {
+				'': ['div',
+					{ '': ['p', '(abc)'], 'data--': '0-0' },
+					{ '': ['p', '(xyz)'], 'data--': '0-1' }
+				]
+			});
 		});
 
 		it('complex', () => {
@@ -206,22 +202,20 @@ describe('render', () => {
 						<p>({.number})</p>
 					</>
 				</div>
-			`, [
-				{
-					'': ['div',
-						{ '': ['div',
-							{ '': ['img'], alt: '', src: '(abc)' },
-							{ '': ['br'] },
-							{ '': ['p', '(123)'] }
-						], 'data--': '0-0' },
-						{ '': ['div',
-							{ '': ['img'], alt: '', src: '(xyz)' },
-							{ '': ['br'] },
-							{ '': ['p', '(123)'] }
-						], 'data--': '0-1' }
-					]
-				}
-			]);
+			`, {
+				'': ['div',
+					{ '': ['div',
+						{ '': ['img'], alt: '', src: '(abc)' },
+						{ '': ['br'] },
+						{ '': ['p', '(123)'] }
+					], 'data--': '0-0' },
+					{ '': ['div',
+						{ '': ['img'], alt: '', src: '(xyz)' },
+						{ '': ['br'] },
+						{ '': ['p', '(123)'] }
+					], 'data--': '0-1' }
+				]
+			});
 		});
 	});
 
@@ -233,17 +227,23 @@ describe('render', () => {
 			update[''] = true;
 
 			const template = parse(markup);
-			const actual = render({ ...data, ...state }, template);
+			const actual = render({ ...data, ...state }, template, '1', {});
 
-			update[''] = undefined;
-			render(state, template, 0, actual[0]);
+			if (actual) {
+				update[''] = undefined;
+				render(state, template, '1', actual);
+			}
+
+			if (typeof expectedState === 'function') {
+				expectedState = expectedState(state, update);
+			}
 
 			expect(state).toEqual({
 				'': state, '.': [update], ...expectedState
 			});
 
 			if (expectedElements) {
-				const elements = normalize(actual);
+				const elements = actual && normalize(actual);
 				expect(elements).toEqual(expectedElements);
 			}
 		}
@@ -254,78 +254,79 @@ describe('render', () => {
 		});
 
 		it('tag', () => {
-			hydrate('<br>', {}, [{ '': ['br'] }]);
+			hydrate('<br>', {}, { '': ['br'] });
 		});
 
 		it('attributes', () => {
 			hydrate('<img src="("{string}")" alt="">', {
 				string: 'abc'
-			}, [{ '': ['img'], alt: '', src: '(abc)'}]);
+			}, { '': ['img'], alt: '', src: '(abc)' });
 		});
 
 		it('empty', () => {
-			hydrate('<div></>', {}, [{ '': ['div'] }]);
+			hydrate('<div></>', {}, { '': ['div'] });
 		});
 
 		it('content', () => {
 			hydrate('<p>({string})</>', {
 				string: 'abc'
-			}, [{ '': ['p', '(abc)'] }]);
+			}, { '': ['p', '(abc)'] });
 		});
 
 
-		it.skip('conditional', () => {
-			hydrate('<div><p {object}>({string})</p></div>', {
-				object: {}
-			}, [
-				{ '': ['div', { '': ['p', '(xyz)'], 'data--': '0' }] }
-			]);
+		it('conditional', () => {
+			hydrate('<div><p {object}>({string})</></>', (state, u) => ({
+				object: { '': state, '.': [u, 'object'], string: 'xyz' }
+			}), { '': ['div', { '': ['p', '(xyz)'], 'data--': '0' }] });
 		});
 
-		// it('hidden', () => {
-		// 	const template = parse('<p {missing}>({string})</p>');
-		// 	const actual = render(template, state, 1);
+		it('hidden', () => {
+			hydrate('<p {missing}>({string})</>', {}, undefined);
+		});
 
-		// 	expect(actual).toHaveLength(0);
-		// });
+		it('iterate', () => {
+			hydrate('<div><p {array}>({string})</></>', (state, u) => ({
+				array: Object.assign([
+					{ '': state, '.': [u, 'array', 0], string: 'abc' },
+					{ '': state, '.': [u, 'array', 1], string: 'xyz' }
+				], { '': state, '.': [u, 'array'] })
+			}), {
+				'': ['div',
+					{ '': ['p', '(abc)'], 'data--': '0-0' },
+					{ '': ['p', '(xyz)'], 'data--': '0-1' }
+				]
+			});
+		});
 
-		// it('iterate', () => {
-		// 	const template = parse('<p {array}>({string})</p>');
-		// 	const actual = render(template, state, 1);
-		// 	const elements = normalize(actual);
-
-		// 	expect(actual).toHaveLength(2);
-
-		// 	expect(elements).toEqual([
-		// 		{ '': ['p', '(abc)'], 'data--': '1-0' },
-		// 		{ '': ['p', '(xyz)'], 'data--': '1-1' }
-		// 	]);
-		// });
-
-		// it('complex', () => {
-		// 	const template = parse(`
-		// 		<div {array}>
-		// 			<img src="("{string.}")" alt="">
-		// 			<br>
-		// 			<p>({.number})</p>
-		// 		</>
-		// 	`);
-
-		// 	const actual = render(template, state, 1);
-		// 	const elements = normalize(actual);
-
-		// 	expect(elements).toEqual([
-		// 		{ '': ['div',
-		// 			{ '': ['img'], alt: '', src: '(abc)' },
-		// 			{ '': ['br'] },
-		// 			{ '': ['p', '(123)'] }
-		// 		], 'data--': '1-0' },
-		// 		{ '': ['div',
-		// 			{ '': ['img'], alt: '', src: '(xyz)' },
-		// 			{ '': ['br'] },
-		// 			{ '': ['p', '(123)'] }
-		// 		], 'data--': '1-1' }
-		// 	]);
-		// });
+		it('complex', () => {
+			hydrate(`
+				<div>
+					<div {array}>
+						<img src="("{string.}")" alt="">
+						<br>
+						<p>({.number})</>
+					</>
+				</>
+			`, (state, u) => ({
+				array: Object.assign([
+					{ '': state, '.': [u, 'array', 0] },
+					{ '': state, '.': [u, 'array', 1] }
+				], { '': state, '.': [u, 'array'] }),
+				number: 123
+			}), {
+				'': ['div',
+					{ '': ['div',
+						{ '': ['img'], alt: '', src: '(abc)' },
+						{ '': ['br'] },
+						{ '': ['p', '(123)'] }
+					], 'data--': '0-0' },
+					{ '': ['div',
+						{ '': ['img'], alt: '', src: '(xyz)' },
+						{ '': ['br'] },
+						{ '': ['p', '(123)'] }
+					], 'data--': '0-1' }
+				]
+			});
+		});
 	});
 });

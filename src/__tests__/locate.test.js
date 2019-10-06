@@ -46,19 +46,19 @@ describe('locate', () => {
 
 		it('element', () => {
 			const actual = locate('...', 'br');
-			expect(actual).toEqual(['<br', '...']);
+			expect(actual).toEqual(['<br>', '...']);
 		});
 
 		it('conditional', () => {
 			const actual = locate('...', 'br', 0);
-			expect(actual).toEqual(['<br data--="0"', '...']);
+			expect(actual).toEqual(['<br data--="0">', '...']);
 		});
 
 		it('iterations', () => {
 			const actual = locate('...', 'br', 1, 2);
 
 			expect(actual).toEqual([
-				'<br data--="1-0"', '<br data--="1-1"', '...'
+				'<br data--="1-0">', '<br data--="1-1">', '...'
 			]);
 		});
 	});

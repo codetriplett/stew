@@ -1,7 +1,7 @@
 export function locate (node, tag, index, count) {
 	const generate = typeof node === 'string';
 	const hydrate = typeof tag !== 'string';
-	let { tagName, parentElement, previousSibling, nextSibling } = node;
+	let { tagName = '', parentElement, previousSibling, nextSibling } = node;
 	let candidate = generate ? [node] : node;
 
 	if (hydrate) {
@@ -12,8 +12,8 @@ export function locate (node, tag, index, count) {
 
 	previousSibling = node;
 
-	while (previousSibling) {
-		if (count > 0) {
+	while (generate || previousSibling) {
+		if (count !== undefined) {
 			count--;
 		}
 
@@ -22,7 +22,7 @@ export function locate (node, tag, index, count) {
 
 		let id = tagName && node.getAttribute('data--') || '';
 		const [prefix, suffix] = id.match(/^(\d+)?.*?(\d+)?$/).slice(1);
-		const possible = hydrate || !tag === !tagName;
+		const possible = hydrate || tag && tagName || tag === tagName;
 		let identified = possible && String(prefix) === String(index);
 
 		if (identified) {
@@ -48,18 +48,25 @@ export function locate (node, tag, index, count) {
 			suffix = count !== undefined ? `-${count}` : '';
 			id = index !== undefined ? `${index}${suffix}` : '';
 			previousSibling = node;
-			
+
 			if (generate) {
-				node = tag ? `<${tag}${id ? ` data--="${id}"` : ''}` : '';
+				node = tag ? `<${tag}${id ? ` data--="${id}"` : ''}>` : '';
 				candidate.unshift(node);
 			} else if (!tag) {
 				node = document.createTextNode('');
-			} else  {
+			} else if (!count || count >= 0) {
 				node = document.createElement(tag);
 
 				if (id) { 
 					node.setAttribute('data--', id);
 				}
+			} else {
+				if (parentElement && tagName) {
+					candidate = previousSibling;
+					parentElement.removeChild(node);
+				}
+
+				break;
 			}
 
 			if (previousSibling === candidate) {
@@ -73,7 +80,7 @@ export function locate (node, tag, index, count) {
 			}
 		}
 
-		if (!count) {
+		if (!count || count < 0) {
 			break;
 		} else if (!generate) {
 			nextSibling = node;

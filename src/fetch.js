@@ -1,8 +1,9 @@
-export const TOGGLE = 0;
+export const TOGGLE = -1;
 
 export function fetch (item, state, value) {
+	const create = typeof value === 'number';
 	const hydrate = typeof value === 'string';
-	const activate = typeof value === 'number';
+	const activate = value < 0;
 
 	if (!Array.isArray(item)) {
 		return !hydrate || item === value ? item : '';
@@ -53,6 +54,8 @@ export function fetch (item, state, value) {
 		}
 	}
 
+	const exists = state.hasOwnProperty(key);
+
 	if (activate) {
 		const { [key]: previous } = state;
 
@@ -60,17 +63,17 @@ export function fetch (item, state, value) {
 			state[key] = !previous;
 			option();
 		};
-	} else if (!measure && state.hasOwnProperty(key) || measure && key) {
+	} else if (!exists && create) {
+		value = value > 0 ? Array(value).fill(0).map(() => ({})) : {};
+	} else if (!measure && exists || measure && key) {
 		value = state[key];
 	}
 
 	const iterative = Array.isArray(value);
-	const relate = typeof value === 'object' && !value.hasOwnProperty('');
-	const create = !hydrate && !generate && !option[''] && value === undefined;
 
 	if (measure && iterative) {
 		value = value.length - 1;
-	} else if (relate || create) {
+	} else if (typeof value === 'object' && !value.hasOwnProperty('')) {
 		if (value && value[''] === state) {
 			return value;
 		} else if (generate) {
@@ -90,7 +93,7 @@ export function fetch (item, state, value) {
 
 		if (iterative) {
 			for (let i = 0; i < value.length; i++) {
-				value[i] = fetch([i], value);
+				value[i] = fetch([i], value, create ? 0 : undefined);
 			}
 		}
 	} else if (measure && key && generate) {

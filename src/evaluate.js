@@ -1,12 +1,29 @@
 import { fetch, TOGGLE } from './fetch';
 
-export function evaluate (items, state, existing) {
+export function evaluate (items, state, content, element) {
 	const strings = items.filter(item => typeof item === 'string').reverse();
-	const hydrate = existing !== undefined && !state['.'][0][''];
+	const activate = typeof content === 'string' && content.startsWith('on');
+	let hydrate = !activate && !state['.'][0][''];
 	let candidate = '';
+	let existing;
 	let option;
 
-	return items.reduceRight((value, item) => {
+	if (activate) {
+		if (typeof element === 'string' || element[content]) {
+			return element;
+		}
+
+		option = TOGGLE;
+		items = items.slice(0, 1);
+	} else if (typeof element === 'object') {
+		existing = element.getAttribute(content) || '';
+	} else if (typeof content === 'object') {
+		existing = content.nodeValue || '';
+	} else {
+		hydrate = false;
+	}
+
+	let value = items.reduceRight((value, item) => {
 		const dynamic = typeof item !== 'string';
 
 		if (!value) {
@@ -69,4 +86,47 @@ export function evaluate (items, state, existing) {
 
 		return value;
 	}, []);
+
+	if (hydrate) {
+		return content;
+	} else if (activate) {
+		element[content] = value.shift();
+		return element;
+	} else if (value) {
+		value = value.length ? value.join('') : true;
+	}
+
+	if (typeof content !== 'string') {
+		value = typeof value === 'string' ? value : '';
+
+		if (!content) {
+			return value;
+		} else if (value !== existing) {
+			content.nodeValue = value;
+		}
+
+		return content;
+	} else if (typeof element === 'string') {
+		element = element.slice(0, -1);
+
+		if (value === true) {
+			value = ` ${content}`;
+		} else {
+			value = value !== false ? ` ${content}="${value}"` : '';
+		}
+
+		return `${element}${value}>`;
+	} else if (typeof value === 'boolean') {
+		const exists = element.hasAttribute(content);
+
+		if (value && !exists) {
+			element.toggleAttribute(content, true);
+		} else if (!value && exists) {
+			element.removeAttribute(content);
+		}
+	} else if (value !== element.getAttribute(content)) {
+		element.setAttribute(content, value);
+	}
+
+	return element;
 }
