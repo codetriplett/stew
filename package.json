@@ -1,6 +1,6 @@
 {
 	"name": "@triplett/stew",
-	"version": "0.6.0",
+	"version": "1.0.0",
 	"description": "A markup language for interactive components.",
 	"main": "lib/stew.js",
 	"scripts": {
