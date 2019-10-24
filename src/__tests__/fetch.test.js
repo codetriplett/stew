@@ -1,4 +1,4 @@
-import { fetch, TOGGLE } from '../fetch';
+import { fetch, CLICK } from '../fetch';
 
 describe('fetch', () => {
 	describe('generate', () => {
@@ -69,6 +69,16 @@ describe('fetch', () => {
 		it('mismatch with undefined', () => {
 			const actual = fetch(['missing', false], state);
 			expect(actual).toBe(true);
+		});
+
+		it('match undefined with zero', () => {
+			const actual = fetch(['missing', 0], state);
+			expect(actual).toBe(true);
+		});
+
+		it('match undefined with one', () => {
+			const actual = fetch(['missing', 1], state);
+			expect(actual).toBe(false);
 		});
 
 		it('object', () => {
@@ -298,32 +308,84 @@ describe('fetch', () => {
 
 	describe('activate', () => {
 		const update = jest.fn();
+		const preventDefault = jest.fn();
 		let state;
+		let event;
 
 		beforeEach(() => {
-			state = { boolean: false, '.': [update] };
+			update.mockClear();
+			preventDefault.mockClear();
+
+			state = { boolean: false, array: [1, 2, 3], '.': [update] };
+			event = { preventDefault };
 		});
 
 		it('creates toggle action', () => {
-			const actual = fetch(['boolean'], state, TOGGLE);
+			const actual = fetch(['boolean'], state, CLICK);
 
 			expect(actual).toEqual(expect.any(Function));
 			expect(state.boolean).toBe(false);
 		});
 
 		it('toggles boolean on', () => {
-			const actual = fetch(['boolean'], state, TOGGLE);
+			const actual = fetch(['boolean'], state, CLICK);
 
-			actual();
-			expect(state).toEqual({ boolean: true, '.': [update] });
+			actual(event);
+			expect(state.boolean).toBe(true);
 		});
 
 		it('toggles boolean off', () => {
 			state.boolean = true;
-			const actual = fetch(['boolean'], state, TOGGLE);
+			const actual = fetch(['boolean'], state, CLICK);
 
-			actual();
-			expect(state).toEqual({ boolean: false, '.': [update] });
+			actual(event);
+			expect(state.boolean).toBe(false);
+		});
+
+		it('increments number from undefined', () => {
+			const actual = fetch(['number', 'array.'], state, CLICK);
+
+			actual(event);
+			expect(state.number).toBe(1);
+		});
+
+		it('increments number', () => {
+			state.number = 1;
+			const actual = fetch(['number', 'array.'], state, CLICK);
+
+			actual(event);
+			expect(state.number).toBe(2);
+		});
+
+		it('increments number from end', () => {
+			state.number = 2;
+			const actual = fetch(['number', 'array.'], state, CLICK);
+
+			actual(event);
+			expect(state.number).toBe(0);
+		});
+
+		it('decrements number from undefined', () => {
+			const actual = fetch(['number', '-array.'], state, CLICK);
+
+			actual(event);
+			expect(state.number).toBe(2);
+		});
+
+		it('decrements number', () => {
+			state.number = 2;
+			const actual = fetch(['number', '-array.'], state, CLICK);
+
+			actual(event);
+			expect(state.number).toBe(1);
+		});
+
+		it('decrements number from end', () => {
+			state.number = 0;
+			const actual = fetch(['number', '-array.'], state, CLICK);
+
+			actual(event);
+			expect(state.number).toBe(2);
 		});
 	});
 });

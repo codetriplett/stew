@@ -26,9 +26,11 @@ A variable can be applied directly to an element to set a new scope for itself a
 ```
 
 ## Listeners
-If a variable is set to an onclick attribute, its value will toggle between true and false and it will trigger the component to update whenever it is clicked.
+If a variable is set to an onclick attribute, its value will toggle between true and false and it will trigger the component to update whenever it is clicked. If a number is provided as the second value, it will increment the variable each time it is clicked and reset to zero once the number is exceeded. If the second value is preceded by a dash, it will decrement the variable and reset to the number once the value crosses zero. An array followed by a dot can also be passed as the second value to use its maximum index as the upper limit.
 ```html
-<button onclick={expanded}>Click here</>
+<button onclick={expanded}>Click here to toggle the value</>
+<button onclick={index array.}>Click here to increment the value</>
+<button onclick={index -array.}>Click here to decrement the value</>
 ```
 
 ## Dot Features

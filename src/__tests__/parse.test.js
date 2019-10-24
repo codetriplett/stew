@@ -49,6 +49,13 @@ describe('parse', () => {
 		expect(actual).toBe('');
 	});
 
+	it('parses comparison with an inverted key', () => {
+		const actual = parse('prefix{first -second}suffix', children);
+
+		expect(children).toEqual([['prefix', ['first', '-second'], 'suffix']]);
+		expect(actual).toBe('');
+	});
+
 	it('parses literal text', () => {
 		const actual = parse('prefix{}suffix', children);
 
@@ -61,6 +68,27 @@ describe('parse', () => {
 
 		expect(actual).toEqual({
 			'': ['img'], src: ['(', [''], ')'], alt: [''], flag: [true]
+		});
+	});
+
+	it('parses component', () => {
+		const actual = parse('<template name="value" /data/{value}>');
+
+		expect(actual).toEqual({
+			'': ['template/', ['data/', ['value']], ['']], name: ['value']
+		});
+	});
+
+	it('parses component without properties or data', () => {
+		const actual = parse('<template />');
+		expect(actual).toEqual({ '': ['template/', [], ['']] });
+	});
+
+	it('parses component without space before data', () => {
+		const actual = parse('<template/data/{value}>');
+
+		expect(actual).toEqual({
+			'': ['template/', ['data/', ['value']], ['']]
 		});
 	});
 

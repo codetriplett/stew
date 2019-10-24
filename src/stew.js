@@ -25,7 +25,7 @@ export default function stew (input, state) {
 			return html;
 		}
 
-		data = JSON.stringify(data).replace('\'', '&#39;');
+		data = JSON.stringify(data).replace(/'/g, '&#39;');
 		return html.replace(/^\s*<\w+/, match => `${match} data--='${data}'`);
 	} else if (typeof document === 'undefined') {
 		return;

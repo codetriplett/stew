@@ -1,4 +1,4 @@
-import { fetch, TOGGLE } from './fetch';
+import { fetch, CLICK } from './fetch';
 
 export function evaluate (items, state, content, element) {
 	const strings = items.filter(item => typeof item === 'string').reverse();
@@ -13,7 +13,7 @@ export function evaluate (items, state, content, element) {
 			return element;
 		}
 
-		option = TOGGLE;
+		option = CLICK;
 		items = items.slice(0, 1);
 	} else if (typeof element === 'object') {
 		existing = element.getAttribute(content) || '';

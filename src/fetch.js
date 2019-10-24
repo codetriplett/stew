@@ -1,4 +1,4 @@
-export const TOGGLE = -1;
+export const CLICK = -1;
 
 export function fetch (item, state, value) {
 	const activate = value < 0;
@@ -11,9 +11,14 @@ export function fetch (item, state, value) {
 
 	let [key, comparison] = item;
 	const compare = item.length > 1;
+	const inverted = typeof comparison === 'string' && comparison[0] === '-';
 	const iteration = Array.isArray(state);
 	const keys = iteration ? [key] : key.split(/\.(?!\.*$)/);
 	const measure = !iteration && key.endsWith('.');
+
+	if (inverted) {
+		comparison = comparison.slice(1);
+	}
 
 	if (create && compare) {
 		create = false;
@@ -21,7 +26,7 @@ export function fetch (item, state, value) {
 	}
 
 	if (typeof comparison === 'string' && comparison.endsWith('.')) {
-		comparison = fetch([comparison], state, value);
+		comparison = fetch([comparison], state, activate ? undefined : value);
 	}
 
 	key = keys.pop();
@@ -45,7 +50,7 @@ export function fetch (item, state, value) {
 		if (!key && !activate) {
 			value = indices[length - 1];
 		}
-	} else if (hydrate) {
+	} else if (hydrate && !activate) {
 		if (compare) {
 			value = comparison !== false ? comparison : undefined;
 		}
@@ -63,11 +68,30 @@ export function fetch (item, state, value) {
 
 	if (activate) {
 		switch (value) {
-			case TOGGLE:
-				return () => {
-					const { [key]: previous } = state;
-					state[key] = !previous;
+			case CLICK:
+				return event => {
+					event.preventDefault();
+					const { [key]: previous = 0 } = state;
+
+					if (!compare) {
+						state[key] = !previous;
+					} else {
+						if (comparison === undefined) {
+							const key = item[1].replace(/^-/, '');
+							comparison = fetch([key], state);
+						}
+
+						if (!inverted) {
+							const next = previous + 1;
+							state[key] = next <= comparison ? next : 0;
+						} else {
+							const next = previous - 1;
+							state[key] = next >= 0 ? next : comparison;
+						}
+					}
+
 					option();
+					return false;
 				}
 			default:
 				return () => {}
@@ -110,10 +134,12 @@ export function fetch (item, state, value) {
 	}
 
 	if (compare) {
-		if (value === undefined || value === null) {
+		if (value === undefined && comparison === 0) {
+			return true;
+		} else if (value === undefined || value === null) {
 			value = false;
 		}
-		
+
 		return value === comparison;
 	}
 

@@ -3,7 +3,6 @@ const independent = new RegExp([
 	'|img|hr|embed|command|col|br|base|area|!doctype)$'
 ].join(''));
 
-const newlines = /^\s+|[\n\r\t]+|\s+$/g;
 const openers = '<{"\'';
 const closers = '>}"\'';
 
@@ -18,8 +17,10 @@ export function parse (markup, children) {
 
 		if (openers.indexOf(symbol) > 0) {
 			pattern = `\\${closers[openers.indexOf(symbol)]}`;
+		} else if (symbol === '/') {
+			pattern = '>';
 		} else if (object) {
-			pattern = `[${closers[0]}${openers.slice(1)}]|\\s[a-z]`;
+			pattern = `[${closers[0]}${openers.slice(1)}]|\\s[a-z]|\/`;
 		} else {
 			pattern = `[${openers.slice(0, 2)}]`;
 		}
@@ -30,6 +31,15 @@ export function parse (markup, children) {
 			const string = markup.slice(0, index);
 
 			switch (symbol) {
+				case '/': {
+					const { '': structure } = object;
+					const expression = parse(string);
+
+					structure[0][0] += '/';
+					structure.push(expression || []);
+
+					break;
+				}
 				case ' ':
 				case '\t':
 				case '\r':
@@ -86,7 +96,11 @@ export function parse (markup, children) {
 		const { '': structure } = object || {};
 
 		const [tag, ...scope] = structure[0].map(value => {
-			return typeof value === 'string' ? value.trim() : value;
+			if (typeof value !== 'string') {
+				return value;
+			}
+
+			return value.replace(/\s/g, '');
 		});
 		
 		if (structure && /^\//.test(tag)) {
