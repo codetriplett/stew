@@ -116,7 +116,7 @@ export function parse (markup, children = '') {
 		
 		if (structure && /^\//.test(tag)) {
 			break;
-		} else if (!independent.test(tag)) {
+		} else if (!independent.test(tag) && !tag.endsWith('/')) {
 			const children = [];
 
 			markup = parse(markup, children);

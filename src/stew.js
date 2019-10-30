@@ -84,14 +84,14 @@ export default function stew (input, option) {
 	if (ready) {
 		resolution = Promise.resolve(components[input]);
 	} else if (resolver) {
-		resolution = resolver(input);
+		resolution = new Promise(resolve => resolve(resolver(input)));
 	} else if (client) {
 		resolution = fetch(`/${input}.json`);
 	} else {
 		return;
 	}
 
-	resolution.then(template => {
+	return resolution.then(template => {
 		if (!ready) {
 			components[input] = template;
 		}

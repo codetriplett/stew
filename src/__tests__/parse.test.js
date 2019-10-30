@@ -75,20 +75,20 @@ describe('parse', () => {
 		const actual = parse('<template name="value" /data/{value}>');
 
 		expect(actual).toEqual({
-			'': ['template/', ['data/', ['value']], ['']], name: ['value']
+			'': ['template/', ['data/', ['value']]], name: ['value']
 		});
 	});
 
 	it('parses component without properties or data', () => {
 		const actual = parse('<template />');
-		expect(actual).toEqual({ '': ['template/', [], ['']] });
+		expect(actual).toEqual({ '': ['template/', []] });
 	});
 
 	it('parses component without space before data', () => {
 		const actual = parse('<template/data/{value}>');
 
 		expect(actual).toEqual({
-			'': ['template/', ['data/', ['value']], ['']]
+			'': ['template/', ['data/', ['value']]]
 		});
 	});
 
