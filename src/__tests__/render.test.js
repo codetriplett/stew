@@ -1,7 +1,7 @@
 import { parse } from '../parse';
 import { render } from '../render';
 
-function normalize ({ tagName, attributes, childNodes, nodeValue }) {
+function normalize ({ tagName, attributes, childNodes, nodeValue, onclick }) {
 	if (nodeValue !== null) {
 		return nodeValue;
 	}
@@ -16,7 +16,20 @@ function normalize ({ tagName, attributes, childNodes, nodeValue }) {
 		object[name] = value;
 	}
 
+	if (onclick) {
+		object.onclick = onclick;
+	}
+
 	return object;
+}
+
+function reframe (template) {
+	const { '': structure } = template;
+	
+	if (Array.isArray(structure[1])) {
+		structure.shift();
+		return 1;
+	}
 }
 
 const data = {
@@ -36,8 +49,9 @@ describe('render', () => {
 		let state;
 
 		function generate (markup, expectedElements, expectedBackup) {
-			const template = parse(markup);
-			const actual = render(state, template, 1, '');
+			const template = parse(markup, 'name');
+			const name = reframe(template);
+			const actual = render(state, template, name, '');
 
 			expect(actual).toEqual(expectedElements);
 
@@ -65,6 +79,13 @@ describe('render', () => {
 			generate(
 				'<img src="("{string}")" alt="">',
 				'<img src="(abc)" alt="">'
+			);
+		});
+
+		it('data', () => {
+			generate(
+				'<img src="("{string.}")" alt="" onclick={active}>',
+				'<img data--=\'name {"string":"abc"}\' src="(abc)" alt="">'
 			);
 		});
 
@@ -165,8 +186,9 @@ describe('render', () => {
 		let state;
 
 		function create (markup, expected) {
-			const template = parse(markup);
-			const actual = render(state, template, 1, {});
+			const template = parse(markup, 'name');
+			const name = reframe(template);
+			const actual = render(state, template, name, {});
 			const elements = normalize(actual);
 
 			expect(elements).toEqual(expected);
@@ -190,6 +212,13 @@ describe('render', () => {
 		it('attributes', () => {
 			create('<img src="("{string}")" alt="">', {
 				'': ['img'], alt: '', src: '(abc)'
+			});
+		});
+
+		it('data', () => {
+			create('<img src="("{string.}")" alt="" onclick={active}>', {
+				'': ['img'], alt: '', src: '(abc)',
+				onclick: expect.any(Function)
 			});
 		});
 
@@ -286,12 +315,13 @@ describe('render', () => {
 		function hydrate (markup, expectedState, expectedElements) {
 			update[''] = true;
 
-			const template = parse(markup);
-			const actual = render({ ...data, ...state }, template, 1, {});
+			const template = parse(markup, 'name');
+			const name = reframe(template);
+			const actual = render({ ...data, ...state }, template, name, {});
 
 			if (actual) {
 				update[''] = undefined;
-				render(state, template, 1, actual);
+				render(state, template, name, actual);
 			}
 
 			if (typeof expectedState === 'function') {
@@ -321,6 +351,13 @@ describe('render', () => {
 			hydrate('<img src="("{string}")" alt="">', {
 				string: 'abc'
 			}, { '': ['img'], alt: '', src: '(abc)' });
+		});
+
+		it('data', () => {
+			hydrate('<img src="("{string.}")" alt="" onclick={active}>', {}, {
+				'': ['img'], alt: '', src: '(abc)',
+				onclick: expect.any(Function)
+			});
 		});
 
 		it('empty', () => {

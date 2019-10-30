@@ -1,8 +1,10 @@
 import { fetch } from './fetch';
 import { locate } from './locate';
 import { evaluate } from './evaluate';
+import { clean } from './clean';
 
 export function render (state, view, name, node) {
+	const root = name === '' || name === undefined;
 	const generate = typeof node === 'string';
 
 	if (Array.isArray(view)) {
@@ -19,6 +21,12 @@ export function render (state, view, name, node) {
 	const conditional = Array.isArray(tag);
 	let ignore = false;
 	let count;
+	let data;
+
+	if (root) {
+		data = tag;
+		tag = children.shift();
+	}
 	
 	if (hydrate) {
 		count = locate(node, conditional ? name : undefined);
@@ -62,18 +70,31 @@ export function render (state, view, name, node) {
 	if (generate) {
 		node = state.map((state, i) => {
 			let instance = node[i];
-
+			let content = '';
+			
 			for (const name in attributes) {
 				instance = evaluate(attributes[name], state, name, instance);
 			}
 
-			if (!children.length) {
-				return instance;
+			if (children.length) {
+				content = `${children.map((child, i) => {
+					return render(state, child, i, '');
+				}).join('')}</${tag}>`;
 			}
 
-			return `${instance}${children.map((child, i) => {
-				return render(state, child, i, '');
-			}).join('')}</${tag}>`;
+			if (data) {
+				const backup = clean(state['.'][0]);
+
+				if (backup) {
+					data += ` ${JSON.stringify(backup).replace(/'/g, '&#39;')}`;
+				}
+
+				instance = instance.replace(/.*?(?= |>)/, match => {
+					return `${match} data--='${data}'`;
+				});
+			}
+
+			return `${instance}${content}`;
 		}).join('');
 
 		return !ignore ? node : '';

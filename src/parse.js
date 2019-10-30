@@ -6,7 +6,18 @@ const independent = new RegExp([
 const openers = '<{"\'';
 const closers = '>}"\'';
 
-export function parse (markup, children) {
+export function scan (template) {
+	if (Array.isArray(template) || typeof template !== 'object') {
+		return false;
+	}
+
+	const { '': [tag, ...children], ...attributes } = template;
+	const active = Object.keys(attributes).some(key => key.startsWith('on'));
+
+	return active || children.slice(Array.isArray(tag) ? 1 : 0).some(scan);
+}
+
+export function parse (markup, children = '') {
 	let array = [];
 	let result = [array];
 	let object;
@@ -157,9 +168,15 @@ export function parse (markup, children) {
 		}
 	}).filter(item => item);
 
-	if (children) {
+	if (Array.isArray(children)) {
 		children.push(...result);
+	} else {
+		markup = result[0];
+
+		if (typeof markup === 'object' && !Array.isArray(markup) && children) {
+			markup[''].unshift(scan(markup) ? children : '');
+		}
 	}
 
-	return children ? markup : result[0];
+	return markup;
 }

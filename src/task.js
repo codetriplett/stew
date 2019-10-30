@@ -1,6 +1,6 @@
 import { parse } from './parse';
 
-export function grunt (grunt) {
+export function task (grunt) {
 	grunt.registerTask('stew', function (name = 'main') {
 		let files = grunt.config(`${this.name}.${name}.files`);
 
@@ -16,7 +16,7 @@ export function grunt (grunt) {
 					return;
 				}
 
-				const options = { cwd, ext: '.js' };
+				const options = { cwd, ext: '.json' };
 
 				grunt.file.expandMapping(src, dest, options).forEach(file => {
 					const { dest, src } = file;
@@ -25,22 +25,13 @@ export function grunt (grunt) {
 			});
 		}
 
-		for (const destination in files) {
-			const template = parse(grunt.file.read(files[destination]));
+		for (const file in files) {
+			const start = file.lastIndexOf('/');
+			const finish = file.indexOf('.', start);
+			const name = file.slice(start + 1, finish);
+			const template = parse(grunt.file.read(files[file]), name);
 
-			const file = [
-				'(function(t){',
-					'if(typeof stew===\'function\'){',
-						'stew(t);',
-					'}else{',
-						'module.exports=t;',
-					'}',
-				'})(',
-					JSON.stringify(template),
-				');'
-			].join('');
-
-			grunt.file.write(destination, file);
+			grunt.file.write(file, JSON.stringify(template));
 		}
 	});
 }

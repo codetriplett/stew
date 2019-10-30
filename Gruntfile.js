@@ -20,13 +20,14 @@ module.exports = function (grunt) {
 			main: {
 				files: {
 					'dist/stew.min.js': 'dist/stew.min.js',
+					'lib/task.js': 'src/task.js',
 					'lib/parse.js': 'src/parse.js',
-					'lib/grunt.js': 'src/grunt.js',
 					'lib/fetch.js': 'src/fetch.js',
 					'lib/evaluate.js': 'src/evaluate.js',
 					'lib/locate.js': 'src/locate.js',
-					'lib/render.js': 'src/render.js',
 					'lib/clean.js': 'src/clean.js',
+					'lib/render.js': 'src/render.js',
+					'lib/hydrate.js': 'src/hydrate.js',
 					'lib/stew.js': 'lib/stew.js',
 				}
 			}
@@ -57,19 +58,18 @@ module.exports = function (grunt) {
 			'./src/fetch.js',
 			'./src/evaluate.js',
 			'./src/locate.js',
-			'./src/render.js',
 			'./src/clean.js',
+			'./src/render.js',
+			'./src/hydrate.js',
 			'./src/stew.js',
 		]);
 		
 		merge('./lib/stew.js', [
 			'./src/stew.js',
-		], file => {
-			return file.replace(
-				/(?=export default )/,
-				'export { grunt } from \'./grunt\';\n\n'
-			);
-		});
+		], file => file.replace(
+			/(?=export default )/,
+			'export { task } from \'./task\';\n\n'
+		));
 	});
 
 	grunt.registerTask('after', function () {
