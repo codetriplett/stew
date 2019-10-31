@@ -9,17 +9,20 @@ jest.mock('../hydrate', () => ({ hydrate: jest.fn() }));
 
 describe('stew', () => {
 	let template;
+	let data;
 	let state;
 	let html;
 	let element;
 
 	beforeEach(() => {
 		template = { '': ['name', 'br'] };
+		data = { key: 'value' };
 		state = { '': expect.anything(), '.': expect.anything() };
 		html = '<br data--=\'name\'>';
 		document.body.innerHTML = html;
 		element = document.body.childNodes[0];
 
+		window.fetch = jest.fn().mockReturnValue(Promise.resolve(data));
 		parse.mockClear().mockReturnValue(template);
 		render.mockClear().mockReturnValue(html);
 		hydrate.mockClear();
@@ -38,11 +41,31 @@ describe('stew', () => {
 		expect(actual).toEqual(template);
 	});
  
-	it('renders element', () => {
+	it('renders element syncronously', () => {
 		const actual = stew(template);
 
 		expect(render).toHaveBeenCalledWith(state, template, '', undefined);
 		expect(actual).toBe(html);
+	});
+ 
+	it('renders element asyncronously', () => {
+		components.name = template;
+		state['..'] = true;
+
+		return stew('name').then(actual => {
+			expect(render).toHaveBeenCalledWith(state, template, '', undefined);
+			expect(actual).toBe(html);
+		});
+	});
+ 
+	it('fetches data', () => {
+		components.name = template;
+		state['..'] = true;
+
+		return stew('/data').then(actual => {
+			expect(fetch).toHaveBeenCalledWith('/data.json');
+			expect(actual).toBe(data);
+		});
 	});
 
 	it('hydrates element', () => {

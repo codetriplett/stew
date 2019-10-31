@@ -1,6 +1,19 @@
 import { parse } from '../parse';
 import { render } from '../render';
 
+const data = {
+	flag: true,
+	number: 123,
+	string: 'abc',
+	object: { string: 'xyz' },
+	array: [
+		{ string: 'abc' },
+		{ string: 'xyz' }
+	]
+};
+
+let state;
+
 function normalize ({ tagName, attributes, childNodes, nodeValue, onclick }) {
 	if (nodeValue !== null) {
 		return nodeValue;
@@ -32,32 +45,60 @@ function reframe (template) {
 	}
 }
 
-const data = {
-	flag: true,
-	number: 123,
-	string: 'abc',
-	object: { string: 'xyz' },
-	array: [
-		{ string: 'abc' },
-		{ string: 'xyz' }
-	]
-};
+function verify (callback, modifier) {
+	let resolver = describe;
+
+	if (modifier) {
+		resolver = resolver[modifier];
+	}
+
+	resolver('syncronous', () => {
+		callback();
+	});
+
+	resolver('asyncronous', () => {
+		beforeEach(() => state['..'] = true);
+		callback();
+	});
+}
+
+function clean (state) {
+	if (typeof state !== 'object') {
+		return;
+	}
+
+	delete state['..'];
+
+	for (const key in state) {
+		if (key) {
+			clean(state[key]);
+		}
+	}
+}
+
+verify.only = callback => verify(callback, 'only');
+verify.skip = callback => verify(callback, 'skip');
 
 describe('render', () => {
 	describe('generate', () => {
 		let backup = {};
-		let state;
 
 		function generate (markup, expectedElements, expectedBackup) {
 			const template = parse(markup, 'name');
-			const name = reframe(template);
-			const actual = render(state, template, name, '');
+			const name = Array.isArray(template) ? '' : reframe(template);
+			let actual = render(state, template, name, '');
 
-			expect(actual).toEqual(expectedElements);
-
-			if (expectedBackup) {
-				expect(backup).toEqual(expectedBackup);
+			if (!(actual instanceof Promise)) {
+				actual = Promise.resolve(actual);
 			}
+
+			return actual.then(actual => {
+				expect(actual).toEqual(expectedElements);
+
+				if (expectedBackup) {
+					expect(backup).toEqual(expectedBackup);
+				}
+			});
 		}
 
 		beforeEach(() => {
@@ -71,127 +112,134 @@ describe('render', () => {
 			state[''] = state;
 		});
 
-		it('tag', () => {
-			generate('<br>', '<br>');
-		});
+		verify(() => {
+			it('value', () => {
+				return generate('({string})', '(abc)');
+			});
 
-		it('attributes', () => {
-			generate(
-				'<img src="("{string}")" alt="">',
-				'<img src="(abc)" alt="">'
-			);
-		});
+			it('tag', () => {
+				return generate('<br>', '<br>');
+			});
 
-		it('data', () => {
-			generate(
-				'<img src="("{string.}")" alt="" onclick={active}>',
-				'<img data--=\'name {"string":"abc"}\' src="(abc)" alt="">'
-			);
-		});
-
-		it('empty', () => {
-			generate('<div></>', '<div></div>');
-		});
-
-		it('content', () => {
-			generate('<p>({string})</>', '<p>(abc)</p>');
-		});
-
-		it('children', () => {
-			generate('<div>(<br><br>)</>', '<div>(<br><br>)</div>');
-		});
-
-		it('scoped', () => {
-			generate('<p {object}>({string})</p>', '<p data--="1">(xyz)</p>');
-		});
-
-		it('presence', () => {
-			generate(
-				'<p {flag true}>({string})</p>',
-				'<p data--="1">(abc)</p>'
-			);
-		});
-
-		it('absence', () => {
-			generate('<p {flag false}>({string})</p>', '');
-		});
-
-		it('hidden', () => {
-			generate('<p {missing}>({string})</p>', '');
-		});
-
-		it('iterate', () => {
-			generate('<p {array}>({string})</p>', [
-				'<p data--="1-0">(abc)</p>',
-				'<p data--="1-1">(xyz)</p>'
-			].join(''));
-		});
-
-		it('conditional children', () => {
-			generate(`
-				<div>
-					<p {flag true}>present</>
-					<p>({string})</>
-					<p {flag false}>absent</>
-				</>
-			`, [
-				'<div>',
-					'<p data--="0">present</p>',
-					'<p>(abc)</p>',
-				'</div>'
-			].join(''));
-		});
-
-		it('backup', () => {
-			generate('<p>({string.})</>', '<p>(abc)</p>', { string: 'abc' });
-		});
-
-		it('hidden backup', () => {
-			generate(
-				'<div {flag false}><p>({string.})</></>',
-				'',
-				{ string: 'abc' }
-			);
-		});
-
-		it('complex', () => {
-			generate(`
-				<div {array}>
-					<img src="("{string.}")" alt="">
-					<br>
-					<p>({.number})</p>
-				</>
-			`, [
-				'<div data--="1-0">',
-					'<img src="(abc)" alt="">',
-					'<br>',
-					'<p>(123)</p>',
-				'</div>',
-				'<div data--="1-1">',
-					'<img src="(xyz)" alt="">',
-					'<br>',
-					'<p>(123)</p>',
-				'</div>'
-			].join(''), {
-				array: [
-					{ string: 'abc' },
-					{ string: 'xyz' }
-				]
+			it('attributes', () => {
+				return generate(
+					'<img src="("{string}")" alt="">',
+					'<img src="(abc)" alt="">'
+				);
+			});
+	
+			it('data', () => {
+				return generate(
+					'<img src="("{string.}")" alt="" onclick={active}>',
+					'<img data--=\'name {"string":"abc"}\' src="(abc)" alt="">'
+				);
+			});
+	
+			it('empty', () => {
+				return generate('<div></>', '<div></div>');
+			});
+	
+			it('content', () => {
+				return generate('<p>({string})</>', '<p>(abc)</p>');
+			});
+	
+			it('children', () => {
+				return generate('<div>(<br><br>)</>', '<div>(<br><br>)</div>');
+			});
+	
+			it('scoped', () => {
+				return generate('<p {object}>({string})</p>', '<p data--="1">(xyz)</p>');
+			});
+	
+			it('presence', () => {
+				return generate(
+					'<p {flag true}>({string})</p>',
+					'<p data--="1">(abc)</p>'
+				);
+			});
+	
+			it('absence', () => {
+				return generate('<p {flag false}>({string})</p>', '');
+			});
+	
+			it('hidden', () => {
+				return generate('<p {missing}>({string})</p>', '');
+			});
+	
+			it('iterate', () => {
+				return generate('<p {array}>({string})</p>', [
+					'<p data--="1-0">(abc)</p>',
+					'<p data--="1-1">(xyz)</p>'
+				].join(''));
+			});
+	
+			it('conditional children', () => {
+				return generate(`
+					<div>
+						<p {flag true}>present</>
+						<p>({string})</>
+						<p {flag false}>absent</>
+					</>
+				`, [
+					'<div>',
+						'<p data--="0">present</p>',
+						'<p>(abc)</p>',
+					'</div>'
+				].join(''));
+			});
+	
+			it('backup', () => {
+				return generate('<p>({string.})</>', '<p>(abc)</p>', { string: 'abc' });
+			});
+	
+			it('hidden backup', () => {
+				return generate(
+					'<div {flag false}><p>({string.})</></>',
+					'',
+					{ string: 'abc' }
+				);
+			});
+	
+			it('complex', () => {
+				return generate(`
+					<div {array}>
+						<img src="("{string.}")" alt="">
+						<br>
+						<p>({.number})</p>
+					</>
+				`, [
+					'<div data--="1-0">',
+						'<img src="(abc)" alt="">',
+						'<br>',
+						'<p>(123)</p>',
+					'</div>',
+					'<div data--="1-1">',
+						'<img src="(xyz)" alt="">',
+						'<br>',
+						'<p>(123)</p>',
+					'</div>'
+				].join(''), {
+					array: [
+						{ string: 'abc' },
+						{ string: 'xyz' }
+					]
+				});
 			});
 		});
 	});
 
 	describe('create', () => {
 		const update = jest.fn();
-		let state;
 
 		function create (markup, expected) {
 			const template = parse(markup, 'name');
 			const name = reframe(template);
 			const actual = render(state, template, name, {});
-			const elements = normalize(actual);
 
-			expect(elements).toEqual(expected);
+			Promise.resolve(actual).then(actual => {
+				const elements = normalize(actual);
+				expect(elements).toEqual(expected);
+			});
 		}
 
 		beforeEach(() => {
@@ -205,112 +253,113 @@ describe('render', () => {
 			state[''] = state;
 		});
 
-		it('tag', () => {
-			create('<br>', { '': ['br'] });
-		});
-
-		it('attributes', () => {
-			create('<img src="("{string}")" alt="">', {
-				'': ['img'], alt: '', src: '(abc)'
+		verify(() => {
+			it('tag', () => {
+				return create('<br>', { '': ['br'] });
 			});
-		});
 
-		it('data', () => {
-			create('<img src="("{string.}")" alt="" onclick={active}>', {
-				'': ['img'], alt: '', src: '(abc)',
-				onclick: expect.any(Function)
+			it('attributes', () => {
+				return create('<img src="("{string}")" alt="">', {
+					'': ['img'], alt: '', src: '(abc)'
+				});
 			});
-		});
 
-		it('empty', () => {
-			create('<div></>', { '': ['div'] });
-		});
-
-		it('content', () => {
-			create('<p>({string})</>', { '': ['p', '(abc)'] });
-		});
-
-		it('children', () => {
-			create('<div>(<br><br>)</>', {
-				'': ['div', '(', { '': ['br'] }, { '': ['br'] }, ')']
+			it('data', () => {
+				return create('<img src="("{string.}")" alt="" onclick={active}>', {
+					'': ['img'], alt: '', src: '(abc)',
+					onclick: expect.any(Function)
+				});
 			});
-		});
 
-		it('scoped', () => {
-			create('<div><p {object}>({string})</p></div>', {
-				'': ['div', { '': ['p', '(xyz)'], 'data--': '0' }]
+			it('empty', () => {
+				return create('<div></>', { '': ['div'] });
 			});
-		});
 
-		it('presence', () => {
-			create('<div><p {flag true}>({string})</p></div>', {
-				'': ['div', { '': ['p', '(abc)'], 'data--': '0' }]
+			it('content', () => {
+				return create('<p>({string})</>', { '': ['p', '(abc)'] });
 			});
-		});
 
-		it('absence', () => {
-			create('<div><p {flag false}>({string})</p></div>', {
-				'': ['div']
+			it('children', () => {
+				return create('<div>(<br><br>)</>', {
+					'': ['div', '(', { '': ['br'] }, { '': ['br'] }, ')']
+				});
 			});
-		});
 
-		it('hidden', () => {
-			create('<div><p {missing}>({string})</p></div>', { '': ['div'] });
-		});
-
-		it('iterate', () => {
-			create('<div><p {array}>({string})</p></div>', {
-				'': ['div',
-					{ '': ['p', '(abc)'], 'data--': '0-0' },
-					{ '': ['p', '(xyz)'], 'data--': '0-1' }
-				]
+			it('scoped', () => {
+				return create('<div><p {object}>({string})</p></div>', {
+					'': ['div', { '': ['p', '(xyz)'], 'data--': '0' }]
+				});
 			});
-		});
 
-		it('conditional children', () => {
-			create(`
-				<div>
-					<p {flag true}>present</>
-					<p>({string})</>
-					<p {flag false}>absent</>
-				</>
-			`, {
-				'': ['div',
-					{ '': ['p', 'present'], 'data--': '0' },
-					{ '': ['p', '(abc)'] }
-				]
+			it('presence', () => {
+				return create('<div><p {flag true}>({string})</p></div>', {
+					'': ['div', { '': ['p', '(abc)'], 'data--': '0' }]
+				});
 			});
-		});
 
-		it('complex', () => {
-			create(`
-				<div>
-					<div {array}>
-						<img src="("{string.}")" alt="">
-						<br>
-						<p>({.number})</p>
+			it('absence', () => {
+				return create('<div><p {flag false}>({string})</p></div>', {
+					'': ['div']
+				});
+			});
+
+			it('hidden', () => {
+				return create('<div><p {missing}>({string})</p></div>', { '': ['div'] });
+			});
+
+			it('iterate', () => {
+				return create('<div><p {array}>({string})</p></div>', {
+					'': ['div',
+						{ '': ['p', '(abc)'], 'data--': '0-0' },
+						{ '': ['p', '(xyz)'], 'data--': '0-1' }
+					]
+				});
+			});
+
+			it('conditional children', () => {
+				return create(`
+					<div>
+						<p {flag true}>present</>
+						<p>({string})</>
+						<p {flag false}>absent</>
 					</>
-				</div>
-			`, {
-				'': ['div',
-					{ '': ['div',
-						{ '': ['img'], alt: '', src: '(abc)' },
-						{ '': ['br'] },
-						{ '': ['p', '(123)'] }
-					], 'data--': '0-0' },
-					{ '': ['div',
-						{ '': ['img'], alt: '', src: '(xyz)' },
-						{ '': ['br'] },
-						{ '': ['p', '(123)'] }
-					], 'data--': '0-1' }
-				]
+				`, {
+					'': ['div',
+						{ '': ['p', 'present'], 'data--': '0' },
+						{ '': ['p', '(abc)'] }
+					]
+				});
+			});
+
+			it('complex', () => {
+				return create(`
+					<div>
+						<div {array}>
+							<img src="("{string.}")" alt="">
+							<br>
+							<p>({.number})</p>
+						</>
+					</div>
+				`, {
+					'': ['div',
+						{ '': ['div',
+							{ '': ['img'], alt: '', src: '(abc)' },
+							{ '': ['br'] },
+							{ '': ['p', '(123)'] }
+						], 'data--': '0-0' },
+						{ '': ['div',
+							{ '': ['img'], alt: '', src: '(xyz)' },
+							{ '': ['br'] },
+							{ '': ['p', '(123)'] }
+						], 'data--': '0-1' }
+					]
+				});
 			});
 		});
 	});
 
 	describe('hydrate', () => {
 		const update = jest.fn();
-		let state;
 		
 		function hydrate (markup, expectedState, expectedElements) {
 			update[''] = true;
@@ -318,24 +367,32 @@ describe('render', () => {
 			const template = parse(markup, 'name');
 			const name = reframe(template);
 			const actual = render({ ...data, ...state }, template, name, {});
+			
+			return Promise.resolve(actual).then(actual => {
+				let promise;
 
-			if (actual) {
-				update[''] = undefined;
-				render(state, template, name, actual);
-			}
+				if (actual) {
+					update[''] = undefined;
+					promise = render(state, template, name, actual);
+				}
 
-			if (typeof expectedState === 'function') {
-				expectedState = expectedState(state, update);
-			}
+				return Promise.resolve(promise).then(() => {
+					if (typeof expectedState === 'function') {
+						expectedState = expectedState(state, update);
+					}
 
-			expect(state).toEqual({
-				'': state, '.': [update], ...expectedState
+					clean(state);
+
+					expect(state).toEqual({
+						'': state, '.': [update], ...expectedState
+					});
+
+					if (expectedElements) {
+						const elements = actual && normalize(actual);
+						expect(elements).toEqual(expectedElements);
+					}
+				});
 			});
-
-			if (expectedElements) {
-				const elements = actual && normalize(actual);
-				expect(elements).toEqual(expectedElements);
-			}
 		}
 
 		beforeEach(() => {
@@ -343,116 +400,118 @@ describe('render', () => {
 			state[''] = state;
 		});
 
-		it('tag', () => {
-			hydrate('<br>', {}, { '': ['br'] });
-		});
-
-		it('attributes', () => {
-			hydrate('<img src="("{string}")" alt="">', {
-				string: 'abc'
-			}, { '': ['img'], alt: '', src: '(abc)' });
-		});
-
-		it('data', () => {
-			hydrate('<img src="("{string.}")" alt="" onclick={active}>', {}, {
-				'': ['img'], alt: '', src: '(abc)',
-				onclick: expect.any(Function)
+		verify(() => {
+			it('tag', () => {
+				return hydrate('<br>', {}, { '': ['br'] });
 			});
-		});
 
-		it('empty', () => {
-			hydrate('<div></>', {}, { '': ['div'] });
-		});
-
-		it('content', () => {
-			hydrate('<p>({string})</>', {
-				string: 'abc'
-			}, { '': ['p', '(abc)'] });
-		});
-
-		it('scoped', () => {
-			hydrate('<div><p {object}>({string})</></>', (state, u) => ({
-				object: { '': state, '.': [u, 'object'], string: 'xyz' }
-			}), { '': ['div', { '': ['p', '(xyz)'], 'data--': '0' }] });
-		});
-
-		it('presence', () => {
-			hydrate('<div><p {flag true}>({string})</></>', {
-				flag: true,
-				string: 'abc'
-			}, { '': ['div', { '': ['p', '(abc)'], 'data--': '0' }] });
-		});
-
-		it('absence', () => {
-			hydrate('<div><p {flag false}>({string})</></>', {}, {
-				'': ['div']
+			it('attributes', () => {
+				return hydrate('<img src="("{string}")" alt="">', {
+					string: 'abc'
+				}, { '': ['img'], alt: '', src: '(abc)' });
 			});
-		});
 
-		it('hidden', () => {
-			hydrate('<p {missing}>({string})</>', {}, undefined);
-		});
-
-		it('iterate', () => {
-			hydrate('<div><p {array}>({string})</></>', (state, u) => ({
-				array: Object.assign([
-					{ '': state, '.': [u, 'array', 0], string: 'abc' },
-					{ '': state, '.': [u, 'array', 1], string: 'xyz' }
-				], { '': state, '.': [u, 'array'] })
-			}), {
-				'': ['div',
-					{ '': ['p', '(abc)'], 'data--': '0-0' },
-					{ '': ['p', '(xyz)'], 'data--': '0-1' }
-				]
+			it('data', () => {
+				return hydrate('<img src="("{string.}")" alt="" onclick={active}>', {}, {
+					'': ['img'], alt: '', src: '(abc)',
+					onclick: expect.any(Function)
+				});
 			});
-		});
 
-		it('conditional children', () => {
-			hydrate(`
-				<div>
-					<p {flag true}>present</>
-					<p>({string})</>
-					<p {flag false}>absent</>
-				</>
-			`, {
-				flag: true,
-				string: 'abc'
-			}, {
-				'': ['div',
-					{ '': ['p', 'present'], 'data--': '0' },
-					{ '': ['p', '(abc)'] }
-				]
+			it('empty', () => {
+				return hydrate('<div></>', {}, { '': ['div'] });
 			});
-		});
 
-		it('complex', () => {
-			hydrate(`
-				<div>
-					<div {array}>
-						<img src="("{string.}")" alt="">
-						<br>
-						<p>({.number})</>
+			it('content', () => {
+				return hydrate('<p>({string})</>', {
+					string: 'abc'
+				}, { '': ['p', '(abc)'] });
+			});
+
+			it('scoped', () => {
+				return hydrate('<div><p {object}>({string})</></>', (state, u) => ({
+					object: { '': state, '.': [u, 'object'], string: 'xyz' }
+				}), { '': ['div', { '': ['p', '(xyz)'], 'data--': '0' }] });
+			});
+
+			it('presence', () => {
+				return hydrate('<div><p {flag true}>({string})</></>', {
+					flag: true,
+					string: 'abc'
+				}, { '': ['div', { '': ['p', '(abc)'], 'data--': '0' }] });
+			});
+
+			it('absence', () => {
+				return hydrate('<div><p {flag false}>({string})</></>', {}, {
+					'': ['div']
+				});
+			});
+
+			it('hidden', () => {
+				return hydrate('<p {missing}>({string})</>', {}, undefined);
+			});
+
+			it('iterate', () => {
+				return hydrate('<div><p {array}>({string})</></>', (state, u) => ({
+					array: Object.assign([
+						{ '': state, '.': [u, 'array', 0], string: 'abc' },
+						{ '': state, '.': [u, 'array', 1], string: 'xyz' }
+					], { '': state, '.': [u, 'array'] })
+				}), {
+					'': ['div',
+						{ '': ['p', '(abc)'], 'data--': '0-0' },
+						{ '': ['p', '(xyz)'], 'data--': '0-1' }
+					]
+				});
+			});
+
+			it('conditional children', () => {
+				return hydrate(`
+					<div>
+						<p {flag true}>present</>
+						<p>({string})</>
+						<p {flag false}>absent</>
 					</>
-				</>
-			`, (state, u) => ({
-				array: Object.assign([
-					{ '': state, '.': [u, 'array', 0] },
-					{ '': state, '.': [u, 'array', 1] }
-				], { '': state, '.': [u, 'array'] }),
-				number: 123
-			}), {
-				'': ['div',
-					{ '': ['div',
-						{ '': ['img'], alt: '', src: '(abc)' },
-						{ '': ['br'] },
-						{ '': ['p', '(123)'] }
-					], 'data--': '0-0' },
-					{ '': ['div',
-						{ '': ['img'], alt: '', src: '(xyz)' },
-						{ '': ['br'] },
-						{ '': ['p', '(123)'] }
-					], 'data--': '0-1' }
-				]
+				`, {
+					flag: true,
+					string: 'abc'
+				}, {
+					'': ['div',
+						{ '': ['p', 'present'], 'data--': '0' },
+						{ '': ['p', '(abc)'] }
+					]
+				});
+			});
+
+			it('complex', () => {
+				return hydrate(`
+					<div>
+						<div {array}>
+							<img src="("{string.}")" alt="">
+							<br>
+							<p>({.number})</>
+						</>
+					</>
+				`, (state, u) => ({
+					array: Object.assign([
+						{ '': state, '.': [u, 'array', 0] },
+						{ '': state, '.': [u, 'array', 1] }
+					], { '': state, '.': [u, 'array'] }),
+					number: 123
+				}), {
+					'': ['div',
+						{ '': ['div',
+							{ '': ['img'], alt: '', src: '(abc)' },
+							{ '': ['br'] },
+							{ '': ['p', '(123)'] }
+						], 'data--': '0-0' },
+						{ '': ['div',
+							{ '': ['img'], alt: '', src: '(xyz)' },
+							{ '': ['br'] },
+							{ '': ['p', '(123)'] }
+						], 'data--': '0-1' }
+					]
+				});
 			});
 		});
 	});

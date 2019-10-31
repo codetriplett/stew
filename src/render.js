@@ -1,19 +1,23 @@
 import { fetch } from './fetch';
 import { locate } from './locate';
 import { evaluate } from './evaluate';
+import { reduce } from './reduce';
 import { clean } from './clean';
 
 export function render (state, view, name, node) {
 	const root = name === '' || name === undefined;
 	const generate = typeof node === 'string';
+	const deferred = state['..'];
 
 	if (Array.isArray(view)) {
-		if (view.length < 2 && !view[0]) {
-			return;
+		let value;
+
+		if (view.length > 1 || view[0]) {
+			node = !generate ? locate(node, '') : undefined;
+			value = evaluate(view, state, node);
 		}
 
-		node = !generate ? locate(node, '') : undefined;
-		return evaluate(view, state, node);
+		return deferred ? Promise.resolve(value) : value;
 	}
 
 	const hydrate = !generate && !state['.'][0][''];
@@ -24,7 +28,7 @@ export function render (state, view, name, node) {
 	let data;
 
 	if (root) {
-		data = tag;
+		data = [tag];
 		tag = children.shift();
 	}
 	
@@ -77,30 +81,54 @@ export function render (state, view, name, node) {
 			}
 
 			if (children.length) {
-				content = `${children.map((child, i) => {
-					return render(state, child, i, '');
-				}).join('')}</${tag}>`;
+				const content = reduce(`</${tag}>`, children.map((child, i) => {
+					return html => {
+						child = render(state, child, i, '');
+						
+						if (child instanceof Promise) {
+							return child.then(value => `${value || ''}${html}`);
+						}
+
+						return `${child || ''}${html}`;
+					};
+				}));
+
+				if (content instanceof Promise) {
+					return content.then(value => `${instance}${value}`);
+				}
+
+				return `${instance}${content}`;
 			}
 
-			if (data) {
+			if (data && data[0]) {
 				const backup = clean(state['.'][0]);
 
 				if (backup) {
-					data += ` ${JSON.stringify(backup).replace(/'/g, '&#39;')}`;
+					data.push(JSON.stringify(backup).replace(/'/g, '&#39;'));
 				}
 
 				instance = instance.replace(/.*?(?= |>)/, match => {
-					return `${match} data--='${data}'`;
+					return `${match} data--='${data.join(' ')}'`;
 				});
 			}
 
-			return `${instance}${content}`;
-		}).join('');
+			if (instance instanceof Promise) {
+				return instance.then(value => `${value}${content}`);
+			}
 
-		return !ignore ? node : '';
+			return `${instance}${content}`;
+		});
+
+		if (ignore) {
+			return '';
+		} else if (node.some(value => value instanceof Promise)) {
+			return Promise.all(node).then(values => values.join(''));
+		}
+
+		return node.join('');
 	}
 
-	return state.reduceRight((node, state, i) => {
+	return reduce(node, state.map(state => (node, i) => {
 		if (count && i < count - 1) {
 			node = node.previousSibling;
 		}
@@ -112,7 +140,7 @@ export function render (state, view, name, node) {
 		const lastChild = { parentElement: node, tagName: false };
 		let started = false;
 
-		children.reduceRight((node, child, i) => {
+		const end = reduce(node.lastChild, children.map(child => (node, i) => {
 			const { previousSibling } = node || {};
 			let candidate = node;
 
@@ -130,10 +158,14 @@ export function render (state, view, name, node) {
 			if (candidate) {
 				return candidate;
 			}
-			
+
 			return node && node.parentElement ? node : previousSibling;
-		}, node.lastChild);
+		}));
+
+		if (end instanceof Promise) {
+			return end.then(() => node);
+		}
 
 		return node;
-	}, node);
+	}));
 }

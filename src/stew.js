@@ -53,7 +53,14 @@ export default function stew (input, option) {
 
 	switch (typeof input) {
 		case 'function':
-			resolver = name => input(name, option);
+			resolver = name => {
+				if (!name.startsWith('/')) {
+					return input(name);
+				} else if (typeof option === 'function') {
+					return option(name);
+				}
+			}
+			
 			return;
 		case 'object':
 			if (client && input instanceof Element) {
@@ -86,16 +93,18 @@ export default function stew (input, option) {
 	} else if (resolver) {
 		resolution = new Promise(resolve => resolve(resolver(input)));
 	} else if (client) {
-		resolution = fetch(`/${input}.json`);
+		resolution = fetch(`/${input.replace(/^\/|\.json$/g, '')}.json`);
 	} else {
 		return;
 	}
 
 	return resolution.then(template => {
-		if (!ready) {
+		if (input.startsWith('/')) {
+			return template;
+		} else if (!ready) {
 			components[input] = template;
 		}
 
-		return stew(template, state)
+		return stew(template, { ...state, '..': true });
 	});
 }

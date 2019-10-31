@@ -35,7 +35,7 @@ export function fetch (item, state, value) {
 		return key ? fetch([key], state) : state[key];
 	}, state);
 
-	let { '.': [option, label, ...indices] } = state;
+	let { '.': [option, label, ...indices], '..': deferred } = state;
 	const generate = typeof option === 'object';
 
 	if (key === '') {
@@ -122,7 +122,11 @@ export function fetch (item, state, value) {
 			label = key;
 		}
 
-		Object.assign(value, { '': state, '.': [option, label, ...indices] });
+		Object.assign(value, {
+			'': state,
+			'.': [option, label, ...indices],
+			'..': deferred
+		});
 
 		if (iterative) {
 			for (let i = 0; i < value.length; i++) {
