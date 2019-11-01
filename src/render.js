@@ -112,10 +112,6 @@ export function render (state, view, name, node) {
 				});
 			}
 
-			if (instance instanceof Promise) {
-				return instance.then(value => `${value}${content}`);
-			}
-
 			return `${instance}${content}`;
 		});
 

@@ -6,7 +6,7 @@
 	"scripts": {
 		"test": "jest --watch --runInBand",
 		"build": "rimraf dist && grunt",
-		"start": "npm run build && node preview/index.js"
+		"start": "npm run build && node src/index.js"
 	},
 	"repository": {
 		"type": "git",

@@ -1,6 +1,7 @@
 import { parse } from './parse';
 import { render } from './render';
 import { hydrate } from './hydrate';
+import { server } from './server';
 
 const documented = typeof document === 'object';
 const elemental = typeof Element === 'function';
@@ -15,6 +16,12 @@ export default function stew (input, option) {
 		case 'string':
 			switch (typeof input) {
 				case 'string': return parse(input, option);
+				case 'number':
+					if (typeof server === 'function') {
+						server(input, option);
+					}
+
+					break;
 				case 'object': break;
 				default: return;
 			}
@@ -93,14 +100,17 @@ export default function stew (input, option) {
 	} else if (resolver) {
 		resolution = new Promise(resolve => resolve(resolver(input)));
 	} else if (client) {
-		resolution = fetch(`/${input.replace(/^\/|\.json$/g, '')}.json`);
+		const path = input.replace(/^\/|\.json$/g, '').replace(/\./g, '/');
+		resolution = fetch(`/${path}.json`);
 	} else {
-		return;
+		resolution = Promise.resolve();
 	}
 
 	return resolution.then(template => {
 		if (input.startsWith('/')) {
 			return template;
+		} else if (!template) {
+			return '';
 		} else if (!ready) {
 			components[input] = template;
 		}

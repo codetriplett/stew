@@ -29,6 +29,7 @@ module.exports = function (grunt) {
 					'lib/clean.js': 'src/clean.js',
 					'lib/render.js': 'src/render.js',
 					'lib/hydrate.js': 'src/hydrate.js',
+					'lib/server.js': 'src/server.js',
 					'lib/stew.js': 'lib/stew.js',
 				}
 			}

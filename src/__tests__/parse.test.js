@@ -174,4 +174,9 @@ describe('parse', () => {
 		const actual = parse('<div></>');
 		expect(actual).toEqual({ '': ['div', ['']] });
 	});
+
+	it('ignores doctype', () => {
+		const actual = parse('<!doctype html><html></>');
+		expect(actual).toEqual({ '': ['html', ['']] });
+	});
 });

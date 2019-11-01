@@ -53,7 +53,8 @@ function verify (callback, modifier) {
 	}
 
 	resolver('syncronous', () => {
-		callback();
+		const actual = callback();
+		expect(actual instanceof Promise).toBe(false);
 	});
 
 	resolver('asyncronous', () => {

@@ -171,7 +171,12 @@ export function parse (markup, children = '') {
 	if (Array.isArray(children)) {
 		children.push(...result);
 	} else {
-		markup = result[0];
+		markup = result.shift();
+		const { '': [tag] = [] } = markup || {};
+
+		if (tag === '!doctype') {
+			markup = result.shift();
+		}
 
 		if (typeof markup === 'object' && !Array.isArray(markup) && children) {
 			markup[''].unshift(scan(markup) ? children : '');
