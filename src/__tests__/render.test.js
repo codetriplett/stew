@@ -80,6 +80,13 @@ function clean (state) {
 verify.only = callback => verify(callback, 'only');
 verify.skip = callback => verify(callback, 'skip');
 
+beforeEach(() => {
+	window.fetch = jest.fn().mockImplementation(path => Promise.resolve({
+		'/component.json': parse('<img src={string} alt="">', 'component'),
+		'/data.json': data
+	}[path]));
+});
+
 describe('render', () => {
 	describe('generate', () => {
 		let backup = {};

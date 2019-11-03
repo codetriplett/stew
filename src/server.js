@@ -15,7 +15,7 @@ const types = {
 	png: 'image/png'
 };
 
-function read (path, encoding, callback) {
+export function read (path, encoding, callback) {
 	fs.readFile(path, encoding, (err, content) => {
 		callback(err ? undefined : content);
 	});
@@ -79,15 +79,8 @@ export function server (port, directory) {
 							resolve(html);
 						});
 					});
-				} else if (components.hasOwnProperty(name)) {
-					resolution = stew(name);
 				} else {
-					resolution = new Promise(resolve => {
-						read(path, 'utf-8', template => {
-							components[name] = JSON.parse(template);
-							resolve(stew(name));
-						});
-					});
+					resolution = stew(name, { '..': directory });
 				}
 
 				resolution.then(html => {

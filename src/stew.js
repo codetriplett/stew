@@ -1,13 +1,11 @@
 import { parse } from './parse';
 import { render } from './render';
 import { hydrate } from './hydrate';
-import { server } from './server';
+import { server, read } from './server';
 
-const documented = typeof document === 'object';
-const elemental = typeof Element === 'function';
 let resolver;
 
-export const client = documented && elemental;
+export const client = typeof server !== 'function';
 export const components = {};
 export const actions = {};
 
@@ -17,7 +15,7 @@ export default function stew (input, option) {
 			switch (typeof input) {
 				case 'string': return parse(input, option);
 				case 'number':
-					if (typeof server === 'function') {
+					if (!client) {
 						server(input, option);
 					}
 
@@ -99,11 +97,19 @@ export default function stew (input, option) {
 		resolution = Promise.resolve(components[input]);
 	} else if (resolver) {
 		resolution = new Promise(resolve => resolve(resolver(input)));
-	} else if (client) {
-		const path = input.replace(/^\/|\.json$/g, '').replace(/\./g, '/');
-		resolution = fetch(`/${path}.json`);
 	} else {
-		resolution = Promise.resolve();
+		const path = input.replace(/^\/|\.json$/g, '').replace(/\./g, '/');
+		let { '..': directory } = state;
+
+		if (typeof directory !== 'string') {
+			directory = '';
+		}
+
+		resolution = client ? fetch(`/${path}.json`) : new Promise(resolve => {
+			read(`${directory}/${path}.json`, 'utf-8', template => {
+				return resolve(JSON.parse(template));
+			});
+		});
 	}
 
 	return resolution.then(template => {
@@ -115,6 +121,10 @@ export default function stew (input, option) {
 			components[input] = template;
 		}
 
-		return stew(template, { ...state, '..': true });
+		if (client) {
+			Object.assign(state, { '..': true })
+		}
+
+		return stew(template, state);
 	});
 }

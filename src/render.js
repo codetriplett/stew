@@ -1,3 +1,4 @@
+import stew, { components } from './stew';
 import { fetch } from './fetch';
 import { locate } from './locate';
 import { evaluate } from './evaluate';
@@ -30,6 +31,29 @@ export function render (state, view, name, node) {
 	if (root) {
 		data = [tag];
 		tag = children.shift();
+	}
+
+	if (typeof tag === 'string' && tag.endsWith('/')) {
+		const name = tag.slice(0, -1);
+		const path = evaluate(children[0], state);
+
+		for (const name in attributes) {
+			attributes[name] = evaluate(attributes[name], state);
+		}
+
+		if (deferred) {
+			if (path) {
+				data = stew(`/${path}`, { ...attributes, '..': deferred });
+			}
+
+			return Promise.resolve(data).then((data = {}) => {
+				return stew(name, { ...data, '..': deferred });
+			});
+		} else if (components.hasOwnProperty(name) && !path) {
+			return stew(components[name], attributes);
+		}
+
+		return;
 	}
 	
 	if (hydrate) {
