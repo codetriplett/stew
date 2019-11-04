@@ -1,6 +1,7 @@
 import { parse } from './parse';
 import { render } from './render';
 import { hydrate } from './hydrate';
+import { stringify } from './stringify';
 import { server, read } from './server';
 
 let resolver;
@@ -82,6 +83,7 @@ export default function stew (input, option) {
 	}
 
 	const state = option ? { ...option } : {};
+	const { '..': directory } = state;
 	Object.assign(state, { '': state, '.': [{}] });
 
 	if (typeof input === 'object') {
@@ -99,14 +101,14 @@ export default function stew (input, option) {
 		resolution = new Promise(resolve => resolve(resolver(input)));
 	} else {
 		const path = input.replace(/^\/|\.json$/g, '').replace(/\./g, '/');
-		let { '..': directory } = state;
+		let [folder] = directory || [];
 
-		if (typeof directory !== 'string') {
-			directory = '';
+		if (typeof folder !== 'string') {
+			folder = '';
 		}
 
 		resolution = client ? fetch(`/${path}.json`) : new Promise(resolve => {
-			read(`${directory}/${path}.json`, 'utf-8', template => {
+			read(`${folder}/${path}.json`, 'utf-8', template => {
 				return resolve(JSON.parse(template));
 			});
 		});
@@ -122,9 +124,22 @@ export default function stew (input, option) {
 		}
 
 		if (client) {
-			Object.assign(state, { '..': true })
+			Object.assign(state, { '..': directory || [true] })
 		}
 
-		return stew(template, state);
+		return stew(template, state).then(result => {
+			if (!/^<html( |>)/.test(result)) {
+				return result;
+			}
+
+			let scripts = '<script src="/stew.js"></script>';
+
+			directory.slice(1).forEach(name => {
+				const json = stringify(components[name]);
+				scripts += `<script>stew(${json},'${name}');</script>`;
+			});
+
+			return result.replace(/<\/body><\/html>$/, scripts);
+		});
 	});
 }

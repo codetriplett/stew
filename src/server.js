@@ -80,7 +80,7 @@ export function server (port, directory) {
 						});
 					});
 				} else {
-					resolution = stew(name, { '..': directory });
+					resolution = stew(name, { '..': [directory] });
 				}
 
 				resolution.then(html => {

@@ -5,10 +5,26 @@ import { evaluate } from './evaluate';
 import { reduce } from './reduce';
 import { clean } from './clean';
 
+function stamp (instance, data, state) {
+	if (data && data[0]) {
+		const backup = clean(state['.'][0]);
+
+		if (backup) {
+			data.push(JSON.stringify(backup).replace(/'/g, '&#39;'));
+		}
+
+		instance = instance.replace(/.*?(?= |>)/, match => {
+			return `${match} data--='${data.join(' ')}'`;
+		});
+	}
+
+	return instance;
+}
+
 export function render (state, view, name, node) {
 	const root = name === '' || name === undefined;
 	const generate = typeof node === 'string';
-	const deferred = state['..'];
+	const { '..': deferred } = state;
 
 	if (Array.isArray(view)) {
 		let value;
@@ -44,6 +60,10 @@ export function render (state, view, name, node) {
 		if (deferred) {
 			if (path) {
 				data = stew(`/${path}`, { ...attributes, '..': deferred });
+			}
+
+			if (deferred.indexOf(name) <= 0) {
+				deferred.push(name);
 			}
 
 			return Promise.resolve(data).then((data = {}) => {
@@ -98,7 +118,7 @@ export function render (state, view, name, node) {
 	if (generate) {
 		node = state.map((state, i) => {
 			let instance = node[i];
-			let content = '';
+			let resolution;
 			
 			for (const name in attributes) {
 				instance = evaluate(attributes[name], state, name, instance);
@@ -118,25 +138,19 @@ export function render (state, view, name, node) {
 				}));
 
 				if (content instanceof Promise) {
-					return content.then(value => `${instance}${value}`);
+					resolution = content.then(value => `${instance}${value}`);
+				} else {
+					resolution = `${instance}${content}`;
 				}
-
-				return `${instance}${content}`;
+			} else {
+				resolution = instance;
 			}
 
-			if (data && data[0]) {
-				const backup = clean(state['.'][0]);
-
-				if (backup) {
-					data.push(JSON.stringify(backup).replace(/'/g, '&#39;'));
-				}
-
-				instance = instance.replace(/.*?(?= |>)/, match => {
-					return `${match} data--='${data.join(' ')}'`;
-				});
+			if (resolution instanceof Promise) {
+				return resolution.then(instance => stamp(instance, data, state));
+			} else {
+				return stamp(resolution, data, state);
 			}
-
-			return `${instance}${content}`;
 		});
 
 		if (ignore) {
