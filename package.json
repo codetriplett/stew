@@ -19,10 +19,11 @@
 	"author": "triplett",
 	"license": "ISC",
 	"keywords": [
-		"reactive",
 		"templating",
+		"reactive",
 		"hydrate",
 		"state",
+		"server",
 		"simple"
 	],
 	"bugs": {

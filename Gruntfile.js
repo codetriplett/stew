@@ -65,7 +65,6 @@ module.exports = function (grunt) {
 			'./src/clean.js',
 			'./src/render.js',
 			'./src/hydrate.js',
-			'./src/stringify.js',
 			'./src/stew.js',
 		]);
 		
@@ -73,7 +72,7 @@ module.exports = function (grunt) {
 			'./src/stew.js',
 		], file => file.replace(
 			/(?=export default )/,
-			'export { task } from \'./task\';\n\n'
+			'export { task } from \'./task\';\nexport { server } from \'./server\';\n\n'
 		));
 	});
 

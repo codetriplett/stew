@@ -1,5 +1,5 @@
 # Stew
-This library offers a simple way to create interactive components without having to write any client-side JavaScript.
+This library offers a simple way to create interactive components without having to write any of your own JavaScript.
 
 ## Variables
 Curly braces are used to insert values into your HTML. They can be set in place of or adjacent to regular attribute text or anywhere within the inner text of an element. Any number of strings and variables can be used to form the final value.
@@ -43,31 +43,18 @@ Dots can separate multiple keys to look up a variable nested deep within an obje
 <p>String compared against another propery: {string value.}</>
 ```
 
-## Building templates
-Pass your markup to the main function of this library to have it converted into a template.
-```js
-import stew from 'stew';
-const template = stew('<div class="component">...</div>');
+## Fetching Data
+Any tag that accepts children can contain references to other components. You can either provide attributes to create a new state for the component or have it fetch its own data.
+```html
+<div>
+	<component name={value} />
+	<component /path/to/data>
+</>
 ```
 
-## Rendering HTML
-Pass a template along with data to generate HTML.
+## Builds
+There is a Grunt task that can be used to convert your markup into JSON.
 ```js
-import stew from 'stew';
-const html = stew(template, { text: 'Lorem ipsum' });
-```
-
-## Activating Elements
-Pass a template on its own to activate components on the page. The template will be used to locate the appropriate elements and extract content from them to form their original states. It will also attach the event listeners so they respond to user interaction.
-```js
-stew(template);
-```
-
-## Grunt Task
-There is a Grunt task that can be used to simplify builds. It will convert markup in the files you provide and create their .js files. These files can be used either server-side to import templates or client-side to activate components. Be sure to place the scripts on the page below the elements they are meant to activate. Also be sure the main stew script is already loaded onto the page.
-```js
-const stew = require('./lib/stew');
-
 module.exports = function (grunt) {
 	grunt.initConfig({
 		stew: {
@@ -83,14 +70,13 @@ module.exports = function (grunt) {
 		}
 	});
 
-	stew.grunt(grunt);
+	require('@triplett/stew').task(grunt);
 	grunt.registerTask('default', ['stew']);
 };
 ```
-```html
-<body>
-	<div class="component">...</div>
-	<script src="/stew.min.js">
-	<script src="/component.js">
-</body>
+
+## Server
+Pass a port and directory to the server function to start a node server. It can be used to request resources or pages relative to that directory. Pages should be JSON files that were parsed from markup that was wrapped in <html> tags. It will automatically add the scripts to activate the components once the page is loaded.
+```js
+require('@triplett/stew').server(8080, __dirname);
 ```
