@@ -39,10 +39,10 @@ module.exports = function (grunt) {
 			main: {
 				options: {
 					banner: [
-						'/*! ',
-						'<%= pkg.name %> ',
-						'<%= grunt.template.today("yyyy-mm-dd") %> ',
-						'*/'
+						'/*',
+						' <%= pkg.name %>',
+						' v<%= pkg.version %>',
+						' */'
 					].join('')
 				},
 				files: {
