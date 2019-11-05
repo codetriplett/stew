@@ -140,6 +140,16 @@ describe('parse', () => {
 		expect(actual).toEqual({'': ['div', ['top bottom']]});
 	});
 
+	it('parses text between elements', () => {
+		const actual = parse(`<div>( <br> | <br> ) </div>`);
+	
+		expect(actual).toEqual({
+			'': [
+				'div', ['( '], { '': ['br'] }, [' | '], { '': ['br'] }, [' )']
+			]
+		});
+	});
+
 	it('parses children', () => {
 		const actual = parse(`<div><img src="a"><img src="b"></>`);
 
@@ -163,8 +173,11 @@ describe('parse', () => {
 		expect(actual).toEqual({
 			'': ['div',
 				{ '': ['img'] },
+				[' '],
 				{ '': ['img'] },
+				[' '],
 				{ '': ['img'] },
+				[' '],
 				{ '': ['img'] }
 			]
 		});

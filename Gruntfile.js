@@ -81,11 +81,7 @@ module.exports = function (grunt) {
 
 		grunt.file.write(path, `(function () {
 			${grunt.file.read(path)}
-			if (typeof module !== 'undefined' && module.exports) {
-				module.exports = stew;
-			} else if (typeof window !== 'undefined') {
-				window.stew = stew;
-			}
+			window.stew = stew;
 		})();`);
 	});
 

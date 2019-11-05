@@ -139,7 +139,7 @@ export function parse (markup, children = '') {
 		object = undefined;
 	}
 
-	result = result.map(item => {
+	result = result.map((item, i) => {
 		if (!Array.isArray(item)) {
 			if (typeof item === 'object') {
 				Object.keys(item).forEach(key => {
@@ -150,14 +150,14 @@ export function parse (markup, children = '') {
 			return item;
 		}
 
-		item = item.map((value, i) => {
+		item = item.map((value, j) => {
 			if (typeof value !== 'string') {
 				return value;
 			}
 
 			const ends = new RegExp([
-				!i ? '^\\s+' : '',
-				i === item.length - 1 ? '\\s+$' : ''
+				!i && !j ? '^\\s+' : '',
+				i === result.length - 1 && j === item.length - 1 ? '\\s+$' : ''
 			].filter(item => item).join('|'), 'g');
 
 			return value.replace(ends, '').replace(/\s+/g, ' ');

@@ -59,11 +59,8 @@ export function server (port, directory) {
 			let path = `${directory}${url}`;
 
 			if (/^\/stew(\.min)?\.js$/.test(url)) {
-				if (!/\.min\.js$/.test(url)) {
-					url = url.replace(/\.js$/, '.min.js');
-				}
-
-				path = `${__dirname.replace(/\\lib\\?$/, '\\dist')}${url}`;
+				const root = directory.replace(/(\/.*)?$/, '');
+				path = `${root}/node_modules/@triplett/stew/dist${url}`;
 			}
 
 			read(path, encoding, content => respond(res, content, type));

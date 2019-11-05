@@ -109,7 +109,7 @@ export default function stew (input, option) {
 
 		resolution = client ? fetch(`/${path}.json`) : new Promise(resolve => {
 			read(`${folder}/${path}.json`, 'utf-8', template => {
-				return resolve(JSON.parse(template));
+				resolve(JSON.parse(template));
 			});
 		});
 	}
@@ -127,12 +127,18 @@ export default function stew (input, option) {
 			Object.assign(state, { '..': directory || [true] })
 		}
 
-		return stew(template, state).then(result => {
+		resolution = stew(template, state);
+
+		if (!(resolution instanceof Promise)) {
+			resolution = Promise.resolve(resolution);
+		}
+
+		return resolution.then(result => {
 			if (!/^<html( |>)/.test(result)) {
 				return result;
 			}
 
-			let scripts = '<script src="/stew.js"></script>';
+			let scripts = '<script src="/stew.min.js"></script>';
 
 			directory.slice(1).forEach(name => {
 				const json = stringify(components[name]);

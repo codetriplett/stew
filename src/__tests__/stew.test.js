@@ -1,11 +1,15 @@
 import { parse } from '../parse';
 import { render } from '../render';
 import { hydrate } from '../hydrate';
+import { stringify } from '../stringify';
+import { server, read } from '../server';
 import stew, { components, actions } from '../stew';
 
 jest.mock('../parse', () => ({ parse: jest.fn() }));
 jest.mock('../render', () => ({ render: jest.fn() }));
 jest.mock('../hydrate', () => ({ hydrate: jest.fn() }));
+jest.mock('../stringify', () => ({ stringify: jest.fn() }));
+jest.mock('../server', () => ({ server: jest.fn(), read: jest.fn() }));
 
 describe('stew', () => {
 	let template;
@@ -26,6 +30,12 @@ describe('stew', () => {
 		parse.mockClear().mockReturnValue(template);
 		render.mockClear().mockReturnValue(html);
 		hydrate.mockClear();
+		stringify.mockClear().mockReturnValue('{key:\'value\'}');
+		server.mockClear();
+
+		read.mockClear().mockImplementation((path, encoding, callback) => {
+			callback('{"key":"value"}');
+		});
 
 		for (const key in components) {
 			delete components[key];
@@ -44,7 +54,7 @@ describe('stew', () => {
 	it('renders element syncronously', () => {
 		const actual = stew(template);
 
-		expect(render).toHaveBeenCalledWith(state, template, '', undefined);
+		expect(render).toHaveBeenCalledWith(state, template, '', '');
 		expect(actual).toBe(html);
 	});
  
@@ -52,8 +62,8 @@ describe('stew', () => {
 		components.name = template;
 		state['..'] = true;
 
-		return stew('name').then(actual => {
-			expect(render).toHaveBeenCalledWith(state, template, '', undefined);
+		return stew('name', { '..': true }).then(actual => {
+			expect(render).toHaveBeenCalledWith(state, template, '', '');
 			expect(actual).toBe(html);
 		});
 	});
@@ -63,23 +73,12 @@ describe('stew', () => {
 		state['..'] = true;
 
 		return stew('/data').then(actual => {
-			expect(fetch).toHaveBeenCalledWith('/data.json');
-			expect(actual).toBe(data);
+			expect(read).toHaveBeenCalledWith(
+				'/data.json', 'utf-8', expect.any(Function)
+			);
+
+			expect(actual).toEqual(data);
 		});
-	});
-
-	it('hydrates element', () => {
-		components.name = template;
-		stew(element);
-
-		expect(hydrate).toHaveBeenCalledWith(element, undefined);
-	});
-
-	it('registers template', () => {
-		stew(template, 'name');
-
-		expect(components.name).toBe(template);
-		expect(hydrate).toHaveBeenCalledWith(element, undefined);
 	});
 
 	it('registers action', () => {
@@ -91,6 +90,5 @@ describe('stew', () => {
 		expect(actual).toEqual(expect.any(Function));
 		actual(element, { key: 'input' });
 		expect(action).toHaveBeenCalledWith({ key: 'input' });
-		expect(hydrate).toHaveBeenCalledWith(element, { key: 'output' });
 	});
 });
