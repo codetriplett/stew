@@ -1,6 +1,6 @@
 import http from 'http';
 import fs from 'fs';
-import stew, { components } from './stew';
+import stew from './stew';
 
 const types = {
 	txt: 'text/plain; charset=utf-8',
@@ -40,47 +40,59 @@ function respond (res, content, type) {
 }
 
 export function server (port, directory) {
-	if (directory.endsWith('/')) {
-		directory = directory.slice(0, -1);
-	}
-
 	http.createServer(({ url }, res) => {
-		if (!url || url === '/') {
-			url = '/index';
-		} else if (url.endsWith('/')) {
-			url = url.slice(0, -1);
-		}
-		
+		url = url.replace(/\/+$/, '').replace(/^\/*/, '/');
 		const extension = url.match(/(\.[a-z]+)?$/)[0].slice(1);
 
 		if (extension) {
 			const type = types[extension] || types.txt;
 			const encoding = type.split('; charset=')[1];
-			let path = `${directory}${url}`;
 
 			if (url === '/stew.min.js') {
-				path = `${__dirname.replace(/[\\/]lib[\\/]?$/, '/dist')}${url}`;
+				url = `${__dirname.replace(/[\\/]lib[\\/]?$/, '/dist')}${url}`;
+			} else {
+				url = `${directory}${url}`;
 			}
 
-			read(path, encoding, content => respond(res, content, type));
+			read(url, encoding, content => respond(res, content, type));
 		} else {
-			const name = url.slice(1).replace(/\//g, '.');
-			const path = `${directory}${url}.json`;
+			const index = url.lastIndexOf('/');
+			let before = url.slice(0, index).replace(/\/+$/, '');
+			let after = url.slice(index).replace(/\/+$/, '') || '/200';
 			let resolution;
 
-			fs.stat(path, err => {
-				if (err) {
-					resolution = new Promise(resolve => {
-						read(`${directory}/404.html`, 'utf-8', html => {
-							resolve(html);
-						});
-					});
-				} else {
-					resolution = stew(name, { '..': [directory] });
-				}
+			if (before) {
+				after = `${before}${after}`;
+				before += '/200';
 
-				resolution.then(html => {
-					respond(res, html, types.html);
+				resolution = new Promise(resolve => {
+					read(`${directory}${after}.json`, 'utf-8', data => {
+						resolve(data && JSON.parse(data));
+					});
+				});
+			} else {
+				before = after;
+				resolution = Promise.resolve({});
+			}
+
+			const name = before.slice(1).replace(/\//g, ':');
+
+			fs.stat(`${directory}${before}.json`, err => {
+				resolution.then(data => {
+					if (err || !data) {
+						resolution = new Promise(resolve => {
+							read(`${directory}/404.html`, 'utf-8', html => {
+								resolve(html);
+							});
+						});
+					} else {
+						const state = { ...data, '..': [directory] };
+						resolution = stew(name, state);
+					}
+
+					resolution.then(html => {
+						respond(res, html, types.html);
+					});
 				});
 			});
 		}

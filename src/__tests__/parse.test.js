@@ -92,6 +92,11 @@ describe('parse', () => {
 		});
 	});
 
+	it('parses namespaced component', () => {
+		const actual = parse('<namespace:template />');
+		expect(actual).toEqual({ '': ['namespace:template/', []] });
+	});
+
 	it('parses tags that inhabit multiple lines', () => {
 		const actual = parse(`
 			<img src="http://"

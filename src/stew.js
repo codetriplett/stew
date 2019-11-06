@@ -100,7 +100,7 @@ export default function stew (input, option) {
 	} else if (resolver) {
 		resolution = new Promise(resolve => resolve(resolver(input)));
 	} else {
-		const path = input.replace(/^\/|\.json$/g, '').replace(/\./g, '/');
+		const path = input.replace(/^\/|\.json$/g, '').replace(/:/g, '/');
 		let [folder] = directory || [];
 
 		if (typeof folder !== 'string') {
