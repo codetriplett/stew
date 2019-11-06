@@ -100,7 +100,7 @@ export default function stew (input, option) {
 	} else if (resolver) {
 		resolution = new Promise(resolve => resolve(resolver(input)));
 	} else {
-		const path = input.replace(/^\/|\.json$/g, '').replace(/:/g, '/');
+		const path = input.replace(/^\/|\.json$/g, '').replace(/--/g, '/');
 		let [folder] = directory || [];
 
 		if (typeof folder !== 'string') {
@@ -109,7 +109,13 @@ export default function stew (input, option) {
 
 		resolution = client ? fetch(`/${path}.json`) : new Promise(resolve => {
 			read(`${folder}/${path}.json`, 'utf-8', template => {
-				resolve(JSON.parse(template));
+				template = JSON.parse(template);
+
+				if (!input.startsWith('/') && template[''][0]) {
+					template[''][0] = input;
+				}
+
+				resolve(template);
 			});
 		});
 	}
@@ -138,6 +144,7 @@ export default function stew (input, option) {
 				return result;
 			}
 
+			const doctype = '<!doctype html>';
 			let scripts = '<script src="/stew.min.js"></script>';
 
 			directory.slice(1).forEach(name => {
@@ -145,7 +152,7 @@ export default function stew (input, option) {
 				scripts += `<script>stew(${json},'${name}');</script>`;
 			});
 
-			return result.replace(/<\/body><\/html>$/, scripts);
+			return `${doctype}${result.replace(/<\/body><\/html>$/, scripts)}`;
 		});
 	});
 }

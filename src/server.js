@@ -41,7 +41,7 @@ function respond (res, content, type) {
 
 export function server (port, directory) {
 	http.createServer(({ url }, res) => {
-		url = url.replace(/\/+$/, '').replace(/^\/*/, '/');
+		url = url.replace(/\/+$/, '').replace(/^\/*/, '/').replace(/-/g, '_');
 		const extension = url.match(/(\.[a-z]+)?$/)[0].slice(1);
 
 		if (extension) {
@@ -75,23 +75,25 @@ export function server (port, directory) {
 				resolution = Promise.resolve({});
 			}
 
-			const name = before.slice(1).replace(/\//g, ':');
+			const name = before.slice(1).replace(/\//g, '--');
 
 			fs.stat(`${directory}${before}.json`, err => {
 				resolution.then(data => {
 					if (err || !data) {
-						resolution = new Promise(resolve => {
-							read(`${directory}/404.html`, 'utf-8', html => {
-								resolve(html);
-							});
-						});
+						resolution = Promise.resolve();
 					} else {
 						const state = { ...data, '..': [directory] };
 						resolution = stew(name, state);
 					}
 
 					resolution.then(html => {
-						respond(res, html, types.html);
+						if (html && html.startsWith('<!doctype html>')) {
+							respond(res, html, types.html);
+						} else {
+							read(`${directory}/404.html`, 'utf-8', html => {
+								respond(res, html, types.html);
+							});
+						}
 					});
 				});
 			});
