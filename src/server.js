@@ -75,14 +75,14 @@ export function server (port, directory) {
 				resolution = Promise.resolve({});
 			}
 
-			const name = before.slice(1).replace(/\//g, '--');
+			const name = before.slice(1).replace(/\//g, ':');
 
 			fs.stat(`${directory}${before}.json`, err => {
 				resolution.then(data => {
 					if (err || !data) {
 						resolution = Promise.resolve();
 					} else {
-						const state = { ...data, '..': [directory] };
+						const state = { ...data, '..': [directory, []] };
 						resolution = stew(name, state);
 					}
 

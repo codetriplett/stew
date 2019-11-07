@@ -30,6 +30,7 @@ export default function stew (input, option) {
 			}
 
 			components[option] = input;
+			option = option.replace(/:/g, '--');
 
 			if (!client) {
 				return;
@@ -100,7 +101,7 @@ export default function stew (input, option) {
 	} else if (resolver) {
 		resolution = new Promise(resolve => resolve(resolver(input)));
 	} else {
-		const path = input.replace(/^\/|\.json$/g, '').replace(/--/g, '/');
+		const path = input.replace(/^\/|\.json$/g, '').replace(/:/g, '/');
 		let [folder] = directory || [];
 
 		if (typeof folder !== 'string') {
@@ -130,7 +131,7 @@ export default function stew (input, option) {
 		}
 
 		if (client) {
-			Object.assign(state, { '..': directory || [true] })
+			Object.assign(state, { '..': directory || [true, []] });
 		}
 
 		resolution = stew(template, state);
@@ -144,15 +145,21 @@ export default function stew (input, option) {
 				return result;
 			}
 
+			const styles = directory[1].map(path => {
+				const href = ` href="/${path}.css"`;
+				return `<link${href} rel="stylesheet" type="text/css"></link>`;
+			}).join('');
+
 			const doctype = '<!doctype html>';
 			let scripts = '<script src="/stew.min.js"></script>';
 
-			directory.slice(1).forEach(name => {
+			directory.slice(2).forEach(name => {
 				const json = stringify(components[name]);
 				scripts += `<script>stew(${json},'${name}');</script>`;
 			});
 
-			return `${doctype}${result.replace(/<\/body><\/html>$/, scripts)}`;
+			result = result.replace(/(?=<\/body><\/html>$)/, scripts);
+			return `${doctype}${result.replace(/(?=<\/head>)/, styles)}`;
 		});
 	});
 }

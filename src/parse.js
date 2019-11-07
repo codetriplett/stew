@@ -172,10 +172,30 @@ export function parse (markup, children = '') {
 		children.push(...result);
 	} else {
 		markup = result.shift();
-		const { '': [tag] = [] } = markup || {};
+		let { '': [tag] = [], style, class: classes } = markup || {};
 
 		if (tag === '!doctype') {
 			markup = result.shift();
+		}
+
+		if (style) {
+			[style] = style;
+			style = typeof style === 'string' ? style.split(/\s+/) : [];
+
+			classes = style.reduceRight((classes, style) => {
+				const index = style.lastIndexOf('/') + 1;
+				const name = style.slice(index);
+
+				if (!classes) {
+					return [name];
+				} else if (typeof classes[0] !== 'string') {
+					return [`${name} `, ...classes];
+				}
+				
+				return [`${name} ${classes[0]}`, ...classes.slice(1)];
+			}, classes);
+
+			Object.assign(markup, { style, class: classes });
 		}
 
 		if (typeof markup === 'object' && !Array.isArray(markup) && children) {

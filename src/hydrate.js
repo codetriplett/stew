@@ -23,8 +23,8 @@ export function hydrate (element, updates) {
 				case 'undefined': break;
 				default: return;
 			}
-			
-			render(state, components[name], '', element);
+
+			render(state, components[name.replace(/--/g, ':')], '', element);
 		};
 
 		Object.assign(state, { '': state, '.': [update] });

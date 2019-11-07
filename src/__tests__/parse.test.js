@@ -71,6 +71,21 @@ describe('parse', () => {
 		});
 	});
 
+	it('parses style of child element', () => {
+		const actual = parse('<br style="key:"{value}>', children);
+
+		expect(children).toEqual([{ '': ['br'], style: ['key:', ['value']] }]);
+		expect(actual).toBe('');
+	});
+
+	it('parses style of root element', () => {
+		const actual = parse('<br style="css/one css/two">', 'name');
+
+		expect(actual).toEqual({
+			'': ['', 'br'], style: ['css/one', 'css/two'], class: ['one two']
+		});
+	});
+
 	it('parses component', () => {
 		const actual = parse('<template name="value" /data/{value}>');
 

@@ -8,6 +8,7 @@ import { clean } from './clean';
 function stamp (instance, data, state) {
 	if (data && data[0]) {
 		const backup = clean(state['.'][0]);
+		data[0] = data[0].replace(/:/g, '--');
 
 		if (backup) {
 			data.push(JSON.stringify(backup).replace(/'/g, '&#39;'));
@@ -38,7 +39,7 @@ export function render (state, view, name, node) {
 	}
 
 	const hydrate = !generate && !state['.'][0][''];
-	let { '': [tag, ...children], key = [['.']], ...attributes } = view;
+	let { '': [tag, ...children], key = [['.']], style, ...attributes } = view;
 	const conditional = Array.isArray(tag);
 	let ignore = false;
 	let count;
@@ -47,6 +48,18 @@ export function render (state, view, name, node) {
 	if (root) {
 		data = [tag];
 		tag = children.shift();
+
+		if (style && deferred) {
+			const styles = deferred[1];
+
+			style.forEach(style => {
+				if (!styles.includes(style)) {
+					styles.push(style);
+				}
+			});
+		}
+	} else if (style) {
+		attributes.style = style;
 	}
 
 	if (typeof tag === 'string' && tag.endsWith('/')) {
