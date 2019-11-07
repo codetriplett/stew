@@ -43,6 +43,12 @@ Dots can separate multiple keys to look up a variable nested deep within an obje
 <p>String compared against another propery: {string value.}</>
 ```
 
+## Styles
+Set a style attribute on the root tag of your component to define a stylesheet. That stylesheet will be automatically be loaded on any page where your component is included. The name of that file will be also be added as a class on your component. Multiple paths can be defined by separating them with a space.
+```html
+<div style="css/page css/component">...</>
+```
+
 ## Fetching Data
 Any tag that accepts children can contain references to other components. You can either provide attributes to create a new state for the component or have it fetch its own data.
 ```html
@@ -76,7 +82,30 @@ module.exports = function (grunt) {
 ```
 
 ## Server
-Pass a port and directory to the server function to start a node server. It can be used to request resources or pages relative to that directory. Pages should be JSON files that were parsed from markup that was wrapped in <html> tags. It will automatically add the scripts to activate the components once the page is loaded.
+Pass a port and folder path to the server function to start a node server. It can be used to request resources or pages relative to that folder.
 ```js
 require('@triplett/stew').server(8080, __dirname);
+```
+Here is an exmaple of the folder structure for templates and data. JSON files immediately below the root folder won't be rendered with their own data, but the ones in child folders will.
+```txt
+/ (path you provided to the server)
+	404.html (error page)
+	200.json (template for /)
+	landing.json (template for /landing)
+	landing
+		200.json (template for /landing/...)
+		feature.json (data for /landing/feature)
+		...
+```
+Templates for pages must be wrapped in html tags. It will automatically add the scripts and stylesheets that your components require.
+```html
+<html style="styles/main">
+	<head>
+		<title>Hello World</>
+	</>
+	<body>
+		<h1>Hello World</>
+		<component /data>
+	</>
+</>
 ```
