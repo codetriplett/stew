@@ -67,7 +67,11 @@ export function server (port, directory) {
 
 				resolution = new Promise(resolve => {
 					read(`${directory}${after}.json`, 'utf-8', data => {
-						resolve(data && JSON.parse(data));
+						try {
+							resolve(data && JSON.parse(data));
+						} catch (e) {
+							resolve();
+						}
 					});
 				});
 			} else {

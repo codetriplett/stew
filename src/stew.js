@@ -94,6 +94,7 @@ export default function stew (input, option) {
 	}
 
 	const ready = components.hasOwnProperty(input);
+	const slashed = input.startsWith('/');
 	let resolution;
 
 	if (ready) {
@@ -110,10 +111,21 @@ export default function stew (input, option) {
 
 		resolution = client ? fetch(`/${path}.json`) : new Promise(resolve => {
 			read(`${folder}/${path}.json`, 'utf-8', template => {
-				template = JSON.parse(template);
-
-				if (!input.startsWith('/') && template[''][0]) {
-					template[''][0] = input;
+				if (template) {
+					try {
+						template = JSON.parse(template);
+						const { '': structure } = template;
+	
+						if (!slashed) {
+							if (!structure) {
+								template = undefined;
+							} else if (structure[0]) {
+								structure[0] = input;
+							}
+						}
+					} catch (e) {
+						template = undefined;
+					}
 				}
 
 				resolve(template);
@@ -122,7 +134,7 @@ export default function stew (input, option) {
 	}
 
 	return resolution.then(template => {
-		if (input.startsWith('/')) {
+		if (slashed) {
 			return template;
 		} else if (!template) {
 			return '';
