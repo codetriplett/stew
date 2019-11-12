@@ -35,4 +35,9 @@ describe('clean', () => {
 		const actual = clean([{ empty: {} }, { empty: {} }]);
 		expect(actual).toBeUndefined();
 	});
+
+	it('removes dot properties', () => {
+		const actual = clean({ '': 'state', '.': 'option', key: 'value' });
+		expect(actual).toEqual({ key: 'value' });
+	});
 });

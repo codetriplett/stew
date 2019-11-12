@@ -25,21 +25,23 @@ export function fetch (item, state, value) {
 		hydrate = true;
 	}
 
-	if (typeof comparison === 'string' && comparison.endsWith('.')) {
-		comparison = fetch([comparison], state, activate ? undefined : value);
+	if (activate) {
+		comparison === undefined;
+	} else if (typeof comparison === 'string' && comparison.endsWith('.')) {
+		comparison = fetch([comparison], state, value);
 	}
 
 	key = keys.pop();
 
-	state = keys.reduce((state, key) => {
-		return key ? fetch([key], state) : state[key];
+	let scope = keys.reduce((scope, key) => {
+		return key ? fetch([key], scope) : scope[key];
 	}, state);
 
-	let { '.': [option, label, ...indices], '..': deferred } = state;
+	let { '.': [option, label, ...indices], '..': deferred } = scope;
 	const generate = typeof option === 'object';
 
 	if (key === '') {
-		state = state[''];
+		scope = scope[''];
 		key = label || '';
 	}
 
@@ -60,33 +62,33 @@ export function fetch (item, state, value) {
 				value = Number(value);
 			}
 
-			state[key] = value;
+			scope[key] = value;
 		}
 	}
 
-	const exists = state.hasOwnProperty(key);
+	const exists = scope.hasOwnProperty(key);
 
 	if (activate) {
 		switch (value) {
 			case CLICK:
 				return event => {
+					const { [key]: previous = 0 } = scope;
 					event.preventDefault();
-					const { [key]: previous = 0 } = state;
 
 					if (!compare) {
-						state[key] = !previous;
+						scope[key] = !previous;
 					} else {
-						if (comparison === undefined) {
-							const key = item[1].replace(/^-/, '');
-							comparison = fetch([key], state);
-						}
+						comparison = fetch([item[1].replace(/^-/, '')], state);
 
-						if (!inverted) {
+						if (typeof comparison !== 'number') {
+							const matched = previous === comparison;
+							scope[key] = matched ? false : comparison;
+						} else if (!inverted) {
 							const next = previous + 1;
-							state[key] = next <= comparison ? next : 0;
+							scope[key] = next <= comparison ? next : 0;
 						} else {
 							const next = previous - 1;
-							state[key] = next >= 0 ? next : comparison;
+							scope[key] = next >= 0 ? next : comparison;
 						}
 					}
 
@@ -99,7 +101,7 @@ export function fetch (item, state, value) {
 	} else if (!exists && create) {
 		value = value > 0 ? Array(value).fill(0).map(() => ({})) : {};
 	} else if (!measure && exists || measure && key) {
-		value = state[key];
+		value = scope[key];
 	}
 
 	const iterative = Array.isArray(value);
@@ -107,23 +109,23 @@ export function fetch (item, state, value) {
 	if (measure && iterative) {
 		value = value.length - 1;
 	} else if (typeof value === 'object' && !value.hasOwnProperty('')) {
-		if (value && value[''] === state) {
+		if (value && value[''] === scope) {
 			return value;
 		} else if (generate) {
 			option = option[key] = iterative ? [] : {};
 		}
 
-		value = state[key] = iterative ? [...value] : { ...value };
+		value = scope[key] = iterative ? [...value] : { ...value };
 
 		if (iteration) {
 			indices.unshift(key);
-			state = state[''];
+			scope = scope[''];
 		} else {
 			label = key;
 		}
 
 		Object.assign(value, {
-			'': state,
+			'': scope,
 			'.': [option, label, ...indices],
 			'..': deferred
 		});

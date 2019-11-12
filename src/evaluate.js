@@ -93,9 +93,13 @@ export function evaluate (items, state, content, element) {
 		element[content] = value.shift();
 		return element;
 	} else if (value) {
-		value = value.length ? value.join('') : true;
+		if (value.length > 1) {
+			value = value.join('');
+		} else {
+			value = value.length ? value[0] : true;
+		}
 	}
-
+	
 	if (typeof content !== 'string') {
 		value = typeof value === 'string' ? value : '';
 
@@ -106,6 +110,8 @@ export function evaluate (items, state, content, element) {
 		}
 
 		return content;
+	} else if (element === undefined) {
+		return value;
 	} else if (typeof element === 'string') {
 		element = element.slice(0, -1);
 

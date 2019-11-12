@@ -1,4 +1,4 @@
-export function clean (input, fallback) {
+export function clean (input) {
 	if (typeof input !== 'object') {
 		return input;
 	}
@@ -8,6 +8,10 @@ export function clean (input, fallback) {
 	let populated = false;
 
 	for (const key in input) {
+		if (/^\.*$/.test(key)) {
+			continue;
+		}
+
 		const value = clean(input[key]);
 		const defined = value !== undefined;
 

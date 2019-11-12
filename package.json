@@ -5,8 +5,7 @@
 	"main": "lib/stew.js",
 	"scripts": {
 		"test": "jest --watch --runInBand",
-		"build": "rimraf dist && grunt",
-		"start": "npm run build && node src/index.js"
+		"build": "rimraf dist && grunt"
 	},
 	"repository": {
 		"type": "git",

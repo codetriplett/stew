@@ -62,17 +62,23 @@ export function render (state, view, name, node) {
 		attributes.style = style;
 	}
 
+	if (tag === 'a' && !attributes.hasOwnProperty('href')) {
+		attributes.href = ['javascript:void(0);'];
+	}
+
 	if (typeof tag === 'string' && tag.endsWith('/')) {
 		const name = tag.slice(0, -1);
 		const path = evaluate(children[0], state);
 
 		for (const name in attributes) {
-			attributes[name] = evaluate(attributes[name], state);
+			attributes[name] = evaluate(attributes[name], state, name);
 		}
 
 		if (deferred) {
 			if (path) {
 				data = stew(`/${path}`, { ...attributes, '..': deferred });
+			} else {
+				data = clean(attributes);
 			}
 
 			if (deferred.indexOf(name) <= 0) {
