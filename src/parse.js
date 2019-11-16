@@ -172,7 +172,7 @@ export function parse (markup, children = '') {
 		children.push(...result);
 	} else {
 		markup = result.shift();
-		let { '': [tag] = [], style, class: classes } = markup || {};
+		let { '': [tag] = [], style, script, class: classes } = markup || {};
 
 		if (tag === '!doctype') {
 			markup = result.shift();
@@ -196,6 +196,12 @@ export function parse (markup, children = '') {
 			}, classes);
 
 			Object.assign(markup, { style, class: classes });
+		}
+
+		if (script) {
+			[script] = script;
+			script = typeof script === 'string' ? script.split(/\s+/) : [];
+			Object.assign(markup, { script });
 		}
 
 		if (typeof markup === 'object' && !Array.isArray(markup) && children) {

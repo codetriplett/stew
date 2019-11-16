@@ -1,3 +1,4 @@
+import { actions } from './stew';
 import { fetch, CLICK } from './fetch';
 
 export function evaluate (items, state, content, element) {
@@ -13,8 +14,43 @@ export function evaluate (items, state, content, element) {
 			return element;
 		}
 
-		option = CLICK;
-		items = items.slice(0, 1);
+		const indices = items.reduce((indices, item, i) => {
+			if (typeof item === 'string') {
+				indices.push(i);
+			}
+
+			return indices;
+		}, []);
+		
+		const { length } = items;
+		const [index] = indices;
+
+		const modifications = items.slice(0, index || length).map(item => {
+			return fetch(item, state, CLICK);
+		});
+
+		const extras = indices.map((start, i) => {
+			const finish = indices[i + 1] || length;
+			const [name, ...parameters] = items.slice(start, finish);
+
+			return [...name.split('.'), ...parameters];
+		});
+
+		element[content] = event => {
+			modifications.forEach(modification => modification(event));
+
+			const object = extras.reduce((object, [name, ...parameters]) => {
+				const { [name]: action } = actions;
+
+				if (action) {
+					object = action(...parameters);
+				}
+
+				return object;
+			}, undefined);
+		};
+
+		return element;
 	} else if (typeof element === 'object') {
 		existing = element.getAttribute(content) || '';
 	} else if (typeof content === 'object') {
@@ -89,9 +125,6 @@ export function evaluate (items, state, content, element) {
 
 	if (hydrate) {
 		return content;
-	} else if (activate) {
-		element[content] = value.shift();
-		return element;
 	} else if (value) {
 		if (value.length > 1) {
 			value = value.join('');

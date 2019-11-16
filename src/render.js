@@ -38,8 +38,15 @@ export function render (state, view, name, node) {
 		return deferred ? Promise.resolve(value) : value;
 	}
 
+	let {
+		'': [tag, ...children],
+		key = [['.']],
+		style,
+		script,
+		...attributes
+	} = view;
+
 	const hydrate = !generate && !state['.'][0][''];
-	let { '': [tag, ...children], key = [['.']], style, ...attributes } = view;
 	const conditional = Array.isArray(tag);
 	let ignore = false;
 	let count;
@@ -49,12 +56,21 @@ export function render (state, view, name, node) {
 		data = [tag];
 		tag = children.shift();
 
-		if (style && deferred) {
-			const styles = deferred[1];
+		if (deferred) {
+			const resources = deferred[1];
+			const files = [];
 
-			style.forEach(style => {
-				if (!styles.includes(style)) {
-					styles.push(style);
+			if (style) {
+				files.push(...style.map(file => `${file}.css`));
+			}
+
+			if (script) {
+				files.push(...script.map(file => `${file}.js`));
+			}
+
+			files.forEach(file => {
+				if (!resources.includes(file)) {
+					resources.push(file);
 				}
 			});
 		}

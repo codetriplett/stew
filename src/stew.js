@@ -42,13 +42,7 @@ export default function stew (input, option) {
 			return elements.forEach(element => stew(element));
 		case 'function':
 			if (typeof input === 'string') {
-				actions[input] = (element, state) => {
-					const update = option(state);
-
-					if (typeof update === 'object' && !Array.isArray(update)) {
-						stew(element, update);
-					}
-				};
+				actions[input] = option;
 			}
 
 			return;
@@ -157,21 +151,25 @@ export default function stew (input, option) {
 				return result;
 			}
 
-			const styles = directory[1].map(path => {
-				const href = ` href="/${path}.css"`;
+			const files = directory[1];
+			const styles = files.filter(file => file.endsWith('.css'));
+			const scripts = files.filter(file => file.endsWith('.js'));
+
+			const resources = `${styles.map(style => {
+				const href = ` href="/${style}"`;
 				return `<link${href} rel="stylesheet" type="text/css"></link>`;
-			}).join('');
+			}).join('')}<script src="/stew.min.js"></script>`;
+
+			const templates = `${scripts.map(script => {
+				return `<script src="/${script}"></script>`;
+			}).join('')}${directory.slice(2).map(name => {
+				const json = stringify(components[name]);
+				return `<script>stew(${json},'${name}');</script>`;
+			}).join('')}`;
 
 			const doctype = '<!doctype html>';
-			let scripts = '<script src="/stew.min.js"></script>';
-
-			directory.slice(2).forEach(name => {
-				const json = stringify(components[name]);
-				scripts += `<script>stew(${json},'${name}');</script>`;
-			});
-
-			result = result.replace(/(?=<\/body><\/html>$)/, scripts);
-			return `${doctype}${result.replace(/(?=<\/head>)/, styles)}`;
+			result = result.replace(/(?=<\/body><\/html>$)/, templates);
+			return `${doctype}${result.replace(/(?=<\/head>)/, resources)}`;
 		});
 	});
 }

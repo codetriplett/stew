@@ -88,7 +88,7 @@ describe('stew', () => {
 		const actual = actions.name;
 
 		expect(actual).toEqual(expect.any(Function));
-		actual(element, { key: 'input' });
+		actual({ key: 'input' });
 		expect(action).toHaveBeenCalledWith({ key: 'input' });
 	});
 });

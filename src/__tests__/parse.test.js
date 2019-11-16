@@ -86,6 +86,14 @@ describe('parse', () => {
 		});
 	});
 
+	it('parses script of root element', () => {
+		const actual = parse('<br script="js/one js/two">', 'name');
+
+		expect(actual).toEqual({
+			'': ['', 'br'], script: ['js/one', 'js/two']
+		});
+	});
+
 	it('parses component', () => {
 		const actual = parse('<template name="value" /data/{value}>');
 
