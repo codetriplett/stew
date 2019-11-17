@@ -92,7 +92,6 @@ export function fetch (item, state, value) {
 						}
 					}
 
-					option();
 					return false;
 				}
 			default:
@@ -149,5 +148,5 @@ export function fetch (item, state, value) {
 		return value === comparison;
 	}
 
-	return typeof value !== 'boolean' ? value : '';
+	return value;
 }

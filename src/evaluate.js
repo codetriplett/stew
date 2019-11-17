@@ -1,13 +1,15 @@
 import { actions } from './stew';
 import { fetch, CLICK } from './fetch';
+import { clean } from './clean';
+import { merge } from './merge';
 
 export function evaluate (items, state, content, element) {
 	const strings = items.filter(item => typeof item === 'string').reverse();
 	const activate = typeof content === 'string' && content.startsWith('on');
-	let hydrate = !activate && !state['.'][0][''];
+	const { '.': [update] } = state;
+	let hydrate = !activate && !update[''];
 	let candidate = '';
 	let existing;
-	let option;
 
 	if (activate) {
 		if (typeof element === 'string' || element[content]) {
@@ -23,9 +25,9 @@ export function evaluate (items, state, content, element) {
 		}, []);
 		
 		const { length } = items;
-		const [index] = indices;
+		const [index = length] = indices;
 
-		const modifications = items.slice(0, index || length).map(item => {
+		const modifications = items.slice(0, index).map(item => {
 			return fetch(item, state, CLICK);
 		});
 
@@ -39,15 +41,35 @@ export function evaluate (items, state, content, element) {
 		element[content] = event => {
 			modifications.forEach(modification => modification(event));
 
-			const object = extras.reduce((object, [name, ...parameters]) => {
+			const objects = extras.map(([name, ...parameters]) => {
 				const { [name]: action } = actions;
 
 				if (action) {
-					object = action(...parameters);
+					const values = parameters.map(item => {
+						return clean(fetch(item, state));
+					});
+
+					return action(...values);
+				}
+			});
+
+			Promise.all(objects).then(objects => {
+				let object = objects.reduce((object, item) => {
+					if (typeof item === 'object' && !Array.isArray(item)) {
+						return merge(object, item);
+					}
+
+					return object;
+				}, undefined);
+
+				if (typeof object === 'object' && !Array.isArray(object)) {
+					object = merge(state, object);
+				} else if (!modifications.length) {
+					return;
 				}
 
-				return object;
-			}, undefined);
+				update(object);
+			});
 		};
 
 		return element;
@@ -102,8 +124,13 @@ export function evaluate (items, state, content, element) {
 
 		const { length } = value;
 		const skip = length > 0 && item.length > 1 && candidate === '';
+		const compare = item.length > 1;
 
-		item = skip || fetch(item, state, hydrate ? candidate : option);
+		item = skip || fetch(item, state, hydrate ? candidate : undefined);
+
+		if (typeof item === 'boolean' && !compare) {
+			item = '';
+		}
 
 		if (item === false) {
 			if (!length) {

@@ -12,20 +12,9 @@ export function hydrate (element, updates) {
 		const [name] = data.match(/^.*?(?= |$)/);
 		const state = JSON.parse(data.slice(name.length).trim() || '{}');
 
-		const update = function (updates, ...parameters) {
-			switch (typeof updates) {
-				case 'string':
-					if (actions.hasOwnProperty(updates)) {
-						actions[updates].apply(this, parameters);
-					}
-
-					return;
-				case 'undefined': break;
-				default: return;
-			}
-
+		function update () {
 			render(state, components[name.replace(/--/g, ':')], '', element);
-		};
+		}
 
 		Object.assign(state, { '': state, '.': [update] });
 		update();
