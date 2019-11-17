@@ -26,12 +26,25 @@ A variable can be applied directly to an element to set a new scope for itself a
 ```
 
 ## Listeners
-If a variable is set to an onclick attribute, its value will toggle between true and false and it will trigger the component to update whenever it is clicked. If a number is provided as the second value, it will increment the variable each time it is clicked and reset to zero once the number is exceeded. If the second value is preceded by a dash, it will decrement the variable and reset to the number once the value crosses zero. An array followed by a dot can also be passed as the second value to use its maximum index as the upper limit.
+Certian attributes that begin with 'on' will modify the components state when the user interacts with them. 'onclick' will either toggle a value or increment/decrement its value from 0 to some preset length. 'onkeydown', 'onkeyup' and 'onkeypress' will store the current value of an input into a variable or test the value against a regular expression. Multiple variables can be added to the same listener to update both on the same event.
 ```html
 <button onclick={expanded}>Click here to toggle the value</>
 <button onclick={index array.}>Click here to increment the value</>
 <button onclick={index -array.}>Click here to decrement the value</>
+<input onkeyup={value}> Input value will be stored to value variable
+<input onkeyup={value /^\d*$/}> Input value will be tested against a regex
 ```
+### Actions
+A string can be set on listener attributes to call a registered action. Any variables that are placed after the string will be read from the current scope and passed as parameters. String parameters can be defined by placing their values after the action's name separated by a space. Actions can be registered by calling the stew function with the action name and function. Multiple actions can be used and they can exist alongside the built in listeners defined above. If any actions return objects, they will be merged together into the current root state of the component and the DOM will update to reflect the changes. If any of them return a promise, it will wait for all of them to finish before updating the component.
+```js
+// register actions
+stew('load-content', (type, index) => { ... });
+stew('close-others', () => { ... });
+```
+```html
+<button onclick={expanded}"load-content type"{index}"close-others">
+```
+In this example, with the button is clicked, the 'expanded' property will toggle, the 'load-content' function will be called with the string 'type' and the index property of the current scope as parameters and the 'close-others' function will be called without any parameters.
 
 ## Dot Features
 Dots can separate multiple keys to look up a variable nested deep within an object. Dots at the start of the key will backtrack to a parent scope before accessing its properties. A dot at the end of a key for an array will return the maximum index of that array. A dot at the end of a key for a string or a number will ensure that it exists in the component's state when rendered client-side. A dot at the end of the second value in a condition will treat it as a key instead of a boolean or a string.
@@ -43,8 +56,8 @@ Dots can separate multiple keys to look up a variable nested deep within an obje
 <p>String compared against another propery: {string value.}</>
 ```
 
-## Styles
-Set a style attribute on the root tag of your component to define a stylesheet. That stylesheet will be automatically be loaded on any page where your component is included. The name of that file will be also be added as a class on your component. Multiple paths can be defined by separating them with a space.
+## Resources
+Set a style or script attribute on the root tag of your component to define a stylesheet or supporting JavaScript. Those resources will be automatically loaded on any page where your component is included. The filename of any stylesheets will also be added as classes on your component. Multiple paths can be defined by separating them with a space. Scripts are used for defining custom actions described in that section of this documentation.
 ```html
 <div style="css/page css/component">...</>
 ```

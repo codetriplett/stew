@@ -1,7 +1,14 @@
 import { actions } from './stew';
-import { fetch, CLICK } from './fetch';
+import { fetch, CLICK, KEYDOWN, KEYUP, KEYPRESS } from './fetch';
 import { clean } from './clean';
 import { merge } from './merge';
+
+const ons = {
+	'onclick': CLICK,
+	'onkeydown': KEYDOWN,
+	'onkeyup': KEYUP,
+	'onkeypress': KEYPRESS
+};
 
 export function evaluate (items, state, content, element) {
 	const strings = items.filter(item => typeof item === 'string').reverse();
@@ -26,16 +33,17 @@ export function evaluate (items, state, content, element) {
 		
 		const { length } = items;
 		const [index = length] = indices;
+		const type = ons[content];
 
 		const modifications = items.slice(0, index).map(item => {
-			return fetch(item, state, CLICK);
-		});
+			return fetch(item, state, type);
+		}).filter(modification => typeof modification === 'function');
 
 		const extras = indices.map((start, i) => {
 			const finish = indices[i + 1] || length;
 			const [name, ...parameters] = items.slice(start, finish);
 
-			return [...name.split('.'), ...parameters];
+			return [...name.split(/\s+/g), ...parameters];
 		});
 
 		element[content] = event => {

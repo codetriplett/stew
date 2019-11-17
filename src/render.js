@@ -69,6 +69,8 @@ export function render (state, view, name, node) {
 			}
 
 			files.forEach(file => {
+				file = file.replace(/-/g, '_');
+
 				if (!resources.includes(file)) {
 					resources.push(file);
 				}

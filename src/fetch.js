@@ -1,4 +1,7 @@
 export const CLICK = -1;
+export const KEYDOWN = -2;
+export const KEYUP = -3;
+export const KEYPRESS = -4;
 
 export function fetch (item, state, value) {
 	const activate = value < 0;
@@ -69,16 +72,18 @@ export function fetch (item, state, value) {
 	const exists = scope.hasOwnProperty(key);
 
 	if (activate) {
+		const second = item[1];
+
 		switch (value) {
 			case CLICK:
 				return event => {
-					const { [key]: previous = 0 } = scope;
 					event.preventDefault();
+					const { [key]: previous = 0 } = scope;
 
 					if (!compare) {
 						scope[key] = !previous;
 					} else {
-						comparison = fetch([item[1].replace(/^-/, '')], state);
+						comparison = fetch([second.replace(/^-/, '')], state);
 
 						if (typeof comparison !== 'number') {
 							const matched = previous === comparison;
@@ -93,9 +98,32 @@ export function fetch (item, state, value) {
 					}
 
 					return false;
+				};
+			case KEYDOWN:
+			case KEYUP:
+			case KEYPRESS: {
+				let regex;
+
+				if (/^\/.*\/[igmsuy]*$/.test(second)) {
+					const index = second.lastIndexOf('/');
+					const pattern = second.slice(1, index);
+					const flags = second.slice(index + 1);
+
+					regex = new RegExp(pattern, flags);
 				}
-			default:
-				return () => {}
+
+				return event => {
+					const { target: { value } } = event;
+
+					if (!compare) {
+						scope[key] = value;
+					} else if (regex) {
+						scope[key] = regex.test(value);
+					}
+
+					return false;
+				};
+			}
 		}
 	} else if (!exists && create) {
 		value = value > 0 ? Array(value).fill(0).map(() => ({})) : {};
