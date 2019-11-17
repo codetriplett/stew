@@ -120,7 +120,13 @@ export function render (state, view, name, node) {
 	}
 
 	if (conditional) {
-		const scope = fetch(tag[0], state, count);
+		const [query] = tag;
+		let scope = fetch(query, state, count);
+
+		if (typeof scope === 'boolean' && query.length < 2) {
+			scope = String(scope);
+		}
+
 		tag = children.shift();
 
 		if (scope === null || scope === false || scope === undefined) {
@@ -134,6 +140,10 @@ export function render (state, view, name, node) {
 		}
 	} else {
 		name = undefined;
+	}
+
+	if (tag === '') {
+		return '';
 	}
 
 	if (count === undefined) {

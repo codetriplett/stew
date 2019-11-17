@@ -1,5 +1,6 @@
-import { actions, components } from './stew';
+import { components } from './stew';
 import { render } from './render';
+import { merge } from './merge';
 
 export function hydrate (element, updates) {
 	if (updates !== updates && typeof updates !== 'object') {
@@ -10,10 +11,15 @@ export function hydrate (element, updates) {
 
 	if (data) {
 		const [name] = data.match(/^.*?(?= |$)/);
+		const view = components[name.replace(/--/g, ':')];
 		const state = JSON.parse(data.slice(name.length).trim() || '{}');
 
-		function update () {
-			render(state, components[name.replace(/--/g, ':')], '', element);
+		function update (object) {
+			if (typeof object === 'object' && !Array.isArray(object)) {
+				merge(state, object);
+			}
+
+			render(state, view, '', element);
 		}
 
 		Object.assign(state, { '': state, '.': [update] });

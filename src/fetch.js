@@ -111,7 +111,13 @@ export function fetch (item, state, value) {
 		if (value && value[''] === scope) {
 			return value;
 		} else if (generate) {
-			option = option[key] = iterative ? [] : {};
+			let backup = value;
+
+			if (!measure || !key) {
+				backup = iterative ? [] : {};
+			}
+
+			option = option[key] = backup;
 		}
 
 		value = scope[key] = iterative ? [...value] : { ...value };

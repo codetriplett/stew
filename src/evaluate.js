@@ -54,19 +54,13 @@ export function evaluate (items, state, content, element) {
 			});
 
 			Promise.all(objects).then(objects => {
-				let object = objects.reduce((object, item) => {
+				const object = objects.reduce((object, item) => {
 					if (typeof item === 'object' && !Array.isArray(item)) {
 						return merge(object, item);
 					}
 
 					return object;
-				}, undefined);
-
-				if (typeof object === 'object' && !Array.isArray(object)) {
-					object = merge(state, object);
-				} else if (!modifications.length) {
-					return;
-				}
+				}, modifications.length ? {} : undefined);
 
 				update(object);
 			});
@@ -172,7 +166,11 @@ export function evaluate (items, state, content, element) {
 		return content;
 	} else if (element === undefined) {
 		return value;
-	} else if (typeof element === 'string') {
+	} else if (value === undefined) {
+		value = '';
+	}
+	
+	if (typeof element === 'string') {
 		element = element.slice(0, -1);
 
 		if (value === true) {

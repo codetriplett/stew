@@ -215,6 +215,11 @@ describe('parse', () => {
 		const actual = parse('<div></>');
 		expect(actual).toEqual({ '': ['div', ['']] });
 	});
+	
+	it('parses fragment', () => {
+		const actual = parse('<{object.}></>');
+		expect(actual).toEqual({ '': [[['object.']], '', ['']] });
+	});
 
 	it('ignores doctype', () => {
 		const actual = parse('<!doctype html><html></>');
