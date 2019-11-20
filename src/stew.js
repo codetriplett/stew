@@ -148,6 +148,12 @@ export default function stew (input, option) {
 
 		return resolution.then(result => {
 			if (!/^<html( |>)/.test(result)) {
+				const { '': [name] } = template;
+
+				if (name && directory.indexOf(name) <= 0) {
+					directory.push(name);
+				}
+
 				return result;
 			}
 
@@ -163,8 +169,12 @@ export default function stew (input, option) {
 			const templates = `${scripts.map(script => {
 				return `<script src="/${script}"></script>`;
 			}).join('')}${directory.slice(2).map(name => {
-				const json = stringify(components[name]);
-				return `<script>stew(${json},'${name}');</script>`;
+				let template = components[name];
+
+				if (typeof template === 'object') {
+					template = stringify(template);
+					return `<script>stew(${template},'${name}');</script>`;
+				}
 			}).join('')}`;
 
 			const doctype = '<!doctype html>';

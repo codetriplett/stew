@@ -60,9 +60,9 @@ describe('stew', () => {
  
 	it('renders element asyncronously', () => {
 		components.name = template;
-		state['..'] = true;
+		state['..'] = [true, [], 'name'];
 
-		return stew('name', { '..': true }).then(actual => {
+		return stew('name', { '..': [true, []] }).then(actual => {
 			expect(render).toHaveBeenCalledWith(state, template, '', '');
 			expect(actual).toBe(html);
 		});

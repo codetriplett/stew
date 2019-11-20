@@ -99,10 +99,6 @@ export function render (state, view, name, node) {
 				data = clean(attributes);
 			}
 
-			if (deferred.indexOf(name) <= 0) {
-				deferred.push(name);
-			}
-
 			return Promise.resolve(data).then((data = {}) => {
 				return stew(name, { ...data, '..': deferred });
 			});
