@@ -5,7 +5,8 @@
 	"main": "lib/stew.js",
 	"scripts": {
 		"test": "jest --watch --runInBand",
-		"build": "rimraf dist && grunt"
+		"build": "rimraf dist lib && grunt",
+		"start": "node index.js"
 	},
 	"repository": {
 		"type": "git",
@@ -29,7 +30,8 @@
 		"url": "https://github.com/codetriplett/stew/issues"
 	},
 	"jest": {
-		"testURL": "http://localhost"
+		"testURL": "http://localhost",
+		"testEnvironment": "node"
 	},
 	"devDependencies": {
 		"@babel/cli": "^7.7.0",

@@ -30,7 +30,12 @@ module.exports = function (grunt) {
 					'lib/merge.js': 'src/merge.js',
 					'lib/render.js': 'src/render.js',
 					'lib/hydrate.js': 'src/hydrate.js',
-					'lib/server.js': 'src/server.js',
+					'lib/server/split.js': 'src/server/split.js',
+					'lib/server/reform.js': 'src/server/reform.js',
+					'lib/server/redirect.js': 'src/server/redirect.js',
+					'lib/server/read.js': 'src/server/read.js',
+					'lib/server/respond.js': 'src/server/respond.js',
+					'lib/server/index.js': 'src/server/index.js',
 					'lib/stringify.js': 'src/stringify.js',
 					'lib/stew.js': 'lib/stew.js',
 				}
