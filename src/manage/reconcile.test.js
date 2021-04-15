@@ -1,20 +1,19 @@
-import { reconcile } from './reconcile';
+import { update } from '../memory';
 import { forget } from './forget';
-import { client } from '../client';
+import { locate } from './locate';
+import { reconcile } from './reconcile';
 
+jest.mock('../memory');
 jest.mock('./forget');
-jest.mock('../client');
+jest.mock('./locate');
 
 describe('reconcile', () => {
 	const appendChild = jest.fn();
 	const insertBefore = jest.fn();
-	const elementCallback = jest.fn();
-	const fragmentCallback = jest.fn();
-	const teardown = jest.fn();
-	const stringCallback = jest.fn();
-	const arrayCallback = jest.fn();
+	const teardown = () => {};
 	let container, memory, elm, ctx, string, array, element, text, other,
-		stringMemory, arrayMemory, elementMemory, fragmentMemory;
+		elementOutline, contextOutline,
+		stringMemory, arrayMemory, elementMemory, contextMemory;
 
 	beforeEach(() => {
 		jest.clearAllMocks();
@@ -25,38 +24,41 @@ describe('reconcile', () => {
 		text = document.createTextNode('abc');
 		element = document.createElement('div');
 		other = document.createElement('span');
-		stringMemory = { '': ['abc', text] };
-		arrayMemory = { '': [[teardown, { '': [[], other] }]] };
-		elementMemory = { '': [[], element] };
-		fragmentMemory = { '': [[], {}] };
 		string = 'abc';
 		array = [];
+		elementOutline = { '': [[], '', 'div'] };
+		contextOutline = { '': [[], {}, () => {}] };
+		stringMemory = { '': ['abc', text] };
+		arrayMemory = { '': [[teardown, { '': [[], other] }],, ''] };
+		elementMemory = { '': [[], element, 'div'] };
+		contextMemory = { '': [[], {}, () => {}] };
 
-		elementCallback.mockReturnValue(elementMemory);
-		fragmentCallback.mockReturnValue(fragmentMemory);
-		stringCallback.mockReturnValue(stringMemory);
-		arrayCallback.mockReturnValue(arrayMemory);
+		update.mockImplementation(child => {
+			switch (child) {
+				case elementOutline: return elementMemory;
+				case contextOutline: return contextMemory;
+			}
 
-		client.mockImplementation((tag, props, ...content) => {
-			if (tag === string) return stringCallback;
-			else return arrayCallback;
+			switch (child[''][2]) {
+				case undefined: return stringMemory;
+				case '': return arrayMemory;
+			}
+		});
+
+		locate.mockImplementation(fragment => {
+			if (fragment === arrayMemory[''][0]) return other;
 		});
 	});
 
 	it('populates children', () => {
-		reconcile(memory, elm, [
-			fragmentCallback,
+		reconcile(memory, [
+			contextOutline,
 			string,
 			undefined,
 			array,
-			elementCallback
-		], ctx);
+			elementOutline
+		], elm, ctx);
 
-		expect(elementCallback).toHaveBeenCalledWith(memory, elm, 4, ctx, undefined, undefined);
-		expect(arrayCallback).toHaveBeenCalledWith(memory, elm, 3, ctx, element, undefined);
-		expect(stringCallback).toHaveBeenCalledWith(memory, elm, 1, ctx, other, undefined);
-		expect(fragmentCallback).toHaveBeenCalledWith(memory, elm, 0, ctx, text, undefined);
-		expect(teardown).not.toHaveBeenCalled();
 		expect(forget).not.toHaveBeenCalled();
 
 		expect(appendChild.mock.calls).toEqual([
@@ -68,7 +70,7 @@ describe('reconcile', () => {
 		]);
 
 		expect(memory[''][0]).toEqual([
-			fragmentMemory,
+			contextMemory,
 			stringMemory,
 			undefined,
 			arrayMemory,
@@ -78,32 +80,27 @@ describe('reconcile', () => {
 
 	it('maintians children', () => {
 		memory[''][0].push(
-			fragmentMemory,
+			contextMemory,
 			stringMemory,
 			undefined,
 			arrayMemory,
 			elementMemory
 		);
 
-		reconcile(memory, elm, [
-			fragmentCallback,
+		reconcile(memory, [
+			contextOutline,
 			string,
 			undefined,
 			array,
-			elementCallback
-		], ctx);
+			elementOutline
+		], elm, ctx);
 
-		expect(elementCallback).toHaveBeenCalledWith(memory, elm, 4, ctx, undefined, undefined);
-		expect(arrayCallback).toHaveBeenCalledWith(memory, elm, 3, ctx, element, undefined);
-		expect(stringCallback).toHaveBeenCalledWith(memory, elm, 1, ctx, other, undefined);
-		expect(fragmentCallback).toHaveBeenCalledWith(memory, elm, 0, ctx, text, undefined);
-		expect(teardown).not.toHaveBeenCalled();
 		expect(forget).not.toHaveBeenCalled();
 		expect(appendChild).not.toHaveBeenCalled();
 		expect(insertBefore).not.toHaveBeenCalled();
 
 		expect(memory[''][0]).toEqual([
-			fragmentMemory,
+			contextMemory,
 			stringMemory,
 			undefined,
 			arrayMemory,
@@ -112,33 +109,29 @@ describe('reconcile', () => {
 	});
 
 	it('replaces children', () => {
-		stringCallback.mockReturnValue({ '': [''] });
+		const oldStringMemory = stringMemory;
 		const oldMemory = {};
+		stringMemory = { '': [''] };
 
 		memory[''][0].push(
-			fragmentMemory,
-			stringMemory,
+			contextMemory,
+			oldStringMemory,
 			teardown,
+			elementMemory,
 			arrayMemory,
 			oldMemory
 		);
 
-		reconcile(memory, elm, [
+		reconcile(memory, [
 			undefined,
-			fragmentCallback,
+			contextOutline,
 			string,
 			undefined,
-			elementCallback
-		], ctx);
-
-		expect(elementCallback).toHaveBeenCalledWith(memory, elm, 4, ctx, undefined, undefined);
-		expect(arrayCallback).not.toHaveBeenCalled();
-		expect(stringCallback).toHaveBeenCalledWith(memory, elm, 2, ctx, element, undefined);
-		expect(fragmentCallback).toHaveBeenCalledWith(memory, elm, 1, ctx, element, undefined);
-		expect(teardown).not.toHaveBeenCalled();
+			elementOutline
+		], elm, ctx);
 
 		expect(forget.mock.calls).toEqual([
-			[stringMemory, elm],
+			[oldStringMemory, elm],
 			[teardown, elm],
 			[arrayMemory, elm],
 			[oldMemory, elm]
@@ -152,8 +145,8 @@ describe('reconcile', () => {
 
 		expect(memory[''][0]).toEqual([
 			undefined,
-			fragmentMemory,
-			{ '': [''] },
+			contextMemory,
+			stringMemory,
 			undefined,
 			elementMemory
 		]);

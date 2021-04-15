@@ -1,6 +1,6 @@
 export function forget (memory, elm) {
 	if (typeof memory === 'function') return memory();
-	if (typeof memory !== 'object') return;
+	else if (typeof memory !== 'object') return;
 
 	const { '': [, container] } = elm;
 	const { '': [fragment, node] } = memory;

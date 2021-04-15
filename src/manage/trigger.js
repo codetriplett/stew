@@ -1,4 +1,4 @@
-import { updateCtx } from '../update';
+import { transform } from '../memory';
 import { locate } from './locate';
 import { reconcile } from './reconcile';
 
@@ -30,7 +30,7 @@ export function trigger (memory, elm, state, depth = -1) {
 	registry.set(state, map);
 
 	map.set(state, () => {
-		const content = updateCtx(memory);
+		const content = transform(memory);
 		const { '': [children] } = elm;
 		const index = children.indexOf(memory);
 		const sibling = ~index ? locate(children.slice(index + 1)) : undefined;

@@ -1,7 +1,7 @@
-import { client } from '../client';
 import { registry, trigger } from '../manage';
+import { update } from './update';
 
-export function updateCtx (memory, props, content) {
+export function transform (memory, props, content) {
 	const { '': core, ...prev } = memory;
 	const [fragment, { '': state }, type, shortcut] = core;
 	const entries = Object.entries(prev);
@@ -27,12 +27,13 @@ export function updateCtx (memory, props, content) {
 			trigger(direct, elm);
 		};
 
-		if (typeof content === 'function') return content(...params);
-		return client('', {}, content)(...params);
+		if (Array.isArray(content) && typeof content === 'function') return content(...params);
+		return update('', {}, content)(...params);
 	}
 	
 	if (registry.has(state)) registry.get(state).delete(state);
 	core[3] = undefined;
+	Object.assign(memory, props);
 	const result = type({ ...props, '': state }, callback);
 	if (Array.isArray(result)) return result;
 	return result === undefined ? [] : [result];

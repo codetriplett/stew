@@ -60,22 +60,18 @@ module.exports = function (grunt) {
 
 	grunt.registerTask('before', () => {
 		merge('./dist/stew.min.js', [
-			'./src/create/create-ctx.js',
-			'./src/create/create-elm.js',
-			'./src/create/create-txt.js',
 			'./src/manage/forget.js',
 			'./src/manage/locate.js',
-			'./src/manage/parse.js',
 			'./src/manage/reconcile.js',
 			'./src/manage/trigger.js',
-			'./src/server/escape.js',
-			'./src/server/flatten.js',
-			'./src/server/index.js',
-			'./src/update/update-ctx.js',
-			'./src/update/update-elm.js',
-			'./src/update/update-txt.js',
-			'./src/client.js',
-			'./src/index.js',
+			'./src/markup/escape.js',
+			'./src/markup/parse.js',
+			'./src/markup/scribe.js',
+			'./src/memory/create.js',
+			'./src/memory/modify.js',
+			'./src/memory/transform.js',
+			'./src/memory/update.js',
+			'./src/index.js'
 		]);
 	});
 
