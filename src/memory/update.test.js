@@ -24,7 +24,7 @@ describe('update', () => {
 		container.appendChild(child);
 
 		jest.clearAllMocks();
-		transform.mockReturnValue('fragment');
+		transform.mockReturnValue(['fragment']);
 		create.mockImplementation(() => memory = { '': [[], {}]});
 	});
 
@@ -36,7 +36,7 @@ describe('update', () => {
 			expect(transform).toHaveBeenCalledWith(memory, { key: 'prop' }, ['child']);
 
 			expect(reconcile.mock.calls).toEqual([
-				[memory, 'fragment', undefined, memory, undefined]
+				[memory, ['fragment'], undefined, memory, undefined]
 			]);
 
 			expect(actual).toEqual(memory);
@@ -60,11 +60,7 @@ describe('update', () => {
 
 			expect(create).toHaveBeenCalledWith(undefined, undefined, 'text');
 			expect(modify).toHaveBeenCalledWith(memory, {}, 'text');
-			
-			expect(reconcile.mock.calls).toEqual([
-				[memory, 'text', memory, undefined, undefined]
-			]);
-
+			expect(reconcile).not.toHaveBeenCalled();
 			expect(actual).toEqual(memory);
 		});
 
@@ -107,14 +103,14 @@ describe('update', () => {
 
 	describe('update child', () => {
 		it('update using index', () => {
-			const outline = { '': ['new text'] };
+			const outline = { '': [['new text']] };
 			const container = { '': [[txt]] };
 			const actual = update(outline, container, 0);
 
 			expect(create).not.toHaveBeenCalled();
 
 			expect(reconcile.mock.calls).toEqual([
-				[txt, 'new text', txt, undefined, undefined]
+				[txt, ['new text'], txt, undefined, undefined]
 			]);
 
 			expect(actual).toBe(txt);

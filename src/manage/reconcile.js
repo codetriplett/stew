@@ -11,11 +11,12 @@ export function reconcile (memory, content, elm, ctx, sibling) {
 	removals.delete(undefined);
 
 	for (let i = content.length - 1; i >= 0; i--) {
+		const backup = prev[i];
 		let it = content[i];
 
 		if (typeof it === 'function') {
-			const { '': [, { '': state } = {}] = [], ...props } = ctx || {};
-			it = it({ ...props, '': state });
+			const { '': [], ...props } = ctx || {};
+			it = it({ ...props, '': backup });
 		}
 
 		if (!it && it !== 0 || it === true || typeof it === 'function') {
@@ -25,7 +26,6 @@ export function reconcile (memory, content, elm, ctx, sibling) {
 			it = { '': [it, '', Array.isArray(it) ? '' : undefined] };
 		}
 
-		const backup = prev[i];
 		it = prev[i] = update(it, memory, i, elm, ctx, sibling);
 		const { '': [fragment, node] } = it;
 
@@ -47,5 +47,8 @@ export function reconcile (memory, content, elm, ctx, sibling) {
 
 	if (tag === '') memory[''][1] = sibling !== backup ? sibling : undefined;
 	else if (nodes && elm === memory) memory[''][3] = undefined;
-	for (const memory of removals) forget(memory, elm);
+
+	for (const memory of removals) {
+		if (typeof memory !== 'function') forget(memory, elm);
+	}
 }

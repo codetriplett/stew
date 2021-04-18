@@ -3,10 +3,10 @@ import { compare } from './compare';
 
 export function transform (memory, props, content) {
 	const { '': core, ...prev } = memory;
-	const [fragment, { '': state }, type] = core;
+	const [, { '': state }, type] = core;
 
 	if (props) {
-		if (compare(prev, props) && compare(core[3], content)) return fragment;
+		if (compare(prev, props) && compare(core[3], content)) return;
 		const map = queue[state['']()];
 		if (map) map.delete(memory);
 		Object.assign(memory, props);

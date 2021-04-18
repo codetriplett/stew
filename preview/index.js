@@ -1,11 +1,17 @@
 function render ($, node) {
-	function Button ({ '': { '': state, number = 0 }, action, locked, id }, content) {
-		console.log(id, 'rendered');
-
+	function Button ({
+		'': { '': state, number = 0 },
+		action, locked, id
+	}, content) {
 		return $('button', {
+			'': 'btn',
 			onclick: () => action ? action() : state({ number: number + 1 }),
 			disabled: locked
 		},
+			({ '': prev }) => {
+				console.log(id, prev ? 'updated' : 'created');
+				return () => console.log(id, 'removed');
+			},
 			content,
 			!!number && ` (${number})`,
 			locked && ' (locked)'
@@ -14,15 +20,25 @@ function render ($, node) {
 
 	function Component ({ '': { '': state, locked = false } }) {
 		return [
+			() => {
+				console.log(
+					state('dial', 'btn'),
+					state('lock', 'btn'),
+					state('key', 'btn')
+				);
+			},
 			$(Button, {
+				'': 'dial',
 				id: 'dial'
-			}, 'Input'),
+			}, 'Dial'),
 			$(Button, {
+				'': 'lock',
 				action: () => state({ locked: true }),
 				id: 'lock',
 				locked
 			}, 'Lock'),
 			locked && $(Button, {
+				'': 'key',
 				action: () => state({ locked: false }),
 				id: 'key'
 			}, 'Unlock')

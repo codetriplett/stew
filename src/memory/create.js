@@ -4,12 +4,14 @@ export function create (tag, elm, ctx) {
 	let content = tag === undefined ? ctx : [], memory, ref, nodes;
 
 	if (typeof tag === 'function') {
-		function callback (input) {
+		function callback (input, ...rest) {
 			switch (typeof input) {
 				case 'string': {
 					if (!input) return locate(memory[''][0]);
-					const [, node, tag] = ref[input] || [];
-					return typeof tag === 'function' ? node[''][''] : node;
+					const { '': [, node, tag] = [] } = ref[input] || {};
+					if (typeof tag !== 'function') return node;
+					else if (typeof rest[0] !== 'string') return;
+					return node[''][''](...rest);
 				}
 				case 'undefined': return depth;
 				case 'object': break;

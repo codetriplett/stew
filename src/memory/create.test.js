@@ -37,17 +37,18 @@ describe('create', () => {
 		});
 
 		it('returns ref', () => {
-			refs['name'] = [, 'element'];
+			refs['name'] = { '': [, 'element'] };
 			const actual = state['']('name');
 			expect(actual).toEqual('element');
 		});
 
 		it('returns nested refs', () => {
-			const fn = () => {};
-			refs['name'] = [, { '': { '': fn } }, () => {}];
-			const actual = state['']('name');
+			const fn = jest.fn().mockReturnValue('element');
+			refs['name'] = { '': [, { '': { '': fn } }, () => {}] };
+			const actual = state['']('name', 'subname');
 
-			expect(actual).toEqual(fn);
+			expect(fn).toHaveBeenCalledWith('subname');
+			expect(actual).toEqual('element');
 		});
 
 		it('returns first child node', () => {

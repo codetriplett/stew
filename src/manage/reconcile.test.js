@@ -63,7 +63,7 @@ describe('reconcile', () => {
 			elementOutline,
 		], elm, ctx);
 
-		expect(effect).toHaveBeenCalledWith({ key: 'ctx value', '': state });
+		expect(effect).toHaveBeenCalledWith({ key: 'ctx value', '': undefined });
 		expect(forget).not.toHaveBeenCalled();
 
 		expect(appendChild.mock.calls).toEqual([
@@ -138,7 +138,6 @@ describe('reconcile', () => {
 
 		expect(forget.mock.calls).toEqual([
 			[oldStringMemory, elm],
-			[teardown, elm],
 			[arrayMemory, elm],
 			[oldMemory, elm]
 		]);

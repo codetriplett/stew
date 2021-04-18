@@ -61,7 +61,7 @@ describe('transform', () => {
 		const actual = transform(memory, { key: 'value' }, ['content']);
 
 		expect(tag).not.toHaveBeenCalled();
-		expect(actual).toEqual(['child', ['content']]);
+		expect(actual).toEqual(undefined);
 	});
 
 	it('does not compare props and content at first', () => {
