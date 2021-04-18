@@ -1,35 +1,39 @@
-import { trigger } from '../manage';
+import { locate, trigger } from '../manage';
 import { create } from './create';
 
 jest.mock('../manage');
 
 describe('create', () => {
 	describe('ctx', () => {
+		const tag = jest.fn();
 		const callback = jest.fn();
-		let elm, ctx, memory, refs, state;
+		let elm, ctx, memory, content, refs, state;
 	
 		beforeEach(() => {
 			jest.clearAllMocks();
-			elm = { '': [, 'container'] };
-			ctx = { '': [, { '': { '': 'scope' } }] };
-			memory = create(callback, elm, ctx);
-			refs = ((memory || {})[''] || [])[1];
+			locate.mockReturnValue('first node');
+			callback.mockReturnValue(1);
+			elm = { '': [[], 'container'] };
+			ctx = { '': [[], { '': { '': callback } }] };
+			memory = create(tag, elm, ctx);
+			[content, refs] = (memory || {})[''] || [];
 			state = (refs || {})[''];
 		});
 
 		it('creates memory', () => {
 			expect(memory).toEqual({
-				'': [,
+				'': [
+					[],
 					{ '': { '': expect.any(Function) } },
-					callback,
+					tag,
 					undefined
 				]
 			});
 		});
 
-		it('returns parent scope', () => {
-			const actual = state['']('');
-			expect(actual).toEqual('scope');
+		it('returns depth', () => {
+			const actual = state['']();
+			expect(actual).toEqual(2);
 		});
 
 		it('returns ref', () => {
@@ -44,6 +48,13 @@ describe('create', () => {
 			const actual = state['']('name');
 
 			expect(actual).toEqual(fn);
+		});
+
+		it('returns first child node', () => {
+			content.push('first', 'second');
+			const actual = state['']('');
+			expect(locate).toHaveBeenCalledWith(['first', 'second']);
+			expect(actual).toEqual('first node');
 		});
 
 		it('updates state', () => {

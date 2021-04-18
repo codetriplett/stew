@@ -1,6 +1,5 @@
 function render ($, node) {
-	function Button ({ '': state, action, locked, id }, content) {
-		const { number = 0 } = state();
+	function Button ({ '': { '': state, number = 0 }, action, locked, id }, content) {
 		console.log(id, 'rendered');
 
 		return $('button', {
@@ -13,13 +12,11 @@ function render ($, node) {
 		);
 	}
 
-	function Component ({ '': state }) {
-		const { locked = false } = state();
-
+	function Component ({ '': { '': state, locked = false } }) {
 		return [
-			// $(Button, {
-			// 	id: 'dial'
-			// }, 'Input'),
+			$(Button, {
+				id: 'dial'
+			}, 'Input'),
 			$(Button, {
 				action: () => state({ locked: true }),
 				id: 'lock',
@@ -32,8 +29,7 @@ function render ($, node) {
 		];
 	}
 
-	const element = $(Component, {}, []);
-	return node ? element(node) : element;
+	return $({ '': node || 'div' }, $(Component, {}, []));
 }
 
 if (typeof define === 'function' && define.amd) {

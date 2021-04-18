@@ -12,6 +12,7 @@ export function update (memory, container, i, elm, ctx, sibling) {
 		memory = create(tag, elm, tag ? ctx : content);
 		if (key && ctx) ctx[''][1][key] = memory;
 	}
+
 	if (typeof tag === 'function') {
 		content = transform(memory, props, content);
 		ctx = memory;
@@ -20,6 +21,6 @@ export function update (memory, container, i, elm, ctx, sibling) {
 		elm = memory;
 	}
 
-	reconcile(memory, content, elm, ctx, sibling);
+	if (Array.isArray(content)) reconcile(memory, content, elm, ctx, sibling);
 	return memory;
 }

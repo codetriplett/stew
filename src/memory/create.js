@@ -1,4 +1,4 @@
-import { trigger } from '../manage';
+import { locate, trigger } from '../manage';
 
 export function create (tag, elm, ctx) {
 	let content = tag === undefined ? ctx : [], memory, ref, nodes;
@@ -7,10 +7,11 @@ export function create (tag, elm, ctx) {
 		function callback (input) {
 			switch (typeof input) {
 				case 'string': {
-					if (!input) return ctx && ctx[''][1][''][''];
-					const [, node, type] = ref[input] || [];
-					return typeof type === 'function' ? node[''][''] : node;
+					if (!input) return locate(memory[''][0]);
+					const [, node, tag] = ref[input] || [];
+					return typeof tag === 'function' ? node[''][''] : node;
 				}
+				case 'undefined': return depth;
 				case 'object': break;
 				default: return;
 			}
@@ -21,7 +22,7 @@ export function create (tag, elm, ctx) {
 		}
 
 		const state = { '': callback };
-		content = undefined;
+		const depth = ctx ? ctx[''][1]['']['']() + 1 : 0;
 		ref = { '': state };
 	} else if (tag !== '') {
 		const { '': [,,, dom = []] = [] } = elm || {};
@@ -30,8 +31,6 @@ export function create (tag, elm, ctx) {
 			ref = dom.pop();
 			
 			if (ref instanceof Element) {
-				// TODO: figure out how to process comment nodes
-				// - these represent empty children and breaks between text nodes
 				nodes = [...ref.childNodes].filter(({ nodeType }) => {
 					return nodeType !== Node.COMMENT_NODE;
 				});

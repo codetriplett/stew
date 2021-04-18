@@ -3,9 +3,11 @@ export function forget (memory, elm) {
 	else if (typeof memory !== 'object') return;
 
 	const { '': [, container] } = elm;
-	const { '': [fragment, node] } = memory;
+	const { '': [fragment, node, tag] } = memory;
 
-	if (node instanceof Element || node instanceof Text) elm = memory;
+	if ((node instanceof Element || node instanceof Text) && tag !== '') {
+		elm = memory;
+	}
 
 	if (Array.isArray(fragment)) {
 		for (const memory of fragment) forget(memory, elm);

@@ -11,16 +11,17 @@ describe('reconcile', () => {
 	const appendChild = jest.fn();
 	const insertBefore = jest.fn();
 	const teardown = () => {};
-	let container, memory, elm, ctx, string, array, element, text, other,
-		elementOutline, contextOutline,
-		stringMemory, arrayMemory, elementMemory, contextMemory;
+	let container, memory, state, elm, ctx, string, array, element, text, other,
+		elementOutline, contextOutline, stringMemory, arrayMemory, elementMemory,
+		contextMemory;
 
 	beforeEach(() => {
 		jest.clearAllMocks();
 		container = { appendChild, insertBefore };
 		elm = { '': [[], container] };
 		memory = { '': [[], {}] };
-		ctx = { '': [[], {}] };
+		state = { '': () => 1 };
+		ctx = { '': [[], { '': state }], key: 'ctx value' };
 		text = document.createTextNode('abc');
 		element = document.createElement('div');
 		other = document.createElement('span');
@@ -51,14 +52,18 @@ describe('reconcile', () => {
 	});
 
 	it('populates children', () => {
+		const effect = jest.fn();
+
 		reconcile(memory, [
+			effect,
 			contextOutline,
 			string,
 			undefined,
 			array,
-			elementOutline
+			elementOutline,
 		], elm, ctx);
 
+		expect(effect).toHaveBeenCalledWith({ key: 'ctx value', '': state });
 		expect(forget).not.toHaveBeenCalled();
 
 		expect(appendChild.mock.calls).toEqual([
@@ -70,6 +75,7 @@ describe('reconcile', () => {
 		]);
 
 		expect(memory[''][0]).toEqual([
+			undefined,
 			contextMemory,
 			stringMemory,
 			undefined,

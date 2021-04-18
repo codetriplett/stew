@@ -5,18 +5,21 @@ const singletons = [
 	'img', 'hr', 'embed', 'command', 'col', 'br', 'base', 'area', '!doctype'
 ];
 
-export function scribe (outline) {
+export function scribe (outline, sibling) {
 	if (Array.isArray(outline)) {
 		outline = { '': [outline] };
 	} else if (!outline && outline !== 0 || outline === true
 		|| typeof outline === 'function') {
 		return '';
 	} else if (typeof outline !== 'object') {
-		return escape(outline);
+		let value = escape(outline);
+		if (sibling && !sibling.startsWith('<')) value += '<!-- -->';
+		return value;
 	}
 
 	let { '': [content,, tag], ...props } = outline;
 	const tags = [];
+	const children = [];
 
 	if (typeof tag === 'function') {
 		content = tag({ ...props, '': {} }, content);
@@ -55,6 +58,10 @@ export function scribe (outline) {
 		else tags.push(`</${tag}>`);
 	}
 
-	tags.splice(tags.length && 1, 0, ...content.map(scribe));
+	content.reduceRight((sibling, it, i) => {
+		return (children[i] = scribe(it, sibling)) || sibling;
+	}, sibling);
+
+	tags.splice(tags.length && 1, 0, ...children);
 	return tags.join('');
 }

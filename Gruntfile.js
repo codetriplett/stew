@@ -67,6 +67,7 @@ module.exports = function (grunt) {
 			'./src/markup/escape.js',
 			'./src/markup/parse.js',
 			'./src/markup/scribe.js',
+			'./src/memory/compare.js',
 			'./src/memory/create.js',
 			'./src/memory/modify.js',
 			'./src/memory/transform.js',
