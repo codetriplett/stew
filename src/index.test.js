@@ -43,13 +43,15 @@ describe('stew', () => {
 		const div = document.createElement('div');
 		const img = document.createElement('img');
 		div.appendChild(img);
+		const refs = { '': { '': expect.any(Function) } };
 		const elm = { '': [[], div, 'div', [img]] };
+		const ctx = { '': [[], refs, expect.any(Function)] };
 		const actual = stew({ '': div, key: 'value' }, 'first', 'second');
 
 		expect(update).toHaveBeenCalledWith({
 			'': [['first', 'second'], undefined, 'div'],
 			key: 'value'
-		}, elm, 0, elm);
+		}, elm, 0, refs, elm, ctx);
 
 		expect(actual).toEqual(scribeValue);
 	});

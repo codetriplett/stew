@@ -119,8 +119,9 @@ describe('update', () => {
 		it('update using key', () => {
 			const outline = { '': [['new child'], 'id', 'div'], key: 'new prop' };
 			const container = { '': [[]] };
-			const ctx = { '': [[], { id: elm }] };
-			const actual = update(outline, container, 0, container, ctx);
+			const refs = { id: elm };
+			const ctx = { '': [[], {}] };
+			const actual = update(outline, container, 0, refs, container, ctx);
 
 			expect(create).not.toHaveBeenCalled();
 

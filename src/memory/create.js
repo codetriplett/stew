@@ -8,6 +8,7 @@ export function create (tag, elm, ctx) {
 			switch (typeof input) {
 				case 'string': {
 					if (!input) return locate(memory[''][0]);
+					const { '': [, ref] } = memory;
 					const { '': [, node, tag] = [] } = ref[input] || {};
 					if (typeof tag !== 'function') return node;
 					else if (typeof rest[0] !== 'string') return;
@@ -18,13 +19,13 @@ export function create (tag, elm, ctx) {
 				default: return;
 			}
 
-			const { '': type, ...props } = input;
-			Object.assign(state, props);
+			Object.assign(state, input, ...rest)[''] = callback;
 			trigger(memory, elm);
 		}
 
 		const state = { '': callback };
-		const depth = ctx ? ctx[''][1]['']['']() + 1 : 0;
+		let depth = ctx[''][1]['']['']();
+		depth = depth === undefined ? 0 : depth + 1;
 		ref = { '': state };
 	} else if (tag !== '') {
 		const { '': [,,, dom = []] = [] } = elm || {};

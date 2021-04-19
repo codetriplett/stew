@@ -15,6 +15,8 @@ export default function stew (first, ...rest) {
 
 	const { tagName, childNodes } = node;
 	const tag = tagName.toLowerCase();
+	const refs = { '': { '': () => {} } };
 	const elm = { '': [[], node, tag, [...childNodes]] };
-	return update(stew(tag, props, ...rest), elm, 0, elm);
+	const ctx = { '': [[], refs, () => {}] };
+	return update(stew(tag, props, ...rest), elm, 0, refs, elm, ctx);
 }
