@@ -65,6 +65,7 @@ module.exports = function (grunt) {
 			'./src/manage/reconcile.js',
 			'./src/manage/trigger.js',
 			'./src/markup/escape.js',
+			'./src/markup/format.js',
 			'./src/markup/parse.js',
 			'./src/markup/scribe.js',
 			'./src/memory/compare.js',

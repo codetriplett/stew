@@ -1,6 +1,6 @@
 import { escape } from './escape';
 
-const singletons = [
+export const singletons = [
 	'wbr', 'track', 'source', 'param', 'meta', 'link', 'keygen', 'input',
 	'img', 'hr', 'embed', 'command', 'col', 'br', 'base', 'area', '!doctype'
 ];

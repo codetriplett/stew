@@ -3,49 +3,51 @@ function render ($, node) {
 		'': { '': state, number = 0 },
 		action, locked, id
 	}, content) {
-		return $('button', {
-			'': 'btn',
-			onclick: () => action ? action() : state({ number: number + 1 }),
-			disabled: locked
-		},
-			({ '': prev }) => {
-				console.log(id, prev ? 'updated' : 'created');
-				return () => console.log(id, 'removed');
-			},
-			content,
-			!!number && ` (${number})`,
-			locked && ' (locked)'
-		);
+		return $`
+			<button
+				${{ '': 'btn' }}
+				onclick=${() => action ? action() : state({ number: number + 1 })}
+				disabled=${locked}
+			>
+				${({ '': prev }) => {
+					console.log(id, prev ? 'updated' : 'created');
+					return () => console.log(id, 'removed');
+				}}
+				${content}
+				${!!number && ` (${number})`}
+				${locked && ' (locked)'}
+			</>
+		`;
 	}
 
 	function Component ({ '': { '': state, locked = false } }) {
-		return [
-			() => {
+		return $`
+			${() => {
 				console.log(
 					state('dial', 'btn'),
 					state('lock', 'btn'),
 					state('key', 'btn')
 				);
-			},
-			$(Button, {
-				'': 'dial',
-				id: 'dial'
-			}, 'Dial'),
-			$(Button, {
-				'': 'lock',
-				action: () => state({ locked: true }),
-				id: 'lock',
-				locked
-			}, 'Lock'),
-			locked && $(Button, {
-				'': 'key',
-				action: () => state({ locked: false }),
-				id: 'key'
-			}, 'Unlock')
-		];
+			}}
+			<${Button} ${{ '': 'dial' }} id="dial">Dial</>
+			<${Button}
+				${{ '': 'lock', locked }}
+				id="lock"
+				action=${() => state({ locked: true })}
+			>
+				Lock
+			</>
+			<${Button}
+				${{ '': 'unlock' }}
+				id="unlock"
+				action=${() => state({ locked: false })}
+			>
+				Unlock
+			</>
+		`;
 	}
 
-	return $({ '': node || 'div' }, $(Component, {}, []));
+	return $({ '': node || 'div' }, $`<${Component}>`);
 }
 
 if (typeof define === 'function' && define.amd) {
