@@ -1,17 +1,22 @@
 module.exports = function (grunt) {
 	function merge (path, files, resolve) {
-		const lib = path.startsWith('./lib/');
-		const regex = lib ? /^/ : /(^|[ \r\n]*)(import[^;]*;[ \r\n]*|export (default )?|module.exports = )/g;
+		const regex = /(^|[ \r\n]*)(import[^;]*;[ \r\n]*|export (default )?|module.exports = )/g;
 
 		grunt.file.write(path, files.map(path => {
-			let file = grunt.file.read(path).replace(regex, '');
-
-			if (!resolve) {
-				return file;
-			}
-
-			return resolve(file, path.match(/[^.\/]+(?=\.[^\/]+$)/)[0]);
+			const file = grunt.file.read(path).replace(regex, '');
+			if (!resolve) return file;
+			return resolve(file, path);
 		}).join('\n'));
+	}
+
+	function direct (name) {
+		return `if (typeof define === 'function' && define.amd) {
+			define(function () { return ${name}; });
+		} else if (typeof module !== 'undefined' && module.exports) {
+			module.exports = ${name};
+		} else if (typeof window === 'object' && window.document) {
+			window.${name} = ${name};
+		}`;
 	}
 
 	grunt.initConfig({
@@ -19,20 +24,7 @@ module.exports = function (grunt) {
 		babel: {
 			main: {
 				files: {
-					'dist/stew.min.js': 'dist/stew.min.js',
-					'lib/task.js': 'src/task.js',
-					'lib/parse.js': 'src/parse.js',
-					'lib/fetch.js': 'src/fetch.js',
-					'lib/evaluate.js': 'src/evaluate.js',
-					'lib/locate.js': 'src/locate.js',
-					'lib/reduce.js': 'src/reduce.js',
-					'lib/clean.js': 'src/clean.js',
-					'lib/merge.js': 'src/merge.js',
-					'lib/render.js': 'src/render.js',
-					'lib/hydrate.js': 'src/hydrate.js',
-					'lib/server.js': 'src/server.js',
-					'lib/stringify.js': 'src/stringify.js',
-					'lib/stew.js': 'lib/stew.js',
+					'dist/stew.min.js': 'dist/stew.min.js'
 				}
 			}
 		},
@@ -50,32 +42,39 @@ module.exports = function (grunt) {
 					'dist/stew.min.js': 'dist/stew.min.js'
 				}
 			}
+		},
+		copy: {
+			main: {
+				expand: true,
+				cwd: 'dist/',
+				src: 'stew.min.js',
+				dest: 'preview/',
+				flatten: true
+			}
 		}
 	});
 
 	grunt.loadNpmTasks('grunt-babel');
+	grunt.loadNpmTasks('grunt-contrib-copy');
 	grunt.loadNpmTasks('grunt-contrib-uglify');
 
 	grunt.registerTask('before', () => {
 		merge('./dist/stew.min.js', [
-			'./src/parse.js',
-			'./src/fetch.js',
-			'./src/evaluate.js',
-			'./src/locate.js',
-			'./src/reduce.js',
-			'./src/clean.js',
-			'./src/merge.js',
-			'./src/render.js',
-			'./src/hydrate.js',
-			'./src/stew.js',
+			'./src/manage/forget.js',
+			'./src/manage/locate.js',
+			'./src/manage/reconcile.js',
+			'./src/manage/trigger.js',
+			'./src/markup/escape.js',
+			'./src/markup/format.js',
+			'./src/markup/parse.js',
+			'./src/markup/scribe.js',
+			'./src/memory/compare.js',
+			'./src/memory/create.js',
+			'./src/memory/modify.js',
+			'./src/memory/transform.js',
+			'./src/memory/update.js',
+			'./src/index.js'
 		]);
-		
-		merge('./lib/stew.js', [
-			'./src/stew.js',
-		], file => file.replace(
-			/(?=export default )/,
-			'export { task } from \'./task\';\nexport { server } from \'./server\';\n\n'
-		));
 	});
 
 	grunt.registerTask('after', function () {
@@ -83,7 +82,7 @@ module.exports = function (grunt) {
 
 		grunt.file.write(path, `(function () {
 			${grunt.file.read(path)}
-			window.stew = stew;
+			${direct('stew')}
 		})();`);
 	});
 
@@ -91,6 +90,7 @@ module.exports = function (grunt) {
 		'before',
 		'babel',
 		'after',
-		'uglify'
+		'uglify',
+		'copy'
 	]);
 };
