@@ -26,7 +26,7 @@ function render ($, node) {
 				console.log(
 					state('dial', 'btn'),
 					state('lock', 'btn'),
-					state('key', 'btn')
+					state('unlock', 'btn')
 				);
 			}}
 			<${Button} ${{ '': 'dial' }} id="dial">Dial</>
@@ -37,13 +37,13 @@ function render ($, node) {
 			>
 				Lock
 			</>
-			<${Button}
+			${locked && $`<${Button}
 				${{ '': 'unlock' }}
 				id="unlock"
 				action=${() => state({ locked: false })}
 			>
 				Unlock
-			</>
+			</>`}
 		`;
 	}
 

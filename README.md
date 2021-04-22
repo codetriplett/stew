@@ -1,20 +1,40 @@
 # Stew
-This library offers a simple way to create interactive components. It has features similar to other reactive libraries including local states and hydration of server rendered content. The minified file is around 7kB (unzipped) and the API is as simple as it could possibly be. Here is an example of how it is used.
+Interactive HTML from a single function. It supports local states, client side hydration and effects, server side rendering and tagged templates.
 
 ```js
 import $ from '@triplett/stew';
 
-$(type, props, children)(node);
+// render html or DOM node
+const htmlOrNode = $({ '': tagOrNode, ...props }, ...content)
+
+// define item to pass as content
+const outline = $(tag, props, ...content)
+
+// tagged templates
+const elementOutline = $`<div ${props} name="value">content</>`
+const componentOutline = $`<${Component} ${props} name="value">content</>`
+
 ```
 
-## type
+Server side HTML will render if you pass in a string as the the tagOrNode value above. Passing in a DOM node will update its attributes and children. If that node already contains children, they won't be replaced as long as they match up with the content definitions you have provided.
 
-This can be either a string (for elements) or a function (for components). If a function is provided, the props and children will be passed to it and the return value will be used as a fragment within the app.
+## tag
+A string of the type of element to create or a component function to call to produce child elements.
 
 ## props
+An object of values to apply as attributes to an element or pass to a component function.
 
-This is either the set of attributes to apply to the element or props to pass to the component. The state function will be stored on the '' key of the props object when it is passed to the component. The current state can be accessed by calling that function without any params and can be modified by passing an object back to it. This will trigger the component to render again and will automatically update the DOM. Refs are accessed by passing a string to the state function.
+### id
+An empty string key can be included to set a reference to a node or component content. This allows their order to change within the content with minimal updates to the DOM. The reference node will also be accessible to your code through the state function so you can apply additional effects (e.g. focus).
 
-## children
+### state
+Components maintain their own local state which can be accessed on the empty string key of the props that are passed in. That state object contains another empty string key that holds an update function. Passing an object to this function will update those properties in the state and cause the component to update its elements within the DOM. A string can be passed to this function to get any reference nodes that were defined. Reference nodes from child components can be accessed by passing a set of strings to the state function.
 
-An array of children that will be used as the contents of the element. It can also be passed to components where it can be placed where it is needed. When an element or component is updated as a result of a state change, it will compare the new children against the old and only update what is needed in the DOM. A '' key can be provided in the props of a child to identify them even if their order changes.
+## content
+An array of outlines, strings, arrays or functions that will be used as the contents of the element or component. Items are processed and attached to the DOM starting from the bottom.
+
+### effects
+Functions as content are only called client side and will receive the props from the previous call of their parent component. The previous result of the current function will also be included on the empty string key of that object. If a function is returned, it will be used as the teardown function if the element or component is removed from the view.
+
+## Examples
+This repo contains a preview server to test its functionality. The code can be found in the root preview folder. Run 'npm start' to start the server and access the page at 'localhost:8080'.

@@ -11,6 +11,7 @@ describe('reconcile', () => {
 	const appendChild = jest.fn();
 	const insertBefore = jest.fn();
 	const teardown = () => {};
+
 	let container, memory, state, elm, ctx, string, array, element, text, other,
 		elementOutline, contextOutline, stringMemory, arrayMemory, elementMemory,
 		contextMemory;

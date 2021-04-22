@@ -15,10 +15,13 @@ export function reconcile (memory, content, elm, ctx, sibling) {
 	for (let i = content.length - 1; i >= 0; i--) {
 		const backup = prev[i];
 		let it = content[i];
-		if (typeof it === 'function') it = it({ ...props, '': backup });
 
-		if (!it && it !== 0 || it === true || typeof it === 'function') {
-			prev[i] = it && it !== true ? it : undefined;
+		if (typeof it === 'function') {
+			it = it({ ...props, '': backup });
+			prev[i] = typeof it === 'function' ? it : undefined;
+			continue;
+		} else if (!it && it !== 0 || it === true) {
+			prev[i] = undefined;
 			continue;
 		} else if (Array.isArray(it) || typeof it !== 'object') {
 			it = { '': [it, '', Array.isArray(it) ? '' : undefined] };
@@ -29,7 +32,9 @@ export function reconcile (memory, content, elm, ctx, sibling) {
 		if (key) ctx[''][1][key] = it;
 		const { '': [fragment, node] } = it;
 
-		if ((fragment || fragment === 0) && !nodes) {
+		if (fragment === '') {
+			continue;
+		} else if (!nodes) {
 			if (node instanceof Element || node instanceof Text) {
 				if (it !== backup) {
 					if (sibling) container.insertBefore(node, sibling);
