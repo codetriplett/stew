@@ -2,6 +2,7 @@ export function format (expression) {
 	let [string] = expression;
 	if (string.startsWith('/')) return;
 	const props = {};
+	let content = [];
 	let tag = '', name;
 
 	if (/^\s*$/.test(string)) {
@@ -32,16 +33,24 @@ export function format (expression) {
 
 			const index = value.indexOf('=');
 			string = value.slice(0, ~index ? index : undefined);
-			const names = string.replace(/"[^"]*"/g, ' ').trim().split(/\s+/);
+			const end = string.indexOf('/');
+
+			if (~end) {
+				string = string.slice(0, end);
+				content = undefined;
+			}
+
+			string = string.replace(/"[^"]*"/g, ' ').trim();
+			const names = string ? string.split(/\s+/) : [];
 
 			if (~index) name = names.pop();
 			for (const name of names) props[name] = true;
-			if (!~index) break;
+			if (!~index || ~end) break;
 
 			value = value.slice(index + 1);
 		}
 	}
 
 	const { '': key, ...attributes } = props;
-	return { '': [[], key, tag], ...attributes };
+	return { '': [content, key, tag], ...attributes };
 }

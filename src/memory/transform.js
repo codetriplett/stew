@@ -9,11 +9,10 @@ export function transform (memory, props, content) {
 		if (compare(prev, props) && compare(core[3], content)) return;
 		const map = queue[state['']()];
 		if (map) map.delete(memory);
-		Object.assign(memory, props);
 		core[3] = content;
 	}
 
-	const result = type({ ...memory, '': state }, core[3]);
+	const result = type({ ...(props || memory), '': state }, core[3]);
 	if (Array.isArray(result)) return result;
 	return result === undefined ? [] : [result];
 }

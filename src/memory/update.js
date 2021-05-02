@@ -18,8 +18,15 @@ export function update (memory, container, i, refs, elm, ctx, sibling) {
 	} else if (tag !== '') {
 		sibling = modify(memory, props, content);
 		elm = memory;
+
+		if (tag === 'script' || tag === 'style') {
+			const { '': core } = memory;
+			content = content.filter(it => typeof it === 'string').join('');
+			if (content !== core[0]) core[0] = core[1].innerText = content;
+		}
 	}
 
 	if (Array.isArray(content)) reconcile(memory, content, elm, ctx, sibling);
+	Object.assign(memory, props);
 	return memory;
 }

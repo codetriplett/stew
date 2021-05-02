@@ -38,10 +38,22 @@ describe('scribe', () => {
 		expect(actual).toEqual('<div>(<img>)</div>');
 	});
 
+	it('scribes script', () => {
+		const content = ['var tag = \'<script>\';'];
+		const actual = scribe({ '': [content, '', 'script'] });
+		expect(actual).toEqual('<script>var tag = \'<script>\';</script>');
+	});
+
+	it('scribes style', () => {
+		const content = ['div { color: red; }', 'span { color: blue; }'];
+		const actual = scribe({ '': [content, '', 'style'] });
+		expect(actual).toEqual('<style>div { color: red; }span { color: blue; }</style>');
+	});
+
 	it('scribes component', () => {
-		function component ({ string }) { return ['(', img, ')']; }
+		function component ({ string }) { return [string, img, string]; }
 		const actual = scribe({ '': [[], '', component], string: 'abc' });
-		expect(actual).toEqual('(<img>)');
+		expect(actual).toEqual('abc<img>abc');
 	});
 
 	it('scribes text', () => {

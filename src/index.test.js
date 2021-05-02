@@ -10,9 +10,9 @@ describe('stew', () => {
 
 	beforeEach(() => {
 		jest.clearAllMocks();
-		update.mockReturnValue(updateValue);
-		parse.mockReturnValue(parseValue);
-		scribe.mockReturnValue(scribeValue);
+		update.mockReturnValue(updateValue = {});
+		parse.mockReturnValue(parseValue = {});
+		scribe.mockReturnValue(scribeValue = {});
 	});
 
 	it('parses template', () => {
@@ -20,7 +20,7 @@ describe('stew', () => {
 		const actual = stew(array, 'first', 'second');
 
 		expect(parse).toHaveBeenCalledWith(array, 'first', 'second');
-		expect(actual).toEqual(parseValue);
+		expect(actual).toBe(parseValue);
 	});
 
 	it('formats outline', () => {
@@ -36,7 +36,7 @@ describe('stew', () => {
 			key: 'value'
 		});
 
-		expect(actual).toEqual(scribeValue);
+		expect(actual).toBe(scribeValue);
 	});
 
 	it('hydrates html', () => {
@@ -44,7 +44,7 @@ describe('stew', () => {
 		const img = document.createElement('img');
 		div.appendChild(img);
 		const refs = { '': { '': expect.any(Function) } };
-		const elm = { '': [[], div, 'div', [img]] };
+		const elm = { '': [[],,, [div]] };
 		const ctx = { '': [[], refs, expect.any(Function)] };
 		const actual = stew({ '': div, key: 'value' }, 'first', 'second');
 
@@ -53,6 +53,6 @@ describe('stew', () => {
 			key: 'value'
 		}, elm, 0, refs, elm, ctx);
 
-		expect(actual).toEqual(scribeValue);
+		expect(actual).toBe(updateValue);
 	});
 });

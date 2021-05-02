@@ -37,6 +37,4 @@ export function modify (memory, props, content) {
 			node.setAttribute(name, value);
 		}
 	}
-	
-	Object.assign(memory, props);
 }

@@ -9,7 +9,7 @@ function render ($, node) {
 				onclick=${() => action ? action() : state({ number: number + 1 })}
 				disabled=${locked}
 			>
-				${({ '': prev }) => {
+				${prev => {
 					console.log(id, prev ? 'updated' : 'created');
 					return () => console.log(id, 'removed');
 				}}
@@ -47,7 +47,7 @@ function render ($, node) {
 		`;
 	}
 
-	return $({ '': node || 'div' }, $`<${Component}>`);
+	return $({ '': node || 'div' }, $`<${Component} />`);
 }
 
 if (typeof define === 'function' && define.amd) {

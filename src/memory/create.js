@@ -26,6 +26,7 @@ export function create (tag, elm, ctx) {
 		const state = { '': callback };
 		let depth = ctx[''][1]['']['']();
 		depth = depth === undefined ? 0 : depth + 1;
+		content = undefined;
 		ref = { '': state };
 	} else if (tag !== '') {
 		const { '': [,,, dom = []] = [] } = elm || {};

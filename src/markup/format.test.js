@@ -50,4 +50,14 @@ describe('format', () => {
 		const actual = format(['/']);
 		expect(actual).toEqual(undefined);
 	});
+	
+	it('should handle self closing tag', () => {
+		const actual = format(['div /']);
+		expect(actual).toEqual({ '': [undefined, undefined, 'div'] });
+	});
+	
+	it('should ignore everything after slash', () => {
+		const actual = format(['div / key="value"']);
+		expect(actual).toEqual({ '': [undefined, undefined, 'div'] });
+	});
 });

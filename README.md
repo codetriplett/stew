@@ -1,40 +1,157 @@
 # Stew
-Interactive HTML from a single function. It supports local states, client side hydration and effects, server side rendering and tagged templates.
+Interactive HTML from a single function. It supports local states and refs, client side hydration and effects, server side rendering and tagged templates. The examples below use tagged templates, but those are completely optional. The alternate method is shown in the section after Outlines.
 
 ```js
-import $ from '@triplett/stew';
-
-// render html or DOM node
-const htmlOrNode = $({ '': tagOrNode, ...props }, ...content)
-
-// define item to pass as content
-const outline = $(tag, props, ...content)
-
-// tagged templates
-const elementOutline = $`<div ${props} name="value">content</>`
-const componentOutline = $`<${Component} ${props} name="value">content</>`
-
+// start by importing stew onto your page and give it the name you prefer
+import $ from '@triplett/stew'
 ```
 
-Server side HTML will render if you pass in a string as the the tagOrNode value above. Passing in a DOM node will update its attributes and children. If that node already contains children, they won't be replaced as long as they match up with the content definitions you have provided.
+## Outlines
+These provide instructions for how an element or component should be created or updated. They are passed as children to other elements and components.
 
-## tag
-A string of the type of element to create or a component function to call to produce child elements.
+### HTML
 
-## props
-An object of values to apply as attributes to an element or pass to a component function.
+```js
+$`
+	<div class="image">
+		<img src="/image.jpg" alt="">
+		<p>Lorem ipsum</p>
+	</div>
+`
+```
 
-### id
-An empty string key can be included to set a reference to a node or component content. This allows their order to change within the content with minimal updates to the DOM. The reference node will also be accessible to your code through the state function so you can apply additional effects (e.g. focus).
+### Variables
 
-### state
-Components maintain their own local state which can be accessed on the empty string key of the props that are passed in. That state object contains another empty string key that holds an update function. Passing an object to this function will update those properties in the state and cause the component to update its elements within the DOM. A string can be passed to this function to get any reference nodes that were defined. Reference nodes from child components can be accessed by passing a set of strings to the state function.
+```js
+$`
+	<div class="image">
+		<img src=${src} alt=${alt}>
+		<p>${caption}</p>
+	</div>
+`
+```
 
-## content
-An array of outlines, strings, arrays or functions that will be used as the contents of the element or component. Items are processed and attached to the DOM starting from the bottom.
+### Components
 
-### effects
-Functions as content are only called client side and will receive the props from the previous call of their parent component. The previous result of the current function will also be included on the empty string key of that object. If a function is returned, it will be used as the teardown function if the element or component is removed from the view.
+```js
+function Image ({ src, alt }, ...children) {
+	return $`
+		<div class="image">
+			<img src=${src} alt=${alt}>
+			${children}
+		</div>
+	`
+}
 
-## Examples
-This repo contains a preview server to test its functionality. The code can be found in the root preview folder. Run 'npm start' to start the server and access the page at 'localhost:8080'.
+$`
+	<${Image}>
+		<p>${caption}</p>
+	</>
+`
+```
+
+The element and component tags can also be self-closing if there is no need to include children.
+
+```js
+$`<div />`
+$`<${Image} src=${src} alt=${alt} />`
+```
+
+### State
+
+```js
+// state is available on the '' key of props
+// the state updating function is available on the '' key of state
+// your view will update automatically to reflect the changes when the state function is called
+function Image ({
+	'': { '': state, showCaption },
+	src, alt
+}, ...children) {
+	return $`
+		<div class="image">
+			<img src=${src} alt=${alt}>
+			${showCaption && children}
+			${!showCaption && $`
+				<button type="button" onclick=${() => {
+					state({ showCaption: !showCaption })
+				}}>
+					Show Caption
+				</button>
+			`}
+		</div>
+	`
+}
+
+$`
+	<${Image}>
+		<p>${caption}</p>
+	</>
+`
+```
+
+### Variables from Object
+An initial set of properties can be defined as an object before any of the other props. An identifier can be set on the '' key of this object to make sure the state of the element or component is maintained even if its position changes within its containing component.
+
+```js
+$`
+	<div ${{ '': 'wrapper' }} class="image">
+		<img ${{ src, alt }}>
+		<p>${caption}</p>
+	</div>
+`
+```
+
+### Effects
+Functions that are set as children will only run client side. They are called from the bottom to the top so they will have access to the current refs of the children below them (through the state function). The previous component props will be included as a parameter after the first render and the '' key of those props will hold the previous return value of the effect function. If a function is returned, it will be called when the component is removed from the view.
+
+```js
+function Image ({
+	'': { '': state, showCaption },
+	src, alt
+}, ...children) {
+	return $`
+		${prev => prev && state('wrapper').focus()}
+		<div ${{ '': 'wrapper' }} class="image">
+			<img src=${src} alt=${alt}>
+			${showCaption && children}
+			${!showCaption && $`
+				<button type="button" onclick=${() => {
+					state({ showCaption: !showCaption })
+				}}>
+					Show Caption
+				</button>
+			`}
+		</div>
+	`
+}
+
+$`
+	<${Image}>
+		<p>${caption}</p>
+	</>
+`
+```
+
+## Alternate to Tagged Templates
+Outlines can be created by calling the stew function with the following parameters. The tag can be a string to define an element or a function to define a component.
+
+```js
+$(tag, props, ...children)
+```
+
+## Attaching Outlines to the View
+Calling the stew function without a tag parameter will set up a root element. Outlines that are passed as children will be attached to that element. This can be used to either render HTML or DOM elements.
+
+```js
+// render HTML
+// div is the default tag if one isn't provided
+$({ '': 'div', ...props }, ...children)
+
+// render Element
+// locate an existing node or create a new one to pass in as '' key
+const node = document.querySelector(selector)
+$({ '': node, ...props }, ...children)
+```
+
+## Steward
+Check out @triplett/steward for some useful tools to help manage your stew app.

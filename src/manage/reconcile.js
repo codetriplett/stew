@@ -3,9 +3,9 @@ import { forget } from './forget';
 import { locate } from './locate';
 
 export function reconcile (memory, content, elm, ctx, sibling) {
-	const { '': [prev,, tag] } = memory;
+	let { '': [prev = [],, tag] } = memory;
 	const { '': [, container,, nodes] } = elm;
-	const { '': [, { '': state, ...refs }], ...props } = ctx;
+	const { '': [items, { '': state, ...refs }], ...props } = ctx;
 	const removals = new Set(prev);
 	const backup = sibling;
 	prev.splice(content.length);
@@ -17,7 +17,7 @@ export function reconcile (memory, content, elm, ctx, sibling) {
 		let it = content[i];
 
 		if (typeof it === 'function') {
-			it = it({ ...props, '': backup });
+			it = items ? it({ ...props, '': backup }) : it();
 			prev[i] = typeof it === 'function' ? it : undefined;
 			continue;
 		} else if (!it && it !== 0 || it === true) {
@@ -52,6 +52,7 @@ export function reconcile (memory, content, elm, ctx, sibling) {
 
 	if (tag === '') memory[''][1] = sibling !== backup ? sibling : undefined;
 	else if (nodes && elm === memory) memory[''][3] = undefined;
+	memory[''][0] = prev;
 
 	for (const memory of removals) {
 		if (typeof memory !== 'function') forget(memory, elm);

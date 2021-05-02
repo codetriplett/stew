@@ -28,7 +28,12 @@ export function parse (strings, ...variables) {
 				if (elm) {
 					const { '': [array,, tag] } = elm;
 					content.push(elm);
-					if (!~singletons.indexOf(tag)) stack.push(content = array);
+
+					if (!array) {
+						elm[''][0] = []
+					} else if (!~singletons.indexOf(tag)) {
+						stack.push(content = array);
+					}
 				} else {
 					stack.pop();
 					content = stack[stack.length - 1] || [];

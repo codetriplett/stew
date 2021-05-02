@@ -19,7 +19,7 @@ export function scribe (outline, sibling) {
 
 	let { '': [content,, tag], ...props } = outline;
 	const tags = [];
-	const children = [];
+	let children = [];
 
 	if (typeof tag === 'function') {
 		content = tag({ ...props, '': {} }, content);
@@ -58,9 +58,13 @@ export function scribe (outline, sibling) {
 		else tags.push(`</${tag}>`);
 	}
 
-	content.reduceRight((sibling, it, i) => {
-		return (children[i] = scribe(it, sibling)) || sibling;
-	}, sibling);
+	if (tag === 'script' || tag === 'style') {
+		children = content.filter(it => typeof it === 'string');
+	} else {
+		content.reduceRight((sibling, it, i) => {
+			return (children[i] = scribe(it, sibling)) || sibling;
+		}, sibling);
+	}
 
 	tags.splice(tags.length && 1, 0, ...children);
 	return tags.join('');

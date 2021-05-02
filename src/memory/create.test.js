@@ -7,7 +7,7 @@ describe('create', () => {
 	describe('ctx', () => {
 		const tag = jest.fn();
 		const callback = jest.fn();
-		let elm, ctx, memory, content, refs, state;
+		let elm, ctx, memory, refs, state;
 	
 		beforeEach(() => {
 			jest.clearAllMocks();
@@ -16,14 +16,14 @@ describe('create', () => {
 			elm = { '': [[], 'container'] };
 			ctx = { '': [[], { '': { '': callback } }] };
 			memory = create(tag, elm, ctx);
-			[content, refs] = (memory || {})[''] || [];
+			[, refs] = (memory || {})[''] || [];
 			state = (refs || {})[''];
 		});
 
 		it('creates memory', () => {
 			expect(memory).toEqual({
 				'': [
-					[],
+					undefined,
 					{ '': { '': expect.any(Function) } },
 					tag,
 					undefined
@@ -52,7 +52,7 @@ describe('create', () => {
 		});
 
 		it('returns first child node', () => {
-			content.push('first', 'second');
+			memory[''][0] = ['first', 'second'];
 			const actual = state['']('');
 			expect(locate).toHaveBeenCalledWith(['first', 'second']);
 			expect(actual).toEqual('first node');

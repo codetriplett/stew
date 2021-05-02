@@ -55,8 +55,9 @@ describe('transform', () => {
 		expect(actual).toEqual(['new child']);
 	});
 
-	it('does not upate if props have not changed', () => {
+	it('does not update if props have not changed', () => {
 		memory[''][0] = transform(memory, { key: 'value' }, ['content']);
+		memory.key = 'value';
 		jest.clearAllMocks();
 		const actual = transform(memory, { key: 'value' }, ['content']);
 

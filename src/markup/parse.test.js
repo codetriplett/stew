@@ -75,4 +75,24 @@ describe('parse', () => {
 			}
 		]);
 	});
+
+	it('should process self closing tags', () => {
+		format.mockReturnValue({ '': [undefined, undefined, 'tag'] });
+
+		const actual = parse`
+			abc
+			<div />
+			xyz
+		`;
+
+		expect(format.mock.calls).toEqual([
+			[['div /']]
+		]);
+
+		expect(actual).toEqual([
+			'abc',
+			{ '': [[], undefined, 'tag'] },
+			'xyz'
+		]);
+	});
 });

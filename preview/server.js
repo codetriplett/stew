@@ -53,7 +53,7 @@ http.createServer(({ url }, res) => {
 				file = file
 					.replace(/(?=<\/title>)/, path)
 					.replace('<script>', `<script src="/${path}.js">`)
-					.replace(/(?=<\/div>)/, render($));
+					.replace('<body>', `<body>\n\t\t${render($)}`);
 			} else {
 				file = undefined;
 			}
