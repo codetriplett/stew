@@ -5,11 +5,12 @@ import { transform } from './transform';
 
 export function update (memory, container, i, refs, elm, ctx, sibling) {
 	const { '': [children = []] = [] } = container || {};
-	let { '': [content, key, tag], ...props } = memory;
+	let { '': [content, key, tag, params], ...props } = memory;
 	memory = key && typeof key === 'string' ? refs[key] : children[i];
 
-	if (!memory || tag !== memory[''][2]) {
-		memory = create(tag, elm, tag ? ctx : content);
+	if (!memory || tag !== memory[''][2]
+		|| !tag && !params !== !memory[''][3]) {
+		memory = create(tag, elm, tag ? ctx : content, params);
 	}
 
 	if (typeof tag === 'function') {
@@ -24,6 +25,8 @@ export function update (memory, container, i, refs, elm, ctx, sibling) {
 			content = content.filter(it => typeof it === 'string').join('');
 			if (content !== core[0]) core[0] = core[1].innerText = content;
 		}
+	} else if (params) {
+		content = params;
 	}
 
 	if (Array.isArray(content)) reconcile(memory, content, elm, ctx, sibling);

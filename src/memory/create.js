@@ -1,6 +1,6 @@
 import { locate, trigger } from '../manage';
 
-export function create (tag, elm, ctx) {
+export function create (tag, elm, ctx, params) {
 	let content = tag === undefined ? ctx : [], memory, ref, nodes;
 
 	if (typeof tag === 'function') {
@@ -47,6 +47,8 @@ export function create (tag, elm, ctx) {
 			if (tag) ref = document.createElement(tag);
 			else ref = document.createTextNode(content);
 		}
+	} else if (params) {
+		nodes = [];
 	}
 
 	return memory = { '': [content, ref, tag, nodes] };

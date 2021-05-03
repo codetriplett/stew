@@ -5,17 +5,18 @@ export function format (expression) {
 	let content = [];
 	let tag = '', name;
 
-	if (/^\s*$/.test(string)) {
-		[, tag] = expression.splice(0, 2);
-	} else {
+	if (!/^\s*$/.test(string)) {
 		[tag] = string.match(/^[^="\s]*/);
 		expression[0] = string.slice(tag.length);
+	} else if (typeof expression[1] === 'function') {
+		[, tag] = expression.splice(0, 2);
 	}
 	
 	string = expression[0];
 
-	if (/^\s*$/.test(string)) {
+	if (expression.length > 1 && /^\s*$/.test(string)) {
 		const [, object] = expression.splice(0, 2);
+		if (!tag && typeof object !== 'object') return;
 		Object.assign(props, object);
 	}
 
@@ -52,5 +53,6 @@ export function format (expression) {
 	}
 
 	const { '': key, ...attributes } = props;
-	return { '': [content, key, tag], ...attributes };
+	const core = tag ? [content, key, tag] : [[], key, tag, content];
+	return { '': core, ...attributes };
 }

@@ -21,14 +21,18 @@ function render ($, node) {
 	}
 
 	function Component ({ '': { '': state, locked = false } }) {
+		const script = '<script>alert(\'hacked!\');</script>';
+		
 		return $`
 			${() => {
 				console.log(
+					state('html'),
 					state('dial', 'btn'),
 					state('lock', 'btn'),
 					state('unlock', 'btn')
 				);
 			}}
+			<${{ '': 'html' }}>${script}Status is: ${locked ? '<b>Locked</>' : '<b>Not locked</>'}<br></>
 			<${Button} ${{ '': 'dial' }} id="dial">Dial</>
 			<${Button}
 				${{ '': 'lock', locked }}

@@ -1,9 +1,11 @@
+import { parse } from '../markup';
 import { update } from '../memory';
 import { forget } from './forget';
 import { locate } from './locate';
 
 export function reconcile (memory, content, elm, ctx, sibling) {
-	let { '': [prev = [],, tag] } = memory;
+	const { '': core } = memory;
+	let [prev = [],, tag, params] = core;
 	const { '': [, container,, nodes] } = elm;
 	const { '': [items, { '': state, ...refs }], ...props } = ctx;
 	const removals = new Set(prev);
@@ -15,6 +17,7 @@ export function reconcile (memory, content, elm, ctx, sibling) {
 	for (let i = content.length - 1; i >= 0; i--) {
 		const backup = prev[i];
 		let it = content[i];
+		if (params && typeof it === 'string' && it !== backup) it = parse(it);
 
 		if (typeof it === 'function') {
 			it = items ? it({ ...props, '': backup }) : it();
@@ -30,29 +33,28 @@ export function reconcile (memory, content, elm, ctx, sibling) {
 		const { '': [, key] } = it;
 		it = prev[i] = update(it, memory, i, refs, elm, ctx, sibling);
 		if (key) ctx[''][1][key] = it;
-		const { '': [fragment, node] } = it;
+		let { '': [fragment, node, tag] } = it;
+		const elemental = typeof tag !== 'function' && tag !== '';
 
 		if (fragment === '') {
 			continue;
-		} else if (!nodes) {
-			if (node instanceof Element || node instanceof Text) {
-				if (it !== backup) {
-					if (sibling) container.insertBefore(node, sibling);
-					else container.appendChild(node);
-				}
-
-				sibling = node;
-			} else {
-				sibling = locate(fragment) || sibling;
-			}
+		} else if (!nodes && elemental && it !== backup) {
+			if (sibling) container.insertBefore(node, sibling);
+			else container.appendChild(node);
 		}
 
+		if (!elemental) {
+			node = locate(fragment);
+			if (tag === '') it[''][1] = node;
+		}
+
+		if (node) sibling = node;
 		removals.delete(it);
 	}
 
-	if (tag === '') memory[''][1] = sibling !== backup ? sibling : undefined;
-	else if (nodes && elm === memory) memory[''][3] = undefined;
-	memory[''][0] = prev;
+	if (tag === '' && params) core[3] = content;
+	else if (nodes && elm === memory) core[3] = undefined;
+	core[0] = prev;
 
 	for (const memory of removals) {
 		if (typeof memory !== 'function') forget(memory, elm);

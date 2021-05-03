@@ -1,4 +1,5 @@
 import { escape } from './escape';
+import { parse } from './parse';
 
 export const singletons = [
 	'wbr', 'track', 'source', 'param', 'meta', 'link', 'keygen', 'input',
@@ -17,7 +18,7 @@ export function scribe (outline, sibling) {
 		return value;
 	}
 
-	let { '': [content,, tag], ...props } = outline;
+	let { '': [content,, tag, params], ...props } = outline;
 	const tags = [];
 	let children = [];
 
@@ -31,7 +32,7 @@ export function scribe (outline, sibling) {
 		let attr = Object.entries(props).map(([name, value]) => {
 			if (!/^[a-zA-Z0-9-_.]+$/.test(name) || !value && value !== 0) {
 				return '';
-			} if (name === 'style') {
+			} else if (name === 'style') {
 				value = Object.entries(value).map(([name, value]) => {
 					if (!/^[a-zA-Z0-9-_.]+$/.test(name)) return '';
 					name = name.replace(/[A-Z]/g, x => `-${x.toLowerCase()}`);
@@ -56,6 +57,8 @@ export function scribe (outline, sibling) {
 		tags.push(`<${tag}${attr}>`);
 		if (~singletons.indexOf(tag)) content = [];
 		else tags.push(`</${tag}>`);
+	} else if (tag === '' && params) {
+		content = params.map(it => typeof it === 'string' ? parse(it) : it);
 	}
 
 	if (tag === 'script' || tag === 'style') {

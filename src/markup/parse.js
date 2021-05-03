@@ -4,7 +4,14 @@ import { format } from './format';
 const cache = new WeakMap();
 
 export function parse (strings, ...variables) {
-	if (!variables.length && cache.has(strings)) return cache.get(strings);
+	const sanitize = !Array.isArray(strings);
+
+	if (sanitize) {
+		strings = [strings];
+	} else if (!variables.length && cache.has(strings)) {
+		return cache.get(strings);
+	}
+
 	let inside = false, expression = [], content = [], fragment;
 	const stack = [fragment = content];
 
@@ -26,13 +33,16 @@ export function parse (strings, ...variables) {
 				const elm = format(expression);
 
 				if (elm) {
-					const { '': [array,, tag] } = elm;
-					content.push(elm);
+					const { '': [array,, tag, params] } = elm;
+					
+					if (!sanitize || tag !== 'script' && tag !== 'style') {
+						content.push(elm);
+					}
 
 					if (!array) {
-						elm[''][0] = []
+						elm[''][0] = [];
 					} else if (!~singletons.indexOf(tag)) {
-						stack.push(content = array);
+						stack.push(content = params || array);
 					}
 				} else {
 					stack.pop();

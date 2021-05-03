@@ -132,6 +132,21 @@ $`
 `
 ```
 
+### Custom Fragment Tag
+If you need to set an identifier for an array or you want to render HTML included in your variables, you will need to use the custom fragment tag. This looks like any other element tag except its type is empty. The HTML found in its direct children will not be escaped, but script and style tags will be removed. Accessing the ref of this tag through the state function will return the first child that is either an element or text node.
+
+```js
+const html = '<strong>Author:</strong> Jeff Triplett':
+$`<>${html}</>`
+
+$`
+	<${ '': 'content' }>
+		<img ${{ src, alt }}>
+		<p>${caption}</p>
+	</>
+`
+```
+
 ## Alternate to Tagged Templates
 Outlines can be created by calling the stew function with the following parameters. The tag can be a string to define an element or a function to define a component.
 

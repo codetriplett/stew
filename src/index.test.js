@@ -23,9 +23,14 @@ describe('stew', () => {
 		expect(actual).toBe(parseValue);
 	});
 
-	it('formats outline', () => {
+	it('formats element outline', () => {
 		const actual = stew('div', { '': 'id', key: 'value' }, 'first', 'second');
 		expect(actual).toEqual({ '': [['first', 'second'], 'id', 'div'], key: 'value' });
+	});
+
+	it('formats fragment outline', () => {
+		const actual = stew('', { '': 'id', key: 'value' }, 'first', 'second');
+		expect(actual).toEqual({ '': [[], 'id', '', ['first', 'second']], key: 'value' });
 	});
 
 	it('renders html', () => {

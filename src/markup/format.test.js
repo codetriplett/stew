@@ -45,19 +45,34 @@ describe('format', () => {
 			boolean: true
 		});
 	});
-	
+
 	it('should pass back closed tag', () => {
 		const actual = format(['/']);
 		expect(actual).toEqual(undefined);
 	});
-	
+
 	it('should handle self closing tag', () => {
 		const actual = format(['div /']);
 		expect(actual).toEqual({ '': [undefined, undefined, 'div'] });
 	});
-	
+
 	it('should ignore everything after slash', () => {
 		const actual = format(['div / key="value"']);
 		expect(actual).toEqual({ '': [undefined, undefined, 'div'] });
+	});
+
+	it('should handle an open fragment tag', () => {
+		const actual = format(['']);
+		expect(actual).toEqual({ '': [[], undefined, '', []] });
+	});
+
+	it('should handle an open fragment tag with object', () => {
+		const actual = format(['', { '': 'id', key: 'value' }, '']);
+		expect(actual).toEqual({ '': [[], 'id', '', []], key: 'value' });
+	});
+
+	it('should handle an invalid tag', () => {
+		const actual = format(['', undefined, '']);
+		expect(actual).toEqual(undefined);
 	});
 });

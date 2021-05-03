@@ -77,7 +77,7 @@ describe('parse', () => {
 	});
 
 	it('should process self closing tags', () => {
-		format.mockReturnValue({ '': [undefined, undefined, 'tag'] });
+		format.mockReturnValueOnce({ '': [undefined, undefined, 'tag'] });
 
 		const actual = parse`
 			abc
@@ -92,6 +92,80 @@ describe('parse', () => {
 		expect(actual).toEqual([
 			'abc',
 			{ '': [[], undefined, 'tag'] },
+			'xyz'
+		]);
+	});
+	
+	it('should process static tag', () => {
+		format.mockReturnValueOnce({ '': [[], undefined, '', []] });
+
+		const html = `
+			<div>
+				<img src="http://domain.com/image.jpg">
+			</>
+		`;
+
+		const actual = parse`
+			<>
+				abc
+				${html}
+				xyz
+			</>
+		`;
+
+		expect(format.mock.calls).toEqual([
+			[['']],
+			[['/']]
+		]);
+
+		expect(actual).toEqual([
+			{
+				'': [
+					[],
+					undefined,
+					'',
+					[
+						'abc',
+						html,
+						'xyz'
+					]
+				]
+			}
+		]);
+	});
+	
+	it('should process static child', () => {
+		format.mockReturnValueOnce({ '': [[], undefined, 'img'] });
+		const actual = parse('abc<img>xyz');
+
+		expect(format.mock.calls).toEqual([
+			[['img']]
+		]);
+
+		expect(actual).toEqual([
+			'abc',
+			{
+				'': [
+					[],
+					undefined,
+					'img'
+				]
+			},
+			'xyz'
+		]);
+	});
+	
+	it('should sanitize static child', () => {
+		format.mockReturnValueOnce({ '': [[], undefined, 'script'] });
+		const actual = parse('abc<script>alert(\'hacked!\');</script>xyz');
+
+		expect(format.mock.calls).toEqual([
+			[['script']],
+			[['/script']]
+		]);
+
+		expect(actual).toEqual([
+			'abc',
 			'xyz'
 		]);
 	});

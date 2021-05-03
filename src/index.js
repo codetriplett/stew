@@ -4,9 +4,12 @@ import { update } from './memory';
 export default function stew (first, ...rest) {
 	if (Array.isArray(first)) {
 		return parse(first, ...rest);
-	} else if (typeof first !== 'object') {
+	} else if (typeof first === 'string') {
 		const { '': key, ...props } = rest.shift() || {};
-		return { '': [rest, key, first || ''], ...props };
+		const core = first ? [rest, key, first] : [[], key, first, rest];
+		return { '': core, ...props };
+	} else if (typeof first !== 'object') {
+		return;
 	}
 
 	const { '': node = 'div', ...props } = first;

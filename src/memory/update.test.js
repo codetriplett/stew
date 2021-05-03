@@ -32,7 +32,7 @@ describe('update', () => {
 		it('creates ctx', () => {
 			const actual = update(ctx);
 
-			expect(create).toHaveBeenCalledWith(callback, undefined, undefined);
+			expect(create).toHaveBeenCalledWith(callback, undefined, undefined, undefined);
 			expect(transform).toHaveBeenCalledWith(memory, { key: 'prop' }, ['child']);
 
 			expect(reconcile.mock.calls).toEqual([
@@ -45,7 +45,7 @@ describe('update', () => {
 		it('creates elm', () => {
 			const actual = update(elm);
 
-			expect(create).toHaveBeenCalledWith('div', undefined, undefined);
+			expect(create).toHaveBeenCalledWith('div', undefined, undefined, undefined);
 			expect(modify).toHaveBeenCalledWith(memory, { key: 'prop' }, ['child']);
 
 			expect(reconcile.mock.calls).toEqual([
@@ -58,7 +58,7 @@ describe('update', () => {
 		it('creates txt', () => {
 			const actual = update(txt);
 
-			expect(create).toHaveBeenCalledWith(undefined, undefined, 'text');
+			expect(create).toHaveBeenCalledWith(undefined, undefined, 'text', undefined);
 			expect(modify).toHaveBeenCalledWith(memory, {}, 'text');
 			expect(reconcile).not.toHaveBeenCalled();
 			expect(actual).toEqual(memory);
@@ -67,7 +67,7 @@ describe('update', () => {
 		it('creates arr', () => {
 			const actual = update(arr);
 
-			expect(create).toHaveBeenCalledWith('', undefined, ['child']);
+			expect(create).toHaveBeenCalledWith('', undefined, ['child'], undefined);
 			expect(transform).not.toHaveBeenCalled();
 			expect(modify).not.toHaveBeenCalled();
 
@@ -130,6 +130,20 @@ describe('update', () => {
 			]);
 
 			expect(actual).toBe(elm);
+		});
+
+		it('differentiates array from fragment', () => {
+			const outline = arr;
+			const container = { '': [[{ '': [[], undefined, '', ['child']] }]] };
+			const actual = update(outline, container, 0);
+
+			expect(create).toHaveBeenCalledWith('', undefined, ['child'], undefined);
+
+			expect(reconcile.mock.calls).toEqual([
+				[memory, ['child'], undefined, undefined, undefined]
+			]);
+
+			expect(actual).toBe(memory);
 		});
 	});
 });
