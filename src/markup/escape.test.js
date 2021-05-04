@@ -5,4 +5,9 @@ describe('escape', () => {
 		const actual = escape(' & " \' < > ');
 		expect(actual).toEqual(' &amp; &quot; &#39; &lt; &gt; ');
 	});
+
+	it('casts number to string', () => {
+		const actual = escape(123);
+		expect(actual).toEqual('123');
+	});
 });

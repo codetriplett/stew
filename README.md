@@ -133,12 +133,17 @@ $`
 ```
 
 ### Custom Fragment Tag
-If you need to set an identifier for an array or you want to render HTML included in your variables, you will need to use the custom fragment tag. This looks like any other element tag except its type is empty. The HTML found in its direct children will not be escaped, but script and style tags will be removed. Accessing the ref of this tag through the state function will return the first child that is either an element or text node.
+Using a tag name of '' will behave similar to an array except it will bend the rules for its immediate children. Strings will be interpreted as HTML, but script and style blocks will be removed. Functions will run both server-side and client-side and the result will be used in its place as the child. An empty object will be passed to the function on the first client-side call to differentiate it from the server-side call. An identifier can also be set on this tag. The ref it returns is the first element or text node it finds within its children.
 
 ```js
+// accepts HTML from props which would normally be escaped
 const html = '<strong>Author:</strong> Jeff Triplett':
 $`<>${html}</>`
 
+// allows for more customized children
+$`<>${prev => $`<p>Was: ${prev}, Is: ${prop}</>`}</>`
+
+// allows identifiers and uses first node as the ref
 $`
 	<${ '': 'content' }>
 		<img ${{ src, alt }}>

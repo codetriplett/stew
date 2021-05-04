@@ -28,6 +28,12 @@ describe('stew', () => {
 		expect(actual).toEqual({ '': [['first', 'second'], 'id', 'div'], key: 'value' });
 	});
 
+	it('formats component outline', () => {
+		const tag = () => {};
+		const actual = stew(tag, { '': 'id', key: 'value' }, 'first', 'second');
+		expect(actual).toEqual({ '': [['first', 'second'], 'id', tag], key: 'value' });
+	});
+
 	it('formats fragment outline', () => {
 		const actual = stew('', { '': 'id', key: 'value' }, 'first', 'second');
 		expect(actual).toEqual({ '': [[], 'id', '', ['first', 'second']], key: 'value' });

@@ -61,9 +61,30 @@ describe('scribe', () => {
 		expect(actual).toEqual('abc');
 	});
 
+	it('scribes text outline', () => {
+		const actual = scribe({ '': ['abc'] });
+		expect(actual).toEqual('abc');
+	});
+
 	it('scribes fragment', () => {
 		const actual = scribe(['(', img, ')']);
 		expect(actual).toEqual('(<img>)');
+	});
+
+	it('scribes fragment outline', () => {
+		const actual = scribe({ '': [['(', img, ')'], '', ''] });
+		expect(actual).toEqual('(<img>)');
+	});
+
+	it('scribes custom fragment', () => {
+		const actual = scribe({
+			'': [[], '', '', [
+				'<b>Key:</>',
+				() => ' Value'
+			]]
+		});
+
+		expect(actual).toEqual('<b>Key:</b> Value');
 	});
 
 	it('scribes attributes', () => {

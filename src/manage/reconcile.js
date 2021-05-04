@@ -9,7 +9,8 @@ export function reconcile (memory, content, elm, ctx, sibling) {
 	const { '': [, container,, nodes] } = elm;
 	const { '': [items, { '': state, ...refs }], ...props } = ctx;
 	const removals = new Set(prev);
-	const backup = sibling;
+	const custom = tag === '' && params;
+
 	prev.splice(content.length);
 	removals.delete(undefined);
 	if (memory === ctx) ctx[''][1] = { '': state };
@@ -17,35 +18,46 @@ export function reconcile (memory, content, elm, ctx, sibling) {
 	for (let i = content.length - 1; i >= 0; i--) {
 		const backup = prev[i];
 		let it = content[i];
-		if (params && typeof it === 'string' && it !== backup) it = parse(it);
 
 		if (typeof it === 'function') {
-			it = items ? it({ ...props, '': backup }) : it();
-			prev[i] = typeof it === 'function' ? it : undefined;
-			continue;
-		} else if (!it && it !== 0 || it === true) {
-			prev[i] = undefined;
-			continue;
-		} else if (Array.isArray(it) || typeof it !== 'object') {
-			it = { '': [it, '', Array.isArray(it) ? '' : undefined] };
+			it = items || custom ? it({ ...props, '': backup }) : it();
+			const teardown = typeof it === 'function';
+
+			if (!custom || teardown) {
+				prev[i] = teardown ? it : undefined;
+				continue;
+			}
+		} else if (custom && typeof it === 'string') {
+			it = it === params[i] ? backup : parse(it);
 		}
 
-		const { '': [, key] } = it;
-		it = prev[i] = update(it, memory, i, refs, elm, ctx, sibling);
-		if (key) ctx[''][1][key] = it;
+		if (!it && it !== 0 || it === true) {
+			prev[i] = undefined;
+			continue;
+		} else if (Array.isArray(it)) {
+			it = { '': [it, '', ''] };
+		} else if (typeof it !== 'object') {
+			it = { '': [it, ''] };
+		}
+
+		if (it instanceof Element || it instanceof Text) {
+			it = prev[i] = it === backup[''][1] ? backup : { '': [, it] };
+		} else {
+			const { '': [, key] } = it;
+			it = prev[i] = update(it, memory, i, refs, elm, ctx, sibling);
+			if (key) ctx[''][1][key] = it;
+		}
+
 		let { '': [fragment, node, tag] } = it;
-		const elemental = typeof tag !== 'function' && tag !== '';
 
 		if (fragment === '') {
 			continue;
-		} else if (!nodes && elemental && it !== backup) {
-			if (sibling) container.insertBefore(node, sibling);
-			else container.appendChild(node);
-		}
-
-		if (!elemental) {
+		} else if (typeof tag === 'function' || tag === '') {
 			node = locate(fragment);
 			if (tag === '') it[''][1] = node;
+		} else if (!nodes && it !== backup) {
+			if (sibling) container.insertBefore(node, sibling);
+			else container.appendChild(node);
 		}
 
 		if (node) sibling = node;

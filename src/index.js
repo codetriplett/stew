@@ -1,15 +1,13 @@
 import { parse, scribe } from './markup';
 import { update } from './memory';
 
-export default function stew (first, ...rest) {
+export default function stew (first = '', ...rest) {
 	if (Array.isArray(first)) {
 		return parse(first, ...rest);
-	} else if (typeof first === 'string') {
+	} else if (typeof first !== 'object') {
 		const { '': key, ...props } = rest.shift() || {};
 		const core = first ? [rest, key, first] : [[], key, first, rest];
 		return { '': core, ...props };
-	} else if (typeof first !== 'object') {
-		return;
 	}
 
 	const { '': node = 'div', ...props } = first;

@@ -12,7 +12,11 @@ export function scribe (outline, sibling) {
 	} else if (!outline && outline !== 0 || outline === true
 		|| typeof outline === 'function') {
 		return '';
-	} else if (typeof outline !== 'object') {
+	} else if (typeof outline === 'object' && outline[''][2] === undefined) {
+		outline = outline[''][0];
+	}
+
+	if (typeof outline !== 'object') {
 		let value = escape(outline);
 		if (sibling && !sibling.startsWith('<')) value += '<!-- -->';
 		return value;
@@ -21,6 +25,7 @@ export function scribe (outline, sibling) {
 	let { '': [content,, tag, params], ...props } = outline;
 	const tags = [];
 	let children = [];
+	if (tag) sibling = undefined;
 
 	if (typeof tag === 'function') {
 		content = tag({ ...props, '': {} }, content);
@@ -58,7 +63,11 @@ export function scribe (outline, sibling) {
 		if (~singletons.indexOf(tag)) content = [];
 		else tags.push(`</${tag}>`);
 	} else if (tag === '' && params) {
-		content = params.map(it => typeof it === 'string' ? parse(it) : it);
+		content = params.map(it => {
+			if (typeof it === 'function') return it();
+			else if (typeof it !== 'string') return it;
+			return parse(it);
+		});
 	}
 
 	if (tag === 'script' || tag === 'style') {
