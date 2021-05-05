@@ -1,7 +1,7 @@
 import { locate, trigger } from '../manage';
 
 export function create (tag, elm, ctx, params) {
-	let content = tag === undefined ? ctx : [], memory, ref, nodes;
+	let content = tag === undefined ? ctx : [], props = {}, memory, ref, nodes;
 
 	if (typeof tag === 'function') {
 		function callback (input, ...rest) {
@@ -43,13 +43,18 @@ export function create (tag, elm, ctx, params) {
 			}
 		}
 
-		if (!ref) {
-			if (tag) ref = document.createElement(tag);
-			else ref = document.createTextNode(content);
+		if (ref) {
+			for (const [name, value] of Object.entries(params)) {
+				if (!name.startsWith('on')) props[name] = value;
+			}
+		} else if (tag) {
+			ref = document.createElement(tag);
+		} else {
+			ref = document.createTextNode(content);
 		}
 	} else if (params) {
 		nodes = [];
 	}
 
-	return memory = { '': [content, ref, tag, nodes] };
+	return memory = { '': [content, ref, tag, nodes], ...props };
 }

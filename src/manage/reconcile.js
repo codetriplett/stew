@@ -27,22 +27,27 @@ export function reconcile (memory, content, elm, ctx, sibling) {
 				prev[i] = teardown ? it : undefined;
 				continue;
 			}
-		} else if (custom && typeof it === 'string') {
-			it = it === params[i] ? backup : parse(it);
 		}
 
 		if (!it && it !== 0 || it === true) {
 			prev[i] = undefined;
 			continue;
-		} else if (Array.isArray(it)) {
-			it = { '': [it, '', ''] };
-		} else if (typeof it !== 'object') {
-			it = { '': [it, ''] };
-		}
-
-		if (it instanceof Element || it instanceof Text) {
+		} else if (it instanceof Element || it instanceof Text) {
 			it = prev[i] = it === backup[''][1] ? backup : { '': [, it] };
 		} else {
+			if (custom && typeof it === 'string') {
+				it = it === params[i] ? backup : parse(it);
+			}
+
+			if (Array.isArray(it)) {
+				it = { '': [it,, ''] };
+			} else if (typeof it !== 'object') {
+				it = { '': [it] };
+			} else if (!Array.isArray(it[''])) {
+				prev[i] = undefined;
+				continue;
+			}
+
 			const { '': [, key] } = it;
 			it = prev[i] = update(it, memory, i, refs, elm, ctx, sibling);
 			if (key) ctx[''][1][key] = it;

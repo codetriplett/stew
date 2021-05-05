@@ -33,9 +33,11 @@ export function parse (strings, ...variables) {
 				const elm = format(expression);
 
 				if (elm) {
-					const { '': [array,, tag, params] } = elm;
+					const { '': [array,, tag, params], href } = elm;
 					
-					if (!sanitize || tag !== 'script' && tag !== 'style') {
+					if (!sanitize || tag !== 'script' && tag !== 'style'
+						&& (typeof href !== 'string'
+						|| !href.startsWith('javascript:'))) {
 						content.push(elm);
 					}
 

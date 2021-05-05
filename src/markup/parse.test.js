@@ -96,7 +96,7 @@ describe('parse', () => {
 		]);
 	});
 	
-	it('should process static tag', () => {
+	it('should process custom fragment tag', () => {
 		format.mockReturnValueOnce({ '': [[], undefined, '', []] });
 
 		const html = `
@@ -134,7 +134,7 @@ describe('parse', () => {
 		]);
 	});
 	
-	it('should process static child', () => {
+	it('should process custom fragment child', () => {
 		format.mockReturnValueOnce({ '': [[], undefined, 'img'] });
 		const actual = parse('abc<img>xyz');
 
@@ -155,17 +155,45 @@ describe('parse', () => {
 		]);
 	});
 	
-	it('should sanitize static child', () => {
-		format.mockReturnValueOnce({ '': [[], undefined, 'script'] });
-		const actual = parse('abc<script>alert(\'hacked!\');</script>xyz');
+	it('should sanitize custom fragment child', () => {
+		format
+			.mockReturnValueOnce({ '': [[], undefined, 'style'] })
+			.mockReturnValueOnce(undefined)
+			.mockReturnValueOnce({ '': [[], undefined, 'script'] })
+			.mockReturnValueOnce(undefined)
+			.mockReturnValueOnce({ '': [[], undefined, 'script'], src: '/exploit.js' })
+			.mockReturnValueOnce(undefined)
+			.mockReturnValueOnce({ '': [[], undefined, 'a'], href: 'javascript:alert(\'hacked?\');' })
+			.mockReturnValueOnce(undefined)
+			.mockReturnValueOnce({ '': [[], undefined, 'a'], href: '/' })
+			.mockReturnValueOnce(undefined)
+
+		const actual = parse(`
+			abc
+			<style>* { color: transparent; }</style>
+			<script>alert('hacked!');</script>
+			<script src="/exploit.js"></script>
+			<a href="javascript:alert('hacked?');">Click me</a>
+			<a href="/">Go home</a>
+			xyz
+		`);
 
 		expect(format.mock.calls).toEqual([
+			[['style']],
+			[['/style']],
 			[['script']],
-			[['/script']]
+			[['/script']],
+			[['script src="/exploit.js"']],
+			[['/script']],
+			[['a href="javascript:alert(\'hacked?\');"']],
+			[['/a']],
+			[['a href="/"']],
+			[['/a']]
 		]);
 
 		expect(actual).toEqual([
 			'abc',
+			{ '': [['Go home'], undefined, 'a'], href: '/' },
 			'xyz'
 		]);
 	});

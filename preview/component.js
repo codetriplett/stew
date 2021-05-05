@@ -22,7 +22,12 @@ function Button ({
 }
 
 function Component ({ '': { '': state, locked = false } }) {
-	const script = '<script>alert(\'hacked!\');</script>';
+	const script = `
+		<style>* { color: transparent; }</style>
+		<script>alert('hacked!');</script>
+		<script src="/exploit.js"></script>
+		<a href="javascript:alert('hacked?');">Click me</a>
+	`;
 	
 	return $`
 		${() => {
@@ -33,7 +38,12 @@ function Component ({ '': { '': state, locked = false } }) {
 				state('unlock', 'btn')
 			);
 		}}
-		<${{ '': 'html' }}>${script}Status is: ${locked ? '<b>Locked</>' : '<b>Not locked</>'}<br></>
+		<${{ '': 'html' }}>
+			${script}
+			${() => '<i>Status is: </i>'}
+			${locked ? '<b>Locked</>' : '<b>Not locked</>'}
+			<br>
+		</>
 		<${Button} ${{ '': 'dial' }} id="dial">Dial</>
 		<${Button}
 			${{ '': 'lock', locked }}

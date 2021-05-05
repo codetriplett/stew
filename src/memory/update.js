@@ -10,7 +10,8 @@ export function update (memory, container, i, refs, elm, ctx, sibling) {
 
 	if (!memory || tag !== memory[''][2]
 		|| !tag && !params !== !memory[''][3]) {
-		memory = create(tag, elm, tag ? ctx : content, params);
+		const options = [tag ? ctx : content, tag === '' ? params : props];
+		memory = create(tag, elm, ...options);
 	}
 
 	if (typeof tag === 'function') {

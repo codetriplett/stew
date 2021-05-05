@@ -8,21 +8,22 @@ export const singletons = [
 
 export function scribe (outline, sibling) {
 	if (Array.isArray(outline)) {
-		outline = { '': [outline] };
+		outline = { '': [outline,, ''] };
 	} else if (!outline && outline !== 0 || outline === true
 		|| typeof outline === 'function') {
 		return '';
-	} else if (typeof outline === 'object' && outline[''][2] === undefined) {
-		outline = outline[''][0];
+	} else if (typeof outline !== 'object') {
+		outline = { '': [String(outline)] };
 	}
 
-	if (typeof outline !== 'object') {
-		let value = escape(outline);
+	let { '': [content,, tag, params] = [], ...props } = outline;
+
+	if (tag === undefined) {
+		let value = escape(content);
 		if (sibling && !sibling.startsWith('<')) value += '<!-- -->';
 		return value;
 	}
 
-	let { '': [content,, tag, params], ...props } = outline;
 	const tags = [];
 	let children = [];
 	if (tag) sibling = undefined;
@@ -41,7 +42,8 @@ export function scribe (outline, sibling) {
 				value = Object.entries(value).map(([name, value]) => {
 					if (!/^[a-zA-Z0-9-_.]+$/.test(name)) return '';
 					name = name.replace(/[A-Z]/g, x => `-${x.toLowerCase()}`);
-					return `${name}:${escape(value)};`;
+					value = escape(value);
+					return value && `${name}:${value};`;
 				}).join('');
 			} else if (name.startsWith('on')) {
 				value = 'javascript:void(0);';
@@ -64,9 +66,8 @@ export function scribe (outline, sibling) {
 		else tags.push(`</${tag}>`);
 	} else if (tag === '' && params) {
 		content = params.map(it => {
-			if (typeof it === 'function') return it();
-			else if (typeof it !== 'string') return it;
-			return parse(it);
+			if (typeof it === 'function') it = it();
+			return typeof it === 'string' ? parse(it) : it;
 		});
 	}
 

@@ -32,7 +32,7 @@ describe('update', () => {
 		it('creates ctx', () => {
 			const actual = update(ctx);
 
-			expect(create).toHaveBeenCalledWith(callback, undefined, undefined, undefined);
+			expect(create).toHaveBeenCalledWith(callback, undefined, undefined, { key: 'prop' });
 			expect(transform).toHaveBeenCalledWith(memory, { key: 'prop' }, ['child']);
 
 			expect(reconcile.mock.calls).toEqual([
@@ -45,7 +45,7 @@ describe('update', () => {
 		it('creates elm', () => {
 			const actual = update(elm);
 
-			expect(create).toHaveBeenCalledWith('div', undefined, undefined, undefined);
+			expect(create).toHaveBeenCalledWith('div', undefined, undefined, { key: 'prop' });
 			expect(modify).toHaveBeenCalledWith(memory, { key: 'prop' }, ['child']);
 
 			expect(reconcile.mock.calls).toEqual([
@@ -58,7 +58,7 @@ describe('update', () => {
 		it('creates txt', () => {
 			const actual = update(txt);
 
-			expect(create).toHaveBeenCalledWith(undefined, undefined, 'text', undefined);
+			expect(create).toHaveBeenCalledWith(undefined, undefined, 'text', {});
 			expect(modify).toHaveBeenCalledWith(memory, {}, 'text');
 			expect(reconcile).not.toHaveBeenCalled();
 			expect(actual).toEqual(memory);

@@ -15,7 +15,7 @@ describe('create', () => {
 			callback.mockReturnValue(1);
 			elm = { '': [[], 'container'] };
 			ctx = { '': [[], { '': { '': callback } }] };
-			memory = create(tag, elm, ctx);
+			memory = create(tag, elm, ctx, {});
 			[, refs] = (memory || {})[''] || [];
 			state = (refs || {})[''];
 		});
@@ -82,7 +82,7 @@ describe('create', () => {
 
 	describe('elm', () => {
 		it('creates new node', () => {
-			const actual = create('div', { '': [] });
+			const actual = create('div', { '': [] }, {});
 			const div = document.createElement('div');
 			expect(actual).toEqual({ '': [[], div, 'div', undefined] });
 		});
@@ -92,17 +92,27 @@ describe('create', () => {
 			const img = document.createElement('img');
 			div.appendChild(img);
 			const nodes = [div];
-			const actual = create('div', { '': [,,, nodes] });
+			const actual = create('div', { '': [,,, nodes] }, {}, { class: 'wrapper' });
 	
 			expect(nodes).toHaveLength(0);
-			expect(actual).toEqual({ '': [[], div, 'div', [img]] });
+			expect(actual).toEqual({ '': [[], div, 'div', [img]], class: 'wrapper' });
 			expect(actual[''][1]).toBe(div);
+		});
+	
+		it('does not preload listeners when hydrating', () => {
+			const a = document.createElement('a');
+			const nodes = [a];
+			const actual = create('a', { '': [,,, nodes] }, {}, { onclick: () => {} });
+	
+			expect(nodes).toHaveLength(0);
+			expect(actual).toEqual({ '': [[], a, 'a', []] });
+			expect(actual[''][1]).toBe(a);
 		});
 	});
 
 	describe('txt', () => {
 		it('creates new text', () => {
-			const actual = create(undefined, { '': [] }, 'abc');
+			const actual = create(undefined, { '': [] }, 'abc', {});
 			const text = document.createTextNode('abc');
 			expect(actual).toEqual({ '': ['abc', text,,,] });
 		});
@@ -110,7 +120,7 @@ describe('create', () => {
 		it('hydrates existing text', () => {
 			const text = document.createTextNode('abc');
 			const nodes = [text];
-			const actual = create(undefined, { '': [,,, nodes] }, 'abc');
+			const actual = create(undefined, { '': [,,, nodes] }, 'abc', {});
 	
 			expect(nodes).toHaveLength(0);
 			expect(actual).toEqual({ '': ['abc', text,,,] });
@@ -122,6 +132,11 @@ describe('create', () => {
 		it('sets content', () => {
 			const actual = create('', { '': [] }, ['abc']);
 			expect(actual).toEqual({ '': [[],, '',,] });
+		});
+
+		it('sets custom fragment content', () => {
+			const actual = create('', { '': [] }, ['abc'], ['html']);
+			expect(actual).toEqual({ '': [[],, '', []] });
 		});
 	});
 });

@@ -79,12 +79,17 @@ describe('scribe', () => {
 	it('scribes custom fragment', () => {
 		const actual = scribe({
 			'': [[], '', '', [
-				'<b>Key:</>',
-				() => ' Value'
+				() => '<i>Key: </i>',
+				'<b>Value</b>'
 			]]
 		});
 
-		expect(actual).toEqual('<b>Key:</b> Value');
+		expect(actual).toEqual('<i>Key: </i><b>Value</b>');
+	});
+
+	it('ignores objects without core', () => {
+		const actual = scribe({ key: 'value' });
+		expect(actual).toEqual(undefined);
 	});
 
 	it('scribes attributes', () => {
