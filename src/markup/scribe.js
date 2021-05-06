@@ -1,5 +1,5 @@
+import { normalize } from '../memory';
 import { escape } from './escape';
-import { parse } from './parse';
 
 export const singletons = [
 	'wbr', 'track', 'source', 'param', 'meta', 'link', 'keygen', 'input',
@@ -7,21 +7,14 @@ export const singletons = [
 ];
 
 export function scribe (outline, sibling) {
-	if (Array.isArray(outline)) {
-		outline = { '': [outline,, ''] };
-	} else if (!outline && outline !== 0 || outline === true
-		|| typeof outline === 'function') {
-		return '';
-	} else if (typeof outline !== 'object') {
-		outline = { '': [String(outline)] };
-	}
-
 	let { '': [content,, tag, params] = [], ...props } = outline;
 
-	if (tag === undefined) {
-		let value = escape(content);
-		if (sibling && !sibling.startsWith('<')) value += '<!-- -->';
-		return value;
+	if (!content) {
+		return '';
+	} else if (tag === undefined) {
+		content = escape(content);
+		if (sibling && !sibling.startsWith('<')) content += '<!-- -->';
+		return content;
 	}
 
 	const tags = [];
@@ -64,19 +57,19 @@ export function scribe (outline, sibling) {
 		tags.push(`<${tag}${attr}>`);
 		if (~singletons.indexOf(tag)) content = [];
 		else tags.push(`</${tag}>`);
-	} else if (tag === '' && params) {
-		content = params.map(it => {
-			if (typeof it === 'function') it = it();
-			return typeof it === 'string' ? parse(it) : it;
-		});
 	}
 
 	if (tag === 'script' || tag === 'style') {
 		children = content.filter(it => typeof it === 'string');
 	} else {
-		content.reduceRight((sibling, it, i) => {
-			return (children[i] = scribe(it, sibling)) || sibling;
-		}, sibling);
+		const custom = tag === '' && params;
+		if (custom) content = params;
+
+		for (let i = content.length - 1; i >= 0; i--) {
+			const outline = normalize(content[i], custom);
+			const html = outline && scribe(outline, sibling);
+			if (html) sibling = children[i] = html;
+		}
 	}
 
 	tags.splice(tags.length && 1, 0, ...children);

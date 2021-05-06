@@ -1,5 +1,4 @@
-import { parse } from '../markup';
-import { update } from '../memory';
+import { normalize, update } from '../memory';
 import { forget } from './forget';
 import { locate } from './locate';
 
@@ -17,49 +16,26 @@ export function reconcile (memory, content, elm, ctx, sibling) {
 
 	for (let i = content.length - 1; i >= 0; i--) {
 		const backup = prev[i];
-		let it = content[i];
+		let it = normalize(content[i], custom, i, backup, items && props);
 
-		if (typeof it === 'function') {
-			it = items || custom ? it({ ...props, '': backup }) : it();
-			const teardown = typeof it === 'function';
-
-			if (!custom || teardown) {
-				prev[i] = teardown ? it : undefined;
-				continue;
-			}
-		}
-
-		if (!it && it !== 0 || it === true) {
-			prev[i] = undefined;
-			continue;
-		} else if (it instanceof Element || it instanceof Text) {
-			it = prev[i] = it === backup[''][1] ? backup : { '': [, it] };
-		} else {
-			if (custom && typeof it === 'string') {
-				it = it === params[i] ? backup : parse(it);
-			}
-
-			if (Array.isArray(it)) {
-				it = { '': [it,, ''] };
-			} else if (typeof it !== 'object') {
-				it = { '': [it] };
-			} else if (!Array.isArray(it[''])) {
-				prev[i] = undefined;
-				continue;
-			}
-
+		if (it instanceof Element || it instanceof Text) {
+			const { '': [, node] = [] } = backup || {};
+			it = it === node ? backup : { '': [, it] };
+		} else if (typeof it === 'object' && Array.isArray(it[''])) {
 			const { '': [, key] } = it;
-			it = prev[i] = update(it, memory, i, refs, elm, ctx, sibling);
+			it = update(it, memory, i, refs, elm, ctx, sibling);
 			if (key) ctx[''][1][key] = it;
 		}
 
-		let { '': [fragment, node, tag] } = it;
+		prev[i] = it;
+		if (typeof it !== 'object') continue;
+		let { '': [fragment, node, tag] = [] } = it;
 
-		if (fragment === '') {
-			continue;
-		} else if (typeof tag === 'function' || tag === '') {
+		if (typeof tag === 'function' || tag === '') {
 			node = locate(fragment);
 			if (tag === '') it[''][1] = node;
+		} else if (fragment === '' || !node) {
+			continue;
 		} else if (!nodes && it !== backup) {
 			if (sibling) container.insertBefore(node, sibling);
 			else container.appendChild(node);

@@ -1,4 +1,5 @@
-import { update } from '../memory';
+import { update, normalize } from '../memory';
+import { normalize as mockNormalize } from '../memory/normalize';
 import { forget } from './forget';
 import { locate } from './locate';
 import { reconcile } from './reconcile';
@@ -18,6 +19,7 @@ describe('reconcile', () => {
 
 	beforeEach(() => {
 		jest.clearAllMocks();
+		normalize.mockImplementation((...params) => mockNormalize(...params));
 		container = { appendChild, insertBefore };
 		elm = { '': [[], container] };
 		memory = { '': [[], {}] };
@@ -132,7 +134,7 @@ describe('reconcile', () => {
 		reconcile(memory, [
 			undefined,
 			contextOutline,
-			string,
+			'',
 			undefined,
 			elementOutline
 		], elm, ctx);
@@ -152,7 +154,7 @@ describe('reconcile', () => {
 		expect(memory[''][0]).toEqual([
 			undefined,
 			contextMemory,
-			stringMemory,
+			undefined,
 			undefined,
 			elementMemory
 		]);

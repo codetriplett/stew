@@ -22,20 +22,20 @@ describe('scribe', () => {
 		expect(actual).toEqual('<div></div>');
 	});
 
-	it('ignores effect functions', () => {
-		const actual = scribe(() => {});
+	it('ignores empty string', () => {
+		const actual = scribe({ '': [''] });
 		expect(actual).toEqual('');
 	});
 
-	it('ignores empty value', () => {
-		const actual = scribe(undefined);
+	it('ignores outlines without content', () => {
+		const actual = scribe({ '': [] });
 		expect(actual).toEqual('');
 	});
 
 	it('scribes content', () => {
-		const content = ['(', [img], ')'];
+		const content = ['abc', [img], 'xyz'];
 		const actual = scribe({ '': [content, '', 'div'] });
-		expect(actual).toEqual('<div>(<img>)</div>');
+		expect(actual).toEqual('<div>abc<img>xyz</div>');
 	});
 
 	it('scribes script', () => {
@@ -56,24 +56,34 @@ describe('scribe', () => {
 		expect(actual).toEqual('abc<img>abc');
 	});
 
-	it('scribes text', () => {
-		const actual = scribe('abc');
-		expect(actual).toEqual('abc');
-	});
-
 	it('scribes text outline', () => {
 		const actual = scribe({ '': ['abc'] });
 		expect(actual).toEqual('abc');
 	});
 
-	it('scribes fragment', () => {
-		const actual = scribe(['(', img, ')']);
-		expect(actual).toEqual('(<img>)');
-	});
-
 	it('scribes fragment outline', () => {
 		const actual = scribe({ '': [['(', img, ')'], '', ''] });
 		expect(actual).toEqual('(<img>)');
+	});
+
+	it('ignores effect functions', () => {
+		const actual = scribe({ '': [[() => {}],, ''] });
+		expect(actual).toEqual('');
+	});
+
+	it('scribes text', () => {
+		const actual = scribe({ '': [['abc'],, ''] });
+		expect(actual).toEqual('abc');
+	});
+
+	it('scribes fragment', () => {
+		const actual = scribe({ '': [[['(', img, ')']],, ''] });
+		expect(actual).toEqual('(<img>)');
+	});
+
+	it('ignores objects without core', () => {
+		const actual = scribe({ '': [[{ key: 'value' }],, ''] });
+		expect(actual).toEqual('');
 	});
 
 	it('scribes custom fragment', () => {
@@ -85,11 +95,6 @@ describe('scribe', () => {
 		});
 
 		expect(actual).toEqual('<i>Key: </i><b>Value</b>');
-	});
-
-	it('ignores objects without core', () => {
-		const actual = scribe({ key: 'value' });
-		expect(actual).toEqual(undefined);
 	});
 
 	it('scribes attributes', () => {
@@ -121,7 +126,7 @@ describe('scribe', () => {
 
 	describe('comments', () => {
 		it('inserts comment between text nodes', () => {
-			const actual = scribe('abc', 'xyz');
+			const actual = scribe({ '': ['abc'] }, 'xyz');
 			expect(actual).toEqual('abc<!-- -->');
 		});
 

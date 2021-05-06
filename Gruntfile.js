@@ -71,6 +71,7 @@ module.exports = function (grunt) {
 			'./src/memory/compare.js',
 			'./src/memory/create.js',
 			'./src/memory/modify.js',
+			'./src/memory/normalize.js',
 			'./src/memory/transform.js',
 			'./src/memory/update.js',
 			'./src/index.js'
