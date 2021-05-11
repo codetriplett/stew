@@ -21,10 +21,11 @@ export function update (memory, container, i, refs, elm, ctx, sibling) {
 		sibling = modify(memory, props, content);
 		elm = memory;
 
-		if (tag === 'script' || tag === 'style') {
+		if (tag === 'script' || tag === 'style' || tag === 'textarea') {
 			const { '': core } = memory;
+			const key = tag === 'textarea' ? 'value' : 'innerText';
 			content = content.filter(it => typeof it === 'string').join('');
-			if (content !== core[0]) core[0] = core[1].innerText = content;
+			if (content !== core[0]) core[0] = core[1][key] = content;
 		}
 	} else if (params) {
 		content = params;

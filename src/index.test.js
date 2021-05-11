@@ -57,6 +57,22 @@ describe('stew', () => {
 		const refs = { '': { '': expect.any(Function) } };
 		const elm = { '': [[],,, [div]] };
 		const ctx = { '': [[], refs, expect.any(Function)] };
+		const actual = stew(div, 'first', 'second');
+
+		expect(update).toHaveBeenCalledWith({
+			'': [['first', 'second'], undefined, 'div']
+		}, elm, 0, refs, elm, ctx);
+
+		expect(actual).toBe(div);
+	});
+
+	it('populates html', () => {
+		const div = document.createElement('div');
+		const img = document.createElement('img');
+		div.appendChild(img);
+		const refs = { '': { '': expect.any(Function) } };
+		const elm = { '': [[],,, div] };
+		const ctx = { '': [[], refs, expect.any(Function)] };
 		const actual = stew({ '': div, key: 'value' }, 'first', 'second');
 
 		expect(update).toHaveBeenCalledWith({
@@ -64,6 +80,6 @@ describe('stew', () => {
 			key: 'value'
 		}, elm, 0, refs, elm, ctx);
 
-		expect(actual).toBe(updateValue);
+		expect(actual).toBe(div);
 	});
 });

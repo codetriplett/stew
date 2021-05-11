@@ -1,5 +1,7 @@
 import { locate, trigger } from '../manage';
 
+const registry = new WeakMap();
+
 export function create (tag, elm, ctx, params) {
 	let content = tag === undefined ? ctx : [], props = {}, memory, ref, nodes;
 
@@ -31,7 +33,23 @@ export function create (tag, elm, ctx, params) {
 	} else if (tag !== '') {
 		const { '': [,,, dom = []] = [] } = elm || {};
 
-		if (dom.length && (tag || dom[dom.length - 1] instanceof Text)) {
+		if (!Array.isArray(dom)) {
+			for (const { name, value } of dom.attributes) {
+				if (Object.prototype.hasOwnProperty.call(params, name)) {
+					props[name] = value === '' ? true : value;
+				}
+			}
+
+			ref = dom;
+			params = {};
+
+			if (registry.has(ref)) {
+				content = registry.get(ref);
+			} else {
+				registry.set(ref, content);
+				ref.innerHTML = '';
+			}
+		} else if (dom.length && (tag || dom[dom.length - 1] instanceof Text)) {
 			ref = dom.pop();
 			
 			if (ref instanceof Element) {

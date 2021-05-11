@@ -34,7 +34,7 @@ export function reconcile (memory, content, elm, ctx, sibling) {
 		if (typeof tag === 'function' || tag === '') {
 			node = locate(fragment);
 			if (tag === '') it[''][1] = node;
-		} else if (fragment === '' || !node) {
+		} else if (!tag && fragment === '' || !node) {
 			continue;
 		} else if (!nodes && it !== backup) {
 			if (sibling) container.insertBefore(node, sibling);
