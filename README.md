@@ -167,9 +167,14 @@ Calling the stew function without a tag parameter will set up a root element. Ou
 // div is the default tag if one isn't provided
 $({ '': 'div', ...props }, ...children)
 
-// render Element
-// locate an existing node or create a new one to pass in as '' key
+// hydrate Element
+// the node should be the same root node you created during the server-side render
 const node = document.querySelector(selector)
+$(node, ...children)
+
+// populate Element
+// updates the attributes and children of any existing or new element
+const node = document.createElement('div')
 $({ '': node, ...props }, ...children)
 ```
 
