@@ -31,7 +31,10 @@ export function update (memory, container, i, refs, elm, ctx, sibling) {
 		content = params;
 	}
 
-	if (Array.isArray(content)) reconcile(memory, content, elm, ctx, sibling);
+	if (Array.isArray(content)) {
+		reconcile(memory, content, refs, elm, ctx, sibling);
+	}
+
 	Object.assign(memory, props);
 	return memory;
 }

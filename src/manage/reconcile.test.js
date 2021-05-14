@@ -15,7 +15,7 @@ describe('reconcile', () => {
 
 	let container, memory, state, elm, ctx, string, array, element, text, other,
 		elementOutline, contextOutline, stringMemory, arrayMemory, elementMemory,
-		contextMemory;
+		contextMemory, refs;
 
 	beforeEach(() => {
 		jest.clearAllMocks();
@@ -36,6 +36,7 @@ describe('reconcile', () => {
 		arrayMemory = { '': [[teardown, { '': [[], other] }],, ''] };
 		elementMemory = { '': [[], element, 'div'] };
 		contextMemory = { '': [[], {}, () => {}] };
+		refs = {};
 
 		update.mockImplementation(child => {
 			switch (child) {
@@ -64,7 +65,7 @@ describe('reconcile', () => {
 			undefined,
 			array,
 			elementOutline,
-		], elm, ctx);
+		], refs, elm, ctx);
 
 		expect(effect).toHaveBeenCalledWith({ key: 'ctx value', '': undefined });
 		expect(forget).not.toHaveBeenCalled();
@@ -102,7 +103,7 @@ describe('reconcile', () => {
 			undefined,
 			array,
 			elementOutline
-		], elm, ctx);
+		], refs, elm, ctx);
 
 		expect(forget).not.toHaveBeenCalled();
 		expect(appendChild).not.toHaveBeenCalled();
@@ -137,7 +138,7 @@ describe('reconcile', () => {
 			'',
 			undefined,
 			elementOutline
-		], elm, ctx);
+		], refs, elm, ctx);
 
 		expect(forget.mock.calls).toEqual([
 			[oldStringMemory, elm],

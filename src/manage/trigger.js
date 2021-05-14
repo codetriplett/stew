@@ -5,7 +5,7 @@ import { reconcile } from './reconcile';
 export const queue = [];
 
 export function trigger (memory, elm) {
-	const { '': [, { '': { '': callback } }] } = memory;
+	const { '': [, { '': { '': callback }, ...refs }] } = memory;
 	const depth = callback();
 	let map = queue[depth];
 
@@ -28,6 +28,6 @@ export function trigger (memory, elm) {
 		const index = children.indexOf(memory);
 		const sibling = ~index ? locate(children.slice(index + 1)) : undefined;
 
-		reconcile(memory, content, elm, memory, sibling);
+		reconcile(memory, content, refs, elm, memory, sibling);
 	});
 }

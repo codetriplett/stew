@@ -39,15 +39,36 @@ describe('scribe', () => {
 	});
 
 	it('scribes script', () => {
-		const content = ['var tag = \'<script>\';'];
+		const content = [
+			'var open = \'<script>\';',
+			{ '': [['content'],, 'p'] },
+			'var close = \'</script>\';'
+		];
+
 		const actual = scribe({ '': [content, '', 'script'] });
-		expect(actual).toEqual('<script>var tag = \'<script>\';</script>');
+		expect(actual).toEqual('<script>var open = \'<script>\';var close = \'</script>\';</script>');
 	});
 
 	it('scribes style', () => {
-		const content = ['div { color: red; }', 'span { color: blue; }'];
+		const content = [
+			'div { color: red; }',
+			{ '': [['content'],, 'p'] },
+			'span { color: blue; }'
+		];
+
 		const actual = scribe({ '': [content, '', 'style'] });
 		expect(actual).toEqual('<style>div { color: red; }span { color: blue; }</style>');
+	});
+
+	it('scribes textarea', () => {
+		const content = [
+			'upper content.',
+			{ '': [['content'],, 'p'] },
+			'lower content.'
+		];
+
+		const actual = scribe({ '': [content, '', 'textarea'] });
+		expect(actual).toEqual('<textarea>upper content.lower content.</textarea>');
 	});
 
 	it('scribes component', () => {

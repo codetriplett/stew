@@ -59,7 +59,7 @@ export function scribe (outline, sibling) {
 		else tags.push(`</${tag}>`);
 	}
 
-	if (tag === 'script' || tag === 'style') {
+	if (tag === 'script' || tag === 'style' || tag === 'textarea') {
 		children = content.filter(it => typeof it === 'string');
 	} else {
 		const custom = tag === '' && params;

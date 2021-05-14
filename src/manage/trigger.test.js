@@ -18,7 +18,7 @@ describe('trigger', () => {
 		transform.mockReturnValue(['child']);
 		locate.mockReturnValue('sibling');
 		queue.splice(0);
-		memory = { '': [[], { '': { '': callback } }, ] };
+		memory = { '': [[], { '': { '': callback } }] };
 		elm = { '': [children = [memory, 'second', 'third']] };
 	});
 
@@ -32,7 +32,7 @@ describe('trigger', () => {
 
 		expect(transform).toHaveBeenCalledWith(memory);
 		expect(locate).toHaveBeenCalledWith(['second', 'third']);
-		expect(reconcile).toHaveBeenCalledWith(memory, ['child'], elm, memory, 'sibling');
+		expect(reconcile).toHaveBeenCalledWith(memory, ['child'], {}, elm, memory, 'sibling');
 	});
 
 	it('ignores second time a ctx is triggered', () => {

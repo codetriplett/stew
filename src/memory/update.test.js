@@ -36,7 +36,7 @@ describe('update', () => {
 			expect(transform).toHaveBeenCalledWith(memory, { key: 'prop' }, ['child']);
 
 			expect(reconcile.mock.calls).toEqual([
-				[memory, ['fragment'], undefined, memory, undefined]
+				[memory, ['fragment'], undefined, undefined, memory, undefined]
 			]);
 
 			expect(actual).toEqual(memory);
@@ -49,7 +49,7 @@ describe('update', () => {
 			expect(modify).toHaveBeenCalledWith(memory, { key: 'prop' }, ['child']);
 
 			expect(reconcile.mock.calls).toEqual([
-				[memory, ['child'], memory, undefined, undefined]
+				[memory, ['child'], undefined, memory, undefined, undefined]
 			]);
 
 			expect(actual).toEqual(memory);
@@ -72,7 +72,7 @@ describe('update', () => {
 			expect(modify).not.toHaveBeenCalled();
 
 			expect(reconcile.mock.calls).toEqual([
-				[memory, ['child'], undefined, undefined, undefined]
+				[memory, ['child'], undefined, undefined, undefined, undefined]
 			]);
 
 			expect(actual).toEqual(memory);
@@ -110,7 +110,7 @@ describe('update', () => {
 			expect(create).not.toHaveBeenCalled();
 
 			expect(reconcile.mock.calls).toEqual([
-				[txt, ['new text'], txt, undefined, undefined]
+				[txt, ['new text'], undefined, txt, undefined, undefined]
 			]);
 
 			expect(actual).toBe(txt);
@@ -126,7 +126,7 @@ describe('update', () => {
 			expect(create).not.toHaveBeenCalled();
 
 			expect(reconcile.mock.calls).toEqual([
-				[elm, ['new child'], elm, ctx, undefined]
+				[elm, ['new child'], refs, elm, ctx, undefined]
 			]);
 
 			expect(actual).toBe(elm);
@@ -140,7 +140,7 @@ describe('update', () => {
 			expect(create).toHaveBeenCalledWith('', undefined, ['child'], undefined);
 
 			expect(reconcile.mock.calls).toEqual([
-				[memory, ['child'], undefined, undefined, undefined]
+				[memory, ['child'], undefined, undefined, undefined, undefined]
 			]);
 
 			expect(actual).toBe(memory);

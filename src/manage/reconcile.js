@@ -2,17 +2,22 @@ import { normalize, update } from '../memory';
 import { forget } from './forget';
 import { locate } from './locate';
 
-export function reconcile (memory, content, elm, ctx, sibling) {
+export function reconcile (memory, content, refs, elm, ctx, sibling) {
 	const { '': core } = memory;
 	let [prev = [],, tag, params] = core;
 	const { '': [, container,, nodes] } = elm;
-	const { '': [items, { '': state, ...refs }], ...props } = ctx;
+	let { '': [items, ref], ...props } = ctx;
 	const removals = new Set(prev);
 	const custom = tag === '' && params;
 
 	prev.splice(content.length);
 	removals.delete(undefined);
-	if (memory === ctx) ctx[''][1] = { '': state };
+
+	if (memory === ctx) {
+		const { '': state, ...rest } = ref;
+		ref = ctx[''][1] = { '': state };
+		refs = rest;
+	}
 
 	for (let i = content.length - 1; i >= 0; i--) {
 		const backup = prev[i];
@@ -24,7 +29,7 @@ export function reconcile (memory, content, elm, ctx, sibling) {
 		} else if (typeof it === 'object' && Array.isArray(it[''])) {
 			const { '': [, key] } = it;
 			it = update(it, memory, i, refs, elm, ctx, sibling);
-			if (key) ctx[''][1][key] = it;
+			if (key) ref[key] = it;
 		}
 
 		prev[i] = it;
