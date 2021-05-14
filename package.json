@@ -1,6 +1,6 @@
 {
 	"name": "@triplett/stew",
-	"version": "2.3.0",
+	"version": "2.3.1",
 	"description": "Interactive HTML from a single function.",
 	"author": "triplett",
 	"license": "MIT",
