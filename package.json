@@ -32,11 +32,12 @@
 		"testURL": "http://localhost"
 	},
 	"devDependencies": {
-		"@babel/cli": "7.13.16",
+		"@babel/cli": "^7.12.1",
 		"@babel/core": "7.13.16",
 		"@babel/preset-env": "7.13.15",
 		"@triplett/steward": "^1.0.1",
-		"grunt": "1.3.0",
+		"esbuild": "^0.17.10",
+		"grunt": "^1.6.1",
 		"grunt-babel": "8.0.0",
 		"grunt-cli": "1.4.2",
 		"grunt-contrib-copy": "1.0.0",
