@@ -17,40 +17,42 @@ export function useEffect (callback) {
 	if (teardown) teardowns.push(teardown); 
 }
 
-export default function execute (callback, context, i) {
+export default function execute (callback, context, _refs) {
 	// store or retrieve context
 	if (context) {
-		context = { ...context, hasMounted: false, previousRefs: {}, currentRefs: {} };
+		context = { ...context, refs: _refs };
 		contexts.set(callback, context);
 	} else {
 		context = contexts.get(callback);
+		_refs = context.refs;
 	}
 
 	// set up ties to this callback function
 	if (!context) return;
-	const { state, previousRefs, currentRefs } = context;
+	const { state } = context;
+	const refs = [{}];
 	let template;
-	context.teardowns = [];
+	Object.assign(context, { _refs, refs, teardowns: [] });
 	stack.unshift(callback);
 
 	// safely run callback function
 	try {
-		template = callback(state, currentRefs);
+		template = callback(state, refs[0]);
 	} catch (e) {
 		console.error(e);
 	}
 
 	// resolve template and update nodes
-	context.hasMounted = true;
+	Object.assign(context, { hasMounted: true, _refs: undefined });
 	stack.shift();
-	const node = resolve(template, context, i);
-	const currentSet = new Set(Object.values(currentRefs));
-	const previousSet = new Set(Object.values(previousRefs));
+	const node = resolve(template, context, _refs);
+	const refsSet = new Set(refs.slice(1));
+	const _refsSet = new Set(_refs.slice(1));
 
 	// TODO: work these out after updates are working properly
 	// - hooks are tied to a callback using the stack as the key and are stored in contexts under that key
-	for (const node of currentSet) {
-		if (previousSet.has(node)) {
+	for (const node of refsSet) {
+		if (_refsSet.has(node)) {
 			// trigger update hook
 		} else {
 			// trigger mount hook
@@ -58,8 +60,8 @@ export default function execute (callback, context, i) {
 		}
 	}
 
-	for (const node of previousSet) {
-		if (!currentSet.has(node)) {
+	for (const node of _refsSet) {
+		if (!refsSet.has(node)) {
 			// trigger unmount hook
 		}
 	}

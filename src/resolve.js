@@ -1,16 +1,6 @@
 import execute from './execute';
 import observe from './observe';
 
-function shiftString (array, fallback) {
-	const [first] = array;
-	return typeof first === 'string' ? array.shift() : fallback;
-}
-
-function shiftObject (array, fallback) {
-	const [first] = array;
-	return typeof first === 'object' && !Array.isArray(first) ? array.shift() : fallback;
-}
-
 function populate (children, context) {
 	const fragment = context.document.createDocumentFragment();
 
@@ -34,46 +24,47 @@ currentRef: [{ ...map }, ...childRefs], // nodes only added to map if they have 
 
 // TODO: have functions that return a single node instead of a fragment display their ref maps as if it was returned as a fragment of one
 function prepare (template, context, i) {
-	const children = [...template];
-	const [tag, key] = shiftString(children, '').trim().split(/\s*:\s*/);
-	const { document, previousRefs, currentRefs } = context;
-	let node = key === undefined ? previousRefs[i + 1] : previousRefs[0][key];
+	const array = [...template];
+	const [tag, key] = (typeof array[0] === 'string' ? array.shift() : '').trim().split(/\s*:\s*/);
+	const object = typeof array[0] === 'object' && !Array.isArray(array[0]) ? array.shift() : undefined;
+	const { document, _refs, refs } = context;
+	let node = key === undefined ? _refs[i + 1] : _refs[0][key];
 
 	if (tag === '') {
 		// generate fragment with optional new state
-		const object = shiftObject(children);
-		context = { ...context, previousRefs: node || {}, currentRefs: [{}] };
+		context = { ...context, _refs: node || {}, refs: [{}] };
 		if (object) context.state = observe(object);
-		const fragment = populate(children, context);
+		const fragment = populate(array, context);
 
 		if (key !== undefined) {
-			currentRefs[0][key] = context.currentRefs[0];
+			refs[0][key] = context.refs[0];
 		}
 
 		return fragment;
 	}
 
 	// generate element
-	const attributes = shiftObject(children, {});
-	const fragment = populate(children, context);
+	const fragment = populate(array, context);
 	if (!node) node = document.createElement(tag);
 
-	for (const [name, value] of Object.entries(attributes)) {
-		node[name] = value;
+	if (object) {
+		for (const [name, value] of Object.entries(object)) {
+			node[name] = value;
+		}
 	}
 
 	node.appendChild(fragment);
-	currentRefs[key] = node;
+	refs[key] = node;
 	return node;
 }
 
-export default function resolve (template, context, i) {
+export default function resolve (template, context, refs) {
 	if (!template && template !== 0 || template === true) {
 		// empty node
 		return;
 	} else if (typeof template === 'function') {
 		// dynamic node
-		return execute(template, context, i);
+		return execute(template, context, refs);
 	} else if (typeof template !== 'object') {
 		// text node
 		const text = String(template);
@@ -84,5 +75,5 @@ export default function resolve (template, context, i) {
 	}
 
 	// element node
-	return prepare(template, context, i);
+	return prepare(template, context, refs);
 }

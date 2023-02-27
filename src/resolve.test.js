@@ -33,7 +33,7 @@ describe('resolve', () => {
 		};
 
 		state = {};
-		context = { document, state, previousRefs: [{}], currentRefs: [{}] };
+		context = { document, state, _refs: [{}], refs: [{}] };
 
 		jest.clearAllMocks();
 		execute.mockReturnValue({ tagName: 'div' });
@@ -91,7 +91,7 @@ describe('resolve', () => {
 	it('resolves fragment node', () => {
 		const object = { key: 'value' };
 		const template = ['', object, 'xyz'];
-		context = { document, state, previousRefs: [{}], currentRefs: [{}] };
+		context = { document, state, _refs: [{}], refs: [{}] };
 		const actual = resolve(template, context, 0);
 		expect(actual).toMatchObject({ childNodes: [{ nodeValue: 'xyz' }] });
 		expect(observe).toHaveBeenCalledWith(object);
