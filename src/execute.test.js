@@ -13,7 +13,7 @@ describe('execute', () => {
 		template = ['div'];
 		node = {};
 
-		contexts.set(callback, { document, state, refs: [{}] });
+		contexts.set(callback, { document, state, ref: [node, {}] });
 		stack.splice(0);
 		
 		jest.clearAllMocks();
@@ -22,12 +22,12 @@ describe('execute', () => {
 	});
 
 	it('executes the first time', () => {
-		const refs = [{}];
-		const actual = execute(callback, { document, state, refs }, refs);
-		const context = { document, state, hasMounted: true, refs: [{}], teardowns: [] };
+		const containerRef = [{}, {}];
+		const actual = execute(callback, { document, state }, containerRef, 0);
+		const context = { document, state, teardowns: [] };
 		
-		expect(callback).toHaveBeenCalledWith(state, {});
-		expect(resolve).toHaveBeenCalledWith(template, context, [{}]);
+		expect(callback).toHaveBeenCalledWith(state, undefined);
+		expect(resolve).toHaveBeenCalledWith(template, context, undefined);
 
 		expect(contexts.get(callback)).toEqual(context);
 		expect(stack).toEqual([]);
@@ -35,12 +35,12 @@ describe('execute', () => {
 	});
 
 	it('executes a second time', () => {
-		const refs = [{}, node];
-		const actual = execute(callback, { document, state, refs }, refs);
-		const context = { document, state, hasMounted: true, refs: [{}], teardowns: [] };
+		const containerRef = [{}, {}, [node, {}]];
+		const actual = execute(callback, { document, state }, containerRef, 0);
+		const context = { document, state, ref: [node, {}], teardowns: [] };
 		
-		expect(callback).toHaveBeenCalledWith(state, {});
-		expect(resolve).toHaveBeenCalledWith(template, context, [{}, node]);
+		expect(callback).toHaveBeenCalledWith(state, [node, {}]);
+		expect(resolve).toHaveBeenCalledWith(template, context, [node, {}]);
 
 		expect(contexts.get(callback)).toEqual(context);
 		expect(stack).toEqual([]);
@@ -49,11 +49,10 @@ describe('execute', () => {
 
 	it('executes a reaction', () => {
 		const actual = execute(callback);
-		const refs = [{}];
-		const context = { document, state, hasMounted: true, refs, teardowns: [] };
+		const context = { document, state, ref: [node, {}], teardowns: [] };
 
-		expect(callback).toHaveBeenCalledWith(state, {});
-		expect(resolve).toHaveBeenCalledWith(template, context, refs);
+		expect(callback).toHaveBeenCalledWith(state, [node, {}]);
+		expect(resolve).toHaveBeenCalledWith(template, context, [node, {}]);
 
 		expect(stack).toEqual([]);
 		expect(actual).toEqual(node);

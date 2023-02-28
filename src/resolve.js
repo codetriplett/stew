@@ -1,17 +1,30 @@
 import execute from './execute';
 import observe from './observe';
 
-function populate (children, context) {
+function populate (children, context, containerRef) {
 	const fragment = context.document.createDocumentFragment();
 
 	for (const [i, template] of children.entries()) {
-		const child = resolve(template, context, i);
+		const child = resolve(template, context, containerRef, i);
 		if (!child && child !== 0) continue;
 		fragment.appendChild(child);
 	}
 
 	return fragment;
 }
+
+// figure out hydration in a way that can be repurposed for state changes
+// - each template is tied to an existing node based on index
+// - node is replaced with a new one if the tag name is incompatible
+// - fragment nodes are stored by key under parent for later passes
+// - key will be preferred to index on later passes
+
+// 1) if node exists that matches key, use that one
+// 2) else if node exists that matches index and tag, use that one
+// 3) else create new node (and useEffect as mount, with no prev state object)
+// 4) tear down any unclaimed nodes
+
+
 
 /*
 currentRef: [{ ...map }, ...childRefs], // nodes only added to map if they have a key
@@ -23,48 +36,49 @@ currentRef: [{ ...map }, ...childRefs], // nodes only added to map if they have 
 */
 
 // TODO: have functions that return a single node instead of a fragment display their ref maps as if it was returned as a fragment of one
-function prepare (template, context, i) {
-	const array = [...template];
-	const [tag, key] = (typeof array[0] === 'string' ? array.shift() : '').trim().split(/\s*:\s*/);
-	const object = typeof array[0] === 'object' && !Array.isArray(array[0]) ? array.shift() : undefined;
-	const { document, _refs, refs } = context;
-	let node = key === undefined ? _refs[i + 1] : _refs[0][key];
+function prepare (template, context, containerRef, i) {
+	// read template values
+	const arr = [...template];
+	const hasString = typeof arr[0] === 'string';
+	const [tag, key] = (hasString ? arr.shift() : '').trim().split(/\s*:\s*/);
+	const hasObject = typeof arr[0] === 'object' && !Array.isArray(arr[0]);
+	const obj = hasObject ? arr.shift() : undefined;
+	const [, keyedRefs, ...indexedRefs] = containerRef;
+	const nodeRef = keyedRefs[key] || indexedRefs[i] || [, {}];
+	let [node] = nodeRef;
 
-	if (tag === '') {
-		// generate fragment with optional new state
-		context = { ...context, _refs: node || {}, refs: [{}] };
-		if (object) context.state = observe(object);
-		const fragment = populate(array, context);
-
-		if (key !== undefined) {
-			refs[0][key] = context.refs[0];
-		}
-
-		return fragment;
+	if (tag !== '' && !node) {
+		// create new element
+		node = context.document.createElement(tag);
 	}
 
-	// generate element
-	const fragment = populate(array, context);
-	if (!node) node = document.createElement(tag);
-
-	if (object) {
-		for (const [name, value] of Object.entries(object)) {
+	if (obj) {
+		if (tag === '') {
+			// create new state and context if it has keys
+			const state = observe(obj);
+			if (state) context = { ...context, state };
+		} else for (const [name, value] of Object.entries(obj)) {
+			// add property to node
 			node[name] = value;
 		}
 	}
 
-	node.appendChild(fragment);
-	refs[key] = node;
-	return node;
+	// process fragment and update refs
+	const fragment = populate(arr, context, nodeRef);
+	if (tag === '') node = fragment;
+	else node.appendChild(fragment);
+	if (key !== undefined) keyedRefs[key] = node;
+	return containerRef[i + 2] = nodeRef[0] = node;
 }
 
-export default function resolve (template, context, refs) {
+// ref: [ref,  { ...keyedRefs }, ...indexedRefs]
+export default function resolve (template, context, containerRef, i) {
 	if (!template && template !== 0 || template === true) {
 		// empty node
 		return;
 	} else if (typeof template === 'function') {
 		// dynamic node
-		return execute(template, context, refs);
+		return execute(template, context, containerRef, i);
 	} else if (typeof template !== 'object') {
 		// text node
 		const text = String(template);
@@ -75,5 +89,5 @@ export default function resolve (template, context, refs) {
 	}
 
 	// element node
-	return prepare(template, context, refs);
+	return prepare(template, context, containerRef, i);
 }

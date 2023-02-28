@@ -1,48 +1,65 @@
-const queue = new Set();
+import execute, { relatives, stack } from './execute';
+
+export const queue = new Set();
 let timeout;
 
+function screen (callback) {
+	if (!relatives.has(callback)) return false;
+	const parentCallback = relatives.get(callback);
+	if (queue.has(parentCallback)) return true;
+	return screen(parentCallback);
+}
+
 function schedule (subscriptions) {
-	for (const callback of subscriptions) {
+	// add subscriptions to queue unless they are already covered by parent
+	for (const callback of subscriptions.splice(0)) {
+		const isQueued = queue.has(callback) || screen(callback);
+		if (isQueued) continue;
 		queue.add(callback);
 	}
-	
-	subscriptions.clear();
-	if (timeout !== undefined) return;
 
 	// schedule update after all main thread tasks have finished
-	timeout = setTimeout(() => {
+	timeout = timeout !== undefined ? timeout : setTimeout(() => {
 		for (const callback of queue) {
 			execute(callback);
 		}
 
 		queue.clear();
+		timeout = undefined;
 	}, 0);
 }
 
+// TODO: don't set up state if document doesn't allow setState
+// - eventually build will make it so this lives in the scope of the root function instead of document needing to be passed all around
+// - having each document resolution context in its own instance will help with future optimizations too
 export default function observe (object) {
-	const state = { ...object};
+	const entries = Object.entries(object);
+	if (entries.length === 0) return;
+	const state = {};
 
 	// set up subscribe/dispatch pattern on properties
-	for (const [name, value] of Object.entries(object)) {
-		const subscriptions = new Set();
+	for (let [name, value] of entries) {
+		const subscriptions = [];
 
 		// bind context
 		if (typeof value === 'function') {
-			state[name] = value.bind(object);
+			// TODO: check if this is needed now that value is read from value
+			// - probably is since values context is object instead of state
+			value = value.bind(state);
 		}
 
 		// subscribe on get and dispatch on set
-		Object.defineProperty(object, name, {
+		Object.defineProperty(state, name, {
 			get () {
-				subscriptions.add(stack[0]);
-				return state[name];
+				subscriptions.push(stack[0]);
+				return value;
 			},
-			set (value) {
-				state[name] = value;
+			set (newValue) {
+				value = newValue;
 				schedule(subscriptions);
 			}
 		});
 	}
 
-	return object;
+	return state;
 }

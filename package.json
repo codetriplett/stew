@@ -7,8 +7,8 @@
 	"main": "dist/stew.min.js",
 	"scripts": {
 		"test": "jest --watch",
-		"build": "rimraf dist && grunt",
-		"start": "npm run build & node preview/server.js"
+		"build": "rimraf dist && esbuild src/index.js --outfile=dist/stew.min.js --bundle --minify",
+		"start": "node preview/server.js"
 	},
 	"keywords": [
 		"state",
@@ -29,7 +29,10 @@
 	},
 	"homepage": "https://github.com/codetriplett/stew#readme",
 	"jest": {
-		"testURL": "http://localhost"
+		"testURL": "http://localhost",
+		"setupFilesAfterEnv": [
+			"./setupTests.js"
+		]
 	},
 	"devDependencies": {
 		"@babel/cli": "^7.12.1",
@@ -43,6 +46,7 @@
 		"grunt-contrib-copy": "1.0.0",
 		"grunt-contrib-uglify": "5.0.1",
 		"jest": "26.6.3",
+		"regenerator-runtime": "^0.13.11",
 		"rimraf": "3.0.2"
 	}
 }
