@@ -1,13 +1,13 @@
-import execute, { relatives, stack } from './execute';
+import execute, { contexts, stack } from './execute';
 
 export const queue = new Set();
 let timeout;
 
 function screen (callback) {
-	if (!relatives.has(callback)) return false;
-	const parentCallback = relatives.get(callback);
-	if (queue.has(parentCallback)) return true;
-	return screen(parentCallback);
+	const { parentCallback } = contexts.get(callback) || {};
+	if (!parentCallback) return false; // root reached with an update found
+	if (queue.has(parentCallback)) return true; // parent callback will update
+	return screen(parentCallback); // check next parent callback
 }
 
 function schedule (subscriptions) {
@@ -33,7 +33,7 @@ function schedule (subscriptions) {
 // - eventually build will make it so this lives in the scope of the root function instead of document needing to be passed all around
 // - having each document resolution context in its own instance will help with future optimizations too
 export default function observe (object) {
-	const entries = Object.entries(object);
+	const entries = !object ? [] : Object.entries(object);
 	if (entries.length === 0) return;
 	const state = {};
 

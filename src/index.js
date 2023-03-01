@@ -43,7 +43,9 @@ export const defaultDocument = {
 
 export default function stew (document = defaultDocument) {
 	return (template, state, node) => {
-		return resolve(template, { document, state }, [node, {}], 0);
+		const context = { document, state };
+		const ref = [node, {}];
+		return resolve(template, context, ref, 0);
 	};
 }
 

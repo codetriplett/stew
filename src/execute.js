@@ -1,7 +1,6 @@
 import resolve from './resolve';
 
 export const contexts = new WeakMap();
-export const relatives = new WeakMap();
 export const stack = [];
 
 // TODO: work these out after updates are working properly
@@ -23,11 +22,13 @@ export function useEffect (callback) {
 export default function execute (callback, context, containerRef, i) {
 	// store or retrieve context
 	if (context) {
-		const ref = containerRef[i + 2];
-		context = { ...context, ref };
+		const ref = containerRef[i + 2] || [, {}];
+		containerRef[i + 2] = ref;
+		context = { ...context, parentCallback: stack[0], ref, i };
 		contexts.set(callback, context);
 	} else {
 		context = contexts.get(callback);
+		({ i } = context);
 	}
 
 	// set up ties to this callback function
@@ -35,7 +36,6 @@ export default function execute (callback, context, containerRef, i) {
 	const { state, ref } = context;
 	let template;
 	context.teardowns = [];
-	relatives.set(callback, stack[0]);
 	stack.unshift(callback);
 
 	// safely run callback function
@@ -47,5 +47,5 @@ export default function execute (callback, context, containerRef, i) {
 
 	// resolve template and update nodes
 	stack.shift();
-	return resolve(template, context, ref);
+	return resolve(template, context, ref, i);
 }

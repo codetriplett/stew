@@ -7,7 +7,8 @@
 	"main": "dist/stew.min.js",
 	"scripts": {
 		"test": "jest --watch",
-		"build": "rimraf dist && esbuild src/index.js --outfile=dist/stew.min.js --bundle --minify",
+		"build": "rimraf dist && esbuild src/index.js --outfile=dist/stew.min.js --outfile=preview/stew.min.js --bundle --minify",
+		"build:watch": "esbuild src/index.js --outfile=preview/stew.min.js --bundle --watch",
 		"start": "node preview/server.js"
 	},
 	"keywords": [

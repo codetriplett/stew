@@ -18,8 +18,12 @@ describe('stew', () => {
 		expect(actual).toEqual(expect.any(Function));
 		const template = ['div', 'Hello Page'];
 		const result = actual(template, state, node);
-		expect(resolve).toHaveBeenCalledWith(template, { document: defaultDocument, state }, [node, {}], 0);
 		expect(result).toEqual(node);
+
+		expect(resolve).toHaveBeenCalledWith(template, {
+			document: defaultDocument,
+			state,
+		}, [node, {}], 0);
 	});
 
 	it('uses custom document', () => {
@@ -28,7 +32,11 @@ describe('stew', () => {
 		expect(actual).toEqual(expect.any(Function));
 		const template = ['div', 'Hello Page'];
 		const result = actual(template, state, node);
-		expect(resolve).toHaveBeenCalledWith(template, { document: customDocument, state }, [node, {}], 0);
 		expect(result).toEqual(node);
+
+		expect(resolve).toHaveBeenCalledWith(template, {
+			document: customDocument,
+			state,
+		}, [node, {}], 0);
 	});
 });

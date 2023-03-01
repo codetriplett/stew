@@ -1,5 +1,5 @@
 import observe, { queue } from './observe';
-import execute, { relatives, stack } from './execute';
+import execute, { contexts, stack } from './execute';
 
 jest.mock('./execute');
 
@@ -10,6 +10,7 @@ describe('observe', () => {
 		jest.clearAllMocks();
 		stack.splice(0);
 		stack.unshift(callback);
+		contexts.set(callback, {});
 	});
 
 	it('reacts to changes to read properties', async () => {
@@ -42,7 +43,7 @@ describe('observe', () => {
 	
 	it('prevents nested executions', async () => {
 		const parentCallback = jest.fn();
-		relatives.set(callback, parentCallback);
+		contexts.get(callback).parentCallback = parentCallback;
 		queue.add(parentCallback);
 		const actual = observe({ str: 'abc' });
 		actual.str;

@@ -68,7 +68,8 @@ function prepare (template, context, containerRef, i) {
 	if (tag === '') node = fragment;
 	else node.appendChild(fragment);
 	if (key !== undefined) keyedRefs[key] = node;
-	return containerRef[i + 2] = nodeRef[0] = node;
+	containerRef[i + 2] = nodeRef;
+	return nodeRef[0] = node;
 }
 
 // ref: [ref,  { ...keyedRefs }, ...indexedRefs]
@@ -82,10 +83,13 @@ export default function resolve (template, context, containerRef, i) {
 	} else if (typeof template !== 'object') {
 		// text node
 		const text = String(template);
-		return context.document.createTextNode(text);
+		let node = containerRef[i + 2];
+		if (node) node.nodeValue = text;
+		else node = context.document.createTextNode(text);
+		return containerRef[i + 2] = node;
 	} else if (!Array.isArray(template)) {
 		// static node
-		return template;
+		return containerRef[i + 2] = template;
 	}
 
 	// element node
