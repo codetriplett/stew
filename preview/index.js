@@ -1,5 +1,6 @@
 function Button ({ action, locked, id }, content) {
 	return [
+		'', null,
 		action ? {} : {
 			number: 0,
 			setNumber (number) {
@@ -21,17 +22,18 @@ function Button ({ action, locked, id }, content) {
 
 function Component () {
 	return [
-		{
+		'', {
 			locked: false,
 			setLocked (locked) {
 				this.locked = locked;
 			}
 		},
-		({ locked }) => ['',
+		({ locked }) => ['', null,
 			['i', 'Status is: '],
 			['b', locked ? 'Locked' : 'Not locked'],
 		],
 		({ setLocked }) => [
+			'', null,
 			Button({ id: 'dial' }, 'Dial'),
 			Button({
 				id: 'lock',

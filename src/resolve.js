@@ -1,17 +1,5 @@
-import execute from './execute';
+import execute, { documents } from './execute';
 import observe from './observe';
-
-function populate (children, context, containerRef) {
-	const fragment = context.document.createDocumentFragment();
-
-	for (const [i, template] of children.entries()) {
-		const child = resolve(template, context, containerRef, i);
-		if (!child && child !== 0) continue;
-		fragment.appendChild(child);
-	}
-
-	return fragment;
-}
 
 // figure out hydration in a way that can be repurposed for state changes
 // - each template is tied to an existing node based on index
@@ -24,8 +12,6 @@ function populate (children, context, containerRef) {
 // 3) else create new node (and useEffect as mount, with no prev state object)
 // 4) tear down any unclaimed nodes
 
-
-
 /*
 currentRef: [{ ...map }, ...childRefs], // nodes only added to map if they have a key
 - map and nodes array is used even if callback only returns a single node
@@ -35,63 +21,121 @@ currentRef: [{ ...map }, ...childRefs], // nodes only added to map if they have 
   - resolve will recursively unwrap fragment arrays, so they would never be a valid ref
 */
 
-// TODO: have functions that return a single node instead of a fragment display their ref maps as if it was returned as a fragment of one
-function prepare (template, context, containerRef, i) {
-	// read template values
-	const arr = [...template];
-	const hasString = typeof arr[0] === 'string';
-	const [tag, key] = (hasString ? arr.shift() : '').trim().split(/\s*:\s*/);
-	const hasObject = typeof arr[0] === 'object' && !Array.isArray(arr[0]);
-	const obj = hasObject ? arr.shift() : undefined;
-	const [, keyedRefs, ...indexedRefs] = containerRef;
-	const nodeRef = keyedRefs[key] || indexedRefs[i] || [, {}];
-	let [node] = nodeRef;
 
-	if (tag !== '' && !node) {
-		// create new element
-		node = context.document.createElement(tag);
+
+
+// TODO: NEW PROCESS FOR HYDRATING AND RENDERING
+// - when nodeRef is a non-array object
+//   - splice out the ref at the given index and use that instead of the keyed ref if one was found
+//   - if template is a non-fragment, create new nodeRef that sets all of its childNodes as separate children
+//   - else, pass containerRef to its children instead of setting up a new one
+// - return nodeRef instead of node and splice it back onto containerRef
+// - this will allow fragments to claim multiple nodes and replace those with a single fragment ref
+
+
+
+// only create new node ref before processing children if node is not a fragment
+// otherwise, set an offset to add to the child indexes
+
+// when hydrating fragment
+// - put all remaining childNodes into 
+function prepare (item, ctx, srcRef, srcIdx, sibling) {
+	// get previous ref
+	let [parentElement, keyedRefs, ...indexedRefs] = srcRef;
+	const isHydrating = parentElement === undefined;
+	let ref = indexedRefs[srcIdx];
+
+	if (!Array.isArray(item)) {
+		// convert to string and claim element if hydrating
+		const nodeValue = String(item);
+		if (isHydrating) indexedRefs.splice(srcIdx, 1);
+
+		if (!ref || !('nodeValue' in ref)) {
+			ref = documents[0].createTextNode(nodeValue);
+		} else if (nodeValue !== ref.nodeValue) {
+			ref.nodeValue = nodeValue;
+		}
+
+		return ref;
+	}
+
+	// read template values
+	const [str, obj, ...arr] = item;
+	const [, tagName, key] = str.match(/^\s*(.*?)\s*(?::(.*?))?$/);
+	const isFragment = tagName === '';
+	let [node] = ref = keyedRefs[key] || ref || [, {}];
+	let proxyRef = ref;
+
+	if (isFragment) {
+		// pull from parent ref while hydrating
+		if (isHydrating) proxyRef = srcRef;
+
+		// create new context
+		node = ctx = { ...ctx, parentElement };
+	} else {
+		// claim element if hydrating
+		if (isHydrating) indexedRefs.splice(srcIdx, 1);
+
+		if (!node || node.tagName.toLowerCase() === tagName.toLowerCase()) {
+			// create new element
+			node = documents[0].createElement(tagName);
+		}
+		
+		// set new reference point for inserting children
+		sibling = node.childNodes[0];
 	}
 
 	if (obj) {
-		if (tag === '') {
+		if (isFragment) {
 			// create new state and context if it has keys
 			const state = observe(obj);
-			if (state) context = { ...context, state };
+			if (state) ctx.state = state;
 		} else for (const [name, value] of Object.entries(obj)) {
+			// TODO: skip setting value if hydrating onto existing node or if attr is for a listener
+			if (node[name] === value) continue;
 			// add property to node
 			node[name] = value;
 		}
 	}
 
-	// process fragment and update refs
-	const fragment = populate(arr, context, nodeRef);
-	if (tag === '') node = fragment;
-	else node.appendChild(fragment);
-	if (key !== undefined) keyedRefs[key] = node;
-	containerRef[i + 2] = nodeRef;
-	return nodeRef[0] = node;
-}
-
-// ref: [ref,  { ...keyedRefs }, ...indexedRefs]
-export default function resolve (template, context, containerRef, i) {
-	if (!template && template !== 0 || template === true) {
-		// empty node
-		return;
-	} else if (typeof template === 'function') {
-		// dynamic node
-		return execute(template, context, containerRef, i);
-	} else if (typeof template !== 'object') {
-		// text node
-		const text = String(template);
-		let node = containerRef[i + 2];
-		if (node) node.nodeValue = text;
-		else node = context.document.createTextNode(text);
-		return containerRef[i + 2] = node;
-	} else if (!Array.isArray(template)) {
-		// static node
-		return containerRef[i + 2] = template;
+	// update children
+	for (const [i, template] of arr.entries()) {
+		const idx = isHydrating ? srcIdx : i;
+		const child = resolve(template, ctx, proxyRef, idx, sibling);
+		if (!child && child !== 0) continue;
+		sibling = child;
 	}
 
-	// element node
-	return prepare(template, context, containerRef, i);
+	// update refs
+	if (key) keyedRefs[key] = ref;
+	if (isHydrating) srcRef.splice(srcIdx, 0, ref);
+	ref[0] = node;
+	return ref;
+}
+
+export default function resolve (item, ctx, srcRef, srcIdx, sibling) {
+	// static node
+	let ref = item;
+
+	if (!item && item !== 0 || item === true) {
+		// empty node
+		ref = undefined;
+	} else if (typeof item === 'function') {
+		// dynamic node
+		ref = execute(item, ctx, srcRef, srcIdx, sibling);
+	} else if (typeof item !== 'object' || Array.isArray(item)) {
+		// element node
+		ref = prepare(item, ctx, srcRef, srcIdx, sibling);
+	}
+
+	const node = Array.isArray(ref) ? ref[0] : ref;
+
+	if (node && ('tagName' in node || 'nodeValue' in node)) {
+		// insert or append non-fragment nodes
+		const { parentElement } = ctx;
+		if (sibling) parentElement.insertBefore(node, sibling);
+		else parentElement.appendChild(node);
+	}
+
+	return srcRef[srcIdx + 2] = ref;
 }

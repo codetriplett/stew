@@ -1,13 +1,14 @@
 import resolve from './resolve';
 
 export const contexts = new WeakMap();
-export const stack = [];
+export const documents = [];
+export const callbacks = [];
 
 // TODO: work these out after updates are working properly
 // - hooks are tied to a callback using the stack as the key and are stored in contexts under that key
 // - populate() needs to check refs against prevRefs of its children to know if mount/update or unmount needs to fire
 export function useEffect (callback) {
-	const [contextCallback] = stack;
+	const [contextCallback] = callbacks;
 	const context = contexts.get(contextCallback);
 	// ignore effect if context doesn't exist or if it has been set to ignore it
 	if (!context || context.document.ignoreHooks?.has?.(useEffect)) return;
@@ -19,12 +20,15 @@ export function useEffect (callback) {
 	if (teardown) teardowns.push(teardown); 
 }
 
-export default function execute (callback, context, containerRef, i) {
+// TODO: see if there is an easy way to update a nodes attributes without causing its children to update
+// - what should happen if state object is updated, would all child callbacks need to update?
+// - maybe only need to execute child callbacks if any props are added or removed or if the ones they are subscribed to have changed when merging them to existing state object
+export default function execute (callback, context, containerRef, i, sibling) {
 	// store or retrieve context
 	if (context) {
 		const ref = containerRef[i + 2] || [, {}];
 		containerRef[i + 2] = ref;
-		context = { ...context, parentCallback: stack[0], ref, i };
+		context = { ...context, parentCallback: callbacks[0], document: documents[0], ref, i };
 		contexts.set(callback, context);
 	} else {
 		context = contexts.get(callback);
@@ -33,19 +37,21 @@ export default function execute (callback, context, containerRef, i) {
 
 	// set up ties to this callback function
 	if (!context) return;
-	const { state, ref } = context;
+	const { document, state, ref } = context;
 	let template;
 	context.teardowns = [];
-	stack.unshift(callback);
+	documents.unshift(document);
+	callbacks.unshift(callback);
 
 	// safely run callback function
 	try {
-		template = callback(state, ref);
+		template = callback(state, ref[1]);
 	} catch (e) {
 		console.error(e);
 	}
 
 	// resolve template and update nodes
-	stack.shift();
-	return resolve(template, context, ref, i);
+	documents.shift();
+	callbacks.shift();
+	return resolve(template, context, ref, i, sibling);
 }

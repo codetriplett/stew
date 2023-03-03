@@ -1,4 +1,4 @@
-import execute, { contexts, stack } from './execute';
+import execute, { contexts, callbacks } from './execute';
 
 export const queue = new Set();
 let timeout;
@@ -33,12 +33,11 @@ function schedule (subscriptions) {
 // - eventually build will make it so this lives in the scope of the root function instead of document needing to be passed all around
 // - having each document resolution context in its own instance will help with future optimizations too
 export default function observe (object) {
-	const entries = !object ? [] : Object.entries(object);
-	if (entries.length === 0) return;
+	if (!object) return;
 	const state = {};
 
 	// set up subscribe/dispatch pattern on properties
-	for (let [name, value] of entries) {
+	for (let [name, value] of Object.entries(object)) {
 		const subscriptions = [];
 
 		// bind context
@@ -51,13 +50,13 @@ export default function observe (object) {
 		// subscribe on get and dispatch on set
 		Object.defineProperty(state, name, {
 			get () {
-				subscriptions.push(stack[0]);
+				subscriptions.push(callbacks[0]);
 				return value;
 			},
 			set (newValue) {
 				value = newValue;
 				schedule(subscriptions);
-			}
+			},
 		});
 	}
 
