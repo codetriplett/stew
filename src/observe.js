@@ -33,7 +33,6 @@ function schedule (subscriptions) {
 // - eventually build will make it so this lives in the scope of the root function instead of document needing to be passed all around
 // - having each document resolution context in its own instance will help with future optimizations too
 export default function observe (object) {
-	if (!object) return;
 	const state = {};
 
 	// set up subscribe/dispatch pattern on properties

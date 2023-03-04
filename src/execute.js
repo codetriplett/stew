@@ -23,12 +23,14 @@ export function useEffect (callback) {
 // TODO: see if there is an easy way to update a nodes attributes without causing its children to update
 // - what should happen if state object is updated, would all child callbacks need to update?
 // - maybe only need to execute child callbacks if any props are added or removed or if the ones they are subscribed to have changed when merging them to existing state object
-export default function execute (callback, context, containerRef, i, sibling) {
+export default function execute (callback, state, containerRef, i, sibling) {
+	let context, ref, template;
+
 	// store or retrieve context
-	if (context) {
+	if (state) {
 		const ref = containerRef[i + 2] || [, {}];
 		containerRef[i + 2] = ref;
-		context = { ...context, parentCallback: callbacks[0], document: documents[0], ref, i };
+		context = { parentCallback: callbacks[0], state, ref, i };
 		contexts.set(callback, context);
 	} else {
 		context = contexts.get(callback);
@@ -37,8 +39,7 @@ export default function execute (callback, context, containerRef, i, sibling) {
 
 	// set up ties to this callback function
 	if (!context) return;
-	const { document, state, ref } = context;
-	let template;
+	({ state, ref } = context);
 	context.teardowns = [];
 	documents.unshift(document);
 	callbacks.unshift(callback);

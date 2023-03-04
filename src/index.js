@@ -11,31 +11,44 @@ const nameMap = {
 };
 
 export const defaultDocument = {
-	createElement: tag => ({
-		childNodes: [],
-		appendChild (child) {
-			this.childNodes.push(child);
-		},
-		insertBefore (child, sibling) {
-			const { childNodes } = this;
-			const index = childNodes.indexOf(sibling);
-			childNodes.splice(index, 0, child);
-		},
-		toString () {
-			const { childNodes, appendChild, toString, ...attributes } = this;
-			let html = `<${tag}`;
+	createTextNode (text) {
+		return text;
+	},
+	createDocumentFragment () {
+		return {
+			childNodes: [],
+			appendChild (child) {
+				this.childNodes.push(child);
+			},
+			insertBefore (child, sibling) {
+				const { childNodes } = this;
+				const index = childNodes.indexOf(sibling);
+				childNodes.splice(index, 0, child);
+			},
+			toString () {
+				return this.childNodes.join('');
+			},
+		};
+	},
+	createElement (tag) {
+		const fragment = this.createDocumentFragment();
+
+		return Object.assign(fragment, {
+			toString () {
+				const { childNodes, appendChild, toString, ...attributes } = this;
+				let html = `<${tag}`;
+
+				for (let [name, value] of Object.entries(attributes)) {
+					if (!value && value !== 0 || typeof value === 'function') continue;
+					name = nameMap[name] || name.replace(/(?=[A-Z])/g, '-').toLowerCase();
+					html += ` ${name}="${value === true ? '' : value}"`;
+				}
 		
-			for (let [name, value] of Object.entries(attributes)) {
-				if (!value && value !== 0 || typeof value === 'function') continue;
-				name = nameMap[name] || name.replace(/(?=[A-Z])/g, '-').toLowerCase();
-				html += ` ${name}="${value === true ? '' : value}"`;
-			}
-	
-			if (selfClosingTags.has(tag.toLowerCase())) return `${html}>`;
-			return `${html}>${this.childNodes.join('')}</${tag}>`;
-		},
-	}),
-	createTextNode: text => text,
+				if (selfClosingTags.has(tag.toLowerCase())) return `${html}>`;
+				return `${html}>${this.childNodes.join('')}</${tag}>`;
+			},
+		});
+	},
 };
 
 // rewrite to generate full layout first before interacting with document
@@ -50,12 +63,12 @@ export const defaultDocument = {
 // - hydrate will always use window.document and only builds the initial refs and adds event listeners
 // - document only needs to be stored in callbacks context and can be retrived from parent callbacks context (parentCallback in context)
 
-return (template, state, node, document = defaultDocument) => {
-	const context = { state };
-	const { childNodes = [] } = node || {};
-	const containerRef = [, {}, ...childNodes];
+function stew (template, state, node, document = defaultDocument) {
+	if (!node) node = document.createDocumentFragment();
+	const { childNodes = [] } = node;
+	const srcRef = [, {}, ...childNodes];
 	documents.unshift(document);
-	const node = resolve(template, context, containerRef, 0);
+	resolve(template, state, srcRef, 0, node);
 	documents.shift();
 	return node;
 };

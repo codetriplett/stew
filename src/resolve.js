@@ -41,10 +41,10 @@ currentRef: [{ ...map }, ...childRefs], // nodes only added to map if they have 
 // hydrate: currentNode is empty, compatible node found (static)
 // create: currentNode is empty, no compatible node found
 // update: currentNode is found
-function prepare (item, ctx, srcRef, srcIdx, container, sibling) {
+function prepare (item, state, srcRef, srcIdx, container, sibling) {
 	// get previous ref
-	let [currentNode, keyedRefs, ...indexedRefs] = srcRef;
-	const isHydrating = currentNode === undefined;
+	let [srcNode, keyedRefs, ...indexedRefs] = srcRef;
+	const isHydrating = srcNode === undefined;
 	let ref = indexedRefs[srcIdx];
 
 	if (!Array.isArray(item)) {
@@ -54,7 +54,7 @@ function prepare (item, ctx, srcRef, srcIdx, container, sibling) {
 		if (!ref || !('nodeValue' in ref)) {
 			// create new text node
 			ref = documents[0].createTextNode(nodeValue);
-		} else {	
+		} else {
 			// claim text node and update if necessary
 			if (isHydrating) indexedRefs.splice(srcIdx, 1);
 			if (nodeValue !== ref.nodeValue) ref.nodeValue = nodeValue;
@@ -71,16 +71,24 @@ function prepare (item, ctx, srcRef, srcIdx, container, sibling) {
 	let proxyRef = ref;
 
 	if (isFragment) {
-		// pull from parent ref while hydrating and create new context
+		node = { state: obj };
+		// create new state and set proxy ref to parent if hydrating
+		if (obj) node.state = state = observe(obj);
 		if (isHydrating) proxyRef = srcRef;
-		node = ctx = { ...ctx };
 	} else {
 		if (!node || node.tagName.toLowerCase() === tagName.toLowerCase()) {
 			// create new element
 			node = documents[0].createElement(tagName);
 		} else if (isHydrating) {
-			// claim element
-			indexedRefs.splice(srcIdx, 1);
+			// claim element and populate ref with its children
+			srcRef.splice(srcIdx + 2, 1);
+			ref.splice(2, 0, ...node.childNodes);
+		}
+
+		for (const [name, value] of Object.entries(obj || {})) {
+			// add property to node if it needs to be updated
+			if (node[name] === value) continue;
+			node[name] = value;
 		}
 		
 		// set new reference point for inserting children
@@ -88,34 +96,23 @@ function prepare (item, ctx, srcRef, srcIdx, container, sibling) {
 		sibling = container.childNodes[0];
 	}
 
-	if (obj) {
-		if (isFragment) {
-			// create new state and context if it has keys
-			const state = observe(obj);
-			if (state) ctx.state = state;
-		} else for (const [name, value] of Object.entries(obj)) {
-			// add property to node if it needs to be updated
-			if (node[name] === value) continue;
-			node[name] = value;
-		}
-	}
-
 	// update children
 	for (const [i, template] of arr.entries()) {
-		const idx = isHydrating ? srcIdx : i;
-		const child = resolve(template, ctx, proxyRef, idx, container, sibling);
+		// use fragments index when proxyRef was changed to parent
+		const idx = proxyRef !== ref ? srcIdx : i;
+		const child = resolve(template, state, proxyRef, idx, container, sibling);
 		if (!child && child !== 0) continue;
 		sibling = child;
 	}
 
-	// update refs
+	// update refs and add back placeholder for hydrated node
 	if (key) keyedRefs[key] = ref;
-	if (isHydrating) srcRef.splice(srcIdx, 0, ref);
+	if (isHydrating) srcRef.splice(srcIdx + 2, 0, undefined);
 	ref[0] = node;
 	return ref;
 }
 
-export default function resolve (item, ctx, srcRef, srcIdx, container, sibling) {
+export default function resolve (item, state, srcRef, srcIdx, container, sibling) {
 	// static node
 	let ref = item;
 
@@ -124,10 +121,10 @@ export default function resolve (item, ctx, srcRef, srcIdx, container, sibling) 
 		ref = undefined;
 	} else if (typeof item === 'function') {
 		// dynamic node
-		ref = execute(item, ctx, srcRef, srcIdx, container, sibling);
+		ref = execute(item, state, srcRef, srcIdx, container, sibling);
 	} else if (typeof item !== 'object' || Array.isArray(item)) {
 		// element node
-		ref = prepare(item, ctx, srcRef, srcIdx, container, sibling);
+		ref = prepare(item, state, srcRef, srcIdx, container, sibling);
 	}
 
 	const node = Array.isArray(ref) ? ref[0] : ref;
