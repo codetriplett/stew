@@ -41,11 +41,16 @@ currentRef: [{ ...map }, ...childRefs], // nodes only added to map if they have 
 // hydrate: currentNode is empty, next child node is compatible
 // create: currentNode is empty, next child node is not compatible
 // update: currentNode is found
-function process (item, state, containerRef, i, childNodes, container, sibling) {
-	// get previous ref
-	let [containerNode, keyedRefs, ...indexedRefs] = containerRef;
-	const isHydrating = containerNode === undefined;
-	let ref = indexedRefs[i] || childNodes[0];
+
+function clean (ref, oldKeyedRefs, oldIndexedRefs) {
+	const [, newKeyedRefs, ...newIndexedRefs] = ref;
+}
+
+function process (item, state, containerRef, i, container, childNodes, oldKeyedRefs) {
+	// get candidate ref
+	const isHydrating = !oldKeyedRefs;
+	let [, keyedRefs, ...indexedRefs] = containerRef;
+	let ref = i === isHydrating ? childNodes[0] : indexedRefs[i];
 
 	if (!Array.isArray(item)) {
 		// convert to string and claim element if hydrating
@@ -56,7 +61,7 @@ function process (item, state, containerRef, i, childNodes, container, sibling) 
 			ref = documents[0].createTextNode(nodeValue);
 		} else {
 			// claim text node and update if necessary
-			if (isHydrating) childNodes.shift();
+			childNodes.shift();
 			if (nodeValue !== ref.nodeValue) ref.nodeValue = nodeValue;
 		}
 
@@ -67,7 +72,8 @@ function process (item, state, containerRef, i, childNodes, container, sibling) 
 	const [str, obj, ...arr] = item;
 	const [, tagName, key] = str.match(/^\s*(.*?)\s*(?::(.*?))?$/);
 	const isFragment = tagName === '';
-	let [node] = ref = keyedRefs[key] || ref || [, {}];
+	if (!ref) ref = oldKeyedRefs[key] || [, isHydrating ? undefined : {}];
+	let node = ref?.[0];
 
 	if (isFragment) {
 		node = { state: obj };
@@ -77,10 +83,9 @@ function process (item, state, containerRef, i, childNodes, container, sibling) 
 		if (!node || node.tagName.toLowerCase() === tagName.toLowerCase()) {
 			// create new element
 			node = documents[0].createElement(tagName);
-		} else if (isHydrating) {
-			// claim element and set new child nodes
+		} else {
+			// claim element
 			childNodes.shift();
-			childNodes = [...node.childNodes];
 		}
 
 		for (const [name, value] of Object.entries(obj || {})) {
@@ -89,29 +94,28 @@ function process (item, state, containerRef, i, childNodes, container, sibling) 
 			node[name] = value;
 		}
 		
-		// set new reference point for inserting children
+		// set container and child nodes
 		container = node;
-		sibling = container.childNodes[0];
+		childNodes = [...node.childNodes];
 	}
+	
+	// update refs and store previous keyed refs before resetting them
+	if (key) keyedRefs[key] = ref;
+	[, oldKeyedRefs] = ref.splice(0, 2, node, {});
 
 	// update children
-	for (const [i, template] of arr.entries()) {
-		// use fragments index when proxyRef was changed to parent
-		const childRef = reconcile(template, state, ref, i, childNodes, container, sibling);
-		const childNode = Array.isArray(childRef) ? childRef[0] : childRef;
-		if (!childNode && childNode !== 0) continue;
-		sibling = childNode;
+	for (const [i, childItem] of arr.entries()) {
+		reconcile(childItem, state, ref, i, container, childNodes, oldKeyedRefs);
 	}
 
-	// update refs and add back placeholder for hydrated node
-	if (key) keyedRefs[key] = ref;
-	ref[0] = node;
+	// remove outdated nodes and run teardown functions if necessary
+	clean(ref, oldKeyedRefs, indexedRefs);
 	return ref;
 }
 
 // 1) can sibling param be replaced by childNodes
 // - static nodes should only be claimed when hydrating, but newly created nodes would also claim unless differentiated
-export default function reconcile (item, state, containerRef, i, childNodes, container, sibling) {
+export default function reconcile (item, state, containerRef, i, container, childNodes, oldKeyedRefs) {
 	// static node
 	let ref = item;
 
@@ -120,16 +124,17 @@ export default function reconcile (item, state, containerRef, i, childNodes, con
 		ref = undefined;
 	} else if (typeof item === 'function') {
 		// dynamic node
-		ref = execute(item, state, containerRef, i, childNodes, container, sibling);
+		ref = execute(item, state, containerRef, i, container, childNodes, oldKeyedRefs);
 	} else if (typeof item !== 'object' || Array.isArray(item)) {
 		// element node
-		ref = process(item, state, containerRef, i, childNodes, container, sibling);
+		ref = process(item, state, containerRef, i, container, childNodes, oldKeyedRefs);
 	}
 
 	const node = Array.isArray(ref) ? ref[0] : ref;
 
 	if (node && ('tagName' in node || 'nodeValue' in node)) {
 		// insert or append non-fragment nodes
+		const [sibling] = childNodes;
 		if (sibling) container.insertBefore(node, sibling);
 		else container.appendChild(node);
 	}

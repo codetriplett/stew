@@ -23,7 +23,13 @@ export function useEffect (callback) {
 // TODO: see if there is an easy way to update a nodes attributes without causing its children to update
 // - what should happen if state object is updated, would all child callbacks need to update?
 // - maybe only need to execute child callbacks if any props are added or removed or if the ones they are subscribed to have changed when merging them to existing state object
-export default function execute (callback, state, containerRef, i, sibling) {
+
+// TODO: contexts need to reference nextSibling
+// - needed to insert nodes into parent when they are shown after the inital render
+// - if nextSibling is another reaction function, look at its nextSibling until a non-reaction is found
+// - if a nextSibling is empty, it means it is the last node and should be appended in parent
+// - so context needs to store parentElement as well
+export default function execute (callback, state, containerRef, i, container, childNodes, oldKeyedRefs) {
 	let context, ref, template;
 
 	// store or retrieve context
