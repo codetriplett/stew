@@ -37,23 +37,27 @@ currentRef: [{ ...map }, ...childRefs], // nodes only added to map if they have 
 // only create new node ref before processing children if node is not a fragment
 // otherwise, set an offset to add to the child indexes
 
-// when hydrating fragment
-// - put all remaining childNodes into 
-function prepare (item, ctx, srcRef, srcIdx, sibling) {
+
+// hydrate: currentNode is empty, compatible node found (static)
+// create: currentNode is empty, no compatible node found
+// update: currentNode is found
+function prepare (item, ctx, srcRef, srcIdx, container, sibling) {
 	// get previous ref
-	let [parentElement, keyedRefs, ...indexedRefs] = srcRef;
-	const isHydrating = parentElement === undefined;
+	let [currentNode, keyedRefs, ...indexedRefs] = srcRef;
+	const isHydrating = currentNode === undefined;
 	let ref = indexedRefs[srcIdx];
 
 	if (!Array.isArray(item)) {
 		// convert to string and claim element if hydrating
 		const nodeValue = String(item);
-		if (isHydrating) indexedRefs.splice(srcIdx, 1);
 
 		if (!ref || !('nodeValue' in ref)) {
+			// create new text node
 			ref = documents[0].createTextNode(nodeValue);
-		} else if (nodeValue !== ref.nodeValue) {
-			ref.nodeValue = nodeValue;
+		} else {	
+			// claim text node and update if necessary
+			if (isHydrating) indexedRefs.splice(srcIdx, 1);
+			if (nodeValue !== ref.nodeValue) ref.nodeValue = nodeValue;
 		}
 
 		return ref;
@@ -67,22 +71,21 @@ function prepare (item, ctx, srcRef, srcIdx, sibling) {
 	let proxyRef = ref;
 
 	if (isFragment) {
-		// pull from parent ref while hydrating
+		// pull from parent ref while hydrating and create new context
 		if (isHydrating) proxyRef = srcRef;
-
-		// create new context
-		node = ctx = { ...ctx, parentElement };
+		node = ctx = { ...ctx };
 	} else {
-		// claim element if hydrating
-		if (isHydrating) indexedRefs.splice(srcIdx, 1);
-
 		if (!node || node.tagName.toLowerCase() === tagName.toLowerCase()) {
 			// create new element
 			node = documents[0].createElement(tagName);
+		} else if (isHydrating) {
+			// claim element
+			indexedRefs.splice(srcIdx, 1);
 		}
 		
 		// set new reference point for inserting children
-		sibling = node.childNodes[0];
+		container = node;
+		sibling = container.childNodes[0];
 	}
 
 	if (obj) {
@@ -91,9 +94,8 @@ function prepare (item, ctx, srcRef, srcIdx, sibling) {
 			const state = observe(obj);
 			if (state) ctx.state = state;
 		} else for (const [name, value] of Object.entries(obj)) {
-			// TODO: skip setting value if hydrating onto existing node or if attr is for a listener
+			// add property to node if it needs to be updated
 			if (node[name] === value) continue;
-			// add property to node
 			node[name] = value;
 		}
 	}
@@ -101,7 +103,7 @@ function prepare (item, ctx, srcRef, srcIdx, sibling) {
 	// update children
 	for (const [i, template] of arr.entries()) {
 		const idx = isHydrating ? srcIdx : i;
-		const child = resolve(template, ctx, proxyRef, idx, sibling);
+		const child = resolve(template, ctx, proxyRef, idx, container, sibling);
 		if (!child && child !== 0) continue;
 		sibling = child;
 	}
@@ -113,7 +115,7 @@ function prepare (item, ctx, srcRef, srcIdx, sibling) {
 	return ref;
 }
 
-export default function resolve (item, ctx, srcRef, srcIdx, sibling) {
+export default function resolve (item, ctx, srcRef, srcIdx, container, sibling) {
 	// static node
 	let ref = item;
 
@@ -122,19 +124,18 @@ export default function resolve (item, ctx, srcRef, srcIdx, sibling) {
 		ref = undefined;
 	} else if (typeof item === 'function') {
 		// dynamic node
-		ref = execute(item, ctx, srcRef, srcIdx, sibling);
+		ref = execute(item, ctx, srcRef, srcIdx, container, sibling);
 	} else if (typeof item !== 'object' || Array.isArray(item)) {
 		// element node
-		ref = prepare(item, ctx, srcRef, srcIdx, sibling);
+		ref = prepare(item, ctx, srcRef, srcIdx, container, sibling);
 	}
 
 	const node = Array.isArray(ref) ? ref[0] : ref;
 
 	if (node && ('tagName' in node || 'nodeValue' in node)) {
 		// insert or append non-fragment nodes
-		const { parentElement } = ctx;
-		if (sibling) parentElement.insertBefore(node, sibling);
-		else parentElement.appendChild(node);
+		if (sibling) container.insertBefore(node, sibling);
+		else container.appendChild(node);
 	}
 
 	return srcRef[srcIdx + 2] = ref;

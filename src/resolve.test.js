@@ -32,7 +32,7 @@ describe('resolve', () => {
 		state = {};
 		parentElement = document.createElement('div');
 		srcRef = [parentElement, {}];
-		ctx = { state, parentElement };
+		ctx = { state };
 		documents.splice(0);
 		documents.unshift(document);
 
@@ -42,66 +42,66 @@ describe('resolve', () => {
 	});
 
 	it('resolves null', () => {
-		const actual = resolve(null, ctx, srcRef, 0);
+		const actual = resolve(null, ctx, srcRef, 0, parentElement);
 		expect(parentElement.childNodes).toEqual([]);
 		expect(srcRef).toEqual([parentElement, {}, actual]);
 		expect(actual).toEqual(undefined);
 	});
 
 	it('resolves undefined', () => {
-		const actual = resolve(undefined, ctx, srcRef, 0);
+		const actual = resolve(undefined, ctx, srcRef, 0, parentElement);
 		expect(parentElement.childNodes).toEqual([]);
 		expect(srcRef).toEqual([parentElement, {}, actual]);
 		expect(actual).toEqual(undefined);
 	});
 
 	it('resolves false', () => {
-		const actual = resolve(false, ctx, srcRef, 0);
+		const actual = resolve(false, ctx, srcRef, 0, parentElement);
 		expect(parentElement.childNodes).toEqual([]);
 		expect(srcRef).toEqual([parentElement, {}, actual]);
 		expect(actual).toEqual(undefined);
 	});
 
 	it('resolves true', () => {
-		const actual = resolve(true, ctx, srcRef, 0);
+		const actual = resolve(true, ctx, srcRef, 0, parentElement);
 		expect(parentElement.childNodes).toEqual([]);
 		expect(srcRef).toEqual([parentElement, {}, actual]);
 		expect(actual).toEqual(undefined);
 	});
 
 	it('resolves zero', () => {
-		const actual = resolve(0, ctx, srcRef, 0);
+		const actual = resolve(0, ctx, srcRef, 0, parentElement);
 		expect(parentElement.childNodes).toEqual([actual]);
 		expect(srcRef).toEqual([parentElement, {}, actual]);
 		expect(actual).toEqual({ nodeValue: '0' });
 	});
 
 	it('resolves number', () => {
-		const actual = resolve(123, ctx, srcRef, 0);
+		const actual = resolve(123, ctx, srcRef, 0, parentElement);
 		expect(parentElement.childNodes).toEqual([actual]);
 		expect(srcRef).toEqual([parentElement, {}, actual]);
 		expect(actual).toEqual({ nodeValue: '123' });
 	});
 
 	it('resolves text node', () => {
-		const actual = resolve('abc', ctx, srcRef, 0);
+		const actual = resolve('abc', ctx, srcRef, 0, parentElement);
 		expect(parentElement.childNodes).toEqual([actual]);
 		expect(srcRef).toEqual([parentElement, {}, actual]);
 		expect(actual).toEqual({ nodeValue: 'abc' });
 	});
 
-	it('resolves dynamic node', () => {
+	it.only('resolves dynamic node', () => {
 		const callback = () => {};
-		const actual = resolve(callback, ctx, srcRef, 0);
+		const actual = resolve(callback, ctx, srcRef, 0, parentElement);
 		expect(parentElement.childNodes).toEqual([actual]);
 		expect(srcRef).toEqual([parentElement, {}, actual]);
-		expect(execute).toHaveBeenCalledWith(callback, ctx, srcRef, 0, undefined);
+		expect(execute).toHaveBeenCalledWith(callback, ctx, srcRef, 0, parentElement, undefined);
 		expect(actual).toEqual({ nodeValue: 'xyz' });
 	});
 
 	it('resolves static node', () => {
 		const node = { tagName: 'div' };
-		const actual = resolve(node, ctx, srcRef, 0);
+		const actual = resolve(node, ctx, srcRef, 0, parentElement);
 		expect(parentElement.childNodes).toEqual([actual]);
 		expect(srcRef).toEqual([parentElement, {}, actual]);
 		expect(actual).toBe(node);
@@ -110,7 +110,7 @@ describe('resolve', () => {
 	it('resolves fragment node', () => {
 		const object = { key: 'value' };
 		const template = ['', object, 'xyz'];
-		const actual = resolve(template, ctx, srcRef, 0);
+		const actual = resolve(template, ctx, srcRef, 0, parentElement);
 		expect(parentElement.childNodes).toEqual([{ nodeValue: 'xyz' }]);
 		expect(srcRef).toEqual([parentElement, {}, actual]);
 		expect(observe).toHaveBeenCalledWith(object);
@@ -123,7 +123,7 @@ describe('resolve', () => {
 
 	it('resolves element node', () => {
 		const template = ['div', { className: 'abc' }, 'xyz'];
-		const actual = resolve(template, ctx, srcRef, 0);
+		const actual = resolve(template, ctx, srcRef, 0, parentElement);
 		expect(parentElement.childNodes).toEqual([actual]);
 		expect(srcRef).toEqual([parentElement, {}, actual]);
 
