@@ -1,4 +1,4 @@
-import resolve from './resolve';
+import reconcile from './reconcile';
 
 export const contexts = new WeakMap();
 export const documents = [];
@@ -54,5 +54,5 @@ export default function execute (callback, state, containerRef, i, sibling) {
 	// resolve template and update nodes
 	documents.shift();
 	callbacks.shift();
-	return resolve(template, context, ref, i, sibling);
+	return reconcile(template, context, ref, i, sibling);
 }

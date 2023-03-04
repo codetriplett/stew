@@ -1,4 +1,4 @@
-import resolve from './resolve';
+import reconcile from './reconcile';
 import { documents } from './execute';
 
 const selfClosingTags = new Set([
@@ -65,10 +65,9 @@ export const defaultDocument = {
 
 function stew (template, state, node, document = defaultDocument) {
 	if (!node) node = document.createDocumentFragment();
-	const { childNodes = [] } = node;
-	const srcRef = [, {}, ...childNodes];
+	const { childNodes } = node;
 	documents.unshift(document);
-	resolve(template, state, srcRef, 0, node);
+	reconcile(template, state, [, {}], 0, [...childNodes], node);
 	documents.shift();
 	return node;
 };

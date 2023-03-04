@@ -38,14 +38,14 @@ currentRef: [{ ...map }, ...childRefs], // nodes only added to map if they have 
 // otherwise, set an offset to add to the child indexes
 
 
-// hydrate: currentNode is empty, compatible node found (static)
-// create: currentNode is empty, no compatible node found
+// hydrate: currentNode is empty, next child node is compatible
+// create: currentNode is empty, next child node is not compatible
 // update: currentNode is found
-function prepare (item, state, srcRef, srcIdx, container, sibling) {
+function process (item, state, containerRef, i, childNodes, container, sibling) {
 	// get previous ref
-	let [srcNode, keyedRefs, ...indexedRefs] = srcRef;
-	const isHydrating = srcNode === undefined;
-	let ref = indexedRefs[srcIdx];
+	let [containerNode, keyedRefs, ...indexedRefs] = containerRef;
+	const isHydrating = containerNode === undefined;
+	let ref = indexedRefs[i] || childNodes[0];
 
 	if (!Array.isArray(item)) {
 		// convert to string and claim element if hydrating
@@ -56,7 +56,7 @@ function prepare (item, state, srcRef, srcIdx, container, sibling) {
 			ref = documents[0].createTextNode(nodeValue);
 		} else {
 			// claim text node and update if necessary
-			if (isHydrating) indexedRefs.splice(srcIdx, 1);
+			if (isHydrating) childNodes.shift();
 			if (nodeValue !== ref.nodeValue) ref.nodeValue = nodeValue;
 		}
 
@@ -68,21 +68,19 @@ function prepare (item, state, srcRef, srcIdx, container, sibling) {
 	const [, tagName, key] = str.match(/^\s*(.*?)\s*(?::(.*?))?$/);
 	const isFragment = tagName === '';
 	let [node] = ref = keyedRefs[key] || ref || [, {}];
-	let proxyRef = ref;
 
 	if (isFragment) {
 		node = { state: obj };
 		// create new state and set proxy ref to parent if hydrating
 		if (obj) node.state = state = observe(obj);
-		if (isHydrating) proxyRef = srcRef;
 	} else {
 		if (!node || node.tagName.toLowerCase() === tagName.toLowerCase()) {
 			// create new element
 			node = documents[0].createElement(tagName);
 		} else if (isHydrating) {
-			// claim element and populate ref with its children
-			srcRef.splice(srcIdx + 2, 1);
-			ref.splice(2, 0, ...node.childNodes);
+			// claim element and set new child nodes
+			childNodes.shift();
+			childNodes = [...node.childNodes];
 		}
 
 		for (const [name, value] of Object.entries(obj || {})) {
@@ -99,20 +97,21 @@ function prepare (item, state, srcRef, srcIdx, container, sibling) {
 	// update children
 	for (const [i, template] of arr.entries()) {
 		// use fragments index when proxyRef was changed to parent
-		const idx = proxyRef !== ref ? srcIdx : i;
-		const child = resolve(template, state, proxyRef, idx, container, sibling);
-		if (!child && child !== 0) continue;
-		sibling = child;
+		const childRef = reconcile(template, state, ref, i, childNodes, container, sibling);
+		const childNode = Array.isArray(childRef) ? childRef[0] : childRef;
+		if (!childNode && childNode !== 0) continue;
+		sibling = childNode;
 	}
 
 	// update refs and add back placeholder for hydrated node
 	if (key) keyedRefs[key] = ref;
-	if (isHydrating) srcRef.splice(srcIdx + 2, 0, undefined);
 	ref[0] = node;
 	return ref;
 }
 
-export default function resolve (item, state, srcRef, srcIdx, container, sibling) {
+// 1) can sibling param be replaced by childNodes
+// - static nodes should only be claimed when hydrating, but newly created nodes would also claim unless differentiated
+export default function reconcile (item, state, containerRef, i, childNodes, container, sibling) {
 	// static node
 	let ref = item;
 
@@ -121,10 +120,10 @@ export default function resolve (item, state, srcRef, srcIdx, container, sibling
 		ref = undefined;
 	} else if (typeof item === 'function') {
 		// dynamic node
-		ref = execute(item, state, srcRef, srcIdx, container, sibling);
+		ref = execute(item, state, containerRef, i, childNodes, container, sibling);
 	} else if (typeof item !== 'object' || Array.isArray(item)) {
 		// element node
-		ref = prepare(item, state, srcRef, srcIdx, container, sibling);
+		ref = process(item, state, containerRef, i, childNodes, container, sibling);
 	}
 
 	const node = Array.isArray(ref) ? ref[0] : ref;
@@ -135,5 +134,5 @@ export default function resolve (item, state, srcRef, srcIdx, container, sibling
 		else container.appendChild(node);
 	}
 
-	return srcRef[srcIdx + 2] = ref;
+	return containerRef[i + 2] = ref;
 }
