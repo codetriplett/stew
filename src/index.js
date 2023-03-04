@@ -11,8 +11,13 @@ const nameMap = {
 };
 
 export const defaultDocument = {
-	createTextNode (text) {
-		return text;
+	createTextNode (nodeValue) {
+		return {
+			nodeValue,
+			toString () {
+				return this.nodeValue;
+			}
+		};
 	},
 	createDocumentFragment () {
 		return {
@@ -30,13 +35,14 @@ export const defaultDocument = {
 			},
 		};
 	},
-	createElement (tag) {
+	createElement (tagName) {
 		const fragment = this.createDocumentFragment();
 
 		return Object.assign(fragment, {
+			tagName,
 			toString () {
 				const { childNodes, appendChild, toString, ...attributes } = this;
-				let html = `<${tag}`;
+				let html = `<${tagName}`;
 
 				for (let [name, value] of Object.entries(attributes)) {
 					if (!value && value !== 0 || typeof value === 'function') continue;
@@ -44,8 +50,8 @@ export const defaultDocument = {
 					html += ` ${name}="${value === true ? '' : value}"`;
 				}
 		
-				if (selfClosingTags.has(tag.toLowerCase())) return `${html}>`;
-				return `${html}>${this.childNodes.join('')}</${tag}>`;
+				if (selfClosingTags.has(tagName.toLowerCase())) return `${html}>`;
+				return `${html}>${this.childNodes.join('')}</${tagName}>`;
 			},
 		});
 	},

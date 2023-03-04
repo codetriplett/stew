@@ -50,7 +50,7 @@ function process (item, state, containerRef, i, container, childNodes, oldKeyedR
 	// get candidate ref
 	const isHydrating = !oldKeyedRefs;
 	let [, keyedRefs, ...indexedRefs] = containerRef;
-	let ref = i === isHydrating ? childNodes[0] : indexedRefs[i];
+	let ref = isHydrating ? childNodes[0] : indexedRefs[i];
 
 	if (!Array.isArray(item)) {
 		// convert to string and claim element if hydrating
@@ -72,7 +72,8 @@ function process (item, state, containerRef, i, container, childNodes, oldKeyedR
 	const [str, obj, ...arr] = item;
 	const [, tagName, key] = str.match(/^\s*(.*?)\s*(?::(.*?))?$/);
 	const isFragment = tagName === '';
-	if (!ref) ref = oldKeyedRefs[key] || [, isHydrating ? undefined : {}];
+	if (isHydrating) ref = isFragment || !ref ? [] : [ref];
+	else if (!ref) ref = oldKeyedRefs[key] || [, {}];
 	let node = ref?.[0];
 
 	if (isFragment) {
@@ -80,7 +81,7 @@ function process (item, state, containerRef, i, container, childNodes, oldKeyedR
 		// create new state and set proxy ref to parent if hydrating
 		if (obj) node.state = state = observe(obj);
 	} else {
-		if (!node || node.tagName.toLowerCase() === tagName.toLowerCase()) {
+		if (!node || node.tagName.toLowerCase() !== tagName.toLowerCase()) {
 			// create new element
 			node = documents[0].createElement(tagName);
 		} else {
