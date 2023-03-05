@@ -1,46 +1,25 @@
-import stew, { defaultDocument } from '.';
+import stew, { virtualDocument } from '.';
 import { documents } from './execute';
 import reconcile from './reconcile';
 
 jest.mock('./reconcile');
 
 describe('stew', () => {
-	let state, node;
+	let container, state, node;
 
 	beforeEach(() => {
+		container = virtualDocument.createElement('div');
 		state = {};
-		node = defaultDocument.createElement('div');
+		node = virtualDocument.createElement('div');
 		jest.clearAllMocks();
 		reconcile.mockReturnValue(node);
 	});
 
-	it('replaces content', () => {
-		const outline = ['div', 'Hello Page'];
-		const actual = stew(outline, state);
-
-		expect(actual).toEqual({
-			childNodes: [],
-			appendChild: expect.anything(),
-			insertBefore: expect.anything(),
-			toString: expect.anything(),
-		});
-
-		expect(reconcile).toHaveBeenCalledWith(outline, state, [, {}], 0, actual, [], {});
-	});
-
 	it('hydrates content', () => {
 		const outline = ['div', 'Hello Page'];
-		const actual = stew(outline, state, node);
-
-		expect(actual).toEqual({
-			tagName: 'div',
-			childNodes: [],
-			appendChild: expect.anything(),
-			insertBefore: expect.anything(),
-			toString: expect.anything(),
-		});
-
-		expect(reconcile).toHaveBeenCalledWith(outline, state, [, {}], 0, actual, [], undefined);
+		const actual = stew(container, outline, state);
+		expect(actual).toBe(container);
+		expect(reconcile).toHaveBeenCalledWith(outline, state, [container, {}], 0, [], actual);
 	});
 
 	it('uses default document', () => {
@@ -51,14 +30,11 @@ describe('stew', () => {
 		});
 
 		const outline = ['div', 'Hello Page'];
-		const actual = stew(outline, state, node);
-		expect(actual).toEqual(node);
-		expect(reconcile).toHaveBeenCalledWith(outline, state, [, {}], 0, node, [], undefined);
-		expect(documentStack).toEqual([defaultDocument]);
+		stew(container, outline, state);
+		expect(documentStack).toEqual([document]);
 	});
 
 	it('uses custom document', () => {
-		const customDocument = {};
 		let documentStack;
 
 		reconcile.mockImplementation(() => {
@@ -66,9 +42,7 @@ describe('stew', () => {
 		});
 
 		const outline = ['div', 'Hello Page'];
-		const actual = stew(outline, state, node, customDocument);
-		expect(actual).toEqual(node);
-		expect(reconcile).toHaveBeenCalledWith(outline, state, [, {}], 0, node, [], undefined);
-		expect(documentStack).toEqual([customDocument]);
+		stew(container, outline, state, virtualDocument);
+		expect(documentStack).toEqual([virtualDocument]);
 	});
 });

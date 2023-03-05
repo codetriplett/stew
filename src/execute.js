@@ -31,15 +31,14 @@ export function useEffect (callback) {
 // - if a nextSibling is empty, it means it is the last node and should be appended in parent
 // - so context needs to store parentElement as well
 export default function execute (callback, ...params) {
-	let context, item, state, containerRef, i, container, childNodes, oldKeyedRefs;
+	let context, item, state, containerRef, i, prevRefs, container, sibling;
 
 	// store or retrieve context
 	if (params.length) {
 		context = {
 			parentCallback: callbacks[0],
 			customDocument: documents[0],
-			customUpdater: updaters[0],
-			ref: [, {}],
+			customUpdater: updaters[0]
 		};
 
 		contexts.set(callback, [context, ...params]);
@@ -49,8 +48,8 @@ export default function execute (callback, ...params) {
 
 	// set up ties to this callback function
 	if (!context) return;
-	let { customDocument, customUpdater, ref } = context;
-	[state, containerRef, i, container, childNodes, oldKeyedRefs] = params;
+	let { customDocument, customUpdater } = context;
+	[state, containerRef, i, prevRefs, container, sibling] = params;
 	context.teardowns = [];
 	documents.unshift(customDocument);
 	updaters.unshift(customUpdater);
@@ -58,14 +57,14 @@ export default function execute (callback, ...params) {
 
 	// safely run callback function
 	try {
-		item = callback(state, ref);
+		item = callback(state, containerRef[i + 2]);
 	} catch (e) {
 		console.error(e);
 	}
 
 	// resolve template and update nodes
-	[oldKeyedRefs] = containerRef.splice(1, 1, {});
-	ref = reconcile(item, state, containerRef, i, container, childNodes, oldKeyedRefs);
+	[prevRefs] = containerRef.splice(1, 1, {});
+	sibling = reconcile(item, state, containerRef, i, prevRefs, container, sibling);
 	documents.shift();
 	updaters.shift();
 	callbacks.shift();
@@ -74,6 +73,5 @@ export default function execute (callback, ...params) {
 	// TODO: would need to know whether next item is another callback so it can use its next sibling if it is empty
 	// - maybe it would be better to have reaction trigger parent to append/insert the items as is
 	// - could this be extracted from reconcile and be used after it process its children there as well?
-	context.childNodes = [];
-	return context.ref = ref;
+	return sibling;
 }

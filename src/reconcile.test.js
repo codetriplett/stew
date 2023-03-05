@@ -1,7 +1,7 @@
 import reconcile from './reconcile';
-import execute, { documents } from './execute';
+import execute, { documents, updaters } from './execute';
 import observe from './observe';
-import { defaultDocument } from '.';
+import { virtualDocument, defaultUpdater } from '.';
 
 jest.mock('./execute');
 jest.mock('./observe');
@@ -10,344 +10,303 @@ jest.mock('./observe');
 // - containerRef needs to remain as the fragment ref so it can set its keyed and indexed children properly
 // - childNodes works as a reference for parent element node for fragments and allows hydrate and create to work the same, apart from not having childNodes available
 describe('reconcile', () => {
-	let document, state, parentElement, childNodes, containerRef, oldKeyedRefs;
+	let document, state, container, childNodes, containerRef, prevRefs, sibling;
 
 	beforeEach(() => {
-		document = defaultDocument;
+		document = virtualDocument;
 		documents.splice(0);
 		documents.unshift(document);
+		updaters.splice(0);
+		updaters.unshift(defaultUpdater);
 		state = {};
-		parentElement = document.createElement('div');
+		container = document.createElement('div');
 		childNodes = [];
-		containerRef = [parentElement, {}];
-		oldKeyedRefs = {};
+		containerRef = [container, {}];
+		prevRefs = {};
+		sibling = {};
 
 		jest.clearAllMocks();
-		execute.mockReturnValue(document.createTextNode('lmno'));
+		execute.mockReturnValue({ node: document.createTextNode('lmno'), next: sibling });
 		observe.mockReturnValue({ key: 'value' });
 	});
 
 	describe('create', () => {
 		it('creates null', () => {
-			const actual = reconcile(null, state, containerRef, 0, parentElement, childNodes, oldKeyedRefs);
-			expect(parentElement.childNodes).toEqual([]);
-			expect(containerRef).toEqual([parentElement, {}, actual]);
-			expect(actual).toEqual(undefined);
+			const actual = reconcile(null, state, containerRef, 0, {}, container, sibling);
+			expect(container.childNodes).toEqual([]);
+			expect(containerRef).toEqual([container, {}, undefined]);
+			expect(actual).toBe(sibling);
 		});
 
 		it('creates undefined', () => {
-			const actual = reconcile(undefined, state, containerRef, 0, parentElement, childNodes, oldKeyedRefs);
-			expect(parentElement.childNodes).toEqual([]);
-			expect(containerRef).toEqual([parentElement, {}, actual]);
-			expect(actual).toEqual(undefined);
+			const actual = reconcile(undefined, state, containerRef, 0, {}, container, sibling);
+			expect(container.childNodes).toEqual([]);
+			expect(containerRef).toEqual([container, {}, undefined]);
+			expect(actual).toEqual(sibling);
 		});
 
 		it('creates false', () => {
-			const actual = reconcile(false, state, containerRef, 0, parentElement, childNodes, oldKeyedRefs);
-			expect(parentElement.childNodes).toEqual([]);
-			expect(containerRef).toEqual([parentElement, {}, actual]);
-			expect(actual).toEqual(undefined);
+			const actual = reconcile(false, state, containerRef, 0, {}, container, sibling);
+			expect(container.childNodes).toEqual([]);
+			expect(containerRef).toEqual([container, {}, undefined]);
+			expect(actual).toEqual(sibling);
 		});
 
 		it('creates true', () => {
-			const actual = reconcile(true, state, containerRef, 0, parentElement, childNodes, oldKeyedRefs);
-			expect(parentElement.childNodes).toEqual([]);
-			expect(containerRef).toEqual([parentElement, {}, actual]);
-			expect(actual).toEqual(undefined);
+			const actual = reconcile(true, state, containerRef, 0, {}, container, sibling);
+			expect(container.childNodes).toEqual([]);
+			expect(containerRef).toEqual([container, {}, undefined]);
+			expect(actual).toEqual(sibling);
 		});
 
 		it('creates zero', () => {
-			const actual = reconcile(0, state, containerRef, 0, parentElement, childNodes, oldKeyedRefs);
-			expect(parentElement.childNodes).toEqual([actual]);
-			expect(containerRef).toEqual([parentElement, {}, actual]);
+			const actual = reconcile(0, state, containerRef, 0, {}, container, sibling);
 
-			expect(actual).toEqual({
+			const node = {
 				toString: expect.anything(),
 				nodeValue: '0',
-			});
+			};
+
+			expect(container.childNodes).toEqual([node]);
+			expect(containerRef).toEqual([container, {}, node]);
+			expect(actual).toEqual({ node, next: sibling });
 		});
 
 		it('creates number', () => {
-			const actual = reconcile(123, state, containerRef, 0, parentElement, childNodes, oldKeyedRefs);
-			expect(parentElement.childNodes).toEqual([actual]);
-			expect(containerRef).toEqual([parentElement, {}, actual]);
+			const actual = reconcile(123, state, containerRef, 0, {}, container, sibling);
 
-			expect(actual).toEqual({
+			const node = {
 				toString: expect.anything(),
 				nodeValue: '123',
-			});
+			};
+
+			expect(container.childNodes).toEqual([node]);
+			expect(containerRef).toEqual([container, {}, node]);
+			expect(actual).toEqual({ node, next: sibling });
 		});
 
 		it('creates text node', () => {
-			const actual = reconcile('abc', state, containerRef, 0, parentElement, childNodes, oldKeyedRefs);
-			expect(parentElement.childNodes).toEqual([actual]);
-			expect(containerRef).toEqual([parentElement, {}, actual]);
+			const actual = reconcile('abc', state, containerRef, 0, {}, container, sibling);
 
-			expect(actual).toEqual({
+			const node = {
 				toString: expect.anything(),
 				nodeValue: 'abc',
-			});
+			};
+
+			expect(container.childNodes).toEqual([node]);
+			expect(containerRef).toEqual([container, {}, node]);
+			expect(actual).toEqual({ node, next: sibling });
 		});
 
 		it('creates dynamic node', () => {
 			const callback = () => {};
-			const actual = reconcile(callback, state, containerRef, 0, parentElement, childNodes, oldKeyedRefs);
-			expect(parentElement.childNodes).toEqual([actual]);
-			expect(containerRef).toEqual([parentElement, {}, actual]);
-			expect(execute).toHaveBeenCalledWith(callback, state, containerRef, 0, parentElement, childNodes, oldKeyedRefs);
-			
-			expect(actual).toEqual({
+			const actual = reconcile(callback, state, containerRef, 0, {}, container, sibling);
+
+			const node = {
 				toString: expect.anything(),
 				nodeValue: 'lmno',
-			});
+			};
+
+			expect(container.childNodes).toEqual([]);
+			expect(containerRef).toEqual([container, {}]);
+			expect(execute).toHaveBeenCalledWith(callback, state, containerRef, 0, {}, container, sibling);
+			expect(actual).toEqual({ node, next: sibling });
 		});
 
 		it('creates static node', () => {
 			const node = document.createElement('div');
-			const actual = reconcile(node, state, containerRef, 0, parentElement, childNodes, oldKeyedRefs);
-			expect(parentElement.childNodes).toEqual([actual]);
-			expect(containerRef).toEqual([parentElement, {}, actual]);
-			expect(actual).toBe(node);
+			const actual = reconcile(node, state, containerRef, 0, {}, container, sibling);
+			expect(container.childNodes).toEqual([node]);
+			expect(containerRef).toEqual([container, {}, node]);
+			expect(actual).toEqual({ node, next: sibling });
+			expect(actual.node).toBe(node);
 		});
 
 		it('creates fragment node', () => {
 			const object = { key: 'value' };
 			const template = ['', object, 'xyz'];
-			const actual = reconcile(template, state, containerRef, 0, parentElement, childNodes, oldKeyedRefs);
+			const actual = reconcile(template, state, containerRef, 0, {}, container, sibling);
 			
-			const child = {
+			const node = {
 				toString: expect.anything(),
-				nodeValue: 'xyz'
-			}
-			
-			expect(parentElement.childNodes).toEqual([child]);
-			expect(containerRef).toEqual([parentElement, {}, actual]);
-			expect(observe).toHaveBeenCalledWith(object);
+				nodeValue: 'xyz',
+			};
 
-			expect(actual).toEqual([{ state: object }, {}, child]);
+			expect(container.childNodes).toEqual([node]);
+
+			expect(containerRef).toEqual([container, {}, [{
+				state: object,
+			}, {}, node]]);
+
+			expect(observe).toHaveBeenCalledWith(object);
+			expect(actual).toEqual({ node, next: sibling });
 		});
 
 		it('creates element node', () => {
 			const template = ['div', { className: 'abc' }, 'xyz'];
-			const actual = reconcile(template, state, containerRef, 0, parentElement, childNodes, oldKeyedRefs);
-			expect(parentElement.childNodes).toEqual([actual[0]]);
-			expect(containerRef).toEqual([parentElement, {}, actual]);
+			const actual = reconcile(template, state, containerRef, 0, {}, container, sibling);
 
 			const child = {
 				toString: expect.anything(),
-				nodeValue: 'xyz',
+				nodeValue: 'xyz'
 			};
 
-			expect(actual).toEqual([{
+			const node = {
 				appendChild: expect.anything(),
 				insertBefore: expect.anything(),
 				toString: expect.anything(),
 				tagName: 'div',
 				className: 'abc',
 				childNodes: [child],
-			}, {}, child]);
+			};
+
+			expect(container.childNodes).toEqual([node]);
+			expect(containerRef).toEqual([container, {}, [node, {}, child]]);
+			expect(actual).toEqual({ node, next: sibling });
 		});
 	});
 
 	describe('update', () => {
-		it('updates number', () => {
-			const node = containerRef[2] = document.createTextNode('123');
-			const actual = reconcile(789, state, containerRef, 0, parentElement, childNodes, oldKeyedRefs);
-			expect(parentElement.childNodes).toEqual([actual]);
-			expect(containerRef).toEqual([parentElement, {}, actual]);
-
-			const child = {
-				toString: expect.anything(),
-				nodeValue: '789',
-			};
-
-			expect(actual).toEqual(child);
-			expect(actual).toBe(node);
-		});
-
 		it('updates text node', () => {
 			const node = containerRef[2] = document.createTextNode('abc');
-			const actual = reconcile('xyz', state, containerRef, 0, parentElement, childNodes, oldKeyedRefs);
-			expect(parentElement.childNodes).toEqual([actual]);
-			expect(containerRef).toEqual([parentElement, {}, actual]);
-
-			const child = {
-				toString: expect.anything(),
-				nodeValue: 'xyz',
-			};
-
-			expect(actual).toEqual(child);
-			expect(actual).toBe(node);
+			container.appendChild(node);
+			const actual = reconcile('xyz', state, containerRef, 0, prevRefs, container, sibling);
+			expect(container.childNodes).toEqual([node]);
+			expect(containerRef).toEqual([container, {}, node]);
+			expect(actual).toEqual({ node, next: sibling });
+			expect(actual.node).toBe(node);
+			expect(actual.node.nodeValue).toEqual('xyz');
 		});
 
 		it('updates dynamic node', () => {
 			const node = containerRef[2] = document.createTextNode('abc');
-			execute.mockReturnValue(node);
+			container.appendChild(node);
+			execute.mockReturnValue({ node, next: sibling });
 			const callback = () => {};
-			const actual = reconcile(callback, state, containerRef, 0, parentElement, childNodes, oldKeyedRefs);
-			expect(parentElement.childNodes).toEqual([actual]);
-			expect(containerRef).toEqual([parentElement, {}, actual]);
-			expect(execute).toHaveBeenCalledWith(callback, state, containerRef, 0, parentElement, childNodes, oldKeyedRefs);
-
-			const child = {
-				toString: expect.anything(),
-				nodeValue: 'abc',
-			};
-
-			expect(actual).toEqual(child);
-			expect(actual).toBe(node);
+			const actual = reconcile(callback, state, containerRef, 0, prevRefs, container, sibling);
+			expect(container.childNodes).toEqual([node]);
+			expect(containerRef).toEqual([container, {}, node]);
+			expect(execute).toHaveBeenCalledWith(callback, state, containerRef, 0, prevRefs, container, sibling);
+			expect(actual).toEqual({ node, next: sibling });
+			expect(actual.node).toBe(node);
 		});
 
 		it('updates static node', () => {
 			const node = containerRef[2] = document.createElement('div');
-			const actual = reconcile(node, state, containerRef, 0, parentElement, childNodes, oldKeyedRefs);
-			expect(parentElement.childNodes).toEqual([actual]);
-			expect(containerRef).toEqual([parentElement, {}, actual]);
-			expect(actual).toBe(node);
+			const actual = reconcile(node, state, containerRef, 0, prevRefs, container, sibling);
+			expect(container.childNodes).toEqual([node]);
+			expect(containerRef).toEqual([container, {}, node]);
+			expect(actual).toEqual({ node, next: sibling });
+			expect(actual.node).toBe(node);
 		});
 
 		it('updates fragment node', () => {
+			const node = document.createTextNode('abc');
+			container.appendChild(node);
+			containerRef[2] = [{}, {}, node];
 			const object = { key: 'value' };
 			const template = ['', object, 'xyz'];
-			const actual = reconcile(template, state, containerRef, 0, parentElement, childNodes, oldKeyedRefs);
-			
-			const child = {
-				toString: expect.anything(),
-				nodeValue: 'xyz',
-			};
-			
-			expect(parentElement.childNodes).toEqual([child]);
-			expect(containerRef).toEqual([parentElement, {}, actual]);
-			expect(observe).toHaveBeenCalledWith(object);
+			const actual = reconcile(template, state, containerRef, 0, prevRefs, container, sibling);
 
-			expect(actual).toEqual([{
-				state: object
-			}, {}, child]);
+			const ref = [{
+				state: object,
+			}, {}, node];
+
+			expect(container.childNodes).toEqual([node]);
+			expect(containerRef).toEqual([container, {}, ref]);
+			expect(observe).toHaveBeenCalledWith(object);
+			expect(actual).toEqual({ node, next: sibling });
+			expect(actual.node).toBe(node);
 		});
 
 		it('updates element node', () => {
-			const template = ['div', { className: 'abc' }, 'xyz'];
-			const actual = reconcile(template, state, containerRef, 0, parentElement, childNodes, oldKeyedRefs);
-			expect(parentElement.childNodes).toEqual([actual[0]]);
-			expect(containerRef).toEqual([parentElement, {}, actual]);
-
-			const child = {
-				toString: expect.anything(),
-				nodeValue: 'xyz',
-			};
-
-			expect(actual).toEqual([{
-				appendChild: expect.anything(),
-				insertBefore: expect.anything(),
-				toString: expect.anything(),
-				tagName: 'div',
-				className: 'abc',
-				childNodes: [child],
-			}, {}, child]);
+			const node = document.createElement('div');
+			node.className = 'abc';
+			const child = document.createTextNode('abc');
+			node.appendChild(child);
+			container.appendChild(node);
+			const ref = containerRef[2] = [node, { className: 'abc' }, child];
+			const template = ['div', { className: 'xyz' }, 'xyz'];
+			const actual = reconcile(template, state, containerRef, 0, prevRefs, container, sibling);
+			expect(container.childNodes).toEqual([node]);
+			expect(containerRef).toEqual([container, {}, ref]);
+			expect(actual).toEqual({ node, next: sibling });
+			expect(actual.node).toBe(node);
+			expect(actual.node.className).toEqual('xyz');
 		});
 	});
 
 	describe('hydrate', () => {
-		it('hydrates number', () => {
-			const node = childNodes[0] = document.createTextNode('123');
-			const actual = reconcile(123, state, containerRef, 0, parentElement, childNodes);
-			expect(parentElement.childNodes).toEqual([actual]);
-			expect(containerRef).toEqual([parentElement, {}, actual]);
-
-			const child = {
-				toString: expect.anything(),
-				nodeValue: '123',
-			};
-
-			expect(actual).toEqual(child);
-			expect(actual).toBe(node);
-		});
-
 		it('hydrates text node', () => {
-			const node = childNodes[0] = document.createTextNode('abc');
-			const actual = reconcile('abc', state, containerRef, 0, parentElement, childNodes);
-			expect(parentElement.childNodes).toEqual([actual]);
-			expect(containerRef).toEqual([parentElement, {}, actual]);
-
-			const child = {
-				toString: expect.anything(),
-				nodeValue: 'abc',
-			};
-
-			expect(actual).toEqual(child);
-			expect(actual).toBe(node);
+			const node = document.createTextNode('abc');
+			container.appendChild(node);
+			prevRefs = [node];
+			const actual = reconcile('xyz', state, containerRef, 0, prevRefs, container, sibling);
+			expect(container.childNodes).toEqual([node]);
+			expect(containerRef).toEqual([container, {}, node]);
+			expect(actual).toEqual({ node, next: sibling });
+			expect(actual.node).toBe(node);
+			expect(actual.node.nodeValue).toEqual('xyz');
 		});
 
 		it('hydrates dynamic node', () => {
-			const node = childNodes[0] = document.createTextNode('abc');
-			execute.mockReturnValue(node);
+			const node = document.createTextNode('abc');
+			container.appendChild(node);
+			prevRefs = [node];
+			execute.mockReturnValue({ node, next: sibling });
 			const callback = () => {};
-			const actual = reconcile(callback, state, containerRef, 0, parentElement, childNodes);
-			expect(parentElement.childNodes).toEqual([actual]);
-			expect(containerRef).toEqual([parentElement, {}, actual]);
-			expect(execute).toHaveBeenCalledWith(callback, state, containerRef, 0, parentElement, childNodes, undefined);
-
-			const child = {
-				toString: expect.anything(),
-				nodeValue: 'abc',
-			};
-
-			expect(actual).toEqual(child);
-			expect(actual).toBe(node);
+			const actual = reconcile(callback, state, containerRef, 0, prevRefs, container, sibling);
+			expect(container.childNodes).toEqual([node]);
+			expect(containerRef).toEqual([container, {}]);
+			expect(execute).toHaveBeenCalledWith(callback, state, containerRef, 0, prevRefs, container, sibling);
+			expect(actual).toEqual({ node, next: sibling });
+			expect(actual.node).toBe(node);
 		});
 
 		it('hydrates static node', () => {
-			const node = childNodes[0] = document.createElement('div');
-			const actual = reconcile(node, state, containerRef, 0, parentElement, childNodes);
-			expect(parentElement.childNodes).toEqual([actual]);
-			expect(containerRef).toEqual([parentElement, {}, actual]);
-			expect(actual).toBe(node);
+			const node = document.createElement('div');
+			prevRefs = [node];
+			const actual = reconcile(node, state, containerRef, 0, prevRefs, container, sibling);
+			expect(container.childNodes).toEqual([node]);
+			expect(containerRef).toEqual([container, {}, node]);
+			expect(actual).toEqual({ node, next: sibling });
+			expect(actual.node).toBe(node);
 		});
 
 		it('hydrates fragment node', () => {
-			const node = childNodes[0] = document.createTextNode('abc');
+			const node = document.createTextNode('abc');
+			container.appendChild(node);
+			prevRefs = [node];
 			const object = { key: 'value' };
-			const template = ['', object, 'abc'];
-			const actual = reconcile(template, state, containerRef, 0, parentElement, childNodes);
-			
-			const child = {
-				toString: expect.anything(),
-				nodeValue: 'abc',
-			};
-			
-			expect(parentElement.childNodes).toEqual([child]);
-			expect(containerRef).toEqual([parentElement, {}, actual]);
+			const template = ['', object, 'xyz'];
+			const actual = reconcile(template, state, containerRef, 0, prevRefs, container, sibling);
+
+			const ref = [{
+				state: object,
+			}, {}, node];
+
+			expect(container.childNodes).toEqual([node]);
+			expect(containerRef).toEqual([container, {}, ref]);
 			expect(observe).toHaveBeenCalledWith(object);
-
-			expect(actual).toEqual([{
-				state: object
-			}, {}, child]);
-
-			expect(actual[2]).toBe(node);
+			expect(actual).toEqual({ node, next: sibling });
+			expect(actual.node).toBe(node);
 		});
 
 		it('hydrates element node', () => {
-			const node = childNodes[0] = document.createElement('div');
-			const template = ['div', { className: 'abc' }, 'xyz'];
-			const actual = reconcile(template, state, containerRef, 0, parentElement, childNodes);
-			expect(parentElement.childNodes).toEqual([actual[0]]);
-			expect(containerRef).toEqual([parentElement, {}, actual]);
-
-			const child = {
-				toString: expect.anything(),
-				nodeValue: 'xyz',
-			};
-
-			expect(actual).toEqual([{
-				appendChild: expect.anything(),
-				insertBefore: expect.anything(),
-				toString: expect.anything(),
-				tagName: 'div',
-				className: 'abc',
-				childNodes: [child],
-			}, {}, child]);
-
-			expect(actual[0]).toBe(node);
+			const node = document.createElement('div');
+			node.className = 'abc';
+			const child = document.createTextNode('abc');
+			node.appendChild(child);
+			container.appendChild(node);
+			prevRefs = [node];
+			const ref = [node, {}, child];
+			const template = ['div', { className: 'xyz' }, 'xyz'];
+			const actual = reconcile(template, state, containerRef, 0, prevRefs, container, sibling);
+			expect(container.childNodes).toEqual([node]);
+			expect(containerRef).toEqual([container, {}, ref]);
+			expect(actual).toEqual({ node, next: sibling });
+			expect(actual.node).toBe(node);
+			expect(actual.node.className).toEqual('xyz');
 		});
 	});
 });

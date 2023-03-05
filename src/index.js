@@ -10,7 +10,7 @@ const nameMap = {
 	className: 'class'
 };
 
-export const virtualDocument = typeof window === 'object' && window.document || {
+export const virtualDocument = {
 	createTextNode (nodeValue) {
 		return {
 			nodeValue,
@@ -57,6 +57,8 @@ export const virtualDocument = typeof window === 'object' && window.document || 
 	},
 };
 
+const defaultDocument = typeof window === 'object' && window.document || virtualDocument;
+
 export function defaultUpdater (node, attributes) {
 	for (const [name, value] of Object.entries(attributes)) {
 		// add property to node if it needs to be updated
@@ -77,7 +79,7 @@ export function defaultUpdater (node, attributes) {
 // - hydrate will always use window.document and only builds the initial refs and adds event listeners
 // - document only needs to be stored in callbacks context and can be retrived from parent callbacks context (parentCallback in context)
 
-export default function stew (container, outline, state = {}, document = virtualDocument, updater = defaultUpdater) {
+export default function stew (container, outline, state = {}, document = defaultDocument, updater = defaultUpdater) {
 	if (!container) {
 		container = document.createElement('div');
 	} else if (typeof container !== 'object') {
@@ -87,7 +89,7 @@ export default function stew (container, outline, state = {}, document = virtual
 	const { childNodes = [] } = container;
 	documents.unshift(document);
 	updaters.unshift(updater);
-	reconcile(outline, state, [container, {}], 0, container, [...childNodes]);
+	reconcile(outline, state, [container, {}], 0, [...childNodes], container);
 	documents.shift();
 	updaters.unshift();
 	return container;
