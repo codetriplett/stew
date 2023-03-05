@@ -1,42 +1,74 @@
 import stew, { defaultDocument } from '.';
-import resolve from './resolve';
+import { documents } from './execute';
+import reconcile from './reconcile';
 
-jest.mock('./resolve');
+jest.mock('./reconcile');
 
 describe('stew', () => {
 	let state, node;
 
 	beforeEach(() => {
 		state = {};
-		node = {};
+		node = defaultDocument.createElement('div');
 		jest.clearAllMocks();
-		resolve.mockReturnValue(node);
+		reconcile.mockReturnValue(node);
+	});
+
+	it('replaces content', () => {
+		const outline = ['div', 'Hello Page'];
+		const actual = stew(outline, state);
+
+		expect(actual).toEqual({
+			childNodes: [],
+			appendChild: expect.anything(),
+			insertBefore: expect.anything(),
+			toString: expect.anything(),
+		});
+
+		expect(reconcile).toHaveBeenCalledWith(outline, state, [, {}], 0, actual, [], {});
+	});
+
+	it('hydrates content', () => {
+		const outline = ['div', 'Hello Page'];
+		const actual = stew(outline, state, node);
+
+		expect(actual).toEqual({
+			tagName: 'div',
+			childNodes: [],
+			appendChild: expect.anything(),
+			insertBefore: expect.anything(),
+			toString: expect.anything(),
+		});
+
+		expect(reconcile).toHaveBeenCalledWith(outline, state, [, {}], 0, actual, [], undefined);
 	});
 
 	it('uses default document', () => {
-		const actual = stew();
-		expect(actual).toEqual(expect.any(Function));
-		const template = ['div', 'Hello Page'];
-		const result = actual(template, state, node);
-		expect(result).toEqual(node);
+		let documentStack;
 
-		expect(resolve).toHaveBeenCalledWith(template, {
-			document: defaultDocument,
-			state,
-		}, [node, {}], 0);
+		reconcile.mockImplementation(() => {
+			documentStack = [...documents];
+		});
+
+		const outline = ['div', 'Hello Page'];
+		const actual = stew(outline, state, node);
+		expect(actual).toEqual(node);
+		expect(reconcile).toHaveBeenCalledWith(outline, state, [, {}], 0, node, [], undefined);
+		expect(documentStack).toEqual([defaultDocument]);
 	});
 
 	it('uses custom document', () => {
 		const customDocument = {};
-		const actual = stew(customDocument);
-		expect(actual).toEqual(expect.any(Function));
-		const template = ['div', 'Hello Page'];
-		const result = actual(template, state, node);
-		expect(result).toEqual(node);
+		let documentStack;
 
-		expect(resolve).toHaveBeenCalledWith(template, {
-			document: customDocument,
-			state,
-		}, [node, {}], 0);
+		reconcile.mockImplementation(() => {
+			documentStack = [...documents];
+		});
+
+		const outline = ['div', 'Hello Page'];
+		const actual = stew(outline, state, node, customDocument);
+		expect(actual).toEqual(node);
+		expect(reconcile).toHaveBeenCalledWith(outline, state, [, {}], 0, node, [], undefined);
+		expect(documentStack).toEqual([customDocument]);
 	});
 });

@@ -81,7 +81,7 @@ function process (item, state, containerRef, i, container, childNodes, oldKeyedR
 		// create new state and set proxy ref to parent if hydrating
 		if (obj) node.state = state = observe(obj);
 	} else {
-		if (!node || node.tagName.toLowerCase() !== tagName.toLowerCase()) {
+		if (node?.tagName?.toLowerCase?.() !== tagName.toLowerCase()) {
 			// create new element
 			node = documents[0].createElement(tagName);
 		} else {

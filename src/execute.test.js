@@ -6,12 +6,12 @@ jest.mock('./reconcile');
 
 describe('execute', () => {
 	const parentCallback = jest.fn();
-	let document, callback, state, containerRef, i, container, childNodes, oldKeyedRefs, ref, item, context;
+	let customDocument, callback, state, containerRef, i, container, childNodes, oldKeyedRefs, ref, item, context;
 
 	beforeEach(() => {
-		document = defaultDocument;
+		customDocument = defaultDocument;
 		documents.splice(0);
-		documents.unshift(document);
+		documents.unshift(customDocument);
 		callback = jest.fn();
 		state = {};
 		container = defaultDocument.createElement('div');
@@ -21,10 +21,11 @@ describe('execute', () => {
 		oldKeyedRefs = {};
 		ref = [{}, {}];
 		item = 'lmno';
-		context = { parentCallback, document, ref: [, {}], teardowns: [], params: [state, containerRef, i, container, childNodes, oldKeyedRefs] };
+		context = { parentCallback, customDocument, ref, teardowns: [], params: [state, containerRef, i, container, childNodes, oldKeyedRefs] };
 
 		contexts.set(callback, context);
 		documents.splice(0);
+		documents.unshift(customDocument);
 		callbacks.splice(0);
 		callbacks.unshift(parentCallback);
 		
@@ -33,7 +34,7 @@ describe('execute', () => {
 		callback.mockReturnValue(item);
 	});
 
-	it.only('executes the first time', () => {
+	it('executes the first time', () => {
 		contexts.set(callback, undefined);
 		let documentStack, callbackStack;
 
@@ -43,7 +44,6 @@ describe('execute', () => {
 			return item;
 		});
 
-		const containerRef = [{}, {}];
 		const actual = execute(callback, state, containerRef, 0, container, childNodes, oldKeyedRefs);
 		
 		expect(callback).toHaveBeenCalledWith(state, [, {}]);
@@ -51,33 +51,53 @@ describe('execute', () => {
 
 		expect(contexts.get(callback)).toEqual(context);
 		expect(callbacks).toEqual([parentCallback]);
-		expect(documents).toEqual([]);
+		expect(documents).toEqual([customDocument]);
+		expect(documentStack).toEqual([customDocument, customDocument]);
+		expect(callbackStack).toEqual([callback, parentCallback]);
 		expect(actual).toEqual(ref);
 	});
 
 	it('executes a second time', () => {
-		const parentCallback = jest.fn();
-		stack.unshift(parentCallback);
-		const containerRef = [{}, {}, [node, {}]];
-		const actual = execute(callback, { document, state }, containerRef, 0);
-		const context = { document, state, parentCallback, ref: [node, {}], i: 0, teardowns: [] };
+		let documentStack, callbackStack;
+
+		callback.mockImplementation(() => {
+			documentStack = [...documents];
+			callbackStack = [...callbacks];
+			return item;
+		});
+
+		const actual = execute(callback, state, containerRef, 0, container, childNodes, oldKeyedRefs);
 		
-		expect(callback).toHaveBeenCalledWith(state, [node, {}]);
-		expect(reconcile).toHaveBeenCalledWith(template, context, [node, {}], 0);
+		expect(callback).toHaveBeenCalledWith(state, [, {}]);
+		expect(reconcile).toHaveBeenCalledWith(item, state, containerRef, 0, container, childNodes, oldKeyedRefs);
 
 		expect(contexts.get(callback)).toEqual(context);
-		expect(stack).toEqual([parentCallback]);
-		expect(actual).toEqual(node);
+		expect(callbacks).toEqual([parentCallback]);
+		expect(documents).toEqual([customDocument]);
+		expect(documentStack).toEqual([customDocument, customDocument]);
+		expect(callbackStack).toEqual([callback, parentCallback]);
+		expect(actual).toEqual(ref);
 	});
 
 	it('executes a reaction', () => {
+		let documentStack, callbackStack;
+
+		callback.mockImplementation(() => {
+			documentStack = [...documents];
+			callbackStack = [...callbacks];
+			return item;
+		});
+
 		const actual = execute(callback);
-		const context = { document, state, ref: [node, {}], i: 0, teardowns: [] };
+		
+		expect(callback).toHaveBeenCalledWith(state, ref);
+		expect(reconcile).toHaveBeenCalledWith(item, state, containerRef, 0, container, childNodes, oldKeyedRefs);
 
-		expect(callback).toHaveBeenCalledWith(state, [node, {}]);
-		expect(reconcile).toHaveBeenCalledWith(template, context, [node, {}], 0);
-
-		expect(stack).toEqual([]);
-		expect(actual).toEqual(node);
+		expect(contexts.get(callback)).toEqual(context);
+		expect(callbacks).toEqual([parentCallback]);
+		expect(documents).toEqual([customDocument]);
+		expect(documentStack).toEqual([customDocument, customDocument]);
+		expect(callbackStack).toEqual([callback, parentCallback]);
+		expect(actual).toEqual(ref);
 	});
 });

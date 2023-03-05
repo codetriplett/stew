@@ -69,11 +69,12 @@ export const defaultDocument = {
 // - hydrate will always use window.document and only builds the initial refs and adds event listeners
 // - document only needs to be stored in callbacks context and can be retrived from parent callbacks context (parentCallback in context)
 
-function stew (template, state, node, document = defaultDocument) {
+export default function stew (outline, state, node, document = defaultDocument) {
+	const oldKeyedRefs = node ? undefined : {};
 	if (!node) node = document.createDocumentFragment();
-	const { childNodes } = node;
+	const { childNodes = [] } = node || {};
 	documents.unshift(document);
-	reconcile(template, state, [, {}], 0, [...childNodes], node);
+	reconcile(outline, state, [, {}], 0, node, [...childNodes], oldKeyedRefs);
 	documents.shift();
 	return node;
 };

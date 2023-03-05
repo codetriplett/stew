@@ -1,7 +1,6 @@
 function Button ({ action, locked, id }, content) {
 	return [
-		'', null,
-		action ? {} : {
+		'', action ? null : {
 			number: 0,
 			setNumber (number) {
 				this.number = number;
@@ -29,8 +28,8 @@ function Component () {
 			}
 		},
 		({ locked }) => ['', null,
-			['i', 'Status is: '],
-			['b', locked ? 'Locked' : 'Not locked'],
+			['i', {}, 'Status is: '],
+			['b', {}, locked ? 'Locked' : 'Not locked'],
 		],
 		({ setLocked }) => [
 			'', null,
@@ -47,8 +46,8 @@ function Component () {
 	];
 }
 
-const render = stew(document);
-const node = render(Component, {}, document.body);
+const container = document.querySelector('#container');
+const node = stew(Component, {}, container, document);
 // TODO: figure out why nodes aren't added to root node
 // - is it because function add an empty ref for themselves
 // - also need to figure out how to update nodes in parent element when function updates that returns a fragment

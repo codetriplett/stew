@@ -41,7 +41,7 @@ export default function observe (object) {
 
 		// bind context
 		if (typeof value === 'function') {
-			// TODO: check if this is needed now that value is read from value
+			// TODO: check if this is needed now that value is read from destructured entry
 			// - probably is since values context is object instead of state
 			value = value.bind(state);
 		}

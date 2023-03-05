@@ -1,5 +1,5 @@
 import observe, { queue } from './observe';
-import execute, { contexts, stack } from './execute';
+import execute, { contexts, callbacks } from './execute';
 
 jest.mock('./execute');
 
@@ -8,8 +8,8 @@ describe('observe', () => {
 
 	beforeEach(() => {
 		jest.clearAllMocks();
-		stack.splice(0);
-		stack.unshift(callback);
+		callbacks.splice(0);
+		callbacks.unshift(callback);
 		contexts.set(callback, {});
 	});
 
