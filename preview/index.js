@@ -46,9 +46,4 @@ function Component () {
 	];
 }
 
-const container = document.querySelector('#container');
-const node = stew(Component, {}, container, document);
-// TODO: figure out why nodes aren't added to root node
-// - is it because function add an empty ref for themselves
-// - also need to figure out how to update nodes in parent element when function updates that returns a fragment
-document.body.appendChild(node);
+stew('#container', Component);

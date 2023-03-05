@@ -1,4 +1,4 @@
-import execute, { documents } from './execute';
+import execute, { documents, updaters } from './execute';
 import observe from './observe';
 
 // figure out hydration in a way that can be repurposed for state changes
@@ -89,13 +89,8 @@ function process (item, state, containerRef, i, container, childNodes, oldKeyedR
 			childNodes.shift();
 		}
 
-		for (const [name, value] of Object.entries(obj || {})) {
-			// add property to node if it needs to be updated
-			if (node[name] === value) continue;
-			node[name] = value;
-		}
-		
-		// set container and child nodes
+		// update attribute and set container and child nodes
+		if (obj) updaters[0](node, obj);
 		container = node;
 		childNodes = [...node.childNodes];
 	}

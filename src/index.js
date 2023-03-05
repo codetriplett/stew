@@ -1,5 +1,5 @@
 import reconcile from './reconcile';
-import { documents } from './execute';
+import { documents, updaters, useEffect } from './execute';
 
 const selfClosingTags = new Set([
 	'wbr', 'track', 'source', 'param', 'meta', 'link', 'keygen', 'input',
@@ -10,7 +10,7 @@ const nameMap = {
 	className: 'class'
 };
 
-export const defaultDocument = {
+export const virtualDocument = typeof window === 'object' && window.document || {
 	createTextNode (nodeValue) {
 		return {
 			nodeValue,
@@ -57,6 +57,14 @@ export const defaultDocument = {
 	},
 };
 
+export function defaultUpdater (node, attributes) {
+	for (const [name, value] of Object.entries(attributes)) {
+		// add property to node if it needs to be updated
+		if (node[name] === value) continue;
+		node[name] = value;
+	}
+}
+
 // rewrite to generate full layout first before interacting with document
 // - just use defaultDocument exported from here instead of passing it through context objects
 // - then call a separate hydrate function internally to resolve the differences
@@ -69,15 +77,23 @@ export const defaultDocument = {
 // - hydrate will always use window.document and only builds the initial refs and adds event listeners
 // - document only needs to be stored in callbacks context and can be retrived from parent callbacks context (parentCallback in context)
 
-export default function stew (outline, state, node, document = defaultDocument) {
-	const oldKeyedRefs = node ? undefined : {};
-	if (!node) node = document.createDocumentFragment();
-	const { childNodes = [] } = node || {};
+export default function stew (container, outline, state = {}, document = virtualDocument, updater = defaultUpdater) {
+	if (!container) {
+		container = document.createElement('div');
+	} else if (typeof container !== 'object') {
+		container = document.querySelector(container);
+	}
+
+	const { childNodes = [] } = container;
 	documents.unshift(document);
-	reconcile(outline, state, [, {}], 0, node, [...childNodes], oldKeyedRefs);
+	updaters.unshift(updater);
+	reconcile(outline, state, [container, {}], 0, container, [...childNodes]);
 	documents.shift();
-	return node;
+	updaters.unshift();
+	return container;
 };
+
+Object.assign(stew, { useEffect, virtualDocument });
 
 if (typeof window === 'object') {
 	window.stew = stew;

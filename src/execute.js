@@ -2,6 +2,7 @@ import reconcile from './reconcile';
 
 export const contexts = new WeakMap();
 export const documents = [];
+export const updaters = [];
 export const callbacks = [];
 
 // TODO: work these out after updates are working properly
@@ -30,21 +31,29 @@ export function useEffect (callback) {
 // - if a nextSibling is empty, it means it is the last node and should be appended in parent
 // - so context needs to store parentElement as well
 export default function execute (callback, ...params) {
-	let context, item, state, containerRef, i, container, childNodes, oldKeyedRefs, ref, customDocument;
+	let context, item, state, containerRef, i, container, childNodes, oldKeyedRefs;
 
 	// store or retrieve context
 	if (params.length) {
-		context = { parentCallback: callbacks[0], customDocument: documents[0], ref: [, {}], params };
-		contexts.set(callback, context);
+		context = {
+			parentCallback: callbacks[0],
+			customDocument: documents[0],
+			customUpdater: updaters[0],
+			ref: [, {}],
+		};
+
+		contexts.set(callback, [context, ...params]);
 	} else {
-		context = contexts.get(callback);
+		[context, ...params] = contexts.get(callback) || [];
 	}
 
 	// set up ties to this callback function
 	if (!context) return;
-	({ customDocument, ref, params: [state, containerRef, i, container, childNodes, oldKeyedRefs] } = context);
+	let { customDocument, customUpdater, ref } = context;
+	[state, containerRef, i, container, childNodes, oldKeyedRefs] = params;
 	context.teardowns = [];
 	documents.unshift(customDocument);
+	updaters.unshift(customUpdater);
 	callbacks.unshift(callback);
 
 	// safely run callback function
@@ -55,8 +64,16 @@ export default function execute (callback, ...params) {
 	}
 
 	// resolve template and update nodes
+	[oldKeyedRefs] = containerRef.splice(1, 1, {});
 	ref = reconcile(item, state, containerRef, i, container, childNodes, oldKeyedRefs);
 	documents.shift();
+	updaters.shift();
 	callbacks.shift();
+
+	// store nextChild as attach point for later and set current ref
+	// TODO: would need to know whether next item is another callback so it can use its next sibling if it is empty
+	// - maybe it would be better to have reaction trigger parent to append/insert the items as is
+	// - could this be extracted from reconcile and be used after it process its children there as well?
+	context.childNodes = [];
 	return context.ref = ref;
 }
