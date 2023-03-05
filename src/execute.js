@@ -29,30 +29,27 @@ export function useEffect (callback) {
 // - if nextSibling is another reaction function, look at its nextSibling until a non-reaction is found
 // - if a nextSibling is empty, it means it is the last node and should be appended in parent
 // - so context needs to store parentElement as well
-export default function execute (callback, state, containerRef, i, container, childNodes, oldKeyedRefs) {
-	let context, ref, template;
+export default function execute (callback, ...params) {
+	let context, item, state, containerRef, i, container, childNodes, oldKeyedRefs, ref;
 
 	// store or retrieve context
-	if (state) {
-		const ref = containerRef[i + 2] || [, {}];
-		containerRef[i + 2] = ref;
-		context = { parentCallback: callbacks[0], state, ref, i };
+	if (params.length) {
+		context = { parentCallback: callbacks[0], document: documents[0], ref: [, {}], params };
 		contexts.set(callback, context);
 	} else {
 		context = contexts.get(callback);
-		({ i } = context);
 	}
 
 	// set up ties to this callback function
 	if (!context) return;
-	({ state, ref } = context);
+	({ document, ref, params: [state, containerRef, i, container, childNodes, oldKeyedRefs] } = context);
 	context.teardowns = [];
 	documents.unshift(document);
 	callbacks.unshift(callback);
 
 	// safely run callback function
 	try {
-		template = callback(state, ref[1]);
+		item = callback(state, ref);
 	} catch (e) {
 		console.error(e);
 	}
@@ -60,5 +57,6 @@ export default function execute (callback, state, containerRef, i, container, ch
 	// resolve template and update nodes
 	documents.shift();
 	callbacks.shift();
-	return reconcile(template, context, ref, i, sibling);
+	ref = reconcile(item, state, containerRef, i, container, childNodes, oldKeyedRefs);
+	return context.ref = ref;
 }

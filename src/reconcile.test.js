@@ -14,13 +14,13 @@ describe('reconcile', () => {
 
 	beforeEach(() => {
 		document = defaultDocument;
+		documents.splice(0);
+		documents.unshift(document);
 		state = {};
 		parentElement = document.createElement('div');
 		childNodes = [];
 		containerRef = [parentElement, {}];
 		oldKeyedRefs = {};
-		documents.splice(0);
-		documents.unshift(document);
 
 		jest.clearAllMocks();
 		execute.mockReturnValue(document.createTextNode('lmno'));
