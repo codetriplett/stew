@@ -42,8 +42,8 @@ currentRef: [{ ...map }, ...childRefs], // nodes only added to map if they have 
 // create: currentNode is empty, next child node is not compatible
 // update: currentNode is found
 
-function clean (ref, oldKeyedRefs, oldIndexedRefs) {
-	const [, newKeyedRefs, ...newIndexedRefs] = ref;
+function clean (container, prevIndexedRefs, indexedRefs) {
+	// console.log(prevIndexedRefs, indexedRefs);
 }
 
 function append (container, node, sibling) {
@@ -107,6 +107,7 @@ export default function reconcile (item, state, containerRef, i, prevRefs, conta
 	let originalSibling = sibling;
 	if (isHydrating) ref = isFragment || !ref ? [] : [ref];
 	else if (!ref) ref = prevRefs[key] || [, {}];
+	const prevIndexedRefs = ref.slice(2);
 	node = ref?.[0];
 
 	if (isFragment) {
@@ -126,8 +127,12 @@ export default function reconcile (item, state, containerRef, i, prevRefs, conta
 		// update attribute and set container and child nodes
 		if (obj) updaters[0](node, obj);
 		const { childNodes } = container = node;
-		if (isHydrating) prevRefs = [...childNodes];
 		sibling = childNodes[childNodes.length - 1];
+
+		if (isHydrating) {
+			prevRefs = [...childNodes];
+			prevIndexedRefs.push(...childNodes);
+		}
 	}
 	
 	// update refs and store previous keyed refs before resetting them
@@ -141,7 +146,7 @@ export default function reconcile (item, state, containerRef, i, prevRefs, conta
 	}
 
 	// remove outdated nodes and run teardown functions if necessary
-	clean(ref, prevRefs, indexedRefs);
+	clean(container, prevIndexedRefs, ref.slice(2));
 	containerRef[i + 2] = ref;
 	if (sibling === originalSibling) return sibling;
 	if (isFragment) node = sibling.node;

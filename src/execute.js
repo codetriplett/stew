@@ -30,27 +30,25 @@ export function useEffect (callback) {
 // - if nextSibling is another reaction function, look at its nextSibling until a non-reaction is found
 // - if a nextSibling is empty, it means it is the last node and should be appended in parent
 // - so context needs to store parentElement as well
-export default function execute (callback, ...params) {
-	let context, item, state, containerRef, i, prevRefs, container, sibling;
-
+export default function execute (callback, ...context) {
 	// store or retrieve context
-	if (params.length) {
-		context = {
+	if (context.length) {
+		context.unshift({
 			parentCallback: callbacks[0],
 			customDocument: documents[0],
 			customUpdater: updaters[0]
-		};
+		});
 
-		contexts.set(callback, [context, ...params]);
+		contexts.set(callback, context);
 	} else {
-		[context, ...params] = contexts.get(callback) || [];
+		context = contexts.get(callback);
+		if (!context) return;
 	}
 
 	// set up ties to this callback function
-	if (!context) return;
-	let { customDocument, customUpdater } = context;
-	[state, containerRef, i, prevRefs, container, sibling] = params;
-	context.teardowns = [];
+	let [options, state, containerRef, i, prevRefs, container, sibling] = context;
+	const { customDocument, customUpdater } = options;
+	options.teardowns = [];
 	documents.unshift(customDocument);
 	updaters.unshift(customUpdater);
 	callbacks.unshift(callback);
@@ -63,15 +61,12 @@ export default function execute (callback, ...params) {
 	}
 
 	// resolve template and update nodes
-	[prevRefs] = containerRef.splice(1, 1, {});
 	sibling = reconcile(item, state, containerRef, i, prevRefs, container, sibling);
+	// TODO: store key in sibling and store that in options here
+	// - if key changes during a reaction, delete the old one from the keyedRefs
+	context[4] = containerRef[1];
 	documents.shift();
 	updaters.shift();
 	callbacks.shift();
-
-	// store nextChild as attach point for later and set current ref
-	// TODO: would need to know whether next item is another callback so it can use its next sibling if it is empty
-	// - maybe it would be better to have reaction trigger parent to append/insert the items as is
-	// - could this be extracted from reconcile and be used after it process its children there as well?
 	return sibling;
 }

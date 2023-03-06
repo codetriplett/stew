@@ -38,6 +38,7 @@ function Component () {
 				id: 'lock',
 				action: () => setLocked(true),
 			}, 'Lock'),
+			// TODO: why is there an endless loop when fn is removed and boolean value false sits before Button
 			({ locked }) => locked && Button({
 				id: 'unlock',
 				action: () => setLocked(false),
