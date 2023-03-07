@@ -29,7 +29,7 @@ export function useEffect (callback) {
 // - if nextSibling is another reaction function, look at its nextSibling until a non-reaction is found
 // - if a nextSibling is empty, it means it is the last node and should be appended in parent
 // - so context needs to store parentElement as well
-export default function execute (callback, state, outerMemory, i, prevRefs, container, sibling) {
+export default function execute (callback, state, parentView, i, pastViews, container, sibling, hydrateNodes) {
 	// store parent framework so it can referenced whenever impulse is fired
 	const [framework] = frameworks;
 
@@ -38,11 +38,12 @@ export default function execute (callback, state, outerMemory, i, prevRefs, cont
 		// resurface stored framework
 		frameworks.unshift(framework);
 		impulses.unshift(impulse);
+		const view = [];
 		let item;
 	
 		// safely run callback function
 		try {
-			item = callback(state, newKeyedRefs);
+			item = callback(state, view);
 		} catch (e) {
 			console.error(e);
 		}
@@ -52,7 +53,8 @@ export default function execute (callback, state, outerMemory, i, prevRefs, cont
 		// - how does a second pass of execute not overwrite the previous impulse?
 
 		// process return value as it normally would before resetting active framework
-		sibling = reconcile(item, state, outerMemory, i, prevRefs, container, sibling);
+		sibling = reconcile(item, state, parentView, i, pastViews, container, sibling, hydrateNodes);
+		view.push(...parentView[i + 2]);
 		impulses.shift();
 		frameworks.shift();
 		return sibling;

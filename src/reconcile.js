@@ -74,8 +74,8 @@ function populate (items, state, ref, prevRefs, container, sibling) {
 		sibling = reconcile(items[i], state, ref, i, prevRefs, container, sibling);
 	}
 
+	// TODO: move cleanup code to this function
 	// remove outdated nodes and run teardown functions if necessary
-	// - move clean up code into this function
 	clean(container, prevIndexedRefs, ref.slice(2));
 	return sibling;
 }
@@ -92,10 +92,9 @@ function populate (items, state, ref, prevRefs, container, sibling) {
 // - would reconcile be easier if it always stored memories as arrays, [node, map, children]
 
 
-function write (item, ref, prevRefs, container, sibling) {
+function write (item, ref, container, sibling, hydrateNodes) {
 	const nodeValue = String(item);
-	const isHydrating = Array.isArray(prevRefs);
-	let node = ref?.[0];
+	let [node] = ref;
 
 	if (!node || !('nodeValue' in node)) {
 		// create new text node
@@ -105,7 +104,7 @@ function write (item, ref, prevRefs, container, sibling) {
 	}
 
 	// claim text node and update if necessary
-	if (isHydrating) prevRefs.pop();
+	if (hydrateNodes) hydrateNodes.pop();
 	if (nodeValue !== node.nodeValue) node.nodeValue = nodeValue;
 	return ref;
 };
@@ -115,7 +114,7 @@ function write (item, ref, prevRefs, container, sibling) {
 // - storing state object was only a solve for if the state object was its own impulse, but that can be handled by execute if needed
 // - execute needs to maintain memory of its callbacks anyway, probably using the outerMemory and i as a compound key of some kind
 // - if the node value is always either undefined or a valid node to attach to, updating the dom will be a lot simpler
-function update (item, state, outerMemory, i, prevRefs, container, sibling) {
+function update (item, state, parentView, i, container, sibling, hydrateNodes) {
 	if (!item && item !== 0 || item === true) {
 		// empty node
 		return [];
@@ -125,66 +124,62 @@ function update (item, state, outerMemory, i, prevRefs, container, sibling) {
 		return [item];
 	}
 
-	// get candidate ref
-	const isHydrating = Array.isArray(prevRefs);
-	let [, keyedRefs, ...indexedRefs] = outerMemory;
-	let ref = isHydrating ? prevRefs.slice(-1) : indexedRefs[i];
+	// get candidate view
+	const [futureViews, pastViews, ...views] = parentView;
+	let view = hydrateNodes ? hydrateNodes.slice(-1) : views[i];
 
 	if (!Array.isArray(item)) {
 		// text node
-		return write(item, ref, prevRefs, container, sibling);
+		return write(item, view, container, sibling, hydrateNodes);
 	}
 
 	// element or fragment node
 	const [str, obj, ...arr] = item;
 	const [, tagName, key] = str.match(/^\s*(.*?)\s*(?::(.*?))?$/);
 	const isFragment = tagName === '';
-	if (isHydrating && isFragment) ref = [];
-	else if (!ref) ref = prevRefs[key] || [, {}];
-	[node] = ref;
+	if (!view) view = pastViews[key] || [];
 
-	if (isFragment) {
-		node = { state: obj };
-		// create new state and set proxy ref to parent if hydrating
-		if (obj) node.state = state = observe(obj);
-	} else {
+	if (!isFragment) {
+		let [node] = view;
+
 		if (node?.tagName?.toLowerCase?.() !== tagName.toLowerCase()) {
 			// create new element
 			node = documents[0].createElement(tagName);
 			append(container, node, sibling);
-		} else if (isHydrating) {
-			// claim element
-			prevRefs.pop();
+		}
+
+		// claim node and prepare new set for children
+		if (hydrateNodes) {
+			hydrateNodes.pop();
+			hydrateNodes = [...childNodes]
 		}
 
 		// update attribute and set container and child nodes
 		if (obj) updaters[0](node, obj);
 		const { childNodes } = container = node;
 		sibling = undefined;
-
-		if (isHydrating) {
-			prevRefs = [...childNodes];
-			// prevIndexedRefs.push(...childNodes);
-		}
+	} else if (obj) {
+		// create new state
+		state = observe(obj);
 	}
 	
-	// update refs and store previous keyed refs before resetting them
-	if (key) keyedRefs[key] = ref;
-	const prevRefCore = ref.splice(0, 2, node, newKeyedRefs);
-	if (!isHydrating) [, prevRefs] = prevRefCore;
-	const finalSibling = populate(arr, state, ref, prevRefs, container, sibling);
-	if (isFragment) ref[0] = finalSibling === sibling ? undefined : finalSibling.node;
-	return ref;
+	// update refs and temporarily store new future views in place of node
+	if (key) futureViews[key] = view;
+	futureViews = view[0] = {};
+	const finalSibling = populate(arr, state, view, container, sibling, hydrateNodes);
+	if (isFragment) node = finalSibling === sibling ? undefined : finalSibling.node;
+	view.splice(0, 2, node, futureViews);
+	return view;
 }
 
-export default function reconcile (item, state, outerMemory, i, prevRefs, container, sibling) {
+export default function reconcile (item, state, parentView, i, container, sibling) {
 	if (typeof item === 'function') {
 		// dynamic node
-		return execute(item, state, outerMemory, i, prevRefs, container, sibling);
+		return execute(item, state, parentView, i, container, sibling);
 	}
 
-	const ref = update(item, state, outerMemory, i, prevRefs, container, sibling);
-	const [node] = ref;
-	outerMemory[i + 2] = ref;
+	const view = update(item, state, parentView, i, container, sibling);
+	const [node] = view;
+	parentView[i + 2] = view;
 	return node ? { node, next: sibling } : sibling;
 }

@@ -88,7 +88,7 @@ export default function stew (container, outline, state = {}, document = default
 
 	const { childNodes = [] } = container;
 	frameworks.unshift([document, updater]);
-	reconcile(outline, state, [container, {}], 0, [...childNodes], container);
+	reconcile(outline, state, [{}, {}], 0, container, undefined, [...childNodes]);
 	frameworks.shift();
 	return container;
 };
