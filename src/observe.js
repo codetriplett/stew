@@ -1,27 +1,27 @@
-import execute, { contexts, callbacks } from './execute';
+import execute, { contexts, impulses } from './execute';
 
 export const queue = new Set();
 let timeout;
 
-function screen (callback) {
-	const { parentCallback } = contexts.get(callback) || {};
-	if (!parentCallback) return false; // root reached with an update found
-	if (queue.has(parentCallback)) return true; // parent callback will update
-	return screen(parentCallback); // check next parent callback
+function screen (keyedRefs) {
+	const { parentCallback: parentKeyedRefs } = contexts.get(keyedRefs) || {};
+	if (!parentKeyedRefs) return false; // root reached with an update found
+	if (queue.has(parentKeyedRefs)) return true; // parent callback will update
+	return screen(parentKeyedRefs); // check next parent callback
 }
 
 function schedule (subscriptions) {
 	// add subscriptions to queue unless they are already covered by parent
-	for (const callback of subscriptions.splice(0)) {
-		const isQueued = queue.has(callback) || screen(callback);
+	for (const keyedRefs of subscriptions.splice(0)) {
+		const isQueued = queue.has(keyedRefs) || screen(keyedRefs);
 		if (isQueued) continue;
-		queue.add(callback);
+		queue.add(keyedRefs);
 	}
 
 	// schedule update after all main thread tasks have finished
 	timeout = timeout !== undefined ? timeout : setTimeout(() => {
-		for (const callback of queue) {
-			execute(callback);
+		for (const keyedRefs of queue) {
+			execute(keyedRefs);
 		}
 
 		queue.clear();
@@ -49,7 +49,7 @@ export default function observe (object) {
 		// subscribe on get and dispatch on set
 		Object.defineProperty(state, name, {
 			get () {
-				subscriptions.push(callbacks[0]);
+				subscriptions.push(impulses[0]);
 				return value;
 			},
 			set (newValue) {

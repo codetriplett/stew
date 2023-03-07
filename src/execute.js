@@ -1,15 +1,14 @@
 import reconcile from './reconcile';
 
-export const contexts = new WeakMap();
-export const documents = [];
-export const updaters = [];
-export const callbacks = [];
+// export const contexts = new WeakMap();
+export const frameworks = [];
+export const impulses = [];
 
 // TODO: work these out after updates are working properly
 // - hooks are tied to a callback using the stack as the key and are stored in contexts under that key
 // - populate() needs to check refs against prevRefs of its children to know if mount/update or unmount needs to fire
 export function useEffect (callback) {
-	const [contextCallback] = callbacks;
+	const [contextCallback] = impulses;
 	const context = contexts.get(contextCallback);
 	// ignore effect if context doesn't exist or if it has been set to ignore it
 	if (!context || context.document.ignoreHooks?.has?.(useEffect)) return;
@@ -30,43 +29,75 @@ export function useEffect (callback) {
 // - if nextSibling is another reaction function, look at its nextSibling until a non-reaction is found
 // - if a nextSibling is empty, it means it is the last node and should be appended in parent
 // - so context needs to store parentElement as well
-export default function execute (callback, ...context) {
-	// store or retrieve context
-	if (context.length) {
-		context.unshift({
-			parentCallback: callbacks[0],
-			customDocument: documents[0],
-			customUpdater: updaters[0]
-		});
+export default function execute (callback, state, outerMemory, i, prevRefs, container, sibling) {
+	// store parent framework so it can referenced whenever impulse is fired
+	const [framework] = frameworks;
 
-		contexts.set(callback, context);
-	} else {
-		context = contexts.get(callback);
-		if (!context) return;
+	// wrap in setup and teardown steps and store as new callback to subscribe to state property changes
+	function impulse () {
+		// resurface stored framework
+		frameworks.unshift(framework);
+		impulses.unshift(impulse);
+		let item;
+	
+		// safely run callback function
+		try {
+			item = callback(state, newKeyedRefs);
+		} catch (e) {
+			console.error(e);
+		}
+
+		// TODO: have hooks store echo properties on impulse function
+		// - allows things like persisting custom values between function calls, or setting teardown callback
+		// - how does a second pass of execute not overwrite the previous impulse?
+
+		// process return value as it normally would before resetting active framework
+		sibling = reconcile(item, state, outerMemory, i, prevRefs, container, sibling);
+		impulses.shift();
+		frameworks.shift();
+		return sibling;
 	}
 
-	// set up ties to this callback function
-	let [options, state, containerRef, i, prevRefs, container, sibling] = context;
-	const { customDocument, customUpdater } = options;
-	options.teardowns = [];
-	documents.unshift(customDocument);
-	updaters.unshift(customUpdater);
-	callbacks.unshift(callback);
-
-	// safely run callback function
-	try {
-		item = callback(state, containerRef[i + 2]);
-	} catch (e) {
-		console.error(e);
-	}
-
-	// resolve template and update nodes
-	sibling = reconcile(item, state, containerRef, i, prevRefs, container, sibling);
-	// TODO: store key in sibling and store that in options here
-	// - if key changes during a reaction, delete the old one from the keyedRefs
-	context[4] = containerRef[1];
-	documents.shift();
-	updaters.shift();
-	callbacks.shift();
-	return sibling;
+	// call immediatly to set inital value and subscribe to state properties
+	return impulse();
 }
+
+
+
+
+
+
+	
+// 	// store or retrieve context
+// 	if (context.length) {
+// 		context.unshift({
+// 			parentKeyedRefs: impulses[0],
+// 			customDocument: documents[0],
+// 			customUpdater: updaters[0]
+// 		});
+
+// 		contexts.set(callback, context);
+// 	} else {
+// 		context = contexts.get(callback);
+// 		if (!context) return;
+// 	}
+
+// 	// set up ties to this callback function
+// 	let [options, state, containerRef, i, prevRefs, container, sibling] = context;
+// 	const { customDocument, customUpdater } = options;
+// 	const newKeyedRefs = {};
+// 	options.teardowns = [];
+// 	documents.unshift(customDocument);
+// 	updaters.unshift(customUpdater);
+// 	impulses.unshift(newKeyedRefs);
+
+// 	// resolve template and update nodes
+// 	sibling = reconcile(item, state, containerMemory, i, prevRefs, container, sibling, newKeyedRefs);
+// 	// TODO: store key in sibling and store that in options here
+// 	// - if key changes during a reaction, delete the old one from the keyedRefs
+// 	context[4] = containerMemory[1];
+// 	documents.shift();
+// 	updaters.shift();
+// 	impulses.shift();
+// 	return sibling;
+// }

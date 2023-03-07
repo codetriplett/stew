@@ -1,5 +1,5 @@
 import reconcile from './reconcile';
-import { documents, updaters, useEffect } from './execute';
+import { frameworks, useEffect } from './execute';
 
 const selfClosingTags = new Set([
 	'wbr', 'track', 'source', 'param', 'meta', 'link', 'keygen', 'input',
@@ -87,11 +87,9 @@ export default function stew (container, outline, state = {}, document = default
 	}
 
 	const { childNodes = [] } = container;
-	documents.unshift(document);
-	updaters.unshift(updater);
+	frameworks.unshift([document, updater]);
 	reconcile(outline, state, [container, {}], 0, [...childNodes], container);
-	documents.shift();
-	updaters.unshift();
+	frameworks.shift();
 	return container;
 };
 
