@@ -8,16 +8,16 @@ export const impulses = [];
 // - hooks are tied to a callback using the stack as the key and are stored in contexts under that key
 // - populate() needs to check refs against prevRefs of its children to know if mount/update or unmount needs to fire
 export function useEffect (callback) {
-	const [contextCallback] = impulses;
-	const context = contexts.get(contextCallback);
-	// ignore effect if context doesn't exist or if it has been set to ignore it
-	if (!context || context.document.ignoreHooks?.has?.(useEffect)) return;
-	// TODO: maintain a prevState object for each state that stores the previous values when they change
-	// - pass that as the second param after the first time effect has run and is mounted
-	const { ref, teardowns } = context;
-	const hasMounted = !!ref;
-	const teardown = callback();
-	if (teardown) teardowns.push(teardown); 
+	// const [contextCallback] = impulses;
+	// const context = contexts.get(contextCallback);
+	// // ignore effect if context doesn't exist or if it has been set to ignore it
+	// if (!context || context.document.ignoreHooks?.has?.(useEffect)) return;
+	// // TODO: maintain a prevState object for each state that stores the previous values when they change
+	// // - pass that as the second param after the first time effect has run and is mounted
+	// const { ref, teardowns } = context;
+	// const hasMounted = !!ref;
+	// const teardown = callback();
+	// if (teardown) teardowns.push(teardown); 
 }
 
 // TODO: see if there is an easy way to update a nodes attributes without causing its children to update
@@ -29,9 +29,10 @@ export function useEffect (callback) {
 // - if nextSibling is another reaction function, look at its nextSibling until a non-reaction is found
 // - if a nextSibling is empty, it means it is the last node and should be appended in parent
 // - so context needs to store parentElement as well
-export default function execute (callback, state, parentView, i, pastViews, container, sibling, hydrateNodes) {
-	// store parent framework so it can referenced whenever impulse is fired
+export default function execute (callback, state, parentView, i, dom, hydrateNodes) {
+	// persist parent framework and dom reference object
 	const [framework] = frameworks;
+	dom = { ...dom };
 
 	// wrap in setup and teardown steps and store as new callback to subscribe to state property changes
 	function impulse () {
@@ -53,15 +54,16 @@ export default function execute (callback, state, parentView, i, pastViews, cont
 		// - how does a second pass of execute not overwrite the previous impulse?
 
 		// process return value as it normally would before resetting active framework
-		sibling = reconcile(item, state, parentView, i, pastViews, container, sibling, hydrateNodes);
-		view.push(...parentView[i + 2]);
+		reconcile(item, state, parentView, i, { ...dom }, hydrateNodes);
+		const newView = parentView[i + 2];
+		if (newView) view.push(...newView);
 		impulses.shift();
 		frameworks.shift();
-		return sibling;
 	}
 
-	// call immediatly to set inital value and subscribe to state properties
-	return impulse();
+	// set parent impulse and call for first time
+	impulse.parentImpulse = impulses[0];
+	impulse();
 }
 
 

@@ -67,6 +67,25 @@ export function defaultUpdater (node, attributes) {
 	}
 }
 
+export function create (document, selector) {
+	const [tagName, ...strings] = selector.split(/(?=\.|\[)/);
+	const node = document.createElement(tagName);
+	const classList = []
+
+	for (const string of strings) {
+		if (string.startsWith('.')) {
+			classList.push(string.slice(1));
+			continue;
+		}
+
+		const [, name, value] = string.match(/^\[\s*([^=[]*?)\s*(?:=([^[]*))?\]/);
+		if (!name) continue;
+		node[name] = value || true;
+	}
+
+	node.className = classList.join(' ');
+}
+
 // rewrite to generate full layout first before interacting with document
 // - just use defaultDocument exported from here instead of passing it through context objects
 // - then call a separate hydrate function internally to resolve the differences
@@ -79,18 +98,13 @@ export function defaultUpdater (node, attributes) {
 // - hydrate will always use window.document and only builds the initial refs and adds event listeners
 // - document only needs to be stored in callbacks context and can be retrived from parent callbacks context (parentCallback in context)
 
-export default function stew (container, outline, state = {}, document = defaultDocument, updater = defaultUpdater) {
-	if (!container) {
-		container = document.createElement('div');
-	} else if (typeof container !== 'object') {
-		container = document.querySelector(container);
-	}
-
-	const { childNodes = [] } = container;
+export default function stew (selector, outline, document = defaultDocument, updater = defaultUpdater) {
+	const container = document?.querySelector?.(selector) || create(selector);
+	const { childNodes } = container;
 	frameworks.unshift([document, updater]);
-	reconcile(outline, state, [{}, {}], 0, container, undefined, [...childNodes]);
+	reconcile(outline, {}, [{}, {}], 0, { container }, [...childNodes]);
 	frameworks.shift();
-	return container;
+	return selector;
 };
 
 Object.assign(stew, { useEffect, virtualDocument });

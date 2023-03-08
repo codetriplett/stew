@@ -1,27 +1,27 @@
-import execute, { contexts, impulses } from './execute';
+import execute from './execute';
 
 export const queue = new Set();
 let timeout;
 
-function screen (keyedRefs) {
-	const { parentCallback: parentKeyedRefs } = contexts.get(keyedRefs) || {};
-	if (!parentKeyedRefs) return false; // root reached with an update found
-	if (queue.has(parentKeyedRefs)) return true; // parent callback will update
-	return screen(parentKeyedRefs); // check next parent callback
+function screen (impulse) {
+	// check if impulse or parent is in view
+	if (queue.has(impulse)) return true;
+	const { parentImpulse } = impulse;
+	return !!parentImpulse && screen(parentImpulse);
 }
 
 function schedule (subscriptions) {
 	// add subscriptions to queue unless they are already covered by parent
-	for (const keyedRefs of subscriptions.splice(0)) {
-		const isQueued = queue.has(keyedRefs) || screen(keyedRefs);
+	for (const impulse of subscriptions.splice(0)) {
+		const isQueued = screen(impulse);
 		if (isQueued) continue;
-		queue.add(keyedRefs);
+		queue.add(impulse);
 	}
 
 	// schedule update after all main thread tasks have finished
 	timeout = timeout !== undefined ? timeout : setTimeout(() => {
-		for (const keyedRefs of queue) {
-			execute(keyedRefs);
+		for (const impulse of queue) {
+			execute(impulse);
 		}
 
 		queue.clear();
