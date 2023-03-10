@@ -23,12 +23,23 @@ export const virtualDocument = {
 		return {
 			childNodes: [],
 			appendChild (child) {
+				this.removeChild(child);
 				this.childNodes.push(child);
+				child.parentElement = this;
 			},
 			insertBefore (child, sibling) {
 				const { childNodes } = this;
+				this.removeChild(child);
 				const index = childNodes.indexOf(sibling);
 				childNodes.splice(index, 0, child);
+				child.parentElement = this;
+			},
+			removeChild (child) {
+				const { childNodes } = this;
+				const index = childNodes.indexOf(child);
+				if (index === -1) return;
+				childNodes.splice(index, 1);
+				child.parentElement = null;
 			},
 			toString () {
 				return this.childNodes.join('');
@@ -67,8 +78,8 @@ export function defaultUpdater (node, attributes) {
 	}
 }
 
-export function create (document, selector) {
-	const [tagName, ...strings] = selector.split(/(?=\.|\[)/);
+export function create (selector, document) {
+	const [tagName, ...strings] = String(selector).split(/(?=\.|\[)/);
 	const node = document.createElement(tagName);
 	const classList = []
 
@@ -98,13 +109,16 @@ export function create (document, selector) {
 // - hydrate will always use window.document and only builds the initial refs and adds event listeners
 // - document only needs to be stored in callbacks context and can be retrived from parent callbacks context (parentCallback in context)
 
-export default function stew (selector, outline, document = defaultDocument, updater = defaultUpdater) {
-	const container = document?.querySelector?.(selector) || create(selector);
+export default function stew (container, outline, document = defaultDocument, updater = defaultUpdater) {
+	if (typeof container !== 'object') {
+		container = document?.querySelector?.(container) || create(container, document);
+	}
+
 	const { childNodes } = container;
 	frameworks.unshift([document, updater]);
-	reconcile(outline, {}, [{}, {}], 0, { container }, [...childNodes]);
+	reconcile(outline, {}, [container, {}], 0, { container }, [...childNodes]);
 	frameworks.shift();
-	return selector;
+	return container;
 };
 
 Object.assign(stew, { useEffect, virtualDocument });

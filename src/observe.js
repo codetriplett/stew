@@ -1,4 +1,4 @@
-import execute from './execute';
+import execute, { impulses } from './execute';
 
 export const queue = new Set();
 let timeout;

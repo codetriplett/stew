@@ -1,5 +1,5 @@
 import observe, { queue } from './observe';
-import execute, { contexts, callbacks } from './execute';
+import execute, { impulses } from './execute';
 
 jest.mock('./execute');
 
@@ -8,9 +8,8 @@ describe('observe', () => {
 
 	beforeEach(() => {
 		jest.clearAllMocks();
-		callbacks.splice(0);
-		callbacks.unshift(callback);
-		contexts.set(callback, {});
+		impulses.splice(0);
+		impulses.unshift(callback);
 	});
 
 	it('reacts to changes to read properties', async () => {
@@ -42,13 +41,13 @@ describe('observe', () => {
 	});
 	
 	it('prevents nested executions', async () => {
-		const parentCallback = jest.fn();
-		contexts.get(callback).parentCallback = parentCallback;
-		queue.add(parentCallback);
+		const parentImpulse = jest.fn();
+		callback.parentImpulse = parentImpulse;
+		queue.add(parentImpulse);
 		const actual = observe({ str: 'abc' });
 		actual.str;
 		actual.str = 'xyz';
 		await new Promise(resolve => setTimeout(resolve, 10));
-		expect(execute.mock.calls).toEqual([[parentCallback]]);
+		expect(execute.mock.calls).toEqual([[parentImpulse]]);
 	});
 });
