@@ -4,12 +4,12 @@ import execute, { impulses } from './execute';
 jest.mock('./execute');
 
 describe('observe', () => {
-	const callback = jest.fn();
+	const impulse = jest.fn();
 
 	beforeEach(() => {
 		jest.clearAllMocks();
 		impulses.splice(0);
-		impulses.unshift(callback);
+		impulses.unshift(impulse);
 	});
 
 	it('reacts to changes to read properties', async () => {
@@ -17,11 +17,11 @@ describe('observe', () => {
 		const before = actual.str;
 		expect(before).toEqual('abc');
 		await new Promise(resolve => setTimeout(resolve, 10));
-		expect(execute).not.toHaveBeenCalled();
+		expect(impulse).not.toHaveBeenCalled();
 		actual.str = 'xyz';
-		expect(queue).toEqual(new Set([callback]));
+		expect(queue).toEqual(new Set([impulse]));
 		await new Promise(resolve => setTimeout(resolve, 10));
-		expect(execute).toHaveBeenCalledWith(callback);
+		expect(impulse).toHaveBeenCalledWith();
 		const after = actual.str;
 		expect(after).toEqual('xyz');
 	});
@@ -37,17 +37,18 @@ describe('observe', () => {
 		actual.num = 456;
 		actual.num = 789;
 		await new Promise(resolve => setTimeout(resolve, 10));
-		expect(execute.mock.calls).toEqual([[callback]]);
+		expect(impulse.mock.calls).toEqual([[]]);
 	});
 	
 	it('prevents nested executions', async () => {
 		const parentImpulse = jest.fn();
-		callback.parentImpulse = parentImpulse;
+		impulse.parentImpulse = parentImpulse;
 		queue.add(parentImpulse);
 		const actual = observe({ str: 'abc' });
 		actual.str;
 		actual.str = 'xyz';
 		await new Promise(resolve => setTimeout(resolve, 10));
-		expect(execute.mock.calls).toEqual([[parentImpulse]]);
+		expect(parentImpulse.mock.calls).toEqual([[]]);
+		expect(impulse).not.toHaveBeenCalled();
 	});
 });

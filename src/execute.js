@@ -32,7 +32,6 @@ export function useEffect (callback) {
 export default function execute (callback, state, parentView, i, dom, hydrateNodes) {
 	// persist parent framework and dom reference object
 	const [framework] = frameworks;
-	dom = { ...dom };
 
 	// wrap in setup and teardown steps and store as new callback to subscribe to state property changes
 	function impulse () {
@@ -54,7 +53,9 @@ export default function execute (callback, state, parentView, i, dom, hydrateNod
 		// - how does a second pass of execute not overwrite the previous impulse?
 
 		// process return value as it normally would before resetting active framework
-		reconcile(item, state, parentView, i, { ...dom }, hydrateNodes);
+		const domCopy = { ...dom };
+		reconcile(item, state, parentView, i, dom, hydrateNodes);
+		dom = domCopy;
 		const newView = parentView[i + 2];
 		if (newView) view.push(...newView);
 		impulses.shift();

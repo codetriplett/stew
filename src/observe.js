@@ -21,7 +21,7 @@ function schedule (subscriptions) {
 	// schedule update after all main thread tasks have finished
 	timeout = timeout !== undefined ? timeout : setTimeout(() => {
 		for (const impulse of queue) {
-			execute(impulse);
+			impulse();
 		}
 
 		queue.clear();
