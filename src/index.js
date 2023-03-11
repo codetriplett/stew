@@ -97,18 +97,6 @@ export function create (selector, document) {
 	node.className = classList.join(' ');
 }
 
-// rewrite to generate full layout first before interacting with document
-// - just use defaultDocument exported from here instead of passing it through context objects
-// - then call a separate hydrate function internally to resolve the differences
-// - another reconciliation function will be used after hydration that will remove things that don't match instead of storing them
-// - memory of active state will still use the ref array, the root of the tree will be stored for later use with the nested refs inside of it
-
-// no longer need to pass document to create renderer
-// - the virtual dom object will be agnostic
-// - pass document as optional param to render function
-// - hydrate will always use window.document and only builds the initial refs and adds event listeners
-// - document only needs to be stored in callbacks context and can be retrived from parent callbacks context (parentCallback in context)
-
 export default function stew (container, outline, document = defaultDocument, updater = defaultUpdater) {
 	if (typeof container !== 'object') {
 		container = document?.querySelector?.(container) || create(container, document);

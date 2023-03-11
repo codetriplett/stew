@@ -61,7 +61,7 @@ describe('execute', () => {
 		expect(impulse.parentImpulse).toBe(parentImpulse);
 		expect(callback).toHaveBeenCalledWith(state, view);
 		expect(view).toEqual([{}]);
-		expect(reconcile).toHaveBeenCalledWith(item, state, parentView, 0, dom, hydrateNodes);
+		expect(reconcile).toHaveBeenCalledWith(item, state, parentView, 0, dom, undefined);
 		// expect(reconcile.mock.calls[0][4]).toBe(dom);
 		expect(frameworksCopy).toEqual([framework, framework]);
 		expect(impulsesCopy).toEqual([impulse, parentImpulse]);

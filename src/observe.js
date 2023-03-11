@@ -1,4 +1,4 @@
-import execute, { impulses } from './execute';
+import { impulses } from './execute';
 
 export const queue = new Set();
 let timeout;
@@ -30,8 +30,6 @@ function schedule (subscriptions) {
 }
 
 // TODO: don't set up state if document doesn't allow setState
-// - eventually build will make it so this lives in the scope of the root function instead of document needing to be passed all around
-// - having each document resolution context in its own instance will help with future optimizations too
 export default function observe (object) {
 	const state = {};
 
@@ -41,8 +39,6 @@ export default function observe (object) {
 
 		// bind context
 		if (typeof value === 'function') {
-			// TODO: check if this is needed now that value is read from destructured entry
-			// - probably is since values context is object instead of state
 			value = value.bind(state);
 		}
 
