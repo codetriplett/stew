@@ -1,4 +1,4 @@
-import execute, { frameworks } from './execute';
+import execute, { teardowns, frameworks } from './execute';
 import observe from './observe';
 
 // TODO: add fragment to dom object that nodes are appended/inserted to first
@@ -22,6 +22,11 @@ function append (node, dom) {
 }
 
 export function remove (view, container) {
+	if (teardowns.has(view)) {
+		const teardown = teardowns.get(view);
+		if (typeof teardown === 'function') teardown();
+	}
+
 	let [node,, ...childViews] = view;
 
 	if (node) {
@@ -110,12 +115,13 @@ function update (item, state, parentView, i, dom, hydrateNodes) {
 
 		if (node?.tagName?.toLowerCase?.() !== tagName.toLowerCase()) {
 			// create new element
-			node = frameworks[0][0].createElement(tagName);
+			view[0] = node = frameworks[0][0].createElement(tagName);
 			append(node, dom);
 		}
 
 		// update attributes and create new dom reference
-		if (obj) frameworks[0][1](node, obj);
+		if (typeof obj === 'function') execute(obj, state, view);
+		else if (obj) frameworks[0][1](node, obj);
 		dom = { container: node };
 
 		// claim node and prepare new set for children
@@ -124,6 +130,8 @@ function update (item, state, parentView, i, dom, hydrateNodes) {
 			hydrateNodes.pop();
 			hydrateNodes = [...childNodes]
 		}
+	} else if (typeof obj === 'function') {
+		execute(obj, state, view);
 	} else if (obj) {
 		// create new state
 		state = observe(obj);

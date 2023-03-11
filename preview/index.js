@@ -31,6 +31,8 @@ function Component () {
 			['i', {}, 'Status is: '],
 			['b', {}, locked ? 'Locked' : 'Not locked'],
 		],
+		// TODO: fix error when this function and its child both are triggered the same property
+		// - child function isn't being removed from queue
 		({ setLocked }) => [
 			'', null,
 			Button({ id: 'dial' }, 'Dial'),
@@ -38,10 +40,13 @@ function Component () {
 				id: 'lock',
 				action: () => setLocked(true),
 			}, 'Lock'),
-			({ locked }) => locked && Button({
+			({ locked }) => locked && ['', (state, prev) => {
+				console.log(`unlock button ${prev ? 'updated' : 'added'}`);
+				return () => console.log('unlock button removed');
+			}, Button({
 				id: 'unlock',
 				action: () => setLocked(false),
-			}, 'Unlock'),
+			}, 'Unlock')],
 		],
 	];
 }

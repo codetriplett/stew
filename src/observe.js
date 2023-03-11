@@ -1,5 +1,7 @@
-import { impulses } from './execute';
+import { frameworks, impulses } from './execute';
+import { virtualDocument } from '.';
 
+export const record = new WeakMap();
 export const queue = new Set();
 let timeout;
 
@@ -10,7 +12,10 @@ function screen (impulse) {
 	return !!parentImpulse && screen(parentImpulse);
 }
 
-function schedule (subscriptions) {
+export function schedule (subscriptions) {
+	// don't allow async updates or effects for virtual document
+	if (frameworks[0]?.[0] === virtualDocument) return;
+
 	// add subscriptions to queue unless they are already covered by parent
 	for (const impulse of subscriptions.splice(0)) {
 		const isQueued = screen(impulse);
@@ -32,6 +37,13 @@ function schedule (subscriptions) {
 // TODO: don't set up state if document doesn't allow setState
 export default function observe (object) {
 	const state = {};
+	const changes = {};
+	record.set(state, changes);
+	// TODO: clear props from all objects in record once all active effect functions have finished
+	// - these objects are passed as the second parameter to those functions
+	// - might not be able to use WeakMap for this, so would need to make sure to remove entries from map on teardown of fragment state
+	// - maybe change this to store old values, but what if values are changed back to old values before effect fires?
+	// - second param of effect would need to be a copy of the state the last time the fragment rendered, but is that work the cost?
 
 	// set up subscribe/dispatch pattern on properties
 	for (let [name, value] of Object.entries(object)) {
@@ -49,7 +61,8 @@ export default function observe (object) {
 				return value;
 			},
 			set (newValue) {
-				value = newValue;
+				if (newValue === value) return;
+				changes[name] = value = newValue;
 				schedule(subscriptions);
 			},
 		});

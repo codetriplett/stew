@@ -1,5 +1,5 @@
 import reconcile from './reconcile';
-import { frameworks, useEffect } from './execute';
+import { frameworks } from './execute';
 
 const selfClosingTags = new Set([
 	'wbr', 'track', 'source', 'param', 'meta', 'link', 'keygen', 'input',
@@ -109,7 +109,7 @@ export default function stew (container, outline, document = defaultDocument, up
 	return container;
 };
 
-Object.assign(stew, { useEffect, virtualDocument });
+Object.assign(stew, { document: virtualDocument });
 
 if (typeof window === 'object') {
 	window.stew = stew;
