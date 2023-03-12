@@ -5,26 +5,27 @@ export const queue = new Set();
 let timeout;
 
 function screen (impulse) {
-	// check if impulse or parent is in view
-	if (queue.has(impulse)) return true;
+	// check if impulse will be covered by queued parent
 	const { parentImpulse } = impulse;
-	return !!parentImpulse && screen(parentImpulse);
+	if (!parentImpulse) return false;
+	if (queue.has(parentImpulse)) return true;
+	return screen(parentImpulse);
 }
 
 export function schedule (subscriptions) {
-	// don't allow async updates or effects for virtual document
+	// ignore async action for virtual document
 	if (frameworks[0]?.[0] === virtualDocument) return;
 
-	// add subscriptions to queue unless they are already covered by parent
+	// add to queue
 	for (const impulse of subscriptions.splice(0)) {
-		const isQueued = screen(impulse);
-		if (isQueued) continue;
 		queue.add(impulse);
 	}
 
 	// schedule update after all main thread tasks have finished
 	timeout = timeout !== undefined ? timeout : setTimeout(() => {
 		for (const impulse of queue) {
+			const isCovered = screen(impulse);
+			if (isCovered) continue;
 			impulse();
 		}
 
@@ -36,11 +37,6 @@ export function schedule (subscriptions) {
 // TODO: don't set up state if document doesn't allow setState
 export default function observe (object) {
 	const state = {};
-	// TODO: clear props from all objects in record once all active effect functions have finished
-	// - these objects are passed as the second parameter to those functions
-	// - might not be able to use WeakMap for this, so would need to make sure to remove entries from map on teardown of fragment state
-	// - maybe change this to store old values, but what if values are changed back to old values before effect fires?
-	// - second param of effect would need to be a copy of the state the last time the fragment rendered, but is that work the cost?
 
 	// set up subscribe/dispatch pattern on properties
 	for (let [name, value] of Object.entries(object)) {

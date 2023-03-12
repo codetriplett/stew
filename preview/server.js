@@ -1,5 +1,6 @@
 const { createServer } = require('http');
 const { readFile } = require('fs');
+const App = require('.');
 
 const port = process.env.PORT || 8080;
 
@@ -44,7 +45,27 @@ function send (res, content, type = types.txt) {
 }
 
 createServer(({ url }, res) => {
-	if (url === '/') url = resources[0];
+	if (url === '/') {
+		const html = [
+			'<!DOCTYPE html>',
+			'<html lang="en">',
+				'<head>',
+					'<title>Preview</title>',
+					'<link href="/index.css" rel="stylesheet">',
+					'<script src="/stew.min.js"></script>',
+				'</head>',
+				'<body>',
+					App(),
+					'<script src="/index.js"></script>',
+					'<script>App();</script>',
+				'</body>',
+			'</html>',
+		].join('');
+
+		send(res, html, types.html);
+		return;
+	}
+
 	const regex = /^(?:\/+)?(.*?)(?:\.([^/.?#]*)|\/*)?(?:\?(.*?))?$/;
 	let [, path = '', extension] = url.match(regex);
 	const type = types[extension];

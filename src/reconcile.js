@@ -1,12 +1,11 @@
 import execute, { teardowns, frameworks } from './execute';
 import observe from './observe';
 
+const states = new WeakMap();
+
 // TODO: add fragment to dom object that nodes are appended/inserted to first
 // - then append fragment to container if next node skips over an already existing one
 // - this way all new nodes are added to the DOM at the same time, avoiding extra reflows
-// TODO: test portals which are created by adding a stew() call within another template
-// - if stew() call uses a selector for a node that exists outside the current controlled dom space, it will have a parentElement and won't get appended here
-// - test that the nested template will have access to the parent state
 function append (node, dom) {
 	const { container } = dom;
 	let sibling;
@@ -24,6 +23,7 @@ export function remove (view, container) {
 	if (teardowns.has(view)) {
 		const teardown = teardowns.get(view);
 		if (typeof teardown === 'function') teardown();
+		teardowns.delete(view);
 	}
 
 	let [node,, ...childViews] = view;
@@ -40,7 +40,7 @@ export function remove (view, container) {
 
 function populate (outlines, state, view, dom, hydrateNodes) {
 	// backup previous views
-	const [, refs, ...prevChildren] = view;
+	const [, views, ...childViews] = view;
 
 	// update children
 	for (let i = outlines.length - 1; i >= 0; i--) {
@@ -52,15 +52,14 @@ function populate (outlines, state, view, dom, hydrateNodes) {
 	view.splice(outlines.length + 2);
 
 	// remove outdated views
-	for (const childView of prevChildren) {
-		// skip if previous view is still active or if it is empty
+	for (const childView of childViews) {
 		if (!childView?.length || view.indexOf(childView) > 1) continue;
 		remove(childView, container);
 	}
 
-	// remove outdated refs
-	for (const [name, ref] of Object.entries(refs)) {
-		if (view.indexOf(ref) < 2) delete refs[name];
+	// remove outdated views
+	for (const [name, childView] of Object.entries(views)) {
+		if (view.indexOf(childView) < 2) delete views[name];
 	}
 }
 
@@ -81,9 +80,6 @@ function write (text, view = [], dom, hydrateNodes) {
 	return view;
 };
 
-// TODO: store hooks state using index or key tied to parent view
-// - if a useEffect is called for the first time on that index or key, do not pass it the prevState (treat as mount)
-// - if a useEffect is not called by had been the previous time, run its teardown function
 function update (outline, state, parentView, i, dom, hydrateNodes) {
 	if (!outline && outline !== 0 || outline === true) {
 		// empty node
@@ -96,8 +92,8 @@ function update (outline, state, parentView, i, dom, hydrateNodes) {
 	}
 
 	// get candidate view
-	const [, refs, ...views] = parentView;
-	let view = hydrateNodes ? hydrateNodes.slice(-1) : views[i];
+	const [, views] = parentView;
+	let view = hydrateNodes ? hydrateNodes.slice(-1) : parentView[i + 2];
 
 	if (!Array.isArray(outline)) {
 		// text node
@@ -108,16 +104,14 @@ function update (outline, state, parentView, i, dom, hydrateNodes) {
 	const [str, obj, ...arr] = outline;
 	const [, tagName, key] = str.match(/^\s*(.*?)\s*(?::(.*?))?$/);
 	const isFragment = tagName === '';
-	if (!view) view = refs?.[key] || [];
-	if (view.length < 2) view[1] = {};
-	let node;
+	view = views?.[key] || (view?.length > 1 ? view : [, {}]);
+	let [node] = view;
 
 	if (!isFragment) {
-		[node] = view;
-
 		if (node?.tagName?.toLowerCase?.() !== tagName.toLowerCase()) {
 			// create new element
-			view[0] = node = frameworks[0][0].createElement(tagName);
+			node = frameworks[0][0].createElement(tagName);
+			view = [node, {}];
 			append(node, dom);
 		} else if (hydrateNodes) {
 			// claim node and prepare new set for children
@@ -133,15 +127,25 @@ function update (outline, state, parentView, i, dom, hydrateNodes) {
 			// prepare new set for children
 			hydrateNodes = [...node.childNodes];
 		}
-	} else if (typeof obj === 'function') {
-		execute(obj, state, view);
-	} else if (obj) {
-		// create new state
-		state = observe(obj);
+	} else {
+		// reject view if it was for an element
+		if (node) view = [, {}];
+
+		if (typeof obj === 'function') {
+			// schedule effect
+			execute(obj, state, view);
+		} else if (!states.has(view)) {
+			// create new state
+			if (obj && typeof obj === 'object') state = observe(obj);
+			states.set(view, state);
+		} else {
+			// use previous state
+			state = states.get(view);
+		}
 	}
 	
-	// update refs and temporarily store new future views in place of node
-	if (key) refs[key] = view;
+	// update views and temporarily store new future views in place of node
+	if (key) views[key] = view;
 	populate(arr, state, view, dom, hydrateNodes);
 	return view;
 }

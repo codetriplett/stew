@@ -5,10 +5,11 @@ export const teardowns = new WeakMap();
 export const frameworks = [];
 export const impulses = [];
 
-export default function execute (callback, state, parentView, i, dom, hydrateNodes = []) {
+export default function execute (callback, state, parentView, i, dom, hydrateNodes) {
 	// persist parent framework and dom reference object
 	const isEffect = i === undefined && parentView[0] === undefined;
 	const [framework] = frameworks;
+	let iteration = 0;
 
 	// wrap in setup and teardown steps and store as new callback to subscribe to state property changes
 	function impulse (hydrateNodes) {
@@ -33,7 +34,7 @@ export default function execute (callback, state, parentView, i, dom, hydrateNod
 			dom = domCopy;
 
 			// remove outdated nodes if needed
-			if (!hydrateNodes && prevView?.length && parentView[i + 2] !== prevView) {
+			if (iteration > 0 && prevView?.length && parentView[i + 2] !== prevView) {
 				const { container } = dom;
 				remove(prevView, container);
 			}
@@ -52,6 +53,7 @@ export default function execute (callback, state, parentView, i, dom, hydrateNod
 		// reset stack
 		impulses.shift();
 		frameworks.shift();
+		iteration++;
 	}
 
 	// delay effect until after render
