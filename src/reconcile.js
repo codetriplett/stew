@@ -41,7 +41,7 @@ export function remove (view, container) {
 
 function populate (items, state, view, dom, hydrateNodes) {
 	// backup previous views
-	const prevChildren = view.slice(2);
+	const [, refs, ...prevChildren] = view;
 
 	// update children
 	for (let i = items.length - 1; i >= 0; i--) {
@@ -58,10 +58,11 @@ function populate (items, state, view, dom, hydrateNodes) {
 		if (!childView?.length || view.indexOf(childView) > 1) continue;
 		remove(childView, container);
 	}
-	
-	// TODO: check for setups and teardowns
-	// - setups are triggered when callback is found in items at an index that didn't have one before
-	// - teardowns are triggered when callback is not found in items at an index that had one before
+
+	// remove outdated refs
+	for (const [name, ref] of Object.entries(refs)) {
+		if (view.indexOf(ref) < 2) delete refs[name];
+	}
 }
 
 function write (text, view = [], dom, hydrateNodes) {
@@ -95,7 +96,7 @@ function update (item, state, parentView, i, dom, hydrateNodes) {
 	}
 
 	// get candidate view
-	let [futureViews, pastViews, ...views] = parentView;
+	const [, refs, ...views] = parentView;
 	let view = hydrateNodes ? hydrateNodes.slice(-1) : views[i];
 
 	if (!Array.isArray(item)) {
@@ -107,7 +108,8 @@ function update (item, state, parentView, i, dom, hydrateNodes) {
 	const [str, obj, ...arr] = item;
 	const [, tagName, key] = str.match(/^\s*(.*?)\s*(?::(.*?))?$/);
 	const isFragment = tagName === '';
-	if (!view) view = pastViews?.[key] || [];
+	if (!view) view = refs?.[key] || [];
+	if (view.length < 2) view[1] = {};
 	let node;
 
 	if (!isFragment) {
@@ -138,10 +140,8 @@ function update (item, state, parentView, i, dom, hydrateNodes) {
 	}
 	
 	// update refs and temporarily store new future views in place of node
-	if (key) futureViews[key] = view;
-	futureViews = view[0] = {};
+	if (key) refs[key] = view;
 	populate(arr, state, view, dom, hydrateNodes);
-	view.splice(0, 2, node, futureViews);
 	return view;
 }
 

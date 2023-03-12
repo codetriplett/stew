@@ -1,5 +1,5 @@
 import reconcile, { remove } from './reconcile';
-import { record, schedule } from './observe';
+import { schedule } from './observe';
 
 export const teardowns = new WeakMap();
 export const frameworks = [];
@@ -15,17 +15,12 @@ export default function execute (callback, state, parentView, i, dom, hydrateNod
 		// resurface stored framework
 		frameworks.unshift(framework);
 		impulses.unshift(impulse);
-		let viewParam = [];
 		let item;
-
-		// update param for effects
-		if (isEffect) {
-			viewParam = teardowns.has(parentView) ? record.get(state) : undefined;
-		}
 	
 		// safely run callback function
 		try {
-			item = callback(state, viewParam);
+			const params = isEffect ? [parentView[1], teardowns.get(parentView)] : [state];
+			item = callback(...params);
 		} catch (e) {
 			console.error(e);
 		}
@@ -42,10 +37,6 @@ export default function execute (callback, state, parentView, i, dom, hydrateNod
 				const { container } = dom;
 				remove(prevView, container);
 			}
-
-			// update view param passed to callback
-			const newView = parentView[i + 2];
-			if (newView) viewParam.push(...newView);
 		} else {
 			const [node] = parentView;
 

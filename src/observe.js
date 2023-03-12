@@ -1,7 +1,6 @@
 import { frameworks, impulses } from './execute';
 import { virtualDocument } from '.';
 
-export const record = new WeakMap();
 export const queue = new Set();
 let timeout;
 
@@ -37,8 +36,6 @@ export function schedule (subscriptions) {
 // TODO: don't set up state if document doesn't allow setState
 export default function observe (object) {
 	const state = {};
-	const changes = {};
-	record.set(state, changes);
 	// TODO: clear props from all objects in record once all active effect functions have finished
 	// - these objects are passed as the second parameter to those functions
 	// - might not be able to use WeakMap for this, so would need to make sure to remove entries from map on teardown of fragment state
@@ -62,7 +59,7 @@ export default function observe (object) {
 			},
 			set (newValue) {
 				if (newValue === value) return;
-				changes[name] = value = newValue;
+				value = newValue;
 				schedule(subscriptions);
 			},
 		});

@@ -48,11 +48,16 @@ export const virtualDocument = {
 	},
 	createElement (tagName) {
 		const fragment = this.createDocumentFragment();
+		if (!tagName) tagName = 'div';
 
 		return Object.assign(fragment, {
 			tagName,
 			toString () {
-				const { childNodes, appendChild, toString, ...attributes } = this;
+				const {
+					appendChild, insertBefore, removeChild, toString,
+					tagName, childNodes, parentElement, ...attributes
+				} = this;
+
 				let html = `<${tagName}`;
 
 				for (let [name, value] of Object.entries(attributes)) {
@@ -79,12 +84,15 @@ export function defaultUpdater (node, attributes) {
 }
 
 export function create (selector, document) {
-	const [tagName, ...strings] = String(selector).split(/(?=\.|\[)/);
-	const node = document.createElement(tagName);
-	const classList = []
+	const [tagName, ...strings] = ` ${selector}`.split(/(?=#|\.|\[)/);
+	const node = document.createElement(tagName.slice(1));
+	const classList = [];
 
 	for (const string of strings) {
-		if (string.startsWith('.')) {
+		if (string.startsWith('#')) {
+			node.id = string.slice(1);
+			continue;
+		} else if (string.startsWith('.')) {
 			classList.push(string.slice(1));
 			continue;
 		}
@@ -95,6 +103,7 @@ export function create (selector, document) {
 	}
 
 	node.className = classList.join(' ');
+	return node;
 }
 
 export default function stew (container, outline, document = defaultDocument, updater = defaultUpdater) {

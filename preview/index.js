@@ -1,12 +1,12 @@
 function Button ({ action, locked, id }, content) {
 	return [
-		'', action ? null : {
+		`:${id}`, action ? null : {
 			number: 0,
 			setNumber (number) {
 				this.number = number;
 			}
 		},
-		({ number, setNumber }) => ['button', {
+		({ number, setNumber }) => ['button:button', {
 			id,
 			type: 'button',
 			disabled: locked,
@@ -38,11 +38,12 @@ function Component () {
 			Button({ id: 'dial' }, 'Dial'),
 			Button({
 				id: 'lock',
-				action: () => setLocked(true),
+				action: () => setLocked(Math.random()),
 			}, 'Lock'),
-			({ locked }) => locked && ['', (state, prev) => {
+			({ locked }) => locked && ['', (refs, prev) => {
+				console.log(refs, 'from', prev?.locked, 'to', locked);
 				console.log(`unlock button ${prev ? 'updated' : 'added'}`);
-				return () => console.log('unlock button removed');
+				return Object.assign(() => console.log('unlock button removed'), { locked });
 			}, Button({
 				id: 'unlock',
 				action: () => setLocked(false),
