@@ -1,182 +1,74 @@
 # Stew
-Interactive HTML from a single function. It supports local states and refs, client side hydration and effects, server side rendering and tagged templates. The examples below use tagged templates, but those are completely optional. The alternate method is shown in the section after Outlines.
 
-```js
-// start by importing stew onto your page and give it the name you prefer
-import $ from '@triplett/stew'
-```
+A stateful virtual DOM for any purpose. It supports local states and refs, client-side hydration and effects, server-side rendering, portals, and custom document models (see 2D graphics example).
 
 ## Outlines
-These provide instructions for how an element or component should be created or updated. They are passed as children to other elements and components.
 
-### HTML
+The type of data encountered for children in your outline determines the type of node it will become. Strings and numbers will be treated as text nodes, arrays will be treated as element nodes or fragments, objects will be treated as-is. Functions set up an active portion of your layout that will automatically subscribe to state properties it reads from and updates when any of those properties are changed.
 
-```js
-$`
-	<div class="image">
-		<img src="/image.jpg" alt="">
-		<p>Lorem ipsum</p>
-	</div>
-`
-```
-
-### Variables
+### Elements
+The first and second value are reserved for the elements type and attributes. The remaining values set its children. Booleans and nullish values are ignored. A key can be set along with the tag to ensure the reference to the DOM node and this outline is maintained between renders, even if its order within its parent node is changed.
 
 ```js
-$`
-	<div class="image">
-		<img src=${src} alt=${alt}>
-		<p>${caption}</p>
-	</div>
-`
+['div', { className: 'element' }, ...children]
+['div:key', { className: 'element' }, ...children]
 ```
 
-### Components
+### Fragments
+Fragments allow you to create a group of children that will be place under the most immediate parent element. They are a useful way of affecting a set of nodes without having to create an unnecessary container element. Like with elements, keys are also supported.
 
 ```js
-function Image ({ src, alt }, ...children) {
-	return $`
-		<div class="image">
-			<img src=${src} alt=${alt}>
-			${children}
-		</div>
-	`
-}
-
-$`
-	<${Image}>
-		<p>${caption}</p>
-	</>
-`
+['', null, ...children]
+[':key', null, ...children]
 ```
 
-The element and component tags can also be self-closing if there is no need to include children.
+A new local state can be set by including an object of default values as its 'attributes'. Only the children of this fragment will have access to this new state and only the properties included in this initial state will be active.
 
 ```js
-$`<div />`
-$`<${Image} src=${src} alt=${alt} />`
+['', { expanded: false }, ...children]
 ```
 
-### State
+Effects can also be set in place of states within a fragment to perform an action whenever the group is updated. They are only called client-side or when a custom document is used. The fragment's ref is passed as the only parameter. Refs are arrays containing the DOM element (or previous effect return value for fragments) and child refs by key, with the remaining values listing all child refs in their proper order. If the effect returns a function, that function will be called when the group leaves the DOM. 
 
 ```js
-// state is available on the '' key of props
-// the state updating function is available on the '' key of state
-// your view will update automatically to reflect the changes when the state function is called
-function Image ({
-	'': { '': state, showCaption },
-	src, alt
-}, ...children) {
-	return $`
-		<div class="image">
-			<img src=${src} alt=${alt}>
-			${showCaption && children}
-			${!showCaption && $`
-				<button type="button" onclick=${() => {
-					state({ showCaption: !showCaption })
-				}}>
-					Show Caption
-				</button>
-			`}
-		</div>
-	`
-}
-
-$`
-	<${Image}>
-		<p>${caption}</p>
-	</>
-`
+['', ref => {
+	const prev = ref[0];
+	if (!prev) console.log('fragment has mounted')
+	else console.log('fragment has updated')
+	return () => console.log('fragment has unmounted')
+}, ...children]
 ```
 
-### Variables from Object
-An initial set of properties can be defined as an object before any of the other props. An identifier can be set on the '' key of this object to make sure the state of the element or component is maintained even if its position changes within its containing component.
+### Impulses
+Impulses are child nodes that respond to state changes. They are defined as functions with their most immediate local state as the only parameter. Any top-level property read from this state during render will subscribe the function to changes to those properties, which will trigger an update. Updates only run client-side or when custom documents are used.
 
 ```js
-$`
-	<div ${{ '': 'wrapper' }} class="image">
-		<img ${{ src, alt }}>
-		<p>${caption}</p>
-	</div>
-`
+({ expanded }) =>
+	['p', {}, 'Hello World']
 ```
 
-### Effects
-Functions that are set as children will only run client side. They are called from the bottom to the top so they will have access to the current refs of the children below them (through the state function). The previous component props will be included as a parameter after the first render and the '' key of those props will hold the previous return value of the effect function. If a function is returned, it will be called when the component is removed from the view.
+## Initializing
+To initialize an outline into the DOM, simply call the stew function with the first parameter as the container element, and the second paramater as the outline for its content. A selector can be used to have stew find the container element itself, or create a new one with the necessary signature if none is found.
 
 ```js
-function Image ({
-	'': { '': state, showCaption },
-	src, alt
-}, ...children) {
-	return $`
-		${prev => prev && state('wrapper').focus()}
-		<div ${{ '': 'wrapper' }} class="image">
-			<img src=${src} alt=${alt}>
-			${showCaption && children}
-			${!showCaption && $`
-				<button type="button" onclick=${() => {
-					state({ showCaption: !showCaption })
-				}}>
-					Show Caption
-				</button>
-			`}
-		</div>
-	`
-}
+import $ from '@triplett/stew'
 
-$`
-	<${Image}>
-		<p>${caption}</p>
-	</>
-`
+const container = stew('#container', ['', {
+	expanded: false,
+	setExpanded (expanded) {
+		this.expanded = expanded
+	}
+},
+	['p', {}, 'Click the button'],
+	({ expanded, setExpanded }) =>
+		['button', {
+			type: 'button',
+			onclick: () => setExpanded(!expanded)
+		}, expanded ? 'Collapse' : 'Expand'],
+	({ expanded }) =>
+		['p', {}, 'Hello World']
+]
 ```
 
-### Custom Fragment Tag
-Using a tag name of '' will behave similar to an array except it will bend the rules for its immediate children. Strings will be interpreted as HTML, but script and style blocks will be removed. Functions will run both server-side and client-side and the result will be used in its place as the child. An empty object will be passed to the function on the first client-side call to differentiate it from the server-side call. An identifier can also be set on this tag. The ref it returns is the first element or text node it finds within its children.
-
-```js
-// accepts HTML from props which would normally be escaped
-const html = '<strong>Author:</strong> Jeff Triplett':
-$`<>${html}</>`
-
-// allows for more customized children
-$`<>${prev => $`<p>Was: ${prev}, Is: ${prop}</>`}</>`
-
-// allows identifiers and uses first node as the ref
-$`
-	<${ '': 'content' }>
-		<img ${{ src, alt }}>
-		<p>${caption}</p>
-	</>
-`
-```
-
-## Alternate to Tagged Templates
-Outlines can be created by calling the stew function with the following parameters. The tag can be a string to define an element or a function to define a component.
-
-```js
-$(tag, props, ...children)
-```
-
-## Attaching Outlines to the View
-Calling the stew function without a tag parameter will set up a root element. Outlines that are passed as children will be attached to that element. This can be used to either render HTML or DOM elements.
-
-```js
-// render HTML
-// div is the default tag if one isn't provided
-$({ '': 'div', ...props }, ...children)
-
-// hydrate Element
-// the node should be the same root node you created during the server-side render
-const node = document.querySelector(selector)
-$(node, ...children)
-
-// populate Element
-// updates the attributes and children of any existing or new element
-const node = document.createElement('div')
-$({ '': node, ...props }, ...children)
-```
-
-## Steward
-Check out @triplett/steward for some useful tools to help manage your stew app.
+### custom document
+Show 2D example here

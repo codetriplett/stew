@@ -8,7 +8,6 @@ import observe from './observe';
 // - if stew() call uses a selector for a node that exists outside the current controlled dom space, it will have a parentElement and won't get appended here
 // - test that the nested template will have access to the parent state
 function append (node, dom) {
-	if (node.parentElement) return;
 	const { container } = dom;
 	let sibling;
 
@@ -39,18 +38,18 @@ export function remove (view, container) {
 	}
 }
 
-function populate (items, state, view, dom, hydrateNodes) {
+function populate (outlines, state, view, dom, hydrateNodes) {
 	// backup previous views
 	const [, refs, ...prevChildren] = view;
 
 	// update children
-	for (let i = items.length - 1; i >= 0; i--) {
-		reconcile(items[i], state, view, i, dom, hydrateNodes);
+	for (let i = outlines.length - 1; i >= 0; i--) {
+		reconcile(outlines[i], state, view, i, dom, hydrateNodes);
 	}
 
 	// adjust children length to match current state
 	const { container } = dom;
-	view.splice(items.length + 2);
+	view.splice(outlines.length + 2);
 
 	// remove outdated views
 	for (const childView of prevChildren) {
@@ -85,27 +84,28 @@ function write (text, view = [], dom, hydrateNodes) {
 // TODO: store hooks state using index or key tied to parent view
 // - if a useEffect is called for the first time on that index or key, do not pass it the prevState (treat as mount)
 // - if a useEffect is not called by had been the previous time, run its teardown function
-function update (item, state, parentView, i, dom, hydrateNodes) {
-	if (!item && item !== 0 || item === true) {
+function update (outline, state, parentView, i, dom, hydrateNodes) {
+	if (!outline && outline !== 0 || outline === true) {
 		// empty node
 		return [];
-	} else if (typeof item === 'object' && !Array.isArray(item)) {
+	} else if (typeof outline === 'object' && !Array.isArray(outline)) {
 		// static node
-		append(item, dom);
-		return [item];
+		if (outline.parentElement) return [];
+		append(outline, dom);
+		return [outline];
 	}
 
 	// get candidate view
 	const [, refs, ...views] = parentView;
 	let view = hydrateNodes ? hydrateNodes.slice(-1) : views[i];
 
-	if (!Array.isArray(item)) {
+	if (!Array.isArray(outline)) {
 		// text node
-		return write(item, view, dom, hydrateNodes);
+		return write(outline, view, dom, hydrateNodes);
 	}
 
 	// element or fragment node
-	const [str, obj, ...arr] = item;
+	const [str, obj, ...arr] = outline;
 	const [, tagName, key] = str.match(/^\s*(.*?)\s*(?::(.*?))?$/);
 	const isFragment = tagName === '';
 	if (!view) view = refs?.[key] || [];
@@ -119,6 +119,9 @@ function update (item, state, parentView, i, dom, hydrateNodes) {
 			// create new element
 			view[0] = node = frameworks[0][0].createElement(tagName);
 			append(node, dom);
+		} else if (hydrateNodes) {
+			// claim node and prepare new set for children
+			hydrateNodes.pop();
 		}
 
 		// update attributes and create new dom reference
@@ -126,11 +129,9 @@ function update (item, state, parentView, i, dom, hydrateNodes) {
 		else if (obj) frameworks[0][1](node, obj);
 		dom = { container: node };
 
-		// claim node and prepare new set for children
 		if (hydrateNodes) {
-			const { childNodes } = node;
-			hydrateNodes.pop();
-			hydrateNodes = [...childNodes]
+			// prepare new set for children
+			hydrateNodes = [...node.childNodes];
 		}
 	} else if (typeof obj === 'function') {
 		execute(obj, state, view);
@@ -145,15 +146,15 @@ function update (item, state, parentView, i, dom, hydrateNodes) {
 	return view;
 }
 
-export default function reconcile (item, state, parentView, i, dom, hydrateNodes) {
-	if (typeof item === 'function') {
+export default function reconcile (outline, state, parentView, i, dom, hydrateNodes) {
+	if (typeof outline === 'function') {
 		// dynamic node
-		execute(item, state, parentView, i, dom, hydrateNodes);
+		execute(outline, state, parentView, i, dom, hydrateNodes);
 		return;
 	}
 
 	const sibling = { ...dom };
-	const view = update(item, state, parentView, i, dom, hydrateNodes);
+	const view = update(outline, state, parentView, i, dom, hydrateNodes);
 	let [node] = parentView[i + 2] = view;
 	if (!node && dom.node !== sibling.node) node = dom.node;
 	if (node) Object.assign(dom, { node, sibling });

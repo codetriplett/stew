@@ -6,7 +6,7 @@ jest.mock('./reconcile');
 
 describe('execute', () => {
 	const callback = jest.fn();
-	let state, parentView, dom, hydrateNodes, framework, parentImpulse, impulse, item, view, frameworksCopy, impulsesCopy;
+	let state, parentView, dom, hydrateNodes, framework, parentImpulse, impulse, outline, frameworksCopy, impulsesCopy;
 
 	beforeEach(() => {
 		parentImpulse = () => {};
@@ -16,7 +16,7 @@ describe('execute', () => {
 		hydrateNodes = [];
 		framework = [virtualDocument, defaultUpdater];
 		parentImpulse = () => {};
-		item = ['div', {}];
+		outline = ['div', {}];
 		frameworks.splice(0);
 		frameworks.unshift(framework);
 		impulses.splice(0);
@@ -24,10 +24,9 @@ describe('execute', () => {
 
 		jest.clearAllMocks();
 
-		callback.mockImplementation((...params) => {
+		callback.mockImplementation(() => {
 			parentView[2] = [{}];
-			view = params[1];
-			return item;
+			return outline;
 		});
 
 		reconcile.mockImplementation(() => {
@@ -41,9 +40,8 @@ describe('execute', () => {
 		execute(callback, state, parentView, 0, dom, hydrateNodes);
 		expect(impulse).toEqual(expect.any(Function));
 		expect(impulse.parentImpulse).toBe(parentImpulse);
-		expect(callback).toHaveBeenCalledWith(state, view);
-		expect(view).toEqual([{}]);
-		expect(reconcile).toHaveBeenCalledWith(item, state, parentView, 0, dom, hydrateNodes);
+		expect(callback).toHaveBeenCalledWith(state);
+		expect(reconcile).toHaveBeenCalledWith(outline, state, parentView, 0, dom, hydrateNodes);
 		// expect(reconcile.mock.calls[0][4]).toBe(dom);
 		expect(frameworksCopy).toEqual([framework, framework]);
 		expect(impulsesCopy).toEqual([impulse, parentImpulse]);
@@ -59,9 +57,8 @@ describe('execute', () => {
 		impulse();
 		expect(impulse).toEqual(expect.any(Function));
 		expect(impulse.parentImpulse).toBe(parentImpulse);
-		expect(callback).toHaveBeenCalledWith(state, view);
-		expect(view).toEqual([{}]);
-		expect(reconcile).toHaveBeenCalledWith(item, state, parentView, 0, dom, undefined);
+		expect(callback).toHaveBeenCalledWith(state);
+		expect(reconcile).toHaveBeenCalledWith(outline, state, parentView, 0, dom, undefined);
 		// expect(reconcile.mock.calls[0][4]).toBe(dom);
 		expect(frameworksCopy).toEqual([framework, framework]);
 		expect(impulsesCopy).toEqual([impulse, parentImpulse]);

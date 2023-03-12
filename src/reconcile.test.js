@@ -173,7 +173,7 @@ describe('reconcile', () => {
 			expect(dom).toEqual({ container, node, sibling: { container } });
 		});
 
-		it('hydrates dynamic node', () => {
+		it('updates dynamic node', () => {
 			const node = virtualDocument.createTextNode('abc');
 			container.appendChild(node);
 			const view = [node];
@@ -186,14 +186,13 @@ describe('reconcile', () => {
 			expect(dom).toEqual({ container });
 		});
 
-		it('hydrates static node', () => {
+		it('updates static node', () => {
 			const node = virtualDocument.createElement('div');
 			container.appendChild(node);
-			const view = [node];
 			reconcile(node, state, parentView, 0, dom);
 			expect(container.childNodes).toEqual([node]);
-			expect(parentView).toEqual([{}, {}, view]);
-			expect(dom).toEqual({ container, node, sibling: { container } });
+			expect(parentView).toEqual([{}, {}, []]);
+			expect(dom).toEqual({ container });
 		});
 
 		it('updates fragment node', () => {
@@ -265,12 +264,11 @@ describe('reconcile', () => {
 		it('hydrates static node', () => {
 			const node = virtualDocument.createElement('div');
 			container.appendChild(node);
-			const view = [node];
 			const hydrateNodes = [node];
 			reconcile(node, state, parentView, 0, dom, hydrateNodes);
 			expect(container.childNodes).toEqual([node]);
-			expect(parentView).toEqual([{}, {}, view]);
-			expect(dom).toEqual({ container, node, sibling: { container } });
+			expect(parentView).toEqual([{}, {}, []]);
+			expect(dom).toEqual({ container });
 		});
 
 		it('hydrates fragment node', () => {

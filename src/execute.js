@@ -15,12 +15,12 @@ export default function execute (callback, state, parentView, i, dom, hydrateNod
 		// resurface stored framework
 		frameworks.unshift(framework);
 		impulses.unshift(impulse);
-		let item;
+		let outline;
 	
 		// safely run callback function
 		try {
-			const params = isEffect ? [parentView[1], teardowns.get(parentView)] : [state];
-			item = callback(...params);
+			const param = isEffect ? [teardowns.get(parentView), ...parentView.slice(1)] : state;
+			outline = callback(param);
 		} catch (e) {
 			console.error(e);
 		}
@@ -29,7 +29,7 @@ export default function execute (callback, state, parentView, i, dom, hydrateNod
 			// process return value as it normally would before resetting active framework
 			const domCopy = { ...dom };
 			const prevView = parentView[i + 2];
-			reconcile(item, state, parentView, i, dom, hydrateNodes);
+			reconcile(outline, state, parentView, i, dom, hydrateNodes);
 			dom = domCopy;
 
 			// remove outdated nodes if needed
@@ -43,9 +43,9 @@ export default function execute (callback, state, parentView, i, dom, hydrateNod
 			if (node) {
 				// process attribute update
 				const [, updater] = framework;
-				updater(node, item);
+				updater(node, outline);
 			} else {
-				teardowns.set(parentView, item);
+				teardowns.set(parentView, outline);
 			}
 		}
 

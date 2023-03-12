@@ -40,9 +40,10 @@ function Component () {
 				id: 'lock',
 				action: () => setLocked(Math.random()),
 			}, 'Lock'),
-			({ locked }) => locked && ['', (refs, prev) => {
-				console.log(refs, 'from', prev?.locked, 'to', locked);
-				console.log(`unlock button ${prev ? 'updated' : 'added'}`);
+			({ locked }) => locked && ['', ref => {
+				const [prev] = ref;
+				if (!prev) console.log('unlock button added');
+				else console.log(`unlock button updated from ${prev.locked} to ${locked}`);
 				return Object.assign(() => console.log('unlock button removed'), { locked });
 			}, Button({
 				id: 'unlock',

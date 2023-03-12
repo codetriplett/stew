@@ -48,7 +48,6 @@ export const virtualDocument = {
 	},
 	createElement (tagName) {
 		const fragment = this.createDocumentFragment();
-		if (!tagName) tagName = 'div';
 
 		return Object.assign(fragment, {
 			tagName,
@@ -85,7 +84,7 @@ export function defaultUpdater (node, attributes) {
 
 export function create (selector, document) {
 	const [tagName, ...strings] = ` ${selector}`.split(/(?=#|\.|\[)/);
-	const node = document.createElement(tagName.slice(1));
+	const node = document.createElement(tagName.slice(1) || 'div');
 	const classList = [];
 
 	for (const string of strings) {
@@ -108,13 +107,21 @@ export function create (selector, document) {
 
 export default function stew (container, outline, document = defaultDocument, updater = defaultUpdater) {
 	if (typeof container !== 'object') {
+		// use existing container or create a new one
 		container = document?.querySelector?.(container) || create(container, document);
 	}
 
-	const { childNodes } = container;
+	// prepare hydrate nodes and load framework
+	const hydrateNodes = [...container.childNodes];
 	frameworks.unshift([document, updater]);
-	reconcile(outline, {}, [container, {}], 0, { container }, [...childNodes]);
+	reconcile(outline, {}, [container, {}], 0, { container }, hydrateNodes);
 	frameworks.shift();
+
+	// remove unclaimed nodes
+	for (const node of hydrateNodes) {
+		container.removeChild(node);
+	}
+
 	return container;
 };
 
