@@ -1,13 +1,13 @@
 {
 	"name": "@triplett/stew",
-	"version": "2.3.1",
-	"description": "Interactive HTML from a single function.",
+	"version": "3.0.0",
+	"description": "A stateful virtual DOM for any purpose.",
 	"author": "triplett",
 	"license": "MIT",
 	"main": "dist/stew.min.js",
 	"scripts": {
 		"test": "jest --watch",
-		"build": "rimraf dist && esbuild src/index.js --outfile=dist/stew.min.js --outfile=preview/stew.min.js --bundle --minify",
+		"build": "rimraf dist && esbuild src/index.js --outfile=dist/stew.min.js --outfile=dist/stew.min.js --bundle --minify",
 		"build:watch": "esbuild src/index.js --outfile=preview/stew.min.js --bundle --watch",
 		"start": "node preview/server.js"
 	},

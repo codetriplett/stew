@@ -35,11 +35,10 @@ export function schedule (subscriptions) {
 }
 
 // TODO: don't set up state if document doesn't allow setState
-export default function observe (object) {
-	const state = {};
-
-	// set up subscribe/dispatch pattern on properties
+export default function observe (object, state) {
+	// set up subscribe/dispatch pattern on properties not yet set in state
 	for (let [name, value] of Object.entries(object)) {
+		if (Object.prototype.hasOwnProperty.call(state, name)) continue;
 		const subscriptions = [];
 
 		// bind context
@@ -60,6 +59,4 @@ export default function observe (object) {
 			},
 		});
 	}
-
-	return state;
 }

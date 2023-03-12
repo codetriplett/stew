@@ -38,7 +38,10 @@ function Component () {
 			['i', {}, 'Status is: '],
 			['b', {}, locked ? 'Locked' : 'Not locked'],
 		],
-		({ setLocked }) => ['', null,
+		// TODO: figure out why lock button multiplies listeners added by each dial press each time
+		// - only happens with locked is red by the parent fragment and rerenders dial button
+		// - dial button should have the same DOM reference and overwite the previous listener
+		({ locked, setLocked }) => ['', null,
 			Button({ id: 'dial' }, 'Dial'),
 			Button({
 				id: 'lock',

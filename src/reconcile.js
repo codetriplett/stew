@@ -21,6 +21,7 @@ function append (node, dom) {
 
 export function remove (view, container) {
 	if (teardowns.has(view)) {
+		// call teardown function and delete it
 		const teardown = teardowns.get(view);
 		if (typeof teardown === 'function') teardown();
 		teardowns.delete(view);
@@ -28,11 +29,13 @@ export function remove (view, container) {
 
 	let [node,, ...childViews] = view;
 
-	if (node) {
+	if (node && container) {
+		// remove node from DOM and prevent this step for its children
 		container.removeChild(node);
-		return;
+		container = undefined;
 	}
 
+	// continue removals for children
 	for (const childView of childViews) {
 		remove(childView, container);
 	}
@@ -134,13 +137,14 @@ function update (outline, state, parentView, i, dom, hydrateNodes) {
 		if (typeof obj === 'function') {
 			// schedule effect
 			execute(obj, state, view);
-		} else if (!states.has(view)) {
-			// create new state
-			if (obj && typeof obj === 'object') state = observe(obj);
-			states.set(view, state);
+		} else if (obj && typeof obj === 'object') {
+			// create or update state
+			state = states.get(view) || {};
+			if (!states.has(view)) states.set(view, state);
+			observe(obj, state);
 		} else {
-			// use previous state
-			state = states.get(view);
+			// clear local state
+			states.delete(view);
 		}
 	}
 	
