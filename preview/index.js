@@ -45,7 +45,8 @@ function Component () {
 			Button({ id: 'dial' }, 'Dial'),
 			Button({
 				id: 'lock',
-				action: () => setLocked(Math.random()),
+				locked,
+				action: () => setLocked(true),
 			}, 'Lock'),
 			({ locked }) => locked && ['', ref => {
 				const [prev] = ref;

@@ -1,8 +1,8 @@
 import reconcile from './reconcile';
-import execute, { frameworks } from './execute';
+import activate, { frameworks } from './activate';
 import { virtualDocument, defaultUpdater } from '.';
 
-jest.mock('./execute');
+jest.mock('./activate');
 jest.mock('./observe');
 
 describe('reconcile', () => {
@@ -96,7 +96,7 @@ describe('reconcile', () => {
 		it('creates dynamic node', () => {
 			const callback = () => {};
 			reconcile(callback, state, parentView, 0, dom);
-			expect(execute).toHaveBeenCalledWith(callback, state, parentView, 0, dom, undefined);
+			expect(activate).toHaveBeenCalledWith(callback, state, parentView, 0, dom, undefined);
 			expect(container.childNodes).toEqual([]);
 			expect(parentView).toEqual([{}, {}]);
 			expect(dom).toEqual({ container });
@@ -180,7 +180,7 @@ describe('reconcile', () => {
 			parentView[2] = view;
 			const callback = () => {};
 			reconcile(callback, state, parentView, 0, dom);
-			expect(execute).toHaveBeenCalledWith(callback, state, parentView, 0, dom, undefined);
+			expect(activate).toHaveBeenCalledWith(callback, state, parentView, 0, dom, undefined);
 			expect(container.childNodes).toEqual([node]);
 			expect(parentView).toEqual([{}, {}, view]);
 			expect(dom).toEqual({ container });
@@ -255,7 +255,7 @@ describe('reconcile', () => {
 			const hydrateNodes = [node];
 			const callback = () => {};
 			reconcile(callback, state, parentView, 0, dom, hydrateNodes);
-			expect(execute).toHaveBeenCalledWith(callback, state, parentView, 0, dom, hydrateNodes);
+			expect(activate).toHaveBeenCalledWith(callback, state, parentView, 0, dom, hydrateNodes);
 			expect(container.childNodes).toEqual([node]);
 			expect(parentView).toEqual([{}, {}]);
 			expect(dom).toEqual({ container });

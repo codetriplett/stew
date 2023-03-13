@@ -1,4 +1,4 @@
-import execute, { teardowns, frameworks } from './execute';
+import activate, { teardowns, frameworks, unsubscribe } from './activate';
 import observe from './observe';
 
 const states = new WeakMap();
@@ -19,7 +19,8 @@ function append (node, dom) {
 	else container.appendChild(node);
 }
 
-export function remove (view, container) {
+// TODO: test unsubscribe, especially when impulse is still active by produces a different view
+export function remove (view, container, staySubscribed) {
 	if (teardowns.has(view)) {
 		// call teardown function and delete it
 		const teardown = teardowns.get(view);
@@ -28,6 +29,7 @@ export function remove (view, container) {
 	}
 
 	let [node,, ...childViews] = view;
+	if (!staySubscribed) unsubscribe(view);
 
 	if (node && container) {
 		// remove node from DOM and prevent this step for its children
@@ -107,7 +109,9 @@ function update (outline, state, parentView, i, dom, hydrateNodes) {
 	const [str, obj, ...arr] = outline;
 	const [, tagName, key] = str.match(/^\s*(.*?)\s*(?::(.*?))?$/);
 	const isFragment = tagName === '';
-	view = views?.[key] || (view?.length > 1 ? view : [, {}]);
+	if (hydrateNodes) view[1] = {};
+	else view = views?.[key] || view;
+	if (!view || view.length < 2) view = [, {}];
 	let [node] = view;
 
 	if (!isFragment) {
@@ -122,7 +126,7 @@ function update (outline, state, parentView, i, dom, hydrateNodes) {
 		}
 
 		// update attributes and create new dom reference
-		if (typeof obj === 'function') execute(obj, state, view);
+		if (typeof obj === 'function') activate(obj, state, view);
 		else if (obj) frameworks[0][1](node, obj);
 		dom = { container: node };
 
@@ -136,7 +140,7 @@ function update (outline, state, parentView, i, dom, hydrateNodes) {
 
 		if (typeof obj === 'function') {
 			// schedule effect
-			execute(obj, state, view);
+			activate(obj, state, view);
 		} else if (obj && typeof obj === 'object') {
 			// create or update state
 			state = states.get(view) || {};
@@ -157,7 +161,7 @@ function update (outline, state, parentView, i, dom, hydrateNodes) {
 export default function reconcile (outline, state, parentView, i, dom, hydrateNodes) {
 	if (typeof outline === 'function') {
 		// dynamic node
-		execute(outline, state, parentView, i, dom, hydrateNodes);
+		activate(outline, state, parentView, i, dom, hydrateNodes);
 		return;
 	}
 

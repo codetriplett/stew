@@ -1,5 +1,5 @@
 import stew, { virtualDocument, defaultUpdater } from '.';
-import { frameworks } from './execute';
+import { frameworks } from './activate';
 import reconcile from './reconcile';
 
 jest.mock('./reconcile');

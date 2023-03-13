@@ -1,7 +1,7 @@
 import observe, { queue } from './observe';
-import execute, { impulses } from './execute';
+import { impulses } from './activate';
 
-jest.mock('./execute');
+jest.mock('./activate');
 
 describe('observe', () => {
 	const impulse = jest.fn();

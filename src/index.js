@@ -1,5 +1,5 @@
 import reconcile from './reconcile';
-import { frameworks } from './execute';
+import { frameworks } from './activate';
 
 const selfClosingTags = new Set([
 	'wbr', 'track', 'source', 'param', 'meta', 'link', 'keygen', 'input',

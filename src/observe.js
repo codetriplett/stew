@@ -1,4 +1,4 @@
-import { frameworks, impulses } from './execute';
+import { frameworks, impulses } from './activate';
 import { virtualDocument } from '.';
 
 export const queue = new Set();
@@ -17,9 +17,11 @@ export function schedule (subscriptions) {
 	if (frameworks[0]?.[0] === virtualDocument) return;
 
 	// add to queue
-	for (const impulse of subscriptions.splice(0)) {
+	for (const impulse of subscriptions) {
 		queue.add(impulse);
 	}
+
+	subscriptions.clear();
 
 	// schedule update after all main thread tasks have finished
 	timeout = timeout !== undefined ? timeout : setTimeout(() => {
@@ -39,7 +41,7 @@ export default function observe (object, state) {
 	// set up subscribe/dispatch pattern on properties not yet set in state
 	for (let [name, value] of Object.entries(object)) {
 		if (Object.prototype.hasOwnProperty.call(state, name)) continue;
-		const subscriptions = [];
+		const subscriptions = new Set();
 
 		// bind context
 		if (typeof value === 'function') {
@@ -49,7 +51,9 @@ export default function observe (object, state) {
 		// subscribe on get and dispatch on set
 		Object.defineProperty(state, name, {
 			get () {
-				subscriptions.push(impulses[0]);
+				const [impulse] = impulses;
+				subscriptions.add(impulse);
+				impulse.subscriptionsSet.add(subscriptions);
 				return value;
 			},
 			set (newValue) {
