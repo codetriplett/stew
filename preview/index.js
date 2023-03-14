@@ -34,16 +34,28 @@ function Component () {
 			this.locked = locked;
 		}
 	},
+		['', {
+			value: '',
+			setValue (value) {
+				this.value = value;
+			}
+		},
+			({ value, setValue }) => ['', null,
+				['input', {
+					type: 'text',
+					value,
+					onkeyup: event => setValue(event.target.value),
+				}],
+				['p', null, value],
+			]
+		],
 		({ locked }) => ['', null,
 			['i', {}, 'Status is: '],
 			['b', {}, locked ? 'Locked' : 'Not locked'],
 		],
-		// TODO: figure out why lock button multiplies listeners added by each dial press each time
-		// - only happens with locked is red by the parent fragment and rerenders dial button
-		// - dial button should have the same DOM reference and overwite the previous listener
-		({ locked, setLocked }) => ['', null,
+		({ setLocked }) => ['', null,
 			Button({ id: 'dial' }, 'Dial'),
-			Button({
+			({ locked }) => Button({
 				id: 'lock',
 				locked,
 				action: () => setLocked(true),

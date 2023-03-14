@@ -158,6 +158,8 @@ function update (outline, state, parentView, i, dom, hydrateNodes) {
 	return view;
 }
 
+// TODO: add capture fragments that claim static nodes during hydration and skip updating them during updates
+// - ['', 4]: claim the next 4 nodes during hydration
 export default function reconcile (outline, state, parentView, i, dom, hydrateNodes) {
 	if (typeof outline === 'function') {
 		// dynamic node
