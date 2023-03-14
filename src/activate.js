@@ -2,34 +2,41 @@ import reconcile, { remove } from './reconcile';
 import { schedule } from './observe';
 
 export const teardowns = new WeakMap();
-export const memory = new WeakMap();
 export const frameworks = [];
 export const impulses = [];
 
-export function unsubscribe (view) {
-	if (memory.has(view)) {
-		const oldImpulse = memory.get(view);
-		const { subscriptionsSet } = oldImpulse;
+export function unsubscribe (impulses) {
+	for (const impulse of impulses) {
+		const { subscriptionsSet, childImpulses } = impulse;
+		unsubscribe(childImpulses);
 
+		// remove impulse from subscriptions
 		for (const subscriptions of subscriptionsSet) {
-			subscriptions.delete(oldImpulse);
+			subscriptions.delete(impulse);
 		}
+
+		subscriptionsSet.clear();
 	}
+
+	impulses.clear();
 }
 
 export default function activate (callback, state, parentView, i, dom, hydrateNodes) {
 	// persist parent framework and dom reference object
 	const isEffect = i === undefined && parentView[0] === undefined;
 	const [framework] = frameworks;
-	let iteration = 0;
+	const [parentImpulse] = impulses;
+	const childImpulses = new Set();
+	let initialized = false;
 
 	// wrap in setup and teardown steps and store as new callback to subscribe to state property changes
-	function impulse (hydrateNodes) {
+	function impulse () {
 		// resurface stored framework
 		frameworks.unshift(framework);
 		impulses.unshift(impulse);
+		unsubscribe(childImpulses);
 		let outline;
-	
+
 		// safely run callback function
 		try {
 			const param = isEffect ? [teardowns.get(parentView), ...parentView.slice(1)] : state;
@@ -46,33 +53,24 @@ export default function activate (callback, state, parentView, i, dom, hydrateNo
 			const newView = parentView[i + 2];
 			dom = domCopy;
 
-			if (iteration === 0) {
-				// clear subscriptions of old impulse
-				unsubscribe(oldView);
-			} else if (oldView?.length && newView !== oldView) {
+			if (initialized && oldView?.length && newView !== oldView) {
 				// remove old nodes and subscriptions
 				const { container } = dom;
-				remove(oldView, container, true);
+				remove(oldView, container);
 			}
-			
-			// add memory
-			if (newView) memory.set(newView, impulse);
+		} else if (isEffect) {
+			// store teardown
+			teardowns.set(parentView, outline);
 		} else {
+			// process attribute update
 			const [node] = parentView;
-
-			if (node) {
-				// process attribute update
-				const [, updater] = framework;
-				updater(node, outline);
-			} else {
-				teardowns.set(parentView, outline);
-			}
+			const [, updater] = framework;
+			updater(node, outline);
 		}
 
 		// reset stack
 		impulses.shift();
 		frameworks.shift();
-		iteration++;
 	}
 
 	// delay effect until after render
@@ -81,8 +79,12 @@ export default function activate (callback, state, parentView, i, dom, hydrateNo
 		return;
 	}
 
-	// set parent impulse and call for first time, except for effects 
-	impulse.parentImpulse = impulses[0];
+	// set parent impulse and call for first time, except for effects
+	parentImpulse?.childImpulses?.add?.(impulse);
+	impulse.parentImpulse = parentImpulse;
+	impulse.childImpulses = childImpulses;
 	impulse.subscriptionsSet = new Set();
 	impulse(hydrateNodes);
+	hydrateNodes = undefined;
+	initialized = true;
 }

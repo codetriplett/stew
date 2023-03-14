@@ -64,7 +64,7 @@ export const virtualDocument = {
 					name = nameMap[name] || name.replace(/(?=[A-Z])/g, '-').toLowerCase();
 					html += ` ${name}="${value === true ? '' : value}"`;
 				}
-		
+
 				if (selfClosingTags.has(tagName.toLowerCase())) return `${html}>`;
 				return `${html}>${this.childNodes.join('')}</${tagName}>`;
 			},

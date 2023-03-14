@@ -6,6 +6,8 @@ const states = new WeakMap();
 // TODO: add fragment to dom object that nodes are appended/inserted to first
 // - then append fragment to container if next node skips over an already existing one
 // - this way all new nodes are added to the DOM at the same time, avoiding extra reflows
+// - would need to skip this step if custom document doesn't have a fragment creator
+// - check dom for reusable fragment to know if it is supported
 function append (node, dom) {
 	const { container } = dom;
 	let sibling;
@@ -19,8 +21,7 @@ function append (node, dom) {
 	else container.appendChild(node);
 }
 
-// TODO: test unsubscribe, especially when impulse is still active by produces a different view
-export function remove (view, container, staySubscribed) {
+export function remove (view, container) {
 	if (teardowns.has(view)) {
 		// call teardown function and delete it
 		const teardown = teardowns.get(view);
@@ -29,7 +30,6 @@ export function remove (view, container, staySubscribed) {
 	}
 
 	let [node,, ...childViews] = view;
-	if (!staySubscribed) unsubscribe(view);
 
 	if (node && container) {
 		// remove node from DOM and prevent this step for its children
@@ -151,7 +151,7 @@ function update (outline, state, parentView, i, dom, hydrateNodes) {
 			states.delete(view);
 		}
 	}
-	
+
 	// update views and temporarily store new future views in place of node
 	if (key) views[key] = view;
 	populate(arr, state, view, dom, hydrateNodes);
