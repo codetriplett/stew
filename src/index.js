@@ -1,5 +1,6 @@
 import reconcile from './reconcile';
-import { frameworks } from './activate';
+import activate, { frameworks } from './activate';
+import observe from './observe';
 
 const selfClosingTags = new Set([
 	'wbr', 'track', 'source', 'param', 'meta', 'link', 'keygen', 'input',
@@ -105,16 +106,28 @@ export function create (selector, document) {
 	return node;
 }
 
-export default function stew (container, outline, document = defaultDocument, updater = defaultUpdater) {
+export default function stew (container, ...params) {
+	if (!params.length) {
+		// process detached impulse or state
+		if (typeof container === 'function') return activate(container);
+		if (typeof container === 'object') return observe(container);
+		return;
+	}
+
+	const [outline, document = defaultDocument, updater = defaultUpdater] = params;
+	
 	if (typeof container !== 'object') {
 		// use existing container or create a new one
 		container = document?.querySelector?.(container) || create(container, document);
 	}
 
 	// prepare hydrate nodes and load framework
+	const view = [container, {}];
+	const dom = { container };
 	const hydrateNodes = [...container.childNodes];
-	frameworks.unshift([document, updater]);
-	reconcile(outline, {}, [container, {}], 0, { container }, hydrateNodes);
+	const framework = [document, updater];
+	frameworks.unshift(framework);
+	reconcile(outline, {}, view, 0, dom, hydrateNodes);
 	frameworks.shift();
 
 	// remove unclaimed nodes

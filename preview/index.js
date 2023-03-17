@@ -7,7 +7,14 @@ if (typeof window === 'object') {
 	stew = require('./stew.min.js');
 }
 
-function Button ({ action, locked, id }, content) {
+const globalState = stew({
+	freeze: false,
+	setFreeze (freeze) {
+		this.freeze = freeze;
+	}
+});
+
+function Button ({ action, locked, id, disabled }, content) {
 	return [`:${id}`, action ? null : {
 		number: 0,
 		setNumber (number) {
@@ -17,7 +24,7 @@ function Button ({ action, locked, id }, content) {
 		({ number, setNumber }) => ['button:button', {
 			id,
 			type: 'button',
-			disabled: locked,
+			disabled: disabled || locked,
 			onclick: action || (() => setNumber(number + 1)),
 		},
 			content,
@@ -53,13 +60,17 @@ function Component () {
 			['i', {}, 'Status is: '],
 			['b', {}, locked ? 'Locked' : 'Not locked'],
 		],
-		({ setLocked }) => ['', null,
-			Button({ id: 'dial' }, 'Dial'),
-			({ locked }) => Button({
-				id: 'lock',
-				locked,
-				action: () => setLocked(true),
-			}, 'Lock'),
+		({ locked, setLocked }) => ['', null,
+			['', [globalState.freeze],
+				() => Button({ id: 'dial', disabled: globalState.freeze }, 'Dial'),
+			],
+			['', [locked],
+				() => Button({
+					id: 'lock',
+					locked,
+					action: () => setLocked(true),
+				}, 'Lock'),
+			],
 			({ locked }) => locked && ['', ref => {
 				const [prev] = ref;
 				if (!prev) console.log('unlock button added');
@@ -78,6 +89,8 @@ function Component () {
 function App (props) {
 	return stew('#app', Component(props));
 }
+
+setInterval(() => globalState.setFreeze(!globalState.freeze), 2000);
 
 if (typeof window === 'object') {
 	window.App = App;

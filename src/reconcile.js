@@ -1,6 +1,8 @@
-import activate, { teardowns, frameworks, unsubscribe } from './activate';
+import activate, { teardowns, frameworks } from './activate';
 import observe from './observe';
 
+export const memoStack = [];
+const memoMap = new WeakMap();
 const states = new WeakMap();
 
 // TODO: add fragment to dom object that nodes are appended/inserted to first
@@ -85,8 +87,28 @@ function write (text, view = [], dom, hydrateNodes) {
 	return view;
 };
 
+function checkPersistence (view, arr) {
+	// extract previous memo and compare with new array
+	const [oldArr, ...oldImpulses] = memoMap.get(view) || [];
+	const persist = !arr || arr.length === oldArr?.length && arr.every((it, i) => it === oldArr[i]);
+
+	// set new memo
+	if (arr) {
+		const memo = [arr];
+		memoMap.set(view, memo);
+		memoStack.unshift(memo);
+	}
+
+	// set whether child impulses should persist
+	for (const impulse of oldImpulses) {
+		impulse.persist = persist;
+	}
+
+	return persist && view;
+}
+
 function update (outline, state, parentView, i, dom, hydrateNodes) {
-	if (!outline && outline !== 0 || outline === true) {
+	if (!outline && outline !== 0) {
 		// empty node
 		return [];
 	} else if (typeof outline === 'object' && !Array.isArray(outline)) {
@@ -100,7 +122,10 @@ function update (outline, state, parentView, i, dom, hydrateNodes) {
 	const [, views] = parentView;
 	let view = hydrateNodes ? hydrateNodes.slice(-1) : parentView[i + 2];
 
-	if (!Array.isArray(outline)) {
+	if (outline === true) {
+		// persist node
+		return checkPersistence(view || []);
+	} else if (!Array.isArray(outline)) {
 		// text node
 		return write(outline, view, dom, hydrateNodes);
 	}
@@ -108,13 +133,27 @@ function update (outline, state, parentView, i, dom, hydrateNodes) {
 	// element or fragment node
 	const [str, obj, ...arr] = outline;
 	const [, tagName, key] = str.match(/^\s*(.*?)\s*(?::(.*?))?$/);
-	const isFragment = tagName === '';
-	if (hydrateNodes) view[1] = {};
-	else view = views?.[key] || view;
+	if (!hydrateNodes) views?.[key] || view;
 	if (!view || view.length < 2) view = [, {}];
 	let [node] = view;
+	let persist;
 
-	if (!isFragment) {
+	if (tagName === '') {
+		// reject view if it was for an element
+		if (node) view = [, {}];
+
+		if (typeof obj === 'function') {
+			// schedule effect
+			activate(obj, state, view);
+		} else if (Array.isArray(obj)) {
+			// memoize fragment
+			persist = !!checkPersistence(view, obj);
+		} else if (obj && typeof obj === 'object') {
+			// create or use existing state
+			state = states.get(view) || observe(obj);
+			states.set(view, state);
+		}
+	} else {
 		if (node?.tagName?.toLowerCase?.() !== tagName.toLowerCase()) {
 			// create new element
 			node = frameworks[0][0].createElement(tagName);
@@ -134,32 +173,15 @@ function update (outline, state, parentView, i, dom, hydrateNodes) {
 			// prepare new set for children
 			hydrateNodes = [...node.childNodes];
 		}
-	} else {
-		// reject view if it was for an element
-		if (node) view = [, {}];
-
-		if (typeof obj === 'function') {
-			// schedule effect
-			activate(obj, state, view);
-		} else if (obj && typeof obj === 'object') {
-			// create or update state
-			state = states.get(view) || {};
-			if (!states.has(view)) states.set(view, state);
-			observe(obj, state);
-		} else {
-			// clear local state
-			states.delete(view);
-		}
 	}
 
 	// update views and temporarily store new future views in place of node
 	if (key) views[key] = view;
-	populate(arr, state, view, dom, hydrateNodes);
+	if (!persist) populate(arr, state, view, dom, hydrateNodes);
+	if (persist !== undefined) memoStack.shift();
 	return view;
 }
 
-// TODO: add capture fragments that claim static nodes during hydration and skip updating them during updates
-// - ['', 4]: claim the next 4 nodes during hydration
 export default function reconcile (outline, state, parentView, i, dom, hydrateNodes) {
 	if (typeof outline === 'function') {
 		// dynamic node

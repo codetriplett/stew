@@ -37,10 +37,10 @@ export function schedule (subscriptions) {
 }
 
 // TODO: don't set up state if document doesn't allow setState
-export default function observe (object, state) {
-	// set up subscribe/dispatch pattern on properties not yet set in state
+export default function observe (object) {
+	const state = {};
+
 	for (let [name, value] of Object.entries(object)) {
-		if (Object.prototype.hasOwnProperty.call(state, name)) continue;
 		const subscriptions = new Set();
 
 		// bind context
@@ -51,9 +51,12 @@ export default function observe (object, state) {
 		// subscribe on get and dispatch on set
 		Object.defineProperty(state, name, {
 			get () {
-				const [impulse] = impulses;
-				subscriptions.add(impulse);
-				impulse.subscriptionsSet.add(subscriptions);
+				if (impulses.length) {
+					const [impulse] = impulses;
+					subscriptions.add(impulse);
+					impulse.subscriptionsSet.add(subscriptions);
+				}
+
 				return value;
 			},
 			set (newValue) {
@@ -63,4 +66,6 @@ export default function observe (object, state) {
 			},
 		});
 	}
+
+	return state;
 }
