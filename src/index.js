@@ -1,6 +1,6 @@
-import reconcile from './reconcile';
+import reconcile, { defaultProps } from './reconcile';
 import activate, { frameworks } from './activate';
-import observe from './observe';
+import observe, { cues } from './observe';
 
 const selfClosingTags = new Set([
 	'wbr', 'track', 'source', 'param', 'meta', 'link', 'keygen', 'input',
@@ -10,6 +10,8 @@ const selfClosingTags = new Set([
 const nameMap = {
 	className: 'class'
 };
+
+const managedProps = new WeakMap();
 
 export const virtualDocument = {
 	createTextNode (nodeValue) {
@@ -73,14 +75,26 @@ export const virtualDocument = {
 	},
 };
 
-const defaultDocument = typeof window === 'object' && window.document || virtualDocument;
-
 export function defaultUpdater (node, attributes) {
+	const prevNames = new Set(managedProps.get(node));
+
 	for (const [name, value] of Object.entries(attributes)) {
 		// add property to node if it needs to be updated
+		prevNames.delete(name);
 		if (node[name] === value) continue;
 		node[name] = value;
 	}
+
+	if (prevNames.size) {
+		const tagName = node.tagName.toLowerCase();
+		const nodeDefaultProps = defaultProps[tagName];
+
+		for (const name of prevNames) {
+			node[name] = nodeDefaultProps[name];
+		}
+	}
+
+	managedProps.set(node, Object.keys(attributes));
 }
 
 export function create (selector, document) {
@@ -106,19 +120,46 @@ export function create (selector, document) {
 	return node;
 }
 
+const defaultDocument = typeof window === 'object' && window.document || virtualDocument;
+
 export default function stew (container, ...params) {
-	if (!params.length) {
+	if (typeof container === 'string' && !/#|\./.test(container)) {
+		const sets = container.trim().split(/\s+/);
+		const props = {};
+
+		for (const set of sets) {
+			// read names and set initial value
+			let [name, setterName, cueName] = set.trim().split(/:/);
+			const isCue = !setterName && cueName;
+			if (isCue) setterName = cueName;
+			props[name] = params.shift();
+			
+			// include setter
+			if (setterName) {
+				props[setterName] = function (value) {
+					this[name] = value;
+				};
+			}
+
+			// store setter as cue
+			if (isCue) cues.set(props[cueName], name);
+		}
+
+		return props;
+	} else if (!params.length) {
 		// process detached impulse or state
-		if (typeof container === 'function') return activate(container);
-		if (typeof container === 'object') return observe(container);
-		return;
+		switch (typeof container) {
+			case 'function': return activate(container);
+			case 'object': return observe(container);
+		}
 	}
 
-	const [outline, document = defaultDocument, updater = defaultUpdater] = params;
-	
+	const [outline, state = {}, document = defaultDocument, updater = defaultUpdater] = params;
+
 	if (typeof container !== 'object') {
 		// use existing container or create a new one
-		container = document?.querySelector?.(container) || create(container, document);
+		const creationDocument = document === defaultDocument ? document : virtualDocument;
+		container = document?.querySelector?.(container) || create(container, creationDocument);
 	}
 
 	// prepare hydrate nodes and load framework
@@ -127,7 +168,7 @@ export default function stew (container, ...params) {
 	const hydrateNodes = [...container.childNodes];
 	const framework = [document, updater];
 	frameworks.unshift(framework);
-	reconcile(outline, {}, view, 0, dom, hydrateNodes);
+	reconcile(outline, state, view, 0, dom, hydrateNodes);
 	frameworks.shift();
 
 	// remove unclaimed nodes

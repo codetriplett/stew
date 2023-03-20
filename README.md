@@ -1,6 +1,6 @@
 # Stew
 
-A stateful virtual DOM for any purpose. It supports local states and refs, client-side hydration and effects, server-side rendering, portals, and custom document models. The total uncompressed size is under 5kB and it does not rely on any other dependencies.
+A stateful virtual DOM for any purpose. It supports local states and refs, client-side hydration and effects, server-side rendering, portals, and custom document models. The total uncompressed size is less than 6kB and it does not rely on any other dependencies.
 
 ## Layouts
 
@@ -26,7 +26,12 @@ Fragments allow you to create a group of nodes that are added to the DOM without
 Since attributes don't apply to fragments, that part of the array can be used to add unique functionality. A new local state can be set by including an object in that space, which will set up the initial values. See the section later on about how to set up global states that can be shared across layouts.
 
 ```js
-['', { expanded: false }, ...children]
+['', {
+	expanded: false,
+	setExpanded (expanded) {
+		this.expanded = expanded;
+	}
+}, ...children]
 ```
 
 #### Effects
@@ -100,6 +105,16 @@ const container = stew('#container', ['', {
 	({ expanded }) =>
 		['p', {}, 'Hello World']
 ]
+```
+
+### Setter
+As a shortcut for creating setter functions in your state, pass the name of the value you want the setter to update.
+
+```js
+['', {
+	expanded: false,
+	setExpanded: stew('expanded')
+}, ...children]
 ```
 
 ### custom document

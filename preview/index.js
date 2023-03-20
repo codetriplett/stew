@@ -7,20 +7,10 @@ if (typeof window === 'object') {
 	stew = require('./stew.min.js');
 }
 
-const globalState = stew({
-	freeze: false,
-	setFreeze (freeze) {
-		this.freeze = freeze;
-	}
-});
+const globalState = stew(stew('freeze:setFreeze ping::setPing', false));
 
 function Button ({ action, locked, id, disabled }, content) {
-	return [`:${id}`, action ? null : {
-		number: 0,
-		setNumber (number) {
-			this.number = number;
-		}
-	},
+	return [`:${id}`, action ? null : stew('number:setNumber', 0),
 		({ number, setNumber }) => ['button:button', {
 			id,
 			type: 'button',
@@ -35,18 +25,8 @@ function Button ({ action, locked, id, disabled }, content) {
 }
 
 function Component () {
-	return ['', {
-		locked: false,
-		setLocked (locked) {
-			this.locked = locked;
-		}
-	},
-		['', {
-			value: '',
-			setValue (value) {
-				this.value = value;
-			}
-		},
+	return ['', stew('locked:setLocked', false),
+		['', stew('value:setValue', ''),
 			({ value, setValue }) => ['', null,
 				['input', {
 					type: 'text',
@@ -82,6 +62,9 @@ function Component () {
 					action: () => setLocked(false),
 				}, 'Unlock')
 			],
+			['', [globalState.setPing],
+				globalState.ping && ['p', {}, `Delayed report shows ${locked ? 'locked' : 'unlocked'}`],
+			]
 		],
 	];
 }
@@ -91,6 +74,7 @@ function App (props) {
 }
 
 setInterval(() => globalState.setFreeze(!globalState.freeze), 2000);
+setInterval(() => globalState.setPing(true), 5000);
 
 if (typeof window === 'object') {
 	window.App = App;

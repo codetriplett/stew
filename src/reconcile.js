@@ -1,6 +1,7 @@
 import activate, { teardowns, frameworks } from './activate';
-import observe from './observe';
+import observe, { cues } from './observe';
 
+export const defaultProps = {};
 export const memoStack = [];
 const memoMap = new WeakMap();
 const states = new WeakMap();
@@ -70,6 +71,11 @@ function populate (outlines, state, view, dom, hydrateNodes) {
 	}
 }
 
+function locate (view, dom) {
+	const childView = view.slice(2).find(it => Array.isArray(it) && it[0]);
+	if (childView) Object.assign(dom, { node: childView[0], sibling: { ...dom } });
+}
+
 function write (text, view = [], dom, hydrateNodes) {
 	const nodeValue = String(text);
 	let [node] = view;
@@ -90,7 +96,11 @@ function write (text, view = [], dom, hydrateNodes) {
 function checkPersistence (view, arr) {
 	// extract previous memo and compare with new array
 	const [oldArr, ...oldImpulses] = memoMap.get(view) || [];
-	const persist = !arr || arr.length === oldArr?.length && arr.every((it, i) => it === oldArr[i]);
+
+	const persist = !arr || arr.length === oldArr?.length && arr.every((it, i) => {
+		// treat reset cues as matching old value
+		return cues.has(it) ? cues.get(it) === undefined : it === oldArr[i];
+	});
 
 	// set new memo
 	if (arr) {
@@ -132,7 +142,7 @@ function update (outline, state, parentView, i, dom, hydrateNodes) {
 
 	// element or fragment node
 	const [str, obj, ...arr] = outline;
-	const [, tagName, key] = str.match(/^\s*(.*?)\s*(?::(.*?))?$/);
+	let [, tagName, key] = str.match(/^\s*(.*?)\s*(?::(.*?))?$/);
 	if (!hydrateNodes) views?.[key] || view;
 	if (!view || view.length < 2) view = [, {}];
 	let [node] = view;
@@ -154,8 +164,16 @@ function update (outline, state, parentView, i, dom, hydrateNodes) {
 			states.set(view, state);
 		}
 	} else {
-		if (node?.tagName?.toLowerCase?.() !== tagName.toLowerCase()) {
-			// create new element
+		tagName = tagName.toLowerCase();
+
+		if (tagName !== node?.tagName?.toLowerCase?.()) {
+			// register defaults if not yet done
+			if (!Object.prototype.hasOwnProperty.call(defaultProps, tagName)) {
+				const example = frameworks[0][0].createElement(tagName);
+				defaultProps[tagName] = example;
+			}
+
+			// create new element and attach to dom
 			node = frameworks[0][0].createElement(tagName);
 			view = [node, {}];
 			append(node, dom);
@@ -178,6 +196,7 @@ function update (outline, state, parentView, i, dom, hydrateNodes) {
 	// update views and temporarily store new future views in place of node
 	if (key) views[key] = view;
 	if (!persist) populate(arr, state, view, dom, hydrateNodes);
+	else locate(view, dom);
 	if (persist !== undefined) memoStack.shift();
 	return view;
 }
