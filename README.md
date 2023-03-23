@@ -108,14 +108,15 @@ const container = stew('#container', ['', {
 ```
 
 ### Setter
-As a shortcut for creating setter functions in your state, pass the name of the value you want the setter to update.
+As a shortcut for creating setter functions in your state, pass a set of names to use for a variable and its setter function, followed by the initial value.
 
 ```js
 ['', {
-	expanded: false,
-	setExpanded: stew('expanded')
+	...stew('expanded:setExpanded', false)
 }, ...children]
 ```
+
+If you ever need a property that resets to undefined after it is used, use two colons before the setter. This might be something you find useful when dealing with custom documents that support animation.
 
 ### custom document
 A custom document object can be passed as the third parameter to set up a custom DOM. It just needs a 'createTextNode' function that accepts a string and returns an object containing that string as the 'nodeValue' prop, and a 'createElement' function that accepts a string and returns an object containing that string as the 'tagName' props. 'createElement' also needs to have a 'childNodes' prop that is an array and 'appendChild', 'insertBefore', and 'removeChild' functions that add and remove nodes from that array.

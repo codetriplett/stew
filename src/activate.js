@@ -1,7 +1,5 @@
 import reconcile, { memoStack, remove } from './reconcile';
-import { schedule } from './observe';
 
-export const teardowns = new WeakMap();
 export const frameworks = [];
 export const impulses = [];
 
@@ -24,7 +22,6 @@ export function unsubscribe (impulses) {
 
 export default function activate (callback, state, parentView, i, dom, hydrateNodes) {
 	// persist parent framework and dom reference object
-	const isEffect = state && i === undefined && parentView[0] === undefined;
 	const [framework] = frameworks;
 	const [parentImpulse] = impulses;
 	const [parentMemo] = memoStack;
@@ -42,8 +39,7 @@ export default function activate (callback, state, parentView, i, dom, hydrateNo
 
 		// safely run callback function
 		try {
-			const param = isEffect ? [teardowns.get(parentView), ...parentView.slice(1)] : state;
-			outline = callback(param);
+			outline = callback(state);
 		} catch (e) {
 			console.error(e);
 		}
@@ -61,9 +57,6 @@ export default function activate (callback, state, parentView, i, dom, hydrateNo
 				const { container } = dom;
 				remove(oldView, container);
 			}
-		} else if (isEffect) {
-			// store teardown
-			teardowns.set(parentView, outline);
 		} else if (state) {
 			// process attribute update
 			const [node] = parentView;
@@ -77,12 +70,6 @@ export default function activate (callback, state, parentView, i, dom, hydrateNo
 		memoStack.shift();
 		impulses.shift();
 		frameworks.shift();
-	}
-
-	// delay effect until after render
-	if (isEffect) {
-		schedule(new Set([impulse]));
-		return;
 	}
 
 	// set parent impulse and call for first time, except for effects

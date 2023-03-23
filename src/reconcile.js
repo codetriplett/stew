@@ -1,10 +1,8 @@
-import activate, { teardowns, frameworks } from './activate';
+import activate, { frameworks } from './activate';
 import observe, { cues } from './observe';
 
 export const defaultProps = {};
 export const memoStack = [];
-const memoMap = new WeakMap();
-const states = new WeakMap();
 
 // TODO: add fragment to dom object that nodes are appended/inserted to first
 // - then append fragment to container if next node skips over an already existing one
@@ -25,13 +23,9 @@ function append (node, dom) {
 }
 
 export function remove (view, container) {
-	if (teardowns.has(view)) {
-		// call teardown function and delete it
-		const teardown = teardowns.get(view);
-		if (typeof teardown === 'function') teardown();
-		teardowns.delete(view);
-	}
-
+	// call teardown function
+	const { teardown } = view;
+	if (typeof teardown === 'function') teardown();
 	let [node,, ...childViews] = view;
 
 	if (node && container) {
@@ -95,7 +89,7 @@ function write (text, view = [], dom, hydrateNodes) {
 
 function checkPersistence (view, arr) {
 	// extract previous memo and compare with new array
-	const [oldArr, ...oldImpulses] = memoMap.get(view) || [];
+	const [oldArr, ...oldImpulses] = view.memo || [];
 
 	const persist = !arr || arr.length === oldArr?.length && arr.every((it, i) => {
 		// treat reset cues as matching old value
@@ -104,9 +98,7 @@ function checkPersistence (view, arr) {
 
 	// set new memo
 	if (arr) {
-		const memo = [arr];
-		memoMap.set(view, memo);
-		memoStack.unshift(memo);
+		memoStack.unshift(view.memo = [arr]);
 	}
 
 	// set whether child impulses should persist
@@ -115,6 +107,17 @@ function checkPersistence (view, arr) {
 	}
 
 	return persist && view;
+}
+
+function followup (callback, view) {
+	setTimeout(() => {
+		// safely run callback function and update teardown
+		try {
+			view.teardowns = callback([view.teardown, ...view.slice(1)]);
+		} catch (e) {
+			console.error(e);
+		}
+	}, 0);
 }
 
 function update (outline, state, parentView, i, dom, hydrateNodes) {
@@ -154,14 +157,14 @@ function update (outline, state, parentView, i, dom, hydrateNodes) {
 
 		if (typeof obj === 'function') {
 			// schedule effect
-			activate(obj, state, view);
+			followup(obj, view);
 		} else if (Array.isArray(obj)) {
 			// memoize fragment
 			persist = !!checkPersistence(view, obj);
 		} else if (obj && typeof obj === 'object') {
 			// create or use existing state
-			state = states.get(view) || observe(obj);
-			states.set(view, state);
+			({ state } = view);
+			if (!state) state = view.state = observe(obj);
 		}
 	} else {
 		tagName = tagName.toLowerCase();

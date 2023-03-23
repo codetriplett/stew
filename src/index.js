@@ -2,11 +2,13 @@ import reconcile, { defaultProps } from './reconcile';
 import activate, { frameworks } from './activate';
 import observe, { cues } from './observe';
 
+// tags that shouldn't wrap content when server rendered
 const selfClosingTags = new Set([
 	'wbr', 'track', 'source', 'param', 'meta', 'link', 'keygen', 'input',
 	'img', 'hr', 'embed', 'command', 'col', 'br', 'base', 'area', '!doctype',
 ]);
 
+// attributes that are different when server rendered, beyond hyphenation
 const nameMap = {
 	className: 'class'
 };
@@ -60,7 +62,7 @@ export const virtualDocument = {
 					tagName, childNodes, parentElement, ...attributes
 				} = this;
 
-				let html = `<${tagName}`;
+				let html = `<${tagName === '!doctype' ? '!DOCTYPE' : tagName}`;
 
 				for (let [name, value] of Object.entries(attributes)) {
 					if (!value && value !== 0 || typeof value === 'function') continue;
@@ -176,7 +178,7 @@ export default function stew (container, ...params) {
 		container.removeChild(node);
 	}
 
-	return container;
+	if (document === defaultDocument) return container;
 };
 
 Object.assign(stew, { document: virtualDocument });
