@@ -26,6 +26,7 @@ export default function activate (callback, state, parentView, i, dom, hydrateNo
 	const [parentImpulse] = impulses;
 	const [parentMemo] = memoStack;
 	const childImpulses = [];
+	const detachedImpulses = [];
 	let initialized = false;
 
 	// wrap in setup and teardown steps and store as new callback to subscribe to state property changes
@@ -36,6 +37,7 @@ export default function activate (callback, state, parentView, i, dom, hydrateNo
 		memoStack.unshift();
 		const oldChildImpulses = childImpulses.splice(0);
 		let outline;
+		impulse.detachedIndex = 0;
 
 		// safely run callback function
 		try {
@@ -57,7 +59,7 @@ export default function activate (callback, state, parentView, i, dom, hydrateNo
 				const { container } = dom;
 				remove(oldView, container);
 			}
-		} else if (state) {
+		} else if (parentView) {
 			// process attribute update
 			const [node] = parentView;
 			const [, updater] = framework;
@@ -70,15 +72,15 @@ export default function activate (callback, state, parentView, i, dom, hydrateNo
 		memoStack.shift();
 		impulses.shift();
 		frameworks.shift();
+		return outline;
 	}
 
 	// set parent impulse and call for first time, except for effects
 	parentMemo?.push?.(impulse);
 	parentImpulse?.childImpulses?.push?.(impulse);
-	impulse.parentImpulse = parentImpulse;
-	impulse.childImpulses = childImpulses;
-	impulse.subscriptionsSet = new Set();
-	impulse(hydrateNodes);
+	Object.assign(impulse, { parentImpulse, childImpulses, detachedImpulses, subscriptionsSet: new Set() });
+	const value = impulse(hydrateNodes);
 	hydrateNodes = undefined;
 	initialized = true;
+	return value;
 }

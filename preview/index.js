@@ -76,6 +76,12 @@ function App (props) {
 setInterval(() => globalState.setFreeze(!globalState.freeze), 2000);
 setInterval(() => globalState.setPing(true), 5000);
 
+stew(() => {
+	const value = stew(() => Math.random(), [globalState.setPing]);
+	const signedValue = globalState.freeze ? -value : value;
+	// console.log(signedValue);
+});
+
 if (typeof window === 'object') {
 	window.App = App;
 } else if (typeof module === 'object') {

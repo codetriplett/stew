@@ -87,18 +87,18 @@ function write (text, view = [], dom, hydrateNodes) {
 	return view;
 };
 
-function checkPersistence (view, arr) {
+export function checkPersistence (view, deps) {
 	// extract previous memo and compare with new array
 	const [oldArr, ...oldImpulses] = view.memo || [];
 
-	const persist = !arr || arr.length === oldArr?.length && arr.every((it, i) => {
+	const persist = deps === true || deps && deps.length === oldArr?.length && deps.every((it, i) => {
 		// treat reset cues as matching old value
 		return cues.has(it) ? cues.get(it) === undefined : it === oldArr[i];
 	});
 
 	// set new memo
-	if (arr) {
-		memoStack.unshift(view.memo = [arr]);
+	if (deps) {
+		memoStack.unshift(view.memo = [deps]);
 	}
 
 	// set whether child impulses should persist
@@ -113,7 +113,7 @@ function followup (callback, view) {
 	setTimeout(() => {
 		// safely run callback function and update teardown
 		try {
-			view.teardowns = callback([view.teardown, ...view.slice(1)]);
+			view.teardown = callback([view.teardown, ...view.slice(1)]);
 		} catch (e) {
 			console.error(e);
 		}
@@ -137,7 +137,7 @@ function update (outline, state, parentView, i, dom, hydrateNodes) {
 
 	if (outline === true) {
 		// persist node
-		return checkPersistence(view || []);
+		return checkPersistence(view || [], true);
 	} else if (!Array.isArray(outline)) {
 		// text node
 		return write(outline, view, dom, hydrateNodes);

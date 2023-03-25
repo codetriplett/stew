@@ -1,5 +1,5 @@
-import reconcile, { defaultProps } from './reconcile';
-import activate, { frameworks } from './activate';
+import reconcile, { defaultProps, checkPersistence } from './reconcile';
+import activate, { impulses, frameworks } from './activate';
 import observe, { cues } from './observe';
 
 // tags that shouldn't wrap content when server rendered
@@ -148,20 +148,27 @@ export default function stew (container, ...params) {
 		}
 
 		return props;
-	} else if (!params.length) {
-		// process detached impulse or state
-		switch (typeof container) {
-			case 'function': return activate(container);
-			case 'object': return observe(container);
-		}
+	} else if (typeof container === 'function') {
+		// process detached impulse
+		const [parentImpulse] = impulses;
+		const [deps, state] = params;
+		if (!parentImpulse) return activate(container);
+		const { detachedImpulses, detachedIndex } = parentImpulse;
+		const view = detachedImpulses[detachedIndex] || [];
+		const persist = checkPersistence(view, deps);
+		detachedImpulses[detachedIndex] = view;
+		parentImpulse.detachedIndex++;
+		return persist ? view[0] : view[0] = activate(container, view[0]);
+	} else if (typeof container === 'object' && !params.length) {
+		// process detached state
+		return observe(container);
 	}
 
-	const [outline, state = {}, document = defaultDocument, updater = defaultUpdater] = params;
+	let [outline, state = {}, document = defaultDocument, updater = defaultUpdater] = params;
 
 	if (typeof container !== 'object') {
 		// use existing container or create a new one
-		const creationDocument = document === defaultDocument ? document : virtualDocument;
-		container = document?.querySelector?.(container) || create(container, creationDocument);
+		container = document?.querySelector?.(container) || create(container, document);
 	}
 
 	// prepare hydrate nodes and load framework
@@ -178,7 +185,7 @@ export default function stew (container, ...params) {
 		container.removeChild(node);
 	}
 
-	if (document === defaultDocument) return container;
+	return container;
 };
 
 Object.assign(stew, { document: virtualDocument });
