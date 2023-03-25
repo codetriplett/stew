@@ -1,6 +1,6 @@
 # Stew
 
-A stateful virtual DOM for any purpose. It supports local states and refs, client-side hydration and effects, server-side rendering, portals, and custom document models. The total uncompressed size is less than 6kB and it does not rely on any other dependencies.
+A stateful virtual DOM for any purpose. It supports local states and refs, client-side hydration and effects, server-side rendering, portals, and custom document models. The total uncompressed size is around 6kB and it does not rely on any other dependencies.
 
 ## Layouts
 

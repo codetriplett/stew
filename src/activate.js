@@ -1,4 +1,4 @@
-import reconcile, { memoStack, remove } from './reconcile';
+import reconcile, { managedProps, memoStack, remove } from './reconcile';
 
 export const frameworks = [];
 export const impulses = [];
@@ -63,7 +63,9 @@ export default function activate (callback, state, parentView, i, dom, hydrateNo
 			// process attribute update
 			const [node] = parentView;
 			const [, updater] = framework;
-			updater(node, outline);
+			const prevNames = managedProps.get(node);
+			updater(node, outline, prevNames);
+			managedProps.set(node, Object.keys(outline));
 		}
 
 		// clean up ephemeral impulses and reset stack

@@ -1,6 +1,7 @@
 import activate, { frameworks } from './activate';
 import observe, { cues } from './observe';
 
+export const managedProps = new WeakMap();
 export const defaultProps = {};
 export const memoStack = [];
 
@@ -186,8 +187,14 @@ function update (outline, state, parentView, i, dom, hydrateNodes) {
 		}
 
 		// update attributes and create new dom reference
-		if (typeof obj === 'function') activate(obj, state, view);
-		else if (obj) frameworks[0][1](node, obj);
+		if (typeof obj === 'function') {
+			activate(obj, state, view);
+		} else if (obj) {
+			const prevNames = managedProps.get(node);
+			frameworks[0][1](node, obj, prevNames);
+			managedProps.set(node, Object.keys(obj));
+		}
+
 		dom = { container: node };
 
 		if (hydrateNodes) {

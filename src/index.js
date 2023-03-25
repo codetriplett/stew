@@ -13,8 +13,6 @@ const nameMap = {
 	className: 'class'
 };
 
-const managedProps = new WeakMap();
-
 export const virtualDocument = {
 	createTextNode (nodeValue) {
 		return {
@@ -77,26 +75,39 @@ export const virtualDocument = {
 	},
 };
 
-export function defaultUpdater (node, attributes) {
-	const prevNames = new Set(managedProps.get(node));
+export function defaultUpdater (element, props, prevNames) {
+	const { tagName } = element;
+	const defaultElement = defaultProps[tagName.toLowerCase()] || {};
+	prevNames = new Set(prevNames);
 
-	for (const [name, value] of Object.entries(attributes)) {
-		// add property to node if it needs to be updated
+	const changes = Object.entries(props).filter(([name, value]) => {
 		prevNames.delete(name);
-		if (node[name] === value) continue;
-		node[name] = value;
+		const currentValue = ~name.indexOf('-') ? element.getAttribute(name) : element[name];
+		return value !== currentValue;
+	});
+
+	for (const name of prevNames) {
+		const defaultValue = ~name.indexOf('-') ? defaultElement.getAttribute(name) : defaultElement[name];
+		changes.push([name, defaultValue]);
 	}
 
-	if (prevNames.size) {
-		const tagName = node.tagName.toLowerCase();
-		const nodeDefaultProps = defaultProps[tagName];
+	for (const [name, value] of changes) {
+		if (name === 'style') {
+			const entries = Object.entries(value);
+			const { style } = element;
 
-		for (const name of prevNames) {
-			node[name] = nodeDefaultProps[name];
+			for (const [name, value] of entries) {
+				if (style[name] === String(value)) continue;
+				style[name] = value;
+			}
+		} else if (!~name.indexOf('-')) {
+			element[name] = value;
+		} else if (value === undefined || value === null) {
+			element.removeAttribute(name);
+		} else {
+			element.setAttribute(name, value === true ? '' : value);
 		}
 	}
-
-	managedProps.set(node, Object.keys(attributes));
 }
 
 export function create (selector, document) {

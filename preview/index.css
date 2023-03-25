@@ -1,0 +1,122 @@
+.video-player {
+	width: 480px;
+	height: 270px;
+	background: black;
+}
+
+.comment-user-owner {
+	text-decoration: underline;
+}
+
+.video-player .primary,
+.video-player .secondary {
+	position: absolute;
+	left: 240px;
+	top: 135px;
+	width: 150px;
+	height: 150px;
+	transform: translate(-50%, -50%);
+	animation-timing-function: linear;
+}
+
+.video-ft .primary {
+	left: 180px;
+	top: 135px;
+}
+
+.video-ft .secondary {
+	left: 350px;
+	top: 135px;
+	width: 75px;
+	height: 75px;
+}
+
+.video-jade .primary,
+.video-ft-jade .secondary {
+	background-color: #00a36c;
+	border-color: #00a36c;
+}
+.video-amber .primary,
+.video-ft-amber .secondary {
+	background-color: #ffbf00;
+	border-color: #ffbf00;
+}
+.video-teal .primary,
+.video-ft-teal .secondary {
+	background-color: #008080;
+	border-color: #008080;
+}
+
+.video-circle .primary,
+.video-ft-circle .secondary {
+	border-radius: 50%;
+}
+
+.video-triangle .primary,
+.video-ft-triangle .secondary {
+	width: 0;
+	height: 0;
+	border-left: 87px solid transparent;
+	border-right: 87px solid transparent;
+	border-top: none;
+	border-bottom-width: 150px;
+	border-bottom-style: solid;
+	background: none;
+	top: 120px;
+}
+.video-spinning.video-triangle .primary,
+.video-spinning.video-ft-triangle .secondary {
+	transform-origin: center 100px;
+}
+.video-ft-triangle .secondary {
+	border-left-width: 44px;
+	border-right-width: 44px;
+	border-bottom-width: 75px;
+}
+
+.video-pulsing .primary,
+.video-ft-pulsing .secondary {
+	animation-name: pulse;
+	animation-duration: 5s;
+}
+
+.video-bouncing .primary,
+.video-ft-bouncing .secondary {
+	animation-name: bounce;
+	animation-duration: 5s;
+}
+
+.video-spinning .primary,
+.video-ft-spinning .secondary {
+	animation-name: spin;
+	animation-duration: 5s;
+}
+
+@keyframes pulse {
+	0% { transform: translate(-50%, -50%) scale(1); }
+	12.5% { transform: translate(-50%, -50%) scale(1.2); }
+	25% { transform: translate(-50%, -50%) scale(1); }
+	37.5% { transform: translate(-50%, -50%) scale(0.8); }
+	50% { transform: translate(-50%, -50%) scale(1); }
+	62.5% { transform: translate(-50%, -50%) scale(1.2); }
+	75% { transform: translate(-50%, -50%) scale(1); }
+	87.5% { transform: translate(-50%, -50%) scale(0.8); }
+	100% { transform: translate(-50%, -50%) scale(1); }
+}
+
+@keyframes bounce {
+	0% { transform: translate(-50%, -50%); }
+	12.5% { transform: translate(-50%, -30%); }
+	25% { transform: translate(-50%, -50%); }
+	37.5% { transform: translate(-50%, -70%); }
+	50% { transform: translate(-50%, -50%); }
+	62.5% { transform: translate(-50%, -30%); }
+	75% { transform: translate(-50%, -50%); }
+	87.5% { transform: translate(-50%, -70%); }
+	100% { transform: translate(-50%, -50%); }
+}
+
+@keyframes spin {
+	0% { transform: translate(-50%, -50%) rotate(0deg); }
+	100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
