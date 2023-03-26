@@ -50,7 +50,7 @@ createServer(({ url }, res) => {
 			'<!DOCTYPE html>',
 			'<html lang="en">',
 				'<head>',
-					'<title>Preview</title>',
+					'<title>StewTube</title>',
 					'<link href="/index.css" rel="stylesheet">',
 					'<script src="/stew.min.js"></script>',
 				'</head>',

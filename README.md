@@ -1,122 +1,44 @@
 # Stew
-
-A stateful virtual DOM for any purpose. It supports local states and refs, client-side hydration and effects, server-side rendering, portals, and custom document models. The total uncompressed size is around 6kB and it does not rely on any other dependencies.
+A stateful virtual DOM for any purpose. It supports local states and refs, client-side hydration and effects, server-side rendering, and portals. The document model used to create elements can be overriden to support whatever you want to display. The total uncompressed size is around 6kB and it does not rely on any other dependencies.
 
 ## Layouts
-
-The data types encountered in your layout determine the type of node it will become. Strings and numbers will be treated as text, arrays will be treated as elements or fragments, objects will be treated as-is. Functions set up an active portion of your layout that automatically updates the DOM in response to state changes. Boolean false and nullish values are ignored. Boolean true maintains whatever existed in its place in the previous render, which is useful for skipping an update within a function or keeping a static DOM node during hydration without having to redefine the data and layout used to generate it.
-
-### Elements
-The first and second value of an array are reserved for the element's type and attributes. The remaining values describe its children. A key can be set along with the type to ensure the same DOM node is used when making updates, even if its order changes within its parent layout.
+For those familiar with the type of declarative programming used by libraries like React, here is a short overview of the similar features supported by Stew. Each of the following can exist in your layout wherever child nodes are allowed. Nullish and boolean false values will be ignored, while boolean true will maintain whatever existed previously in its place.
 
 ```js
-['div', { className: 'element' }, ...children]
-['div:key', { className: 'element' }, ...children]
+'Hello World' // text node
+['div', { ...attributes }, ...children] // element
+['', null, ...children] // fragment
+['', { ...state }, ...children] // use state
+['', () => { ...effect }, ...children] // use effect
+['', [...memo], ...children] // use memo
+({ ...state }) => { ...dynamicContent } // component
+element // preprocessed element (objects only)
 ```
 
-### Fragments
-Fragments allow you to create a group of nodes that are added to the DOM without needing an extra element node to contain them. Keys are also supported to identify them, but unlike elements, no type is set.
+DOM nodes are only created if there was no previous node to update, or if the previous one is incompatible. If you are changing the order of the child nodes, but want to maintain their references, include a key. Keys are set after the tag name, separated by a colon, and can be whatever text you wish.
 
 ```js
-['', null, ...children]
-[':key', null, ...children]
+['div:item-0', { ...attributes }, ...children] // element with key
+[':item-0', null, ...children] // fragment with key
 ```
 
-#### States
-Since attributes don't apply to fragments, that part of the array can be used to add unique functionality. A new local state can be set by including an object in that space, which will set up the initial values. See the section later on about how to set up global states that can be shared across layouts.
+## Render and Hydrate
+To render a layout, pass it to the stew function as the second parameter preceeded by the DOM element that should hold the content. A selector string can be passed in place of an element to have stew locate the element itself, but it must contain a dot or hash symbol. If the container element already contains content, it will be hydrated instead of replaced. The end result will still match the layout you set, but child nodes will only be created or updated when necessary.
 
 ```js
-['', {
-	expanded: false,
-	setExpanded (expanded) {
-		this.expanded = expanded;
-	}
-}, ...children]
+stew('#app', [...layout]);
 ```
 
-#### Effects
-Effects can also be set in place of a state to perform an action whenever the group is created or updated. They are only called client-side or when a custom document is used. The function will be passed an array containing the previous return value and an object of similar arrays for its children that have keys. If the effect returns a function, that function will be called when the fragment is destroyed.
+## Local and Global States
+In place of attributes for fragments, an object can be set to create a new local state. This will be passed to all component functions found at any level within the fragment unless overriden by another local state. Component functions will automatically subscribe to changes to properties they read within the state while rendering. To dispatch an update to the subscribed functions, simply update the propert value of the state. An object can be passed to the stew function as the only parameter, to create a global state. These behave just like local states, execept they can be used by any layout.
 
-```js
-['', ref => {
-	const prev = ref[0];
-	if (!prev) console.log('fragment has mounted')
-	else console.log('fragment has updated')
-	return () => console.log('fragment has unmounted')
-}, ...children]
-```
+## Effects and Memoization
+A function can be set in place of a state object to define an effect. This is code that should run right after the fragment's content has rendered. It is passed the view ref of the fragment, where references to the actual DOM elements can be accessed. View refs are arrays where the first value is the previous return value of the effect and the second value is an object of all child elements that has set keys. Child refs follow this same structure, allowing you to access deeply nested DOM references. If the effect returned another function, it will be called once the fragment leaves the DOM.
 
-#### Memoization
-Allowing Stew to handle all updates automatically may be fast enough in most cases, but there is a method of informing the layout if it even needs to try for sections you choose. Simply pass in an array of all the variables used within a fragment to have it compare those values between renders. If none of them have changed, it will skip over processing the contents of the fragment.
+An array can be set in place of a state object to memoize the fragment. The values in the array will be compared with their values during the last render, and if they are identical, all component functions in the fragment will use persist their previous values. While, not strictly necessary, this will allow you to optimize your code by preventing unnecessary processing, but does require you to keep the memo array updated with all the dynamic values used within the fragments components.
 
-```js
-['', [expanded], ...children]
-```
+## Portals and Cross Compatibility
+The container element will be returned from the stew function when called, and since layouts treat non-array objects as preprocessed elements, you can include a stew call as a child within another layout to simulate a portal. Preprocessed elements that already exist within the DOM under a different parent element will not be moved, but its contentn will be updated. Pass a local state object as the third param to the stew function to share it with the nested layout. Also, DOM elements can be included even if they aren't controlled by Stew. This means you can include nested content that is controlled by another library, such as React.
 
-### Impulses
-Impulses are sections of the layout that respond to state changes. They exist in your layout as functions and are passed the latest state of their closest parent that had one defined. Any top-level property read from this state during execution will subscribe the function to changes to those properties, which will trigger an update. Updates only run client-side or when custom documents are used.
-
-```js
-({ expanded }) =>
-	['p', {}, 'Hello World']
-```
-
-## Initializing
-To initialize a layout into the DOM, simply call the stew function passing the container element as the first parameter, and the layout as the second. A string selector can be used to have stew find the container element itself, or create a new one with the necessary signature if none is found.
-
-```js
-import $ from '@triplett/stew'
-
-const container = stew('#container', ['', {
-	expanded: false,
-	setExpanded (expanded) {
-		this.expanded = expanded
-	}
-},
-	['p', {}, 'Click the button'],
-	({ expanded, setExpanded }) =>
-		['button', {
-			type: 'button',
-			onclick: () => setExpanded(!expanded)
-		}, expanded ? 'Collapse' : 'Expand'],
-	({ expanded }) =>
-		['p', {}, 'Hello World']
-]
-```
-
-### Contexts
-Contexts behave similarly to local states, but can be used in any place within a layout, or even between separate layouts, to create a global state. Pass an object as the only param to the stew function to create one and reference this state anywhere within your layout. Any properties read from this state will subscribe that impulse function to subscribe to changes and any new values set to those properties will cause all subscribed functions to update.
-
-```js
-import $ from '@triplett/stew'
-
-const container = stew('#container', ['', {
-	expanded: false,
-	setExpanded (expanded) {
-		this.expanded = expanded
-	}
-},
-	['p', {}, 'Click the button'],
-	({ expanded, setExpanded }) =>
-		['button', {
-			type: 'button',
-			onclick: () => setExpanded(!expanded)
-		}, expanded ? 'Collapse' : 'Expand'],
-	({ expanded }) =>
-		['p', {}, 'Hello World']
-]
-```
-
-### Setter
-As a shortcut for creating setter functions in your state, pass a set of names to use for a variable and its setter function, followed by the initial value.
-
-```js
-['', {
-	...stew('expanded:setExpanded', false)
-}, ...children]
-```
-
-If you ever need a property that resets to undefined after it is used, use two colons before the setter. This might be something you find useful when dealing with custom documents that support animation.
-
-### custom document
-A custom document object can be passed as the third parameter to set up a custom DOM. It just needs a 'createTextNode' function that accepts a string and returns an object containing that string as the 'nodeValue' prop, and a 'createElement' function that accepts a string and returns an object containing that string as the 'tagName' props. 'createElement' also needs to have a 'childNodes' prop that is an array and 'appendChild', 'insertBefore', and 'removeChild' functions that add and remove nodes from that array.
+### Custom Document
+Stew can work on other document models beyond HTML. The fourth and final parameter passed to stew can be provided to override how DOM elements are created and updated. This paramter should be an array containing the new document object and updater function. The document object needs a 'createTextNode' function that accepts a string and returns an object containing that string as the 'nodeValue' prop, and a 'createElement' function that accepts a string and returns an object containing that string as the 'tagName' prop. 'createElement' also needs to have a 'childNodes' prop that is an array and 'appendChild', 'insertBefore', and 'removeChild' functions that add and remove nodes from that array.

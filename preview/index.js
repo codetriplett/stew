@@ -127,14 +127,11 @@ function App () {
 		...stew('video:setVideo', generateVideo()),
 		...stew('comments:setComments', generateComments()),
 	},
+		['strong', { className: 'logo' }, 'StewTube'],
 		({ video, comments }) => ['', null,
 			VideoPlayer(video),
 			Comments(comments, video),
 		],
 	]);
-}
-
-if (typeof window === 'object') {
-} else if (typeof module === 'object') {
 }
 })();

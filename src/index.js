@@ -54,10 +54,11 @@ export const virtualDocument = {
 
 		return Object.assign(fragment, {
 			tagName,
+			style: {},
 			toString () {
 				const {
 					appendChild, insertBefore, removeChild, toString,
-					tagName, childNodes, parentElement, ...attributes
+					tagName, style, childNodes, parentElement, ...attributes
 				} = this;
 
 				let html = `<${tagName === '!doctype' ? '!DOCTYPE' : tagName}`;
@@ -67,7 +68,12 @@ export const virtualDocument = {
 					name = nameMap[name] || name.replace(/(?=[A-Z])/g, '-').toLowerCase();
 					html += ` ${name}="${value === true ? '' : value}"`;
 				}
+				
+				const styleString = Object.entries(style).map(([name, value]) => {
+					return `${name}:${value}`;
+				}).join(';');
 
+				if (styleString) html += ` style="${styleString}"`;
 				if (selfClosingTags.has(tagName.toLowerCase())) return `${html}>`;
 				return `${html}>${this.childNodes.join('')}</${tagName}>`;
 			},
@@ -134,6 +140,7 @@ export function create (selector, document) {
 }
 
 const defaultDocument = typeof window === 'object' && window.document || virtualDocument;
+const defaultFramework = [defaultDocument, defaultUpdater];
 
 export default function stew (container, ...params) {
 	if (typeof container === 'string' && !/#|\./.test(container)) {
@@ -175,10 +182,11 @@ export default function stew (container, ...params) {
 		return observe(container);
 	}
 
-	let [outline, state = {}, document = defaultDocument, updater = defaultUpdater] = params;
+	let [outline, state = {}, framework =  defaultFramework] = params;
 
 	if (typeof container !== 'object') {
 		// use existing container or create a new one
+		const [document] = framework;
 		container = document?.querySelector?.(container) || create(container, document);
 	}
 
@@ -186,7 +194,6 @@ export default function stew (container, ...params) {
 	const view = [container, {}];
 	const dom = { container };
 	const hydrateNodes = [...container.childNodes];
-	const framework = [document, updater];
 	frameworks.unshift(framework);
 	reconcile(outline, state, view, 0, dom, hydrateNodes);
 	frameworks.shift();
@@ -199,7 +206,7 @@ export default function stew (container, ...params) {
 	return container;
 };
 
-Object.assign(stew, { document: virtualDocument });
+Object.assign(stew, { framework: defaultFramework });
 
 if (typeof window === 'object') {
 	window.stew = stew;
