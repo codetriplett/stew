@@ -206,7 +206,7 @@ export default function stew (container, ...params) {
 	return container;
 };
 
-Object.assign(stew, { framework: defaultFramework });
+Object.assign(stew, { framework: [virtualDocument, defaultUpdater] });
 
 if (typeof window === 'object') {
 	window.stew = stew;
