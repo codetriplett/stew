@@ -1,9 +1,8 @@
 import reconcile from './reconcile';
-import activate, { frameworks } from './activate';
-import { virtualDocument, defaultUpdater } from '.';
+import activate from './activate';
+import { frameworks, virtualDocument, defaultUpdater } from '.';
 
 jest.mock('./activate');
-jest.mock('./observe');
 
 describe('reconcile', () => {
 	let container, state, parentView, dom, hydrateNodes, framework;
@@ -14,7 +13,7 @@ describe('reconcile', () => {
 		parentView = [{}, {}];
 		dom = { container };
 		hydrateNodes = [];
-		framework = [virtualDocument, defaultUpdater];
+		framework = [virtualDocument, defaultUpdater, {}];
 		frameworks.splice(0);
 		frameworks.unshift(framework);
 	});
@@ -144,6 +143,7 @@ describe('reconcile', () => {
 				removeChild: expect.anything(),
 				toString: expect.anything(),
 				tagName: 'div',
+				style: {},
 				className: 'abc',
 				childNodes: [child],
 			};
@@ -191,8 +191,8 @@ describe('reconcile', () => {
 			container.appendChild(node);
 			reconcile(node, state, parentView, 0, dom);
 			expect(container.childNodes).toEqual([node]);
-			expect(parentView).toEqual([{}, {}, []]);
-			expect(dom).toEqual({ container });
+			expect(parentView).toEqual([{}, {}, [node]]);
+			expect(dom).toEqual({ container, node, sibling: { container } });
 		});
 
 		it('updates fragment node', () => {
@@ -267,8 +267,8 @@ describe('reconcile', () => {
 			const hydrateNodes = [node];
 			reconcile(node, state, parentView, 0, dom, hydrateNodes);
 			expect(container.childNodes).toEqual([node]);
-			expect(parentView).toEqual([{}, {}, []]);
-			expect(dom).toEqual({ container });
+			expect(parentView).toEqual([{}, {}, [node]]);
+			expect(dom).toEqual({ container, node, sibling: { container } });
 		});
 
 		it('hydrates fragment node', () => {

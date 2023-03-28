@@ -1,6 +1,5 @@
-import reconcile, { defaultProps, checkPersistence } from './reconcile';
-import activate, { impulses, frameworks } from './activate';
-import observe, { cues } from './observe';
+import reconcile from './reconcile';
+import createImpulse, { useMemo, useEffect, createState } from './activate';
 
 // tags that shouldn't wrap content when server rendered
 const selfClosingTags = new Set([
@@ -12,6 +11,8 @@ const selfClosingTags = new Set([
 const nameMap = {
 	className: 'class'
 };
+
+export const frameworks = [];
 
 export const virtualDocument = {
 	createTextNode (nodeValue) {
@@ -81,9 +82,7 @@ export const virtualDocument = {
 	},
 };
 
-export function defaultUpdater (element, props, prevNames) {
-	const { tagName } = element;
-	const defaultElement = defaultProps[tagName.toLowerCase()] || {};
+export function defaultUpdater (element, props, prevNames, defaultProps) {
 	prevNames = new Set(prevNames);
 
 	const changes = Object.entries(props).filter(([name, value]) => {
@@ -93,7 +92,7 @@ export function defaultUpdater (element, props, prevNames) {
 	});
 
 	for (const name of prevNames) {
-		const defaultValue = ~name.indexOf('-') ? defaultElement.getAttribute(name) : defaultElement[name];
+		const defaultValue = ~name.indexOf('-') ? defaultElement.getAttribute(name) : defaultProps[name];
 		changes.push([name, defaultValue]);
 	}
 
@@ -116,78 +115,15 @@ export function defaultUpdater (element, props, prevNames) {
 	}
 }
 
-export function create (selector, document) {
-	const [tagName, ...strings] = ` ${selector}`.split(/(?=#|\.|\[)/);
-	const node = document.createElement(tagName.slice(1) || 'div');
-	const classList = [];
-
-	for (const string of strings) {
-		if (string.startsWith('#')) {
-			node.id = string.slice(1);
-			continue;
-		} else if (string.startsWith('.')) {
-			classList.push(string.slice(1));
-			continue;
-		}
-
-		const [, name, value] = string.match(/^\[\s*([^=[]*?)\s*(?:=([^[]*))?\]/);
-		if (!name) continue;
-		node[name] = value || true;
-	}
-
-	node.className = classList.join(' ');
-	return node;
-}
-
 const defaultDocument = typeof window === 'object' && window.document || virtualDocument;
-const defaultFramework = [defaultDocument, defaultUpdater];
+const defaultFramework = [defaultDocument, defaultUpdater, {}];
 
-export default function stew (container, ...params) {
-	if (typeof container === 'string' && !/#|\./.test(container)) {
-		const sets = container.trim().split(/\s+/);
-		const props = {};
-
-		for (const set of sets) {
-			// read names and set initial value
-			let [name, setterName, cueName] = set.trim().split(/:/);
-			const isCue = !setterName && cueName;
-			if (isCue) setterName = cueName;
-			props[name] = params.shift();
-			
-			// include setter
-			if (setterName) {
-				props[setterName] = function (value) {
-					this[name] = value;
-				};
-			}
-
-			// store setter as cue
-			if (isCue) cues.set(props[cueName], name);
-		}
-
-		return props;
-	} else if (typeof container === 'function') {
-		// process detached impulse
-		const [parentImpulse] = impulses;
-		const [deps, state] = params;
-		if (!parentImpulse) return activate(container);
-		const { detachedImpulses, detachedIndex } = parentImpulse;
-		const view = detachedImpulses[detachedIndex] || [];
-		const persist = checkPersistence(view, deps);
-		detachedImpulses[detachedIndex] = view;
-		parentImpulse.detachedIndex++;
-		return persist ? view[0] : view[0] = activate(container, view[0]);
-	} else if (typeof container === 'object' && !params.length) {
-		// process detached state
-		return observe(container);
-	}
-
-	let [outline, state = {}, framework =  defaultFramework] = params;
-
-	if (typeof container !== 'object') {
-		// use existing container or create a new one
+export default function stew (container, outline, framework = defaultFramework) {
+	if (typeof container === 'string') {
+		// locate container
 		const [document] = framework;
-		container = document?.querySelector?.(container) || create(container, document);
+		if (!('querySelector' in document)) return;
+		container = document.querySelector(container);
 	}
 
 	// prepare hydrate nodes and load framework
@@ -195,18 +131,30 @@ export default function stew (container, ...params) {
 	const dom = { container };
 	const hydrateNodes = [...container.childNodes];
 	frameworks.unshift(framework);
-	reconcile(outline, state, view, 0, dom, hydrateNodes);
+	reconcile(outline, {}, view, 0, dom, hydrateNodes);
 	frameworks.shift();
 
 	// remove unclaimed nodes
 	for (const node of hydrateNodes) {
 		container.removeChild(node);
 	}
-
-	return container;
 };
 
-Object.assign(stew, { framework: [virtualDocument, defaultUpdater] });
+export function createElement (tagName, attributes, layout) {
+	const container = defaultDocument.createElement(tagName);
+	if (layout !== undefined) stew(container, layout);
+	if (attributes !== undefined) defaultUpdater(container, attributes);
+	return container;
+}
+
+Object.assign(stew, {
+	useMemo,
+	useEffect,
+	createElement,
+	createState,
+	createImpulse: (callback, state) => createImpulse(callback, state),
+	virtualFramework: [virtualDocument, defaultUpdater, {}],
+});
 
 if (typeof window === 'object') {
 	window.stew = stew;

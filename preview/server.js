@@ -1,5 +1,6 @@
 const { createServer } = require('http');
 const { readFile } = require('fs');
+const stew = require('./stew.min.js');
 const App = require('.');
 
 const port = process.env.PORT || 8080;
@@ -55,9 +56,9 @@ createServer(({ url }, res) => {
 					'<script src="/stew.min.js"></script>',
 				'</head>',
 				'<body>',
-					App(),
+					stew.createElement('div', { id: 'app' }, App()),
 					'<script src="/index.js"></script>',
-					'<script>App();</script>',
+					'<script>stew(\'#app\', App());</script>',
 				'</body>',
 			'</html>',
 		].join('');

@@ -1,12 +1,12 @@
-import activate, { frameworks, impulses } from './activate';
+import createImpulse, { impulses, queue, useMemo, createState } from './activate';
 import reconcile from './reconcile';
-import { defaultUpdater, virtualDocument } from '.';
+import { frameworks, virtualDocument } from '.';
 
 jest.mock('./reconcile');
 
 describe('activate', () => {
 	const callback = jest.fn();
-	let state, parentView, dom, hydrateNodes, framework, parentImpulse, impulse, outline, frameworksCopy, impulsesCopy;
+	let updater, state, parentView, dom, hydrateNodes, framework, parentImpulse, impulse, outline, frameworksCopy, impulsesCopy;
 
 	beforeEach(() => {
 		parentImpulse = () => {};
@@ -14,7 +14,8 @@ describe('activate', () => {
 		parentView = [];
 		dom = {};
 		hydrateNodes = [];
-		framework = [virtualDocument, defaultUpdater];
+		updater = () => {};
+		framework = [virtualDocument, updater];
 		parentImpulse = () => {};
 		outline = ['div', {}];
 		frameworks.splice(0);
@@ -37,7 +38,7 @@ describe('activate', () => {
 	});
 
 	it('activates the first time', () => {
-		activate(callback, state, parentView, 0, dom, hydrateNodes);
+		createImpulse(callback, state, parentView, 0, dom, hydrateNodes);
 		expect(impulse).toEqual(expect.any(Function));
 		expect(impulse.parentImpulse).toBe(parentImpulse);
 		expect(callback).toHaveBeenCalledWith(state);
@@ -52,7 +53,7 @@ describe('activate', () => {
 	// TODO: test second activate that remembers the hooks and view from before
 
 	it('retriggers impulse', () => {
-		activate(callback, state, parentView, 0, dom, hydrateNodes);
+		createImpulse(callback, state, parentView, 0, dom, hydrateNodes);
 		jest.clearAllMocks();
 		impulse();
 		expect(impulse).toEqual(expect.any(Function));
@@ -64,5 +65,104 @@ describe('activate', () => {
 		expect(impulsesCopy).toEqual([impulse, parentImpulse]);
 		expect(frameworks).toEqual([framework]);
 		expect(impulses).toEqual([parentImpulse]);
+	});
+});
+
+describe('createState', () => {
+	const impulse = jest.fn();
+	let updater, framework;
+
+	beforeEach(() => {
+		jest.clearAllMocks();
+		updater = () => {};
+		framework = [{ ...virtualDocument }, updater];
+		frameworks.splice(0);
+		frameworks.unshift(framework);
+		impulse.subscriptionsSet = new Set();
+		impulses.splice(0);
+		impulses.unshift(impulse);
+	});
+
+	it('reacts to changes to read properties', async () => {
+		const actual = createState({ str: 'abc' });
+		const before = actual.str;
+		expect(before).toEqual('abc');
+		await new Promise(resolve => setTimeout(resolve, 10));
+		expect(impulse).not.toHaveBeenCalled();
+		actual.str = 'xyz';
+		expect(queue).toEqual(new Set([impulse]));
+		await new Promise(resolve => setTimeout(resolve, 10));
+		expect(impulse).toHaveBeenCalledWith();
+		const after = actual.str;
+		expect(after).toEqual('xyz');
+	});
+	
+	it('prevents duplicate executions', async () => {
+		const actual = createState({ str: 'abc', num: 123 });
+		actual.str;
+		actual.str;
+		actual.num;
+		actual.num;
+		actual.str = 'lmno';
+		actual.str = 'xyz';
+		actual.num = 456;
+		actual.num = 789;
+		await new Promise(resolve => setTimeout(resolve, 10));
+		expect(impulse.mock.calls).toEqual([[]]);
+	});
+	
+	it('prevents nested executions', async () => {
+		const parentImpulse = jest.fn();
+		impulse.parentImpulse = parentImpulse;
+		queue.add(parentImpulse);
+		const actual = createState({ str: 'abc' });
+		actual.str;
+		actual.str = 'xyz';
+		await new Promise(resolve => setTimeout(resolve, 10));
+		expect(parentImpulse.mock.calls).toEqual([[]]);
+		expect(impulse).not.toHaveBeenCalled();
+	});
+});
+
+describe('useMemo', () => {
+	let impulse, memoArray;
+
+	beforeEach(() => {
+		memoArray = [];
+		impulse = Object.assign(() => {}, { memoArray, memoIndex: 0 });
+		impulses.splice(0);
+		impulses.unshift(impulse);
+	});
+
+	it('initializes memo', () => {
+		const callback = jest.fn().mockReturnValue('abc');
+		const actual = useMemo(callback, [123]);
+		expect(callback).toHaveBeenCalled();
+		expect(actual).toEqual('abc');
+		expect(memoArray).toEqual([['abc', 123]]);
+	});
+
+	it('reuses memo', () => {
+		const callback = jest.fn().mockReturnValue('abc');
+		useMemo(callback, [123]);
+		callback.mockClear();
+		callback.mockReturnValue('xyz');
+		impulse.memoIndex = 0;
+		const actual = useMemo(callback, [123]);
+		expect(callback).not.toHaveBeenCalled();
+		expect(actual).toEqual('abc');
+		expect(memoArray).toEqual([['abc', 123]]);
+	});
+
+	it('updates memo', () => {
+		const callback = jest.fn().mockReturnValue('abc');
+		useMemo(callback, [123]);
+		callback.mockClear();
+		callback.mockReturnValue('xyz');
+		impulse.memoIndex = 0;
+		const actual = useMemo(callback, [789]);
+		expect(callback).toHaveBeenCalled();
+		expect(actual).toEqual('xyz');
+		expect(memoArray).toEqual([['xyz', 789]]);
 	});
 });

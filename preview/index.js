@@ -68,13 +68,15 @@ function generateComments () {
 }
 // END: content generation functions to simulate data from server
 
+const { createState, useMemo } = stew;
+
 function VideoPlayer ({ title, action, color, shape, ft, length, owner }) {
 	const iterationCount = length / 5;
-
-	return ['', {
-		...stew('playState:setPlayState', 'paused'),
-	},
-		({ playState, setPlayState }) => ['div', {
+	
+	return ['', () => useMemo(() => createState({
+		playState: 'paused',
+	}, 'state'), []),
+		({ state, playState }) => ['div', {
 			className: [
 				'video-player',
 				`video-${playState}`,
@@ -93,7 +95,7 @@ function VideoPlayer ({ title, action, color, shape, ft, length, owner }) {
 			['span', { className: 'secondary', style: { animationPlayState: playState, animationIterationCount: iterationCount } }],
 			['button', {
 				type: 'button',
-				onclick: () => setPlayState(playState === 'running' ? 'paused' : 'running'),
+				onclick: () => state.playState === 'running' ? 'paused' : 'running',
 			}, playState === 'play' ? 'Pause' : 'Play'],
 		],
 		['h1', { className: 'video-title' }, title],
@@ -104,10 +106,15 @@ function VideoPlayer ({ title, action, color, shape, ft, length, owner }) {
 function Comments ({ comments }, { owner }) {
 	const { length } = comments;
 
-	return !length ? null : ['', {
-		...stew('expandedCount:setExpandedCount', 10),
-	},
-		({ expandedCount, setExpandedCount }) => ['', null,
+	return !length ? null : ['', () => useMemo(() => createState({
+		expandedCount: 10,
+		iteration: 0,
+	}, 'state'), []),
+		({ state, expandedCount }) => ['', null,
+			({ iteration }) => useMemo(() => {
+				console.log('=====');
+				return ['p', {}, `iteration: ${iteration}`]
+			}, [iteration]),
 			...comments.slice(0, expandedCount).map(({ user, message }) => ['div', {
 				className: 'comment',
 			},
@@ -116,22 +123,26 @@ function Comments ({ comments }, { owner }) {
 			]),
 			length > expandedCount && ['button', {
 				type: 'button',
-				onclick: () => setExpandedCount(expandedCount += 10),
-			}, 'Show More']
+				onclick: () => state.expandedCount += 10,
+			}, 'Show More'],
+			['button', {
+				type: 'button',
+				onclick: () => state.iteration + 1,
+			}, 'Iterate'],
 		],
 	];
 }
 
 function App () {
-	return stew('#app', ['', {
-		...stew('video:setVideo', generateVideo()),
-		...stew('comments:setComments', generateComments()),
+	return ['', {
+		video: generateVideo(),
+		comments: generateComments(),
 	},
 		['strong', { className: 'logo' }, 'StewTube'],
 		({ video, comments }) => ['', null,
 			VideoPlayer(video),
 			Comments(comments, video),
 		],
-	]);
+	];
 }
 })();

@@ -1,5 +1,4 @@
-import stew, { virtualDocument, defaultUpdater } from '.';
-import { frameworks } from './activate';
+import stew, { frameworks, virtualDocument, defaultUpdater } from '.';
 import reconcile from './reconcile';
 
 jest.mock('./reconcile');
@@ -24,7 +23,7 @@ describe('stew', () => {
 
 		const outline = ['div', 'Hello Page'];
 		stew(container, outline);
-		expect(frameworkStack).toEqual([[document, defaultUpdater]]);
+		expect(frameworkStack).toEqual([[document, defaultUpdater, {}]]);
 	});
 
 	it('uses custom document and updater', () => {
@@ -36,15 +35,17 @@ describe('stew', () => {
 
 		const outline = ['div', 'Hello Page'];
 		const updater = () => {};
-		stew(container, outline, virtualDocument, updater);
-		expect(frameworkStack).toEqual([[virtualDocument, updater]]);
+		const framework = [virtualDocument, updater, {}];
+		stew(container, outline, framework);
+		expect(frameworkStack).toEqual([framework]);
 	});
 
 	it('hydrates content', () => {
 		container.appendChild(node);
+		const updater = () => {};
+		const framework = [virtualDocument, updater, {}];
 		const outline = ['div', 'Hello Page'];
-		const actual = stew(container, outline, virtualDocument);
-		expect(actual).toBe(container);
+		stew(container, outline, framework);
 		expect(reconcile).toHaveBeenCalledWith(outline, {}, [container, {}], 0, { container }, [node]);
 	});
 });
