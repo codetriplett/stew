@@ -1,5 +1,5 @@
 # Stew
-A stateful virtual DOM for any purpose. It supports local states and refs, client-side hydration and effects, server-side rendering, and portals. The document model used to create elements can be overriden to support whatever you want to display. The total uncompressed size is under 6kB and it does not rely on any other dependencies.
+A stateful virtual DOM for any purpose. It supports local states and refs, client-side hydration and effects, server-side rendering, and portals. The document model used to create elements can be overriden to support whatever you want to display. The total uncompressed size is 6kB and it does not rely on any other dependencies.
 
 ## Layouts
 For those familiar with the type of declarative programming used by libraries like React, here is a short overview of the similar features supported by Stew. Each of the following can exist in your layout wherever child nodes are allowed. Nullish and boolean false values will be ignored, while boolean true will maintain whatever existed previously in its place.

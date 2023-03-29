@@ -1,5 +1,5 @@
 import reconcile from './reconcile';
-import createImpulse, { useMemo, useEffect, createState } from './activate';
+import { useMemo, useEffect, useImpulse, createState } from './activate';
 
 // tags that shouldn't wrap content when server rendered
 const selfClosingTags = new Set([
@@ -11,8 +11,6 @@ const selfClosingTags = new Set([
 const nameMap = {
 	className: 'class'
 };
-
-export const frameworks = [];
 
 export const virtualDocument = {
 	createTextNode (nodeValue) {
@@ -115,8 +113,10 @@ export function defaultUpdater (element, props, prevNames, defaultProps) {
 	}
 }
 
+export const frameworks = [];
 const defaultDocument = typeof window === 'object' && window.document || virtualDocument;
 const defaultFramework = [defaultDocument, defaultUpdater, {}];
+const virtualFramework = [virtualDocument, defaultUpdater, {}];
 
 export default function stew (container, outline, framework = defaultFramework) {
 	if (typeof container === 'string') {
@@ -150,10 +150,10 @@ export function createElement (tagName, attributes, layout) {
 Object.assign(stew, {
 	useMemo,
 	useEffect,
-	createElement,
+	useImpulse,
 	createState,
-	createImpulse: (callback, state) => createImpulse(callback, state),
-	virtualFramework: [virtualDocument, defaultUpdater, {}],
+	createElement,
+	virtualFramework,
 });
 
 if (typeof window === 'object') {

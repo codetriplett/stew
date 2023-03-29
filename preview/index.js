@@ -95,7 +95,7 @@ function VideoPlayer ({ title, action, color, shape, ft, length, owner }) {
 			['span', { className: 'secondary', style: { animationPlayState: playState, animationIterationCount: iterationCount } }],
 			['button', {
 				type: 'button',
-				onclick: () => state.playState === 'running' ? 'paused' : 'running',
+				onclick: () => state.playState = playState === 'running' ? 'paused' : 'running',
 			}, playState === 'play' ? 'Pause' : 'Play'],
 		],
 		['h1', { className: 'video-title' }, title],
@@ -127,7 +127,7 @@ function Comments ({ comments }, { owner }) {
 			}, 'Show More'],
 			['button', {
 				type: 'button',
-				onclick: () => state.iteration + 1,
+				onclick: () => state.iteration += 1,
 			}, 'Iterate'],
 		],
 	];

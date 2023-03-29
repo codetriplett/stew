@@ -1,4 +1,4 @@
-import createImpulse, { impulses, queue, useMemo, createState } from './activate';
+import activate, { impulses, queue, useMemo, createState } from './activate';
 import reconcile from './reconcile';
 import { frameworks, virtualDocument } from '.';
 
@@ -38,11 +38,11 @@ describe('activate', () => {
 	});
 
 	it('activates the first time', () => {
-		createImpulse(callback, state, parentView, 0, dom, hydrateNodes);
+		activate(callback, state, parentView, 0, dom, hydrateNodes);
 		expect(impulse).toEqual(expect.any(Function));
 		expect(impulse.parentImpulse).toBe(parentImpulse);
 		expect(callback).toHaveBeenCalledWith(state);
-		expect(reconcile).toHaveBeenCalledWith(outline, state, parentView, 0, dom, hydrateNodes);
+		expect(reconcile).toHaveBeenCalledWith(outline, state, parentView, 0, { sibling: {} }, hydrateNodes);
 		// expect(reconcile.mock.calls[0][4]).toBe(dom);
 		expect(frameworksCopy).toEqual([framework, framework]);
 		expect(impulsesCopy).toEqual([impulse, parentImpulse]);
@@ -53,13 +53,14 @@ describe('activate', () => {
 	// TODO: test second activate that remembers the hooks and view from before
 
 	it('retriggers impulse', () => {
-		createImpulse(callback, state, parentView, 0, dom, hydrateNodes);
+		activate(callback, state, parentView, 0, dom, hydrateNodes);
 		jest.clearAllMocks();
 		impulse();
 		expect(impulse).toEqual(expect.any(Function));
 		expect(impulse.parentImpulse).toBe(parentImpulse);
 		expect(callback).toHaveBeenCalledWith(state);
-		expect(reconcile).toHaveBeenCalledWith(outline, state, parentView, 0, dom, undefined);
+		expect(reconcile).toHaveBeenCalledWith(outline, state, parentView, 0, {}, undefined);
+		expect(dom).toEqual({ sibling: {} });
 		// expect(reconcile.mock.calls[0][4]).toBe(dom);
 		expect(frameworksCopy).toEqual([framework, framework]);
 		expect(impulsesCopy).toEqual([impulse, parentImpulse]);
@@ -125,11 +126,12 @@ describe('createState', () => {
 });
 
 describe('useMemo', () => {
-	let impulse, memoArray;
+	let memos, view, impulse;
 
 	beforeEach(() => {
-		memoArray = [];
-		impulse = Object.assign(() => {}, { memoArray, memoIndex: 0 });
+		memos = [{ index: 1, teardowns: [] }];
+		view = { memos };
+		impulse = Object.assign(() => {}, { view });
 		impulses.splice(0);
 		impulses.unshift(impulse);
 	});
@@ -139,7 +141,7 @@ describe('useMemo', () => {
 		const actual = useMemo(callback, [123]);
 		expect(callback).toHaveBeenCalled();
 		expect(actual).toEqual('abc');
-		expect(memoArray).toEqual([['abc', 123]]);
+		expect(memos).toEqual([{ index: 2, teardowns: [] }, ['abc', 123]]);
 	});
 
 	it('reuses memo', () => {
@@ -147,11 +149,11 @@ describe('useMemo', () => {
 		useMemo(callback, [123]);
 		callback.mockClear();
 		callback.mockReturnValue('xyz');
-		impulse.memoIndex = 0;
+		memos[0].index = 1;
 		const actual = useMemo(callback, [123]);
 		expect(callback).not.toHaveBeenCalled();
 		expect(actual).toEqual('abc');
-		expect(memoArray).toEqual([['abc', 123]]);
+		expect(memos).toEqual([{ index: 2, teardowns: [] }, ['abc', 123]]);
 	});
 
 	it('updates memo', () => {
@@ -159,10 +161,10 @@ describe('useMemo', () => {
 		useMemo(callback, [123]);
 		callback.mockClear();
 		callback.mockReturnValue('xyz');
-		impulse.memoIndex = 0;
+		memos[0].index = 1;
 		const actual = useMemo(callback, [789]);
 		expect(callback).toHaveBeenCalled();
 		expect(actual).toEqual('xyz');
-		expect(memoArray).toEqual([['xyz', 789]]);
+		expect(memos).toEqual([{ index: 2, teardowns: [] }, ['xyz', 789]]);
 	});
 });

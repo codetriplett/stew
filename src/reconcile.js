@@ -1,4 +1,4 @@
-import createImpulse from './activate';
+import activate from './activate';
 import { frameworks } from '.';
 
 export const managedProps = new WeakMap();
@@ -39,11 +39,12 @@ export function remove (view, container) {
 
 function populate (outlines, state, view, dom, hydrateNodes) {
 	// backup previous views
-	const [, views, ...childViews] = view;
+	const [, keyedViews, ...childViews] = view;
 
 	// update children
 	for (let i = outlines.length - 1; i >= 0; i--) {
-		reconcile(outlines[i], state, view, i, dom, hydrateNodes);
+		const staticView = reconcile(outlines[i], state, view, i, dom, hydrateNodes);
+		if (staticView) staticView.memos = undefined;
 	}
 
 	// adjust children length to match current state
@@ -56,30 +57,36 @@ function populate (outlines, state, view, dom, hydrateNodes) {
 		remove(childView, container);
 	}
 
-	// remove outdated views
-	for (const [name, childView] of Object.entries(views)) {
-		if (view.indexOf(childView) < 2) delete views[name];
-	}
+	// remove outdated keyed views
+	const entries = Object.entries(keyedViews);
+	const validEntries = entries.filter(([, childView]) => view.indexOf(childView) > 1);
+	if (validEntries.length !== entries.length) view[1] = Object.fromEntries(keyedEntries);
 }
 
-function write (text, view = [], dom, hydrateNodes) {
+function write (text, view = [], dom) {
 	const nodeValue = String(text);
 	let [node] = view;
 
 	if (!node || !('nodeValue' in node)) {
 		// create new text node
-		node = frameworks[0][0].createTextNode(nodeValue);
+		const [[document]] = frameworks;
+		node = document.createTextNode(nodeValue);
 		append(node, dom);
 		return [node];
 	}
 
 	// claim text node and update if necessary
-	if (hydrateNodes) hydrateNodes.pop();
 	if (nodeValue !== node.nodeValue) node.nodeValue = nodeValue;
 	return view;
 };
 
-function update (outline, state, parentView, i, dom, hydrateNodes) {
+export function update (node, attributes, updater, defaultProps) {
+	const prevNames = managedProps.get(node);
+	updater(node, attributes, prevNames, defaultProps[node.tagName.toLowerCase()]);
+	managedProps.set(node, Object.keys(attributes));
+}
+
+function process (outline, state, parentView, i, dom, hydrateNodes) {
 	if (!outline && outline !== 0) {
 		// empty node
 		return [];
@@ -90,7 +97,7 @@ function update (outline, state, parentView, i, dom, hydrateNodes) {
 	}
 
 	// get candidate view
-	const [, views] = parentView;
+	const [, keyedViews] = parentView;
 	let view = hydrateNodes ? hydrateNodes.slice(-1) : parentView[i + 2];
 
 	if (outline === true) {
@@ -99,28 +106,29 @@ function update (outline, state, parentView, i, dom, hydrateNodes) {
 		return view || [];
 	} else if (!Array.isArray(outline)) {
 		// text node
-		return write(outline, view, dom, hydrateNodes);
+		const textView = write(outline, view, dom);
+		if (hydrateNodes && textView === view) hydrateNodes.pop();
+		return textView;
 	}
 
 	// element or fragment node
 	let [str, obj, ...arr] = outline;
 	let [, tagName, key] = str.match(/^\s*(.*?)\s*(?::(.*?))?$/);
-	if (!hydrateNodes) views?.[key] || view;
-	if (!view) view = [, {}];
-	else if (view.length < 2) view[1] = {};
+	if (hydrateNodes) view[1] = {};
+	else view = keyedViews?.[key] || view || [, {}];
 	let [node] = view;
 
 	if (tagName === '') {
 		// reject view if it was for an element
-		if (node) view = [, {}];
+		if (node || view.length < 2) view = [, {}];
 		view.childImpulses = [];
-		if (typeof obj === 'function') obj = createImpulse(obj, state, view);
+		if (typeof obj === 'function') obj = activate(obj, state, view);
 		if (obj) state = obj;
 	} else {
 		const [[document, updater, defaultProps]] = frameworks;
 		tagName = tagName.toLowerCase();
 
-		if (tagName !== node?.tagName?.toLowerCase?.()) {
+		if (view.length < 2 || tagName !== node?.tagName?.toLowerCase?.()) {
 			// register defaults if not yet done
 			if (!Object.prototype.hasOwnProperty.call(defaultProps, tagName)) {
 				const example = document.createElement(tagName);
@@ -137,14 +145,8 @@ function update (outline, state, parentView, i, dom, hydrateNodes) {
 		}
 
 		// update attributes and create new dom reference
-		if (typeof obj === 'function') {
-			createImpulse(obj, state, view);
-		} else if (obj) {
-			const prevNames = managedProps.get(node);
-			updater(node, obj, prevNames, defaultProps[tagName]);
-			managedProps.set(node, Object.keys(obj));
-		}
-
+		if (typeof obj === 'function') activate(obj, state, view);
+		else if (obj) update(node, obj, updater, defaultProps);
 		dom = { container: node };
 
 		if (hydrateNodes) {
@@ -154,7 +156,7 @@ function update (outline, state, parentView, i, dom, hydrateNodes) {
 	}
 
 	// update views and temporarily store new future views in place of node
-	if (key) views[key] = view;
+	if (key) keyedViews[key] = view;
 	populate(arr, state, view, dom, hydrateNodes);
 	return view;
 }
@@ -162,13 +164,14 @@ function update (outline, state, parentView, i, dom, hydrateNodes) {
 export default function reconcile (outline, state, parentView, i, dom, hydrateNodes) {
 	if (typeof outline === 'function') {
 		// dynamic node
-		createImpulse(outline, state, parentView, i, dom, hydrateNodes);
+		activate(outline, state, parentView, i, dom, hydrateNodes);
 		return;
 	}
 
 	const sibling = { ...dom };
-	const view = update(outline, state, parentView, i, dom, hydrateNodes);
+	const view = process(outline, state, parentView, i, dom, hydrateNodes);
 	let [node] = parentView[i + 2] = view;
 	if (!node && dom.node !== sibling.node) node = dom.node;
-	if (node) Object.assign(dom, { node, sibling });
+	if (node) Object.assign(dom, { node, sibling: undefined });
+	return view;
 }
