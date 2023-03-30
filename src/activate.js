@@ -30,32 +30,42 @@ function schedule (subscriptions) {
 
 	// schedule update after all main thread tasks have finished
 	timeout = timeout !== undefined ? timeout : setTimeout(() => {
+		// clear queues and timeout
+		const resetsCopy = resets.splice(0);
+		const effectsCopy = [...effects];
+		const queueCopy = [...queue];
+		effects.clear();
+		queue.clear();
+		timeout = undefined;
+
 		// resolve effects
-		for (const effect of effects) {
+		for (const effect of effectsCopy) {
 			effect();
 		}
 
 		// filter out any impulses that will already be covered by a parent update
-		for (const impulse of queue) {
+		for (const impulse of queueCopy) {
 			const isCovered = screen(impulse);
 			if (isCovered) continue;
 			impulse();
 		}
 
 		// reset all active cues
-		for (const [state, name] of resets.splice(0)) {
+		for (const [state, name] of resetsCopy) {
 			state[name] = undefined;
 		}
-
-		// clear queues and timeout
-		effects.clear();
-		queue.clear();
-		timeout = undefined;
 	}, 0);
 }
 
 function unsubscribe (impulses) {
+	// clear flag when unsubscribing hook-based impulse
+	if (!Array.isArray(impulses)) {
+		impulses.view.memos[0].impulse = undefined;
+		impulses = [impulses];
+	}
+
 	for (const impulse of impulses) {
+		if (impulse.view.memos[0].impulse) continue;
 		const { subscriptionsSet, childImpulses, view: { memos } } = impulse;
 		const [{ teardowns }] = memos;
 
@@ -77,7 +87,7 @@ function unsubscribe (impulses) {
 }
 
 export function useMemo (callback, deps, cueCount) {
-	const [{ view: { memos } }] = impulses;
+	const memos = impulses[0]?.view?.memos || [{}];
 	const [options] = memos;
 	let memo = memos[options.index];
 	let prevDeps, persist;
@@ -85,15 +95,22 @@ export function useMemo (callback, deps, cueCount) {
 	if (memo) {
 		prevDeps = memo.splice(1);
 
-		persist = deps.length === prevDeps?.length && deps.every((it, i) => {
+		persist = deps && deps.length === prevDeps?.length && deps.every((it, i) => {
 			return it === prevDeps[i] || i < cueCount && it === undefined;
 		});
 	} else {
 		memo = [];
 	}
 
-	if (!persist) memo[0] = callback(memo[0], prevDeps);
-	memo.push(...deps);
+	if (!persist) {
+		try {
+			memo[0] = callback(memo[0], prevDeps);
+		} catch (e) {
+			console.error(e);
+		}
+	}
+
+	if (deps) memo.push(...deps);
 	memos[options.index++] = memo;
 	return memo[0];
 }
@@ -113,7 +130,7 @@ export function useEffect (...params) {
 }
 
 export function useImpulse (callback, ...rest) {
-	return useMemo(([prevValue, view] = [], prevDeps) => {
+	return useMemo(([prevValue, view] = [], prevDeps = []) => {
 		// activate also returns view in this case so it can be reused to attach memos to
 		return activate(callback, prevValue, [view, ...prevDeps], -2);
 	}, ...rest)[0];
@@ -185,8 +202,8 @@ export default function activate (callback, state, parentView, i, dom = {}, hydr
 	const [parentImpulse] = impulses;
 	const childImpulses = [];
 	const view = parentView?.[i + 2] || [];
-	const params = i < 0 ? parentView.slice(i + 3) : [];
 	const sibling = { ...dom };
+	let params = [];
 	let initialized = false;
 
 	// wrap in setup and teardown steps and store as new callback to subscribe to state property changes
@@ -195,7 +212,7 @@ export default function activate (callback, state, parentView, i, dom = {}, hydr
 		frameworks.unshift(framework);
 		impulses.unshift(impulse);
 		unsubscribe(childImpulses.splice(0));
-		view.memos.index = 1;
+		Object.assign(view.memos[0], { index: 1, teardowns: [] });
 		if (newState) state = newState;
 		let outline;
 
@@ -219,6 +236,7 @@ export default function activate (callback, state, parentView, i, dom = {}, hydr
 				// remove old nodes and subscriptions
 				if (view.length) remove(view, dom.container);
 				view.splice(0, view.length, ...newView);
+				parentView[i + 2] = view;
 			}
 		} else if (parentView[0]) {
 			// process attribute update
@@ -245,9 +263,20 @@ export default function activate (callback, state, parentView, i, dom = {}, hydr
 		subscriptionsSet: new Set()
 	});
 
-	// set parent impulse and call for first time, except for effects
+	// set parent impulse and memos
 	parentImpulse?.childImpulses?.push?.(impulse);
+	if (i >= 0) parentView?.childImpulses?.push?.(impulse);
 	if (!view.memos) view.memos = [{ teardowns: [] }];
+	const prevImpulse = view.memos[0].impulse;
+	if (prevImpulse && prevImpulse !== impulse) unsubscribe(prevImpulse);
+
+	// set as persistent when created from hook
+	if (i < 0) {
+		params = parentView.slice(i + 3);
+		view.memos[0].impulse = impulse;
+	}
+
+	// call, then clear hydrate nodes and set as initialized
 	const value = impulse();
 	Object.assign(dom, { sibling });
 	hydrateNodes = undefined;
