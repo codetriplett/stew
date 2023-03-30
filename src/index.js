@@ -118,7 +118,7 @@ const defaultDocument = typeof window === 'object' && window.document || virtual
 const defaultFramework = [defaultDocument, defaultUpdater, {}];
 const virtualFramework = [virtualDocument, defaultUpdater, {}];
 
-export default function stew (container, outline, framework = defaultFramework) {
+export default function stew (container, layout, framework = defaultFramework) {
 	if (typeof container === 'string') {
 		// locate container
 		const [document] = framework;
@@ -131,7 +131,7 @@ export default function stew (container, outline, framework = defaultFramework) 
 	const dom = { container };
 	const hydrateNodes = [...container.childNodes];
 	frameworks.unshift(framework);
-	reconcile(outline, {}, view, 0, dom, hydrateNodes);
+	reconcile(layout, {}, view, 0, dom, hydrateNodes);
 	frameworks.shift();
 
 	// remove unclaimed nodes
@@ -140,10 +140,11 @@ export default function stew (container, outline, framework = defaultFramework) 
 	}
 };
 
-export function createElement (tagName, attributes, layout) {
-	const container = defaultDocument.createElement(tagName);
+export function createElement (tagName, attributes, layout, framework = defaultFramework) {
+	const [document, updater] = framework;
+	const container = document.createElement(tagName);
 	if (layout !== undefined) stew(container, layout);
-	if (attributes !== undefined) defaultUpdater(container, attributes);
+	if (attributes) updater(container, attributes);
 	return container;
 }
 
