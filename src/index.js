@@ -80,7 +80,7 @@ export const virtualDocument = {
 	},
 };
 
-export function defaultUpdater (element, props, prevNames, defaultProps) {
+export function defaultUpdater (element, props, prevNames, defaultProps, ignoreRef) {
 	prevNames = new Set(prevNames);
 
 	const changes = Object.entries(props).filter(([name, value]) => {
@@ -95,7 +95,11 @@ export function defaultUpdater (element, props, prevNames, defaultProps) {
 	}
 
 	for (const [name, value] of changes) {
-		if (name === 'style') {
+		if (name === 'ref') {
+			if (ignoreRef) continue;
+			if (typeof value === 'function') value(element);
+			else if (Array.isArray(value)) value.unshift(element);
+		} else if (name === 'style') {
 			const entries = Object.entries(value);
 			const { style } = element;
 
@@ -127,7 +131,7 @@ export default function stew (container, layout, framework = defaultFramework) {
 	}
 
 	// prepare hydrate nodes and load framework
-	const view = [container, {}];
+	const view = Object.assign([container], { keyedViews: {} });
 	const dom = { container };
 	const hydrateNodes = [...container.childNodes];
 	frameworks.unshift(framework);

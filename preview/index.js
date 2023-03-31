@@ -68,7 +68,7 @@ function generateComments () {
 }
 // END: content generation functions to simulate data from server
 
-const { createState, useMemo } = stew;
+const { createState, useMemo, useEffect } = stew;
 
 function VideoPlayer ({ title, action, color, shape, ft, length, owner }) {
 	const iterationCount = length / 5;
@@ -110,26 +110,39 @@ function Comments ({ comments }, { owner }) {
 		expandedCount: 10,
 		iteration: 0,
 	}, 'state'), []),
-		({ state, expandedCount }) => ['', null,
-			({ iteration }) => useMemo(() => {
-				console.log('=====');
-				return ['p', {}, `iteration: ${iteration}`]
-			}, [iteration]),
-			...comments.slice(0, expandedCount).map(({ user, message }) => ['div', {
-				className: 'comment',
-			},
-				['strong', { className: `comment-user ${user === owner ? 'comment-user-owner' : ''}` }, user],
-				['p', { className: 'comment-message' }, message],
-			]),
-			length > expandedCount && ['button', {
-				type: 'button',
-				onclick: () => state.expandedCount += 10,
-			}, 'Show More'],
-			['button', {
-				type: 'button',
-				onclick: () => state.iteration += 1,
-			}, 'Iterate'],
-		],
+		({ state, expandedCount }) => {
+			const ref = [];
+
+			useEffect(() => {
+				// ref should be an array of all elements that had it set as a ref
+				// - use unshift so the order matches the layout, top to bottom, instead of when added, bottom to top
+				console.log(ref);
+			}, [expandedCount]);
+
+			return ['', null,
+				({ iteration }) => useMemo(() => {
+					console.log('=====');
+					return ['p', {}, `iteration: ${iteration}`]
+				}, [iteration]),
+				...comments.slice(0, expandedCount).map(({ user, message }, i) => {
+					return ['div', {
+						ref: i && i === expandedCount - 10 && ref,
+						className: 'comment',
+					},
+						['strong', { className: `comment-user ${user === owner ? 'comment-user-owner' : ''}` }, user],
+						['p', { className: 'comment-message' }, message],
+					];
+				}),
+				length > expandedCount && ['button', {
+					type: 'button',
+					onclick: () => state.expandedCount += 10,
+				}, 'Show More'],
+				['button', {
+					type: 'button',
+					onclick: () => state.iteration += 1,
+				}, 'Iterate'],
+			];
+		},
 	];
 }
 

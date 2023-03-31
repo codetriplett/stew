@@ -45,7 +45,8 @@ describe('stew', () => {
 		const updater = () => {};
 		const framework = [virtualDocument, updater, {}];
 		const outline = ['div', 'Hello Page'];
+		const view = Object.assign([container], { keyedViews: {} });
 		stew(container, outline, framework);
-		expect(reconcile).toHaveBeenCalledWith(outline, {}, [container, {}], 0, { container }, [node]);
+		expect(reconcile).toHaveBeenCalledWith(outline, {}, view, 0, { container }, [node]);
 	});
 });

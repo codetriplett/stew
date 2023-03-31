@@ -2,17 +2,17 @@ import reconcile, { update, remove } from './reconcile';
 import { frameworks, virtualDocument } from '.';
 
 export const impulses = [];
-export const queue = new Set();
 export const effects = new Set();
+export const queue = new Set();
 const resets = [];
 let timeout;
 
-function screen (impulse) {
+function screen (impulse, queueCopy) {
 	// check if impulse will be covered by queued parent
 	const { parentImpulse } = impulse;
 	if (!parentImpulse) return false;
-	if (queue.has(parentImpulse)) return true;
-	return screen(parentImpulse);
+	if (queueCopy.has(parentImpulse)) return true;
+	return screen(parentImpulse, queueCopy);
 }
 
 function schedule (subscriptions) {
@@ -33,7 +33,7 @@ function schedule (subscriptions) {
 		// clear queues and timeout
 		const resetsCopy = resets.splice(0);
 		const effectsCopy = [...effects];
-		const queueCopy = [...queue];
+		const queueCopy = new Set(queue);
 		effects.clear();
 		queue.clear();
 		timeout = undefined;
@@ -45,7 +45,7 @@ function schedule (subscriptions) {
 
 		// filter out any impulses that will already be covered by a parent update
 		for (const impulse of queueCopy) {
-			const isCovered = screen(impulse);
+			const isCovered = screen(impulse, queueCopy);
 			if (isCovered) continue;
 			impulse();
 		}
@@ -60,14 +60,14 @@ function schedule (subscriptions) {
 function unsubscribe (impulses) {
 	// clear flag when unsubscribing hook-based impulse
 	if (!Array.isArray(impulses)) {
-		impulses.view.memos[0].impulse = undefined;
+		impulses.persist = false;
 		impulses = [impulses];
 	}
 
 	for (const impulse of impulses) {
-		if (impulse.view.memos[0].impulse) continue;
-		const { subscriptionsSet, childImpulses, view: { memos } } = impulse;
-		const [{ teardowns }] = memos;
+		if (impulse.persist) continue;
+		const { subscriptionsSet, childImpulses, view } = impulse;
+		const { memos, teardowns } = view;
 
 		// remove impulse from subscriptions
 		for (const subscriptions of subscriptionsSet) {
@@ -87,9 +87,9 @@ function unsubscribe (impulses) {
 }
 
 export function useMemo (callback, deps, cueCount) {
-	const memos = impulses[0]?.view?.memos || [{}];
-	const [options] = memos;
-	let memo = memos[options.index];
+	const [{ view }] = impulses;
+	const { memos, index } = view;
+	let memo = memos[index];
 	let prevDeps, persist;
 
 	if (memo) {
@@ -111,17 +111,19 @@ export function useMemo (callback, deps, cueCount) {
 	}
 
 	if (deps) memo.push(...deps);
-	memos[options.index++] = memo;
+	memos[view.index++] = memo;
 	return memo[0];
 }
 
 export function useEffect (...params) {
-	const [{ view: { memos } }] = impulses;
-	const [{ index, teardowns }] = memos;
+	const [impulse] = impulses;
+	const { memos, index, teardowns } = impulse.view;
 
 	// make async
 	schedule(() => {
+		impulses.unshift(impulse);
 		useMemo(...params);
+		impulses.shift();
 		teardowns.push(index);
 	});
 
@@ -132,7 +134,7 @@ export function useEffect (...params) {
 export function useImpulse (callback, ...rest) {
 	return useMemo(([prevValue, view] = [], prevDeps = []) => {
 		// activate also returns view in this case so it can be reused to attach memos to
-		return activate(callback, prevValue, [view, ...prevDeps], -2);
+		return activate(callback, prevValue, [view, ...prevDeps], -1);
 	}, ...rest)[0];
 }
 
@@ -201,7 +203,7 @@ export default function activate (callback, state, parentView, i, dom = {}, hydr
 	const [framework] = frameworks;
 	const [parentImpulse] = impulses;
 	const childImpulses = [];
-	const view = parentView?.[i + 2] || [];
+	const view = i === undefined ? parentView : parentView[i + 1] || [];
 	const sibling = { ...dom };
 	let params = [];
 	let initialized = false;
@@ -212,7 +214,7 @@ export default function activate (callback, state, parentView, i, dom = {}, hydr
 		frameworks.unshift(framework);
 		impulses.unshift(impulse);
 		unsubscribe(childImpulses.splice(0));
-		Object.assign(view.memos[0], { index: 1, teardowns: [] });
+		Object.assign(view, { index: 0, teardowns: [] });
 		if (newState) state = newState;
 		let outline;
 
@@ -230,21 +232,21 @@ export default function activate (callback, state, parentView, i, dom = {}, hydr
 			// process return value as it normally would before resetting active framework
 			if (initialized) dom = { ...sibling };
 			reconcile(outline, state, parentView, i, dom, hydrateNodes);
-			const newView = parentView[i + 2];
+			let newView = parentView[i + 1];
 
 			if (newView !== view) {
 				// remove old nodes and subscriptions
 				if (view.length) remove(view, dom.container);
 				view.splice(0, view.length, ...newView);
-				parentView[i + 2] = view;
+				parentView[i + 1] = view;
 			}
 		} else if (parentView[0]) {
 			// process attribute update
 			const [, updater, defaultProps] = framework;
-			update(parentView[0], outline, updater, defaultProps);
-		} else {
+			update(parentView[0], outline, updater, defaultProps, initialized);
+		} else if (initialized) {
 			// process state update
-			for (const impulse of parentView.childImpulses) {
+			for (const impulse of view.impulse.childImpulses) {
 				impulse(outline);
 			}
 		}
@@ -263,17 +265,17 @@ export default function activate (callback, state, parentView, i, dom = {}, hydr
 		subscriptionsSet: new Set()
 	});
 
+
 	// set parent impulse and memos
 	parentImpulse?.childImpulses?.push?.(impulse);
-	if (i >= 0) parentView?.childImpulses?.push?.(impulse);
-	if (!view.memos) view.memos = [{ teardowns: [] }];
-	const prevImpulse = view.memos[0].impulse;
-	if (prevImpulse && prevImpulse !== impulse) unsubscribe(prevImpulse);
+	if (!view.memos) Object.assign(view, { memos: [], teardowns: [] });
+	if (view.impulse) unsubscribe(view.impulse);
+	view.impulse = impulse;
 
 	// set as persistent when created from hook
 	if (i < 0) {
-		params = parentView.slice(i + 3);
-		view.memos[0].impulse = impulse;
+		params = parentView.slice(i + 2);
+		impulse.persist = true;
 	}
 
 	// call, then clear hydrate nodes and set as initialized

@@ -1,4 +1,4 @@
-import activate, { impulses, queue, useMemo, createState } from './activate';
+import activate, { impulses, queue, effects, useMemo, createState } from './activate';
 import reconcile from './reconcile';
 import { frameworks, virtualDocument } from '.';
 
@@ -15,7 +15,7 @@ describe('activate', () => {
 		dom = {};
 		hydrateNodes = [];
 		updater = () => {};
-		framework = [virtualDocument, updater];
+		framework = [virtualDocument, updater, {}];
 		parentImpulse = () => {};
 		outline = ['div', {}];
 		frameworks.splice(0);
@@ -26,7 +26,7 @@ describe('activate', () => {
 		jest.clearAllMocks();
 
 		callback.mockImplementation(() => {
-			parentView[2] = [{}];
+			parentView[1] = [{}];
 			return outline;
 		});
 

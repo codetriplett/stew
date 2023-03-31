@@ -10,7 +10,7 @@ describe('reconcile', () => {
 	beforeEach(() => {
 		container = virtualDocument.createElement('div');
 		state = {};
-		parentView = [{}, {}];
+		parentView = Object.assign([{}], { keyedViews: {} });
 		dom = { container };
 		hydrateNodes = [];
 		framework = [virtualDocument, defaultUpdater, {}];
@@ -22,28 +22,28 @@ describe('reconcile', () => {
 		it('creates null', () => {
 			reconcile(null, state, parentView, 0, dom);
 			const view = [];
-			expect(parentView).toEqual([{}, {}, view]);
+			expect(parentView).toEqual(Object.assign([{}, view], { keyedViews: {} }));
 			expect(dom).toEqual({ container });
 		});
 
 		it('creates undefined', () => {
 			reconcile(undefined, state, parentView, 0, dom);
 			const view = [];
-			expect(parentView).toEqual([{}, {}, view]);
+			expect(parentView).toEqual(Object.assign([{}, view], { keyedViews: {} }));
 			expect(dom).toEqual({ container });
 		});
 
 		it('creates false', () => {
 			reconcile(false, state, parentView, 0, dom);
 			const view = [];
-			expect(parentView).toEqual([{}, {}, view]);
+			expect(parentView).toEqual(Object.assign([{}, view], { keyedViews: {} }));
 			expect(dom).toEqual({ container });
 		});
 
 		it('creates true', () => {
 			reconcile(true, state, parentView, 0, dom);
 			const view = [];
-			expect(parentView).toEqual([{}, {}, view]);
+			expect(parentView).toEqual(Object.assign([{}, view], { keyedViews: {} }));
 			expect(dom).toEqual({ container });
 		});
 
@@ -58,7 +58,7 @@ describe('reconcile', () => {
 
 			const view = [node];
 			expect(container.childNodes).toEqual([node]);
-			expect(parentView).toEqual([{}, {}, view]);
+			expect(parentView).toEqual(Object.assign([{}, view], { keyedViews: {} }));
 			expect(dom).toEqual({ container, node });
 		});
 
@@ -73,7 +73,7 @@ describe('reconcile', () => {
 
 			const view = [node];
 			expect(container.childNodes).toEqual([node]);
-			expect(parentView).toEqual([{}, {}, view]);
+			expect(parentView).toEqual(Object.assign([{}, view], { keyedViews: {} }));
 			expect(dom).toEqual({ container, node });
 		});
 
@@ -88,7 +88,7 @@ describe('reconcile', () => {
 
 			const view = [node];
 			expect(container.childNodes).toEqual([node]);
-			expect(parentView).toEqual([{}, {}, view]);
+			expect(parentView).toEqual(Object.assign([{}, view], { keyedViews: {} }));
 			expect(dom).toEqual({ container, node });
 		});
 
@@ -97,7 +97,7 @@ describe('reconcile', () => {
 			reconcile(callback, state, parentView, 0, dom);
 			expect(activate).toHaveBeenCalledWith(callback, state, parentView, 0, dom, undefined);
 			expect(container.childNodes).toEqual([]);
-			expect(parentView).toEqual([{}, {}]);
+			expect(parentView).toEqual(Object.assign([{}], { keyedViews: {} }));
 			expect(dom).toEqual({ container });
 		});
 
@@ -106,7 +106,7 @@ describe('reconcile', () => {
 			reconcile(node, state, parentView, 0, dom);
 			const view = [node];
 			expect(container.childNodes).toEqual([node]);
-			expect(parentView).toEqual([{}, {}, view]);
+			expect(parentView).toEqual(Object.assign([{}, view], { keyedViews: {} }));
 			expect(dom).toEqual({ container, node });
 		});
 
@@ -120,10 +120,10 @@ describe('reconcile', () => {
 				nodeValue: 'xyz',
 			};
 
-			const view = Object.assign([, {}, [child]], { childImpulses: [] });
+			const view = Object.assign([, [child]], { keyedViews: {} });
 
 			expect(container.childNodes).toEqual([child]);
-			expect(parentView).toEqual([{}, {}, view]);
+			expect(parentView).toEqual(Object.assign([{}, view], { keyedViews: {} }));
 			expect(dom).toEqual({ container, node: child });
 		});
 
@@ -149,10 +149,10 @@ describe('reconcile', () => {
 			};
 
 			child.parentElement = node;
-			const view = [node, {}, [child]];
+			const view = Object.assign([node, [child]], { keyedViews: {} });
 
 			expect(container.childNodes).toEqual([node]);
-			expect(parentView).toEqual([{}, {}, view]);
+			expect(parentView).toEqual(Object.assign([{}, view], { keyedViews: {} }));
 			expect(dom).toEqual({ container, node });
 		});
 	});
@@ -162,14 +162,14 @@ describe('reconcile', () => {
 			const node = virtualDocument.createTextNode('abc');
 			container.appendChild(node);
 			const view = [node];
-			parentView[2] = view;
+			parentView[1] = view;
 			reconcile('xyz', state, parentView, 0, dom);
 			expect(container.childNodes).toEqual([node]);
 			expect(container.childNodes[0]).toBe(node);
 			expect(node.nodeValue).toEqual('xyz');
-			expect(parentView).toEqual([{}, {}, view]);
-			expect(parentView[2]).toBe(view);
-			expect(parentView[2][0]).toBe(node);
+			expect(parentView).toEqual(Object.assign([{}, view], { keyedViews: {} }));
+			expect(parentView[1]).toBe(view);
+			expect(parentView[1][0]).toBe(node);
 			expect(dom).toEqual({ container, node });
 		});
 
@@ -177,12 +177,12 @@ describe('reconcile', () => {
 			const node = virtualDocument.createTextNode('abc');
 			container.appendChild(node);
 			const view = [node];
-			parentView[2] = view;
+			parentView[1] = view;
 			const callback = () => {};
 			reconcile(callback, state, parentView, 0, dom);
 			expect(activate).toHaveBeenCalledWith(callback, state, parentView, 0, dom, undefined);
 			expect(container.childNodes).toEqual([node]);
-			expect(parentView).toEqual([{}, {}, view]);
+			expect(parentView).toEqual(Object.assign([{}, view], { keyedViews: {} }));
 			expect(dom).toEqual({ container });
 		});
 
@@ -191,22 +191,22 @@ describe('reconcile', () => {
 			container.appendChild(node);
 			reconcile(node, state, parentView, 0, dom);
 			expect(container.childNodes).toEqual([node]);
-			expect(parentView).toEqual([{}, {}, [node]]);
+			expect(parentView).toEqual(Object.assign([{}, [node]], { keyedViews: {} }));
 			expect(dom).toEqual({ container, node });
 		});
 
 		it('updates fragment node', () => {
 			const child = virtualDocument.createTextNode('abc');
 			container.appendChild(child);
-			const view = [, {}, [child]];
-			parentView[2] = view;
+			const view = Object.assign([, [child]], { keyedViews: {} });
+			parentView[1] = view;
 			const template = ['', { key: 'value' }, 'xyz'];
 			reconcile(template, state, parentView, 0, dom);
 			expect(container.childNodes).toEqual([child]);
 			expect(container.childNodes[0]).toBe(child);
 			expect(child.nodeValue).toEqual('xyz');
-			expect(parentView).toEqual([{}, {}, view]);
-			expect(parentView[2]).toBe(view);
+			expect(parentView).toEqual(Object.assign([{}, view], { keyedViews: {} }));
+			expect(parentView[1]).toBe(view);
 			expect(dom).toEqual({ container, node: child });
 		});
 
@@ -216,8 +216,8 @@ describe('reconcile', () => {
 			node.className = 'abc';
 			node.appendChild(child);
 			container.appendChild(node);
-			const view = [node, {}, [child]];
-			parentView[2] = view;
+			const view = Object.assign([node, [child]], { keyedViews: {} });
+			parentView[1] = view;
 			const template = ['div', { className: 'abc' }, 'xyz'];
 			reconcile(template, state, parentView, 0, dom);
 			expect(container.childNodes).toEqual([node]);
@@ -225,9 +225,9 @@ describe('reconcile', () => {
 			expect(node.childNodes).toEqual([child]);
 			expect(node.childNodes[0]).toBe(child);
 			expect(child.nodeValue).toEqual('xyz');
-			expect(parentView).toEqual([{}, {}, view]);
-			expect(parentView[2]).toBe(view);
-			expect(parentView[2][0]).toBe(node);
+			expect(parentView).toEqual(Object.assign([{}, view], { keyedViews: {} }));
+			expect(parentView[1]).toBe(view);
+			expect(parentView[1][0]).toBe(node);
 			expect(dom).toEqual({ container, node });
 		});
 	});
@@ -242,9 +242,9 @@ describe('reconcile', () => {
 			expect(container.childNodes).toEqual([node]);
 			expect(container.childNodes[0]).toBe(node);
 			expect(node.nodeValue).toEqual('xyz');
-			expect(parentView).toEqual([{}, {}, view]);
-			expect(parentView[2]).toEqual(view);
-			expect(parentView[2][0]).toBe(node);
+			expect(parentView).toEqual(Object.assign([{}, view], { keyedViews: {} }));
+			expect(parentView[1]).toEqual(view);
+			expect(parentView[1][0]).toBe(node);
 			expect(hydrateNodes).toEqual([]);
 			expect(dom).toEqual({ container, node });
 		});
@@ -257,7 +257,7 @@ describe('reconcile', () => {
 			reconcile(callback, state, parentView, 0, dom, hydrateNodes);
 			expect(activate).toHaveBeenCalledWith(callback, state, parentView, 0, dom, hydrateNodes);
 			expect(container.childNodes).toEqual([node]);
-			expect(parentView).toEqual([{}, {}]);
+			expect(parentView).toEqual(Object.assign([{}], { keyedViews: {} }));
 			expect(dom).toEqual({ container });
 		});
 
@@ -267,21 +267,21 @@ describe('reconcile', () => {
 			const hydrateNodes = [node];
 			reconcile(node, state, parentView, 0, dom, hydrateNodes);
 			expect(container.childNodes).toEqual([node]);
-			expect(parentView).toEqual([{}, {}, [node]]);
+			expect(parentView).toEqual(Object.assign([{}, [node]], { keyedViews: {} }));
 			expect(dom).toEqual({ container, node });
 		});
 
 		it('hydrates fragment node', () => {
 			const child = virtualDocument.createTextNode('abc');
 			container.appendChild(child);
-			const view = Object.assign([, {}, [child]], { childImpulses: [] });
+			const view = Object.assign([, [child]], { keyedViews: {} });
 			const hydrateNodes = [child];
 			const template = ['', { key: 'value' }, 'xyz'];
 			reconcile(template, state, parentView, 0, dom, hydrateNodes);
 			expect(container.childNodes).toEqual([child]);
 			expect(container.childNodes[0]).toBe(child);
 			expect(child.nodeValue).toEqual('xyz');
-			expect(parentView).toEqual([{}, {}, view]);
+			expect(parentView).toEqual(Object.assign([{}, view], { keyedViews: {} }));
 			expect(hydrateNodes).toEqual([]);
 			expect(dom).toEqual({ container, node: child });
 		});
@@ -292,7 +292,7 @@ describe('reconcile', () => {
 			node.className = 'abc';
 			node.appendChild(child);
 			container.appendChild(node);
-			const view = [node, {}, [child]];
+			const view = Object.assign([node, [child]], { keyedViews: {} });
 			const hydrateNodes = [node];
 			const template = ['div', { className: 'abc' }, 'xyz'];
 			reconcile(template, state, parentView, 0, dom, hydrateNodes);
@@ -301,9 +301,9 @@ describe('reconcile', () => {
 			expect(node.childNodes).toEqual([child]);
 			expect(node.childNodes[0]).toBe(child);
 			expect(child.nodeValue).toEqual('xyz');
-			expect(parentView).toEqual([{}, {}, view]);
-			expect(parentView[2]).toEqual(view);
-			expect(parentView[2][0]).toBe(node);
+			expect(parentView).toEqual(Object.assign([{}, view], { keyedViews: {} }));
+			expect(parentView[1]).toEqual(view);
+			expect(parentView[1][0]).toBe(node);
 			expect(hydrateNodes).toEqual([]);
 			expect(dom).toEqual({ container, node });
 		});
