@@ -79,6 +79,14 @@ function unsubscribe (impulses) {
 			const [teardown, ...prevDeps] = memos[index];
 			if (typeof teardown === 'function') teardown(prevDeps);
 		}
+		
+		// clear memo props
+		Object.assign(view, {
+			impulse: undefined,
+			memos: undefined,
+			teardowns: undefined,
+			index: undefined,
+		});
 
 		// reset set and continue unsubscribing children
 		subscriptionsSet.clear();
@@ -87,9 +95,9 @@ function unsubscribe (impulses) {
 }
 
 export function useMemo (callback, deps, cueCount) {
-	const [{ view }] = impulses;
-	const { memos, index } = view;
-	let memo = memos[index];
+	const [{ view } = {}] = impulses;
+	const { memos, index } = view || {};
+	let memo = view ? memos[index] : undefined;
 	let prevDeps, persist;
 
 	if (memo) {
@@ -111,7 +119,7 @@ export function useMemo (callback, deps, cueCount) {
 	}
 
 	if (deps) memo.push(...deps);
-	memos[view.index++] = memo;
+	if (view) memos[view.index++] = memo;
 	return memo[0];
 }
 
@@ -138,64 +146,71 @@ export function useImpulse (callback, ...rest) {
 	}, ...rest)[0];
 }
 
-export function createState (object, ...rest) {
-	// prepare state and check for key to reference self
-	const state = Array.isArray(object) ? [] : {};
+export function useState (object, ...rest) {
+	// extract key
 	const key = /^string|number$/.test(typeof rest[0]) ? rest.shift() : undefined;
 
-	// prepare cues and create entries
-	const cues = Array.isArray(rest[0]) ? rest.shift() : [];
-	const cuesObject = Object.fromEntries(cues.map(cue => [cue]));
-	const entries = Object.entries({ ...cuesObject, ...object });
+	return useMemo((...params) => {
+		// prepare object and state
+		if (typeof object === 'function') object = object(...params);
+		const state = Array.isArray(object) ? [] : {};
 
-	// don't set up subscribers for virtual document
-	if (frameworks[0]?.[0] === virtualDocument) {
-		return Object.assign(state, Object.fromEntries(entries));
-	}
+		// prepare cues and create entries
+		const cues = key !== undefined && object[key] || [];
+		const cuesObject = Object.fromEntries(cues.map(cue => [cue]));
+		const entries = Object.entries({ ...cuesObject, ...object });
 
-	for (let [name, value] of entries) {
-		const isCue = ~cues.indexOf(name);
-		const subscriptions = new Set();
-
-		// bind context
-		if (typeof value === 'function') {
-			// ensure context of function matches the state object
-			value = value.bind(state);
+		// don't set up subscribers for virtual document
+		if (frameworks[0]?.[0] === virtualDocument) {
+			Object.assign(state, Object.fromEntries(entries));
+			entries.splice(0);
 		}
 
-		// create subscribe/dispatch with getter/setter
-		Object.defineProperty(state, name, {
-			get () {
-				// subscribe impulse to changes to this property
-				if (impulses.length) {
-					const [impulse] = impulses;
-					subscriptions.add(impulse);
-					impulse.subscriptionsSet.add(subscriptions);
-				}
+		for (let [name, value] of entries) {
+			const isCue = ~cues.indexOf(name);
+			const subscriptions = new Set();
 
-				return value;
-			},
-			set (newValue) {
-				// update value if it has changed
-				if (newValue === value) return;
-				value = newValue;
+			// bind context
+			if (typeof value === 'function') {
+				// ensure context of function matches the state object
+				value = value.bind(state);
+			}
 
-				if (isCue) {
-					// do not dispatch a cue reset
-					if (value === undefined) return;
-					// mark cue as needing to be reset
-					resets.push([state, name]);
-				}
+			// create subscribe/dispatch with getter/setter
+			Object.defineProperty(state, name, {
+				get () {
+					// subscribe impulse to changes to this property
+					if (impulses.length) {
+						const [impulse] = impulses;
+						subscriptions.add(impulse);
+						impulse.subscriptionsSet.add(subscriptions);
+					}
 
-				// dispatch change to subscribed listeners
-				schedule(subscriptions);
-				subscriptions.clear();
-			},
-		});
-	}
+					return value;
+				},
+				set (newValue) {
+					// update value if it has changed
+					if (newValue === value) return;
+					value = newValue;
 
-	// set self reference if needed and return state
-	return key === undefined ? state : Object.defineProperty(state, key, { value: state, writeable: false });
+					if (isCue) {
+						// do not dispatch a cue reset
+						if (value === undefined) return;
+						// mark cue as needing to be reset
+						resets.push([state, name]);
+					}
+
+					// dispatch change to subscribed listeners
+					schedule(subscriptions);
+					subscriptions.clear();
+				},
+			});
+		}
+
+		// return state as-is or add self reference first
+		if (key === undefined) return state;
+		return Object.defineProperty(state, key, { value: state, writeable: false });
+	}, ...rest);
 }
 
 export default function activate (callback, state, parentView, i, dom = {}, hydrateNodes) {
@@ -238,6 +253,7 @@ export default function activate (callback, state, parentView, i, dom = {}, hydr
 				// remove old nodes and subscriptions
 				if (view.length) remove(view, dom.container);
 				view.splice(0, view.length, ...newView);
+				view.keyedViews = newView.keyedViews;
 				parentView[i + 1] = view;
 			}
 		} else if (parentView[0]) {
@@ -265,10 +281,9 @@ export default function activate (callback, state, parentView, i, dom = {}, hydr
 		subscriptionsSet: new Set()
 	});
 
-
 	// set parent impulse and memos
 	parentImpulse?.childImpulses?.push?.(impulse);
-	if (!view.memos) Object.assign(view, { memos: [], teardowns: [] });
+	if (!view.memos) Object.assign(view, { memos: [] });
 	if (view.impulse) unsubscribe(view.impulse);
 	view.impulse = impulse;
 

@@ -43,17 +43,7 @@ function populate (outlines, state, view, dom, hydrateNodes) {
 
 	// update children
 	for (let i = outlines.length - 1; i >= 0; i--) {
-		const staticView = reconcile(outlines[i], state, view, i, dom, hydrateNodes);
-
-		// clear impulse props if no longer tied to one
-		if (staticView) {
-			Object.assign(staticView, {
-				impulse: undefined,
-				memos: undefined,
-				teardowns: undefined,
-				index: undefined,
-			});
-		}
+		reconcile(outlines[i], state, view, i, dom, hydrateNodes);
 	}
 
 	// adjust children length to match current state
@@ -91,7 +81,7 @@ function write (text, view = [], dom) {
 
 export function update (node, attributes, updater, defaultProps, ignoreRef) {
 	const prevNames = managedProps.get(node);
-	updater(node, attributes, prevNames, defaultProps[node.tagName.toLowerCase()]);
+	updater(node, attributes, prevNames, defaultProps[node.tagName.toLowerCase()], ignoreRef);
 	managedProps.set(node, Object.keys(attributes));
 }
 
@@ -180,5 +170,4 @@ export default function reconcile (outline, state, parentView, i, dom, hydrateNo
 	let [node] = parentView[i + 1] = view;
 	if (!node && dom.node !== sibling.node) node = dom.node;
 	if (node) Object.assign(dom, { node, sibling: undefined });
-	return view;
 }

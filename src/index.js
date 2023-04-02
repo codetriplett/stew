@@ -1,5 +1,5 @@
 import reconcile from './reconcile';
-import { useMemo, useEffect, useImpulse, createState } from './activate';
+import { useMemo, useEffect, useState, useImpulse } from './activate';
 
 // tags that shouldn't wrap content when server rendered
 const selfClosingTags = new Set([
@@ -9,7 +9,8 @@ const selfClosingTags = new Set([
 
 // attributes that are different when server rendered, beyond hyphenation
 const nameMap = {
-	className: 'class'
+	className: 'class',
+	tabIndex: 'tabindex',
 };
 
 export const virtualDocument = {
@@ -123,11 +124,15 @@ const defaultFramework = [defaultDocument, defaultUpdater, {}];
 const virtualFramework = [virtualDocument, defaultUpdater, {}];
 
 export default function stew (container, layout, framework = defaultFramework) {
+	let isFragment;
+
 	if (typeof container === 'string') {
 		// locate container
 		const [document] = framework;
-		if (!('querySelector' in document)) return;
-		container = document.querySelector(container);
+		isFragment = container === '';
+		if (isFragment) container = document.createDocumentFragment();
+		else if (!('querySelector' in document)) return;
+		else container = document.querySelector(container);
 	}
 
 	// prepare hydrate nodes and load framework
@@ -142,22 +147,16 @@ export default function stew (container, layout, framework = defaultFramework) {
 	for (const node of hydrateNodes) {
 		container.removeChild(node);
 	}
-};
 
-export function createElement (tagName, attributes, layout, framework = defaultFramework) {
-	const [document, updater] = framework;
-	const container = document.createElement(tagName);
-	if (layout !== undefined) stew(container, layout);
-	if (attributes) updater(container, attributes);
-	return container;
-}
+	// only return container if it was created here
+	if (isFragment) return container;
+};
 
 Object.assign(stew, {
 	useMemo,
 	useEffect,
+	useState,
 	useImpulse,
-	createState,
-	createElement,
 	virtualFramework,
 });
 

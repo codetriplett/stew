@@ -56,7 +56,7 @@ createServer(({ url }, res) => {
 					'<script src="/stew.min.js"></script>',
 				'</head>',
 				'<body>',
-					stew.createElement('div', { id: 'app' }, App()),
+					stew('', ['div', { id: 'app' }, App()]),
 					'<script src="/index.js"></script>',
 					'<script>stew(\'#app\', App());</script>',
 				'</body>',

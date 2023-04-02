@@ -1,4 +1,4 @@
-import activate, { impulses, queue, effects, useMemo, createState } from './activate';
+import activate, { impulses, queue, effects, useMemo, useState } from './activate';
 import reconcile from './reconcile';
 import { frameworks, virtualDocument } from '.';
 
@@ -69,6 +69,53 @@ describe('activate', () => {
 	});
 });
 
+describe('useMemo', () => {
+	let memos, view, impulse;
+
+	beforeEach(() => {
+		memos = [];
+		view = { memos, index: 0, teardowns: [] };
+		impulse = Object.assign(() => {}, { view });
+		impulses.splice(0);
+		impulses.unshift(impulse);
+	});
+
+	it('initializes memo', () => {
+		const callback = jest.fn().mockReturnValue('abc');
+		const actual = useMemo(callback, [123]);
+		expect(callback).toHaveBeenCalled();
+		expect(actual).toEqual('abc');
+		expect(view).toEqual({ memos, index: 1, teardowns: [] })
+		expect(memos).toEqual([['abc', 123]]);
+	});
+
+	it('reuses memo', () => {
+		const callback = jest.fn().mockReturnValue('abc');
+		useMemo(callback, [123]);
+		callback.mockClear();
+		callback.mockReturnValue('xyz');
+		view.index = 0;
+		const actual = useMemo(callback, [123]);
+		expect(callback).not.toHaveBeenCalled();
+		expect(actual).toEqual('abc');
+		expect(view).toEqual({ memos, index: 1, teardowns: [] })
+		expect(memos).toEqual([['abc', 123]]);
+	});
+
+	it('updates memo', () => {
+		const callback = jest.fn().mockReturnValue('abc');
+		useMemo(callback, [123]);
+		callback.mockClear();
+		callback.mockReturnValue('xyz');
+		view.index = 0;
+		const actual = useMemo(callback, [789]);
+		expect(callback).toHaveBeenCalled();
+		expect(actual).toEqual('xyz');
+		expect(view).toEqual({ memos, index: 1, teardowns: [] })
+		expect(memos).toEqual([['xyz', 789]]);
+	});
+});
+
 describe('createState', () => {
 	const impulse = jest.fn();
 	let updater, framework;
@@ -85,7 +132,7 @@ describe('createState', () => {
 	});
 
 	it('reacts to changes to read properties', async () => {
-		const actual = createState({ str: 'abc' });
+		const actual = useState({ str: 'abc' });
 		const before = actual.str;
 		expect(before).toEqual('abc');
 		await new Promise(resolve => setTimeout(resolve, 10));
@@ -99,7 +146,7 @@ describe('createState', () => {
 	});
 	
 	it('prevents duplicate executions', async () => {
-		const actual = createState({ str: 'abc', num: 123 });
+		const actual = useState({ str: 'abc', num: 123 });
 		actual.str;
 		actual.str;
 		actual.num;
@@ -116,55 +163,11 @@ describe('createState', () => {
 		const parentImpulse = jest.fn();
 		impulse.parentImpulse = parentImpulse;
 		queue.add(parentImpulse);
-		const actual = createState({ str: 'abc' });
+		const actual = useState({ str: 'abc' });
 		actual.str;
 		actual.str = 'xyz';
 		await new Promise(resolve => setTimeout(resolve, 10));
 		expect(parentImpulse.mock.calls).toEqual([[]]);
 		expect(impulse).not.toHaveBeenCalled();
-	});
-});
-
-describe('useMemo', () => {
-	let memos, view, impulse;
-
-	beforeEach(() => {
-		memos = [{ index: 1, teardowns: [] }];
-		view = { memos };
-		impulse = Object.assign(() => {}, { view });
-		impulses.splice(0);
-		impulses.unshift(impulse);
-	});
-
-	it('initializes memo', () => {
-		const callback = jest.fn().mockReturnValue('abc');
-		const actual = useMemo(callback, [123]);
-		expect(callback).toHaveBeenCalled();
-		expect(actual).toEqual('abc');
-		expect(memos).toEqual([{ index: 2, teardowns: [] }, ['abc', 123]]);
-	});
-
-	it('reuses memo', () => {
-		const callback = jest.fn().mockReturnValue('abc');
-		useMemo(callback, [123]);
-		callback.mockClear();
-		callback.mockReturnValue('xyz');
-		memos[0].index = 1;
-		const actual = useMemo(callback, [123]);
-		expect(callback).not.toHaveBeenCalled();
-		expect(actual).toEqual('abc');
-		expect(memos).toEqual([{ index: 2, teardowns: [] }, ['abc', 123]]);
-	});
-
-	it('updates memo', () => {
-		const callback = jest.fn().mockReturnValue('abc');
-		useMemo(callback, [123]);
-		callback.mockClear();
-		callback.mockReturnValue('xyz');
-		memos[0].index = 1;
-		const actual = useMemo(callback, [789]);
-		expect(callback).toHaveBeenCalled();
-		expect(actual).toEqual('xyz');
-		expect(memos).toEqual([{ index: 2, teardowns: [] }, ['xyz', 789]]);
 	});
 });

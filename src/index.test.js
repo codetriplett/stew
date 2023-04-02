@@ -49,4 +49,19 @@ describe('stew', () => {
 		stew(container, outline, framework);
 		expect(reconcile).toHaveBeenCalledWith(outline, {}, view, 0, { container }, [node]);
 	});
+
+	it('creates fragment container', () => {
+		const outline = ['div', 'Hello Page'];
+		const updater = () => {};
+		const framework = [virtualDocument, updater, {}];
+		const container = stew('', outline, framework);
+
+		expect(container).toEqual({
+			childNodes: [],
+			appendChild: expect.anything(),
+			insertBefore: expect.anything(),
+			removeChild: expect.anything(),
+			toString: expect.anything(),
+		});
+	});
 });

@@ -10,9 +10,9 @@ if (typeof window === 'object') {
 }
 
 // BEGIN: content generation functions to simulate data from server
+const shapes = ['Circle', 'Square'];
 const actions = ['Spinning', 'Bouncing', 'Pulsing'];
 const colors = ['Jade', 'Amber', 'Teal'];
-const shapes = ['Circle', 'Triangle', 'Square'];
 const words = ['lorem', 'ipsum', 'dolor', 'sit', 'amet', 'consectetur', 'adipiscing', 'elit'];
 
 function random (range) {
@@ -28,16 +28,16 @@ function random (range) {
 }
 
 function generateVideo () {
-	const action = random(actions);
-	const color = random(colors);
 	const shape = random(shapes);
+	const action = random(shape === 'Circle' ? actions.slice(1) : actions);
+	const color = random(colors);
 	let title = `${action} ${color} ${shape}`;
 	let ft;
 
 	if (random() < 0.333333) {
-		const action = random(actions);
-		const color = random(colors);
 		const shape = random(shapes);
+		const action = random(shape === 'Circle' ? actions.slice(1) : actions);
+		const color = random(colors);
 		title += ` ft. ${color} ${shape}`;
 
 		ft = {
@@ -53,7 +53,7 @@ function generateVideo () {
 		color: color.toLowerCase(),
 		shape: shape.toLowerCase(),
 		ft,
-		length: (random(35) + 1) * 5,
+		length: (random(5) + 1) * 5000,
 		owner: `${random(colors)} ${random(shapes)}`,
 	};
 }
@@ -66,68 +66,130 @@ function generateComments () {
 		})),
 	};
 }
+
+function generateRecommendations () {
+	return {
+		recommendations: Array(5).fill(null).map(generateVideo),
+	};
+}
 // END: content generation functions to simulate data from server
 
-const { createState, useMemo, useEffect } = stew;
+const { useState, useEffect } = stew;
 
-function VideoPlayer ({ title, action, color, shape, ft, length, owner }) {
-	const iterationCount = length / 5;
+function loadRecommendation (index, outerState) {
+	const { recommendations: { recommendations } } = outerState;
+	outerState.video = recommendations[index];
+	outerState.comments = generateComments();
+	outerState.recommendations = { recommendations: [...recommendations.slice(0, index), ...recommendations.slice(index + 1), generateVideo()] };
+}
+
+function VideoPlayer ({ title, action, color, shape, ft, length, owner }, outerState) {
+	const iterationCount = length / 5000;
 	
-	return ['', () => useMemo(() => createState({
+	return ['', () => useState({
 		playState: 'paused',
-	}, 'state'), []),
-		({ state, playState }) => ['div', {
-			className: [
-				'video-player',
-				`video-${playState}`,
-				`video-${action}`,
-				`video-${color}`,
-				`video-${shape}`,
-				!ft ? '' : [
-					'video-ft',
-					`video-ft-${ft.action}`,
-					`video-ft-${ft.color}`,
-					`video-ft-${ft.shape}`,
+		currentTime: 0,
+		playTimestamp: undefined,
+		completed: false,
+		hoverActive: false,
+	}, 'state', []),
+		({ state, playState, currentTime, playTimestamp, hoverActive, completed }) => {
+			useEffect(clearCompleteTimeout => {
+				console.log('===== set video', playState);
+				clearCompleteTimeout?.();
+				if (playState !== 'running') return;
+
+				const timeout = setTimeout(() => {
+					state.playState = 'paused';
+					state.currentTime = length;
+					state.completed = true;
+				}, length - currentTime);
+
+				return () => clearTimeout(timeout);
+			}, [playState]);
+
+			return ['div', {
+				className: [
+					'video-player',
+					`video-${playState}`,
+					!hoverActive ? '' : 'video-hover-active',
+					`video-${action}`,
+					`video-${color}`,
+					`video-${shape}`,
+					!ft ? '' : [
+						'video-ft',
+						`video-ft-${ft.action}`,
+						`video-ft-${ft.color}`,
+						`video-ft-${ft.shape}`,
+					].join(' '),
 				].join(' '),
-			].join(' '),
+				onmouseenter: () => state.hoverActive = true,
+				onmouseleave: () => state.hoverActive = false,
+			},
+				['span', {
+					className: 'primary',
+					style: { animationPlayState: playState, animationIterationCount: iterationCount }
+				}],
+				['span', {
+					className: 'secondary',
+					style: { animationPlayState: playState, animationIterationCount: iterationCount }
+				}],
+				['div', { className: 'overlay' }],
+				['div', {
+					className: 'progress',
+					style: playState === 'running' ? {
+						width: '100%', transitionDuration: `${Math.max(0, length - currentTime)}ms`,
+					} : {
+						width: `${Math.min(1, currentTime / length) * 100}%`, transitionDuration: '0ms',
+					}
+				}],
+				['button', {
+					type: 'button',
+					className: 'play-pause',
+					onclick: () => {
+						if (completed) {
+							loadRecommendation(0, outerState);
+							return;
+						}
+
+						state.playState = playState === 'running' ? 'paused' : 'running';
+						const now = Date.now();
+						
+						if (state.playState === 'running') {
+							state.playTimestamp = now;
+						} else if (playTimestamp < now) {
+							state.currentTime += Math.min(now - playTimestamp, length - currentTime);
+						}
+					},
+				}, completed ? 'Play Next' : playState === 'running' ? 'Pause' : 'Play'],
+			];
 		},
-			['span', { className: 'primary', style: { animationPlayState: playState, animationIterationCount: iterationCount } }],
-			['span', { className: 'secondary', style: { animationPlayState: playState, animationIterationCount: iterationCount } }],
-			['button', {
-				type: 'button',
-				onclick: () => state.playState = playState === 'running' ? 'paused' : 'running',
-			}, playState === 'play' ? 'Pause' : 'Play'],
-		],
 		['h1', { className: 'video-title' }, title],
 		['strong', { className: 'video-owner' }, owner],
 	];
 }
 
-function Comments ({ comments }, { owner }) {
+function Comments ({ comments }, outerState) {
+	const { video: { owner } } = outerState;
 	const { length } = comments;
 
-	return !length ? null : ['', () => useMemo(() => createState({
+	return !length ? null : ['', () => useState({
 		expandedCount: 10,
-		iteration: 0,
-	}, 'state'), []),
+	}, 'state', []),
 		({ state, expandedCount }) => {
 			const ref = [];
 
 			useEffect(() => {
-				// ref should be an array of all elements that had it set as a ref
-				// - use unshift so the order matches the layout, top to bottom, instead of when added, bottom to top
-				console.log(ref);
+				console.log('===== set focus on', ref[0]);
+				if (ref.length) ref[0].focus();
 			}, [expandedCount]);
 
 			return ['', null,
-				({ iteration }) => useMemo(() => {
-					console.log('=====');
-					return ['p', {}, `iteration: ${iteration}`]
-				}, [iteration]),
 				...comments.slice(0, expandedCount).map(({ user, message }, i) => {
 					return ['div', {
 						ref: i && i === expandedCount - 10 && ref,
 						className: 'comment',
+						tabIndex: '-1',
 					},
 						['strong', { className: `comment-user ${user === owner ? 'comment-user-owner' : ''}` }, user],
 						['p', { className: 'comment-message' }, message],
@@ -137,24 +199,56 @@ function Comments ({ comments }, { owner }) {
 					type: 'button',
 					onclick: () => state.expandedCount += 10,
 				}, 'Show More'],
-				['button', {
-					type: 'button',
-					onclick: () => state.iteration += 1,
-				}, 'Iterate'],
 			];
 		},
 	];
 }
 
+function Recommendations ({ recommendations }, outerState) {
+	return ['', null,
+		...recommendations.map(({ title, color, shape, ft, length, owner }, i) => ['div', {
+			className: 'recommendation',
+			onclick: () => loadRecommendation(i, outerState),
+		},
+			['div', {
+				className: [
+					'video-player',
+					`video-${color}`,
+					`video-${shape}`,
+					!ft ? '' : [
+						'video-ft',
+						`video-ft-${ft.color}`,
+						`video-ft-${ft.shape}`,
+					].join(' '),
+				].join(' '),
+			},
+				['span', { className: 'primary' }],
+				['span', { className: 'secondary' }],
+			],
+			['strong', { className: 'title' }, title]
+		]),
+	];
+}
+
 function App () {
-	return ['', {
+	return ['', () => useState({
 		video: generateVideo(),
-		comments: generateComments(),
-	},
-		['strong', { className: 'logo' }, 'StewTube'],
-		({ video, comments }) => ['', null,
-			VideoPlayer(video),
-			Comments(comments, video),
+		comments: generateComments(), 
+		recommendations: generateRecommendations(),
+	}, 'state', []),
+		['div', { className: 'header' },
+			['strong', { className: 'logo' }, 'StewTube'],
+		],
+		({ state, video, comments, recommendations }) => ['div', { className: 'container' },
+			['div', { className: 'row' },
+				['div', { className: 'col col-8' },
+					VideoPlayer(video, state),
+					Comments(comments, state),
+				],
+				['div', { className: 'col col-4' },
+					Recommendations(recommendations, state),
+				],
+			],
 		],
 	];
 }
