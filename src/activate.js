@@ -167,6 +167,7 @@ export function useState (object, ...rest) {
 		}
 
 		for (let [name, value] of entries) {
+			if (name === key) continue;
 			const isCue = ~cues.indexOf(name);
 			const subscriptions = new Set();
 
