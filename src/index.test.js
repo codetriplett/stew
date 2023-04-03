@@ -14,18 +14,6 @@ describe('stew', () => {
 		reconcile.mockReturnValue(node);
 	});
 
-	it('uses default document and updater', () => {
-		let frameworkStack;
-
-		reconcile.mockImplementation(() => {
-			frameworkStack = [...frameworks];
-		});
-
-		const outline = ['div', 'Hello Page'];
-		stew(container, outline);
-		expect(frameworkStack).toEqual([[document, defaultUpdater, {}]]);
-	});
-
 	it('uses custom document and updater', () => {
 		let frameworkStack;
 

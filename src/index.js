@@ -144,7 +144,7 @@ export function defaultUpdater (element, props, prevNames, defaultProps, ignoreR
 export const frameworks = [];
 const defaultDocument = typeof window === 'object' && window.document || virtualDocument;
 const defaultFramework = [defaultDocument, defaultUpdater, {}];
-const virtualFramework = [virtualDocument, defaultUpdater, {}];
+export const virtualFramework = [virtualDocument, defaultUpdater, {}];
 
 export default function stew (container, layout, framework = defaultFramework) {
 	let isFragment;
@@ -174,17 +174,3 @@ export default function stew (container, layout, framework = defaultFramework) {
 	// only return container if it was created here
 	if (isFragment) return container;
 };
-
-Object.assign(stew, {
-	useMemo,
-	useEffect,
-	useState,
-	useImpulse,
-	virtualFramework,
-});
-
-if (typeof window === 'object') {
-	window.stew = stew;
-} else if (typeof module === 'object') {
-	module.exports = stew;
-}

@@ -5,10 +5,11 @@
 	"author": "triplett",
 	"license": "MIT",
 	"main": "dist/stew.min.js",
+	"module": "dist/stew.min.mjs",
 	"scripts": {
 		"test": "jest --watch",
-		"build": "rimraf dist && esbuild src/index.js --outfile=dist/stew.min.js --bundle --minify --banner:js=//@triplett/stew@v3.0.1 --legal-comments=linked",
-		"build:watch": "esbuild src/index.js --outfile=preview/stew.min.js --bundle --watch",
+		"build": "rimraf dist && esbuild src/main.js --outfile=dist/stew.min.js --bundle --minify --banner:js=//@triplett/stew@v3.0.1 --legal-comments=linked && esbuild src/module.js --outfile=dist/stew.min.mjs --format=esm --bundle --minify --banner:js=//@triplett/stew@v3.0.1 --legal-comments=linked",
+		"build:watch": "esbuild src/main.js --outfile=preview/stew.min.js --bundle --watch",
 		"start": "node preview/server.js"
 	},
 	"keywords": [
@@ -29,15 +30,18 @@
 	},
 	"homepage": "https://github.com/codetriplett/stew#readme",
 	"jest": {
-		"testURL": "http://localhost",
+		"testEnvironmentOptions": {
+			"url": "http://localhost"
+		},
 		"setupFilesAfterEnv": [
 			"./setupTests.js"
 		]
 	},
 	"devDependencies": {
-		"esbuild": "0.17.10",
-		"jest": "26.6.3",
+		"@babel/preset-env": "7.21.4",
+		"esbuild": "0.17.15",
+		"jest": "29.5.0",
 		"regenerator-runtime": "0.13.11",
-		"rimraf": "3.0.2"
+		"rimraf": "4.4.1"
 	}
 }
