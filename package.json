@@ -1,6 +1,6 @@
 {
 	"name": "@triplett/stew",
-	"version": "3.0.2",
+	"version": "3.0.3",
 	"description": "A stateful virtual DOM for any purpose.",
 	"author": "triplett",
 	"license": "MIT",
