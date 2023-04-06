@@ -58,8 +58,8 @@ function populate (outlines, state, view, dom, hydrateNodes) {
 
 	// remove outdated keyed views
 	const entries = Object.entries(view.keyedViews);
-	const validEntries = entries.filter(([, childView]) => view.indexOf(childView) > 1);
-	if (validEntries.length !== entries.length) view.keyedViews = Object.fromEntries(keyedEntries);
+	const validEntries = entries.filter(([, childView]) => view.indexOf(childView) > 0);
+	if (validEntries.length !== entries.length) view.keyedViews = Object.fromEntries(validEntries);
 }
 
 function write (text, view = [], dom) {
@@ -110,9 +110,12 @@ function process (outline, state, parentView, i, dom, hydrateNodes) {
 
 	// element or fragment node
 	let [str, obj, ...arr] = outline;
-	let [, tagName, key] = str.match(/^\s*(.*?)\s*(?::(.*?))?$/);
+	const indexedView = view;
+	const hasKey = ~str.indexOf(':');
+	let [, tagName, key] = hasKey ? str.match(/^\s*(.*?)\s*(?::(.*?))?$/) : [, str];
+	const { doAppend } = dom;
 	if (hydrateNodes) view[1] = {};
-	else view = parentView.keyedViews[key] || view || [];
+	else view = hasKey && parentView.keyedViews[key] || indexedView || [];
 	let [node] = view;
 
 	if (tagName === '') {
@@ -120,6 +123,9 @@ function process (outline, state, parentView, i, dom, hydrateNodes) {
 		if (node || !('keyedViews' in view)) view = Object.assign([], { keyedViews: {} });
 		if (typeof obj === 'function') obj = activate(obj, state, view);
 		if (obj) state = obj;
+
+		// flag dom as needing to append children if fragment moves
+		if (!doAppend) dom.doAppend = view !== indexedView;
 	} else {
 		const [[document, updater, defaultProps]] = frameworks;
 		tagName = tagName.toLowerCase();
@@ -134,16 +140,16 @@ function process (outline, state, parentView, i, dom, hydrateNodes) {
 			// create new element and attach to dom
 			node = document.createElement(tagName);
 			view = Object.assign([node], { keyedViews: {} });
-			append(node, dom);
 		} else if (hydrateNodes) {
 			// claim node and prepare new set for children
 			hydrateNodes.pop();
 			view.keyedViews = {};
 		}
 
-		// update attributes and create new dom reference
+		// update attributes, append and create new dom reference
 		if (typeof obj === 'function') activate(obj, state, view);
 		else if (obj) update(node, obj, updater, defaultProps);
+		if (doAppend || view !== indexedView) append(node, dom);
 		dom = { container: node };
 
 		if (hydrateNodes) {
@@ -153,8 +159,9 @@ function process (outline, state, parentView, i, dom, hydrateNodes) {
 	}
 
 	// update views and temporarily store new future views in place of node
-	if (key) view.keyedViews[key] = view;
+	if (hasKey) parentView.keyedViews[key] = view;
 	populate(arr, state, view, dom, hydrateNodes);
+	dom.doAppend = doAppend;
 	return view;
 }
 
