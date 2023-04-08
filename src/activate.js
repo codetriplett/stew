@@ -2,18 +2,10 @@ import reconcile, { update, remove } from './reconcile';
 import { frameworks, virtualDocument } from '.';
 
 export const impulses = [];
-export const effects = new Set();
+export const effects = [];
 export const queue = new Set();
 const resets = [];
 let timeout;
-
-function screen (impulse, queueCopy) {
-	// check if impulse will be covered by queued parent
-	const { parentImpulse } = impulse;
-	if (!parentImpulse) return false;
-	if (queueCopy.has(parentImpulse)) return true;
-	return screen(parentImpulse, queueCopy);
-}
 
 function schedule (subscriptions) {
 	// ignore async action for virtual document
@@ -21,7 +13,7 @@ function schedule (subscriptions) {
 
 	// add to queue
 	if (typeof subscriptions === 'function') {
-		effects.add(subscriptions);
+		effects.push(subscriptions);
 	} else {
 		for (const impulse of subscriptions) {
 			queue.add(impulse);
@@ -30,24 +22,33 @@ function schedule (subscriptions) {
 
 	// schedule update after all main thread tasks have finished
 	timeout = timeout !== undefined ? timeout : setTimeout(() => {
-		// clear queues and timeout
+		// prepare copies
 		const resetsCopy = resets.splice(0);
-		const effectsCopy = [...effects];
-		const queueCopy = new Set(queue);
-		effects.clear();
+		const queueLayers = {};
+
+		// organized impulses
+		for (const impulse of [...queue]) {
+			const { depth } = impulse;
+			const queueLayer = queueLayers[depth];
+			if (queueLayer) queueLayer.push(impulse);
+			else queueLayers[depth] = [impulse];
+			impulse.queued = true;
+		}
+		
+		// clear queues and timeout
 		queue.clear();
 		timeout = undefined;
 
 		// resolve effects
-		for (const effect of effectsCopy) {
+		for (const effect of effects.splice(0)) {
 			effect();
 		}
 
 		// filter out any impulses that will already be covered by a parent update
-		for (const impulse of queueCopy) {
-			const isCovered = screen(impulse, queueCopy);
-			if (isCovered) continue;
-			impulse();
+		for (const i of Object.keys(queueLayers).sort((a, b) => a - b)) {
+			for (const impulse of queueLayers[i]) {
+				if (impulse.queued) impulse();
+			}
 		}
 
 		// reset all active cues
@@ -66,27 +67,12 @@ function unsubscribe (impulses) {
 
 	for (const impulse of impulses) {
 		if (impulse.persist) continue;
-		const { subscriptionsSet, childImpulses, view } = impulse;
-		const { memos, teardowns } = view;
+		const { subscriptionsSet, childImpulses } = impulse;
 
 		// remove impulse from subscriptions
 		for (const subscriptions of subscriptionsSet) {
 			subscriptions.delete(impulse);
 		}
-
-		// call teardown
-		for (const index of teardowns) {
-			const [teardown, ...prevDeps] = memos[index];
-			if (typeof teardown === 'function') teardown(prevDeps);
-		}
-		
-		// clear memo props
-		Object.assign(view, {
-			impulse: undefined,
-			memos: undefined,
-			teardowns: undefined,
-			index: undefined,
-		});
 
 		// reset set and continue unsubscribing children
 		subscriptionsSet.clear();
@@ -94,9 +80,42 @@ function unsubscribe (impulses) {
 	}
 }
 
-export function useMemo (callback, deps, cueCount) {
+// TODO: test that teardowns are properly being done now
+// - maybe it's time to sketch up the flow of all of this
+export function deactivate (impulse, isRecursive) {
+	const { view, childImpulses } = impulse;
+	const { memos, teardowns } = view;
+
+	if (isRecursive) {
+		// deactivate children
+		for (const impulse of childImpulses) {
+			deactivate(impulse, true);
+		}
+	} else {
+		// clear memo props
+		Object.assign(view, {
+			impulse: undefined,
+			memos: undefined,
+			teardowns: undefined,
+			index: undefined,
+		});
+	}
+
+	// call teardown
+	for (const index of teardowns) {
+		const [teardown, ...prevDeps] = memos[index];
+		if (typeof teardown === 'function') teardown(prevDeps);
+	}
+}
+
+// TODO: add option for function after deps (or after cueCount if that exists) that runs if memo is not called
+// - prevValue is passed to it but function is mostly so we can return true to avoid processing child element
+// - useMemo(() => ...sublayout, [...deps], () => true) // return sublayout when changes occur, otherwise return true which will keep previous view
+export function useMemo (callback, deps, ...rest) {
+	const cueCount = rest.length && typeof rest[0] !== 'function' ? rest.shift() : 0;
+	const [followup] = rest;
 	const [{ view } = {}] = impulses;
-	const { memos, index } = view || {};
+	const { memos, index } = view || [];
 	let memo = view ? memos[index] : undefined;
 	let prevDeps, persist;
 
@@ -120,7 +139,7 @@ export function useMemo (callback, deps, cueCount) {
 
 	if (deps) memo.push(...deps);
 	if (view) memos[view.index++] = memo;
-	return memo[0];
+	return persist && followup ? followup(memo[0]) : memo[0];
 }
 
 export function useEffect (...params) {
@@ -218,6 +237,7 @@ export default function activate (callback, state, parentView, i, dom = {}, hydr
 	// persist parent framework and dom reference object
 	const [framework] = frameworks;
 	const [parentImpulse] = impulses;
+	const { length: depth } = impulses;
 	const childImpulses = [];
 	const view = i === undefined ? parentView : parentView[i + 1] || [];
 	const sibling = { ...dom };
@@ -263,7 +283,7 @@ export default function activate (callback, state, parentView, i, dom = {}, hydr
 			update(parentView[0], outline, updater, defaultProps, initialized);
 		} else if (initialized) {
 			// process state update
-			for (const impulse of view.impulse.childImpulses) {
+			for (const impulse of childImpulses) {
 				impulse(outline);
 			}
 		}
@@ -271,14 +291,15 @@ export default function activate (callback, state, parentView, i, dom = {}, hydr
 		// reset stack
 		impulses.shift();
 		frameworks.shift();
+		impulse.queued = false;
 		return outline;
 	}
 
 	// attach context to impulse
 	Object.assign(impulse, {
-		parentImpulse,
-		childImpulses,
 		view,
+		depth,
+		childImpulses,
 		subscriptionsSet: new Set()
 	});
 

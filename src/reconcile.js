@@ -1,4 +1,4 @@
-import activate from './activate';
+import activate, { impulses, deactivate } from './activate';
 import { frameworks } from '.';
 
 export const managedProps = new WeakMap();
@@ -18,22 +18,27 @@ function append (node, dom) {
 		({ node: sibling, sibling: dom } = dom);
 	}
 
-	if (sibling) container.insertBefore(node, sibling);
-	else container.appendChild(node);
+	if (sibling && sibling.previousSibling !== node) {
+		container.insertBefore(node, sibling);
+	} else if (!sibling && container.lastChild !== node) {
+		container.appendChild(node);
+	}
 }
 
 export function remove (view, container) {
 	let [node, ...childViews] = view;
 
-	if (node && container) {
-		// remove node from DOM and prevent this step for its children
+	if (node) {
+		// remove node from DOM
 		container.removeChild(node);
-		container = undefined;
+		return;
 	}
 
-	// continue removals for children
+	// remove nodes from fragment
 	for (const childView of childViews) {
 		remove(childView, container);
+		const { impulse } = childView;
+		if (impulse) deactivate(impulse);
 	}
 }
 
@@ -96,11 +101,15 @@ function process (outline, state, parentView, i, dom, hydrateNodes) {
 	}
 
 	// get candidate view
+	const { doAppend } = dom;
 	let view = hydrateNodes ? hydrateNodes.slice(-1) : parentView[i + 1];
 
 	if (outline === true) {
 		// persist node
-		return view || [];
+		if (!view) return [];
+		const [node] = view;
+		if (doAppend && node) append(node, dom);
+		return view;
 	} else if (!Array.isArray(outline)) {
 		// text node
 		const textView = write(outline, view, dom);
@@ -113,9 +122,7 @@ function process (outline, state, parentView, i, dom, hydrateNodes) {
 	const indexedView = view;
 	const hasKey = ~str.indexOf(':');
 	let [, tagName, key] = hasKey ? str.match(/^\s*(.*?)\s*(?::(.*?))?$/) : [, str];
-	const { doAppend } = dom;
-	if (hydrateNodes) view[1] = {};
-	else view = hasKey && parentView.keyedViews[key] || indexedView || [];
+	if (!hydrateNodes) view = hasKey && parentView.keyedViews[key] || indexedView || [];
 	let [node] = view;
 
 	if (tagName === '') {
@@ -172,9 +179,16 @@ export default function reconcile (outline, state, parentView, i, dom, hydrateNo
 		return;
 	}
 
+	// dom node
 	const sibling = { ...dom };
 	const view = process(outline, state, parentView, i, dom, hydrateNodes);
 	let [node] = parentView[i + 1] = view;
 	if (!node && dom.node !== sibling.node) node = dom.node;
 	if (node) Object.assign(dom, { node, sibling: undefined });
+	const { impulse } = view;
+
+	// clear memo props and run teardowns
+	if (impulse && impulse !== impulses[0]) {
+		deactivate(impulse);
+	}
 }

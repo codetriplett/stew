@@ -22,7 +22,6 @@
  */
 
 import reconcile from './reconcile';
-import { useMemo, useEffect, useState, useImpulse } from './activate';
 
 // tags that shouldn't wrap content when server rendered
 const selfClosingTags = new Set([
@@ -146,6 +145,11 @@ const defaultDocument = typeof window === 'object' && window.document || virtual
 const defaultFramework = [defaultDocument, defaultUpdater, {}];
 export const virtualFramework = [virtualDocument, defaultUpdater, {}];
 
+// BASIC RULES
+// - impulse should teardown when there is no longer a view in the layout that originated from it
+// - impulses should be added to queues by depth with triggered and queues are resolved from top to bottom
+//   - impulses are flagged as queued when triggered and this flag is cleared when processed
+//   - impulses in the queue are ignored if they no longer have the queued flag set
 export default function stew (container, layout, framework = defaultFramework) {
 	let isFragment;
 
