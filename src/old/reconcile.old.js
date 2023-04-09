@@ -1,4 +1,4 @@
-import activate, { impulses, deactivate } from './activate';
+import activate, { trees} from './activate';
 import { frameworks } from '.';
 
 export const managedProps = new WeakMap();
@@ -25,6 +25,22 @@ function append (node, dom) {
 	}
 }
 
+// recursively call teardowns
+function deactivate (tree) {
+	const { memos, teardowns } = tree;
+
+	// deactivate children
+	for (const tree of tree.slice(1)) {
+		deactivate(tree);
+	}
+
+	// call teardown
+	for (const index of teardowns) {
+		const [teardown, ...prevDeps] = memos[index];
+		if (typeof teardown === 'function') teardown(prevDeps);
+	}
+}
+
 export function remove (view, container) {
 	let [node, ...childViews] = view;
 
@@ -42,13 +58,13 @@ export function remove (view, container) {
 	}
 }
 
-function populate (outlines, state, view, dom, hydrateNodes) {
+function populate (outlines, state, parentTree, view, dom, hydrateNodes) {
 	// backup previous views
 	const [, ...childViews] = view;
 
 	// update children
 	for (let i = outlines.length - 1; i >= 0; i--) {
-		reconcile(outlines[i], state, view, i, dom, hydrateNodes);
+		reconcile(outlines[i], state, parentTree, view, i, dom, hydrateNodes);
 	}
 
 	// adjust children length to match current state
@@ -84,13 +100,7 @@ function write (text, view = [], dom) {
 	return view;
 };
 
-export function update (node, attributes, updater, defaultProps, ignoreRef) {
-	const prevNames = managedProps.get(node);
-	updater(node, attributes, prevNames, defaultProps[node.tagName.toLowerCase()], ignoreRef);
-	managedProps.set(node, Object.keys(attributes));
-}
-
-function process (outline, state, parentView, i, dom, hydrateNodes) {
+function process (outline, state, parentTree, parentView, i, dom, hydrateNodes) {
 	if (!outline && outline !== 0) {
 		// empty node
 		return [];
@@ -128,13 +138,13 @@ function process (outline, state, parentView, i, dom, hydrateNodes) {
 	if (tagName === '') {
 		// reject view if it was for an element
 		if (node || !('keyedViews' in view)) view = Object.assign([], { keyedViews: {} });
-		if (typeof obj === 'function') obj = activate(obj, state, view);
 		if (obj) state = obj;
 
 		// flag dom as needing to append children if fragment moves
 		if (!doAppend) dom.doAppend = view !== indexedView;
 	} else {
-		const [[document, updater, defaultProps]] = frameworks;
+		const [framework] = frameworks;
+		const [document, updater, defaultProps] = framework;
 		tagName = tagName.toLowerCase();
 
 		if (!hydrateNodes && !('keyedViews' in view) || tagName !== node?.tagName?.toLowerCase?.()) {
@@ -152,10 +162,15 @@ function process (outline, state, parentView, i, dom, hydrateNodes) {
 			hydrateNodes.pop();
 			view.keyedViews = {};
 		}
+		
+		// update attributes
+		if (obj) {
+			const prevNames = managedProps.get(node);
+			updater(node, obj, prevNames, defaultProps[node.tagName.toLowerCase()]);
+			managedProps.set(node, Object.keys(obj));
+		}
 
-		// update attributes, append and create new dom reference
-		if (typeof obj === 'function') activate(obj, state, view);
-		else if (obj) update(node, obj, updater, defaultProps);
+		// update dom
 		if (doAppend || view !== indexedView) append(node, dom);
 		dom = { container: node };
 
@@ -167,28 +182,31 @@ function process (outline, state, parentView, i, dom, hydrateNodes) {
 
 	// update views and temporarily store new future views in place of node
 	if (hasKey) parentView.keyedViews[key] = view;
-	populate(arr, state, view, dom, hydrateNodes);
+	populate(arr, state, parentTree, view, dom, hydrateNodes);
 	dom.doAppend = doAppend;
 	return view;
 }
 
-export default function reconcile (outline, state, parentView, i, dom, hydrateNodes) {
+export default function reconcile (outline, state, parentTree, parentView, i, dom, hydrateNodes) {
 	if (typeof outline === 'function') {
-		// dynamic node
-		activate(outline, state, parentView, i, dom, hydrateNodes);
-		return;
+		if (frameworks[0]?.isServer) {
+			// dynamic node
+			activate(outline, state, parentTree, parentView, i, dom, hydrateNodes);
+			return;
+		}
+
+		// treat as static layout on server
+		outline = outline(state);
 	}
 
 	// dom node
 	const sibling = { ...dom };
-	const view = process(outline, state, parentView, i, dom, hydrateNodes);
+	const view = process(outline, state, parentTree, parentView, i, dom, hydrateNodes);
 	let [node] = parentView[i + 1] = view;
 	if (!node && dom.node !== sibling.node) node = dom.node;
 	if (node) Object.assign(dom, { node, sibling: undefined });
-	const { impulse } = view;
 
 	// clear memo props and run teardowns
-	if (impulse && impulse !== impulses[0]) {
-		deactivate(impulse);
-	}
+	const { tree } = view;
+	if (tree && tree !== trees[0]) deactivate(tree);
 }

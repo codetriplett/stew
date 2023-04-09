@@ -21,7 +21,7 @@
  * SOFTWARE.
  */
 
-import reconcile from './reconcile';
+import reconcileNode from './view';
 
 // tags that shouldn't wrap content when server rendered
 const selfClosingTags = new Set([
@@ -141,9 +141,11 @@ export function defaultUpdater (element, props, prevNames, defaultProps, ignoreR
 }
 
 export const frameworks = [];
-const defaultDocument = typeof window === 'object' && window.document || virtualDocument;
+const isClient = typeof window === 'object';
+const defaultDocument = isClient && window.document || virtualDocument;
 const defaultFramework = [defaultDocument, defaultUpdater, {}];
 export const virtualFramework = [virtualDocument, defaultUpdater, {}];
+Object.assign(defaultFramework, { isServer: !isClient });
 
 // BASIC RULES
 // - impulse should teardown when there is no longer a view in the layout that originated from it
@@ -163,16 +165,19 @@ export default function stew (container, layout, framework = defaultFramework) {
 	}
 
 	// prepare hydrate nodes and load framework
+	const fiber = [,];
 	const view = Object.assign([container], { keyedViews: {} });
 	const dom = { container };
-	const hydrateNodes = [...container.childNodes];
+	const hydrateNodes = framework.isServer ? undefined : [...container.childNodes];
 	frameworks.unshift(framework);
-	reconcile(layout, {}, view, 0, dom, hydrateNodes);
+	reconcileNode(layout, {}, fiber, view, 0, dom, hydrateNodes);
 	frameworks.shift();
 
 	// remove unclaimed nodes
-	for (const node of hydrateNodes) {
-		container.removeChild(node);
+	if (hydrateNodes) {
+		for (const node of hydrateNodes) {
+			container.removeChild(node);
+		}
 	}
 
 	// only return container if it was created here

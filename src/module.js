@@ -1,2 +1,2 @@
-export { useMemo, useEffect, useState, useImpulse } from './activate.js';
+export { useMemo, useEffect, useState } from './hooks.js';
 export { default as default, virtualFramework } from './index.js';

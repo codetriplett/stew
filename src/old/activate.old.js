@@ -58,16 +58,18 @@ function schedule (subscriptions) {
 	}, 0);
 }
 
-function unsubscribe (impulses) {
+// cleans up old listeners on state properties before impulse refresh or removal
+function unsubscribe (trees) {
 	// clear flag when unsubscribing hook-based impulse
-	if (!Array.isArray(impulses)) {
-		impulses.persist = false;
-		impulses = [impulses];
+	if (!Array.isArray(trees)) {
+		trees.persist = false;
+		trees = [trees.tree];
 	}
 
-	for (const impulse of impulses) {
+	for (const tree of trees) {
+		const [impulse] = tree;
 		if (impulse.persist) continue;
-		const { subscriptionsSet, childImpulses } = impulse;
+		const { subscriptionsSet } = tree;
 
 		// remove impulse from subscriptions
 		for (const subscriptions of subscriptionsSet) {
@@ -76,29 +78,17 @@ function unsubscribe (impulses) {
 
 		// reset set and continue unsubscribing children
 		subscriptionsSet.clear();
-		unsubscribe(childImpulses);
+		unsubscribe(tree.slice(1));
 	}
 }
 
-// TODO: test that teardowns are properly being done now
-// - maybe it's time to sketch up the flow of all of this
-export function deactivate (impulse, isRecursive) {
-	const { view, childImpulses } = impulse;
-	const { memos, teardowns } = view;
+// recursively call teardowns
+export function deactivate (tree) {
+	const { memos, teardowns } = tree;
 
-	if (isRecursive) {
-		// deactivate children
-		for (const impulse of childImpulses) {
-			deactivate(impulse, true);
-		}
-	} else {
-		// clear memo props
-		Object.assign(view, {
-			impulse: undefined,
-			memos: undefined,
-			teardowns: undefined,
-			index: undefined,
-		});
+	// deactivate children
+	for (const tree of tree.slice(1)) {
+		deactivate(tree);
 	}
 
 	// call teardown
@@ -233,24 +223,24 @@ export function useState (object, ...rest) {
 	}, ...rest);
 }
 
-export default function activate (callback, state, parentView, i, dom = {}, hydrateNodes) {
+// TODO: store hydrate notes in dom
+// - activate can clear it before reaction when creating new dom object
+// - one last thing to pass all around, especially when it only used initially
+export default function activate (callback, state, parentTree, parentView, i, dom = {}, hydrateNodes) {
 	// persist parent framework and dom reference object
 	const [framework] = frameworks;
-	const [parentImpulse] = impulses;
-	const { length: depth } = impulses;
-	const childImpulses = [];
-	const view = i === undefined ? parentView : parentView[i + 1] || [];
 	const sibling = { ...dom };
+	let view = i === undefined ? parentView : parentView[i + 1];
+	const tree = view.tree || Object.assign([], { depth: impulses.length, memo: [], subscriptionSet: new Set() });
 	let params = [];
-	let initialized = false;
 
 	// wrap in setup and teardown steps and store as new callback to subscribe to state property changes
 	function impulse (newState) {
 		// resurface stored framework
 		frameworks.unshift(framework);
 		impulses.unshift(impulse);
-		unsubscribe(childImpulses.splice(0));
-		Object.assign(view, { index: 0, teardowns: [] });
+		unsubscribe(tree.splice(1));
+		Object.assign(tree, { index: 0, teardowns: [] });
 		if (newState) state = newState;
 		let outline;
 
@@ -266,16 +256,15 @@ export default function activate (callback, state, parentView, i, dom = {}, hydr
 			outline = [outline, view];
 		} else if (i !== undefined) {
 			// process return value as it normally would before resetting active framework
-			if (initialized) dom = { ...sibling };
+			if (view) dom = { ...sibling };
 			reconcile(outline, state, parentView, i, dom, hydrateNodes);
-			let newView = parentView[i + 1];
+			const newView = parentView[i + 1];
 
-			if (newView !== view) {
-				// remove old nodes and subscriptions
-				if (view.length) remove(view, dom.container);
-				view.splice(0, view.length, ...newView);
-				view.keyedViews = newView.keyedViews;
-				parentView[i + 1] = view;
+			// replace old view if it represents new ref
+			if (view !== newView) {
+				if (view) remove(view, dom.container);
+				view = newView;
+				view.tree = tree;
 			}
 		} else if (parentView[0]) {
 			// process attribute update
@@ -295,19 +284,10 @@ export default function activate (callback, state, parentView, i, dom = {}, hydr
 		return outline;
 	}
 
-	// attach context to impulse
-	Object.assign(impulse, {
-		view,
-		depth,
-		childImpulses,
-		subscriptionsSet: new Set()
-	});
-
-	// set parent impulse and memos
-	parentImpulse?.childImpulses?.push?.(impulse);
-	if (!view.memos) Object.assign(view, { memos: [] });
-	if (view.impulse) unsubscribe(view.impulse);
-	view.impulse = impulse;
+	// attach impulse to parent and bind with tree
+	parentTree.push(impulse);
+	impulse.tree = tree;
+	tree.impulse = impulse;
 
 	// set as persistent when created from hook
 	if (i < 0) {
@@ -319,6 +299,5 @@ export default function activate (callback, state, parentView, i, dom = {}, hydr
 	const value = impulse();
 	Object.assign(dom, { sibling });
 	hydrateNodes = undefined;
-	initialized = true;
 	return value;
 }

@@ -4,7 +4,7 @@ import { frameworks, virtualDocument } from '.';
 
 jest.mock('./reconcile');
 
-describe('activate', () => {
+describe.skip('activate', () => {
 	const callback = jest.fn();
 	let updater, state, parentView, dom, hydrateNodes, framework, parentImpulse, impulse, outline, frameworksCopy, impulsesCopy;
 
@@ -69,7 +69,7 @@ describe('activate', () => {
 	});
 });
 
-describe('useMemo', () => {
+describe.skip('useMemo', () => {
 	let memos, view, impulse;
 
 	beforeEach(() => {
@@ -116,7 +116,7 @@ describe('useMemo', () => {
 	});
 });
 
-describe('createState', () => {
+describe.skip('createState', () => {
 	const impulse = jest.fn();
 	let updater, framework;
 

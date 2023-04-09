@@ -48,6 +48,7 @@ function generateVideo () {
 	}
 	
 	return {
+		id: random(100000000),
 		title,
 		action: action.toLowerCase(),
 		color: color.toLowerCase(),
@@ -83,16 +84,16 @@ function loadRecommendation (index, outerState) {
 	outerState.recommendations = { recommendations: [...recommendations.slice(0, index), ...recommendations.slice(index + 1), generateVideo()] };
 }
 
-function VideoPlayer ({ title, action, color, shape, ft, length, owner }, outerState) {
+function VideoPlayer ({ id, title, action, color, shape, ft, length, owner }, outerState) {
 	const iterationCount = length / 5000;
 	
-	return ['', () => useState({
+	return () => ['', useState('state', {
 		playState: 'paused',
 		currentTime: 0,
 		playTimestamp: undefined,
 		completed: false,
 		hoverActive: false,
-	}, 'state', []),
+	}, [id]),
 		({ state, playState, currentTime, playTimestamp, hoverActive, completed }) => {
 			useEffect(clearCompleteTimeout => {
 				console.log('===== set video', playState);
@@ -173,9 +174,9 @@ function Comments ({ comments }, outerState) {
 	const { video: { owner } } = outerState;
 	const { length } = comments;
 
-	return !length ? null : ['', () => useState({
+	return !length ? null : () => ['', useState('state', {
 		expandedCount: 10,
-	}, 'state', []),
+	}, []),
 		({ state, expandedCount }) => {
 			const ref = [];
 
@@ -231,11 +232,11 @@ function Recommendations ({ recommendations }, outerState) {
 }
 
 function App () {
-	return ['', () => useState({
+	return () => ['', useState('state', {
 		video: generateVideo(),
 		comments: generateComments(), 
 		recommendations: generateRecommendations(),
-	}, 'state', []),
+	}, []),
 		['div', { className: 'header' },
 			['strong', { className: 'logo' }, 'StewTube'],
 		],

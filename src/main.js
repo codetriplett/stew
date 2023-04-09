@@ -1,11 +1,10 @@
-import stew, { virtualFramework, useMemo, useEffect, useState, useImpulse } from './module';
+import stew, { virtualFramework, useMemo, useEffect, useState } from './module';
 
 Object.assign(stew, {
 	virtualFramework,
 	useMemo,
 	useEffect,
 	useState,
-	useImpulse,
 });
 
 if (typeof window === 'object') {
