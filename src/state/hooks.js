@@ -1,6 +1,6 @@
-import { frameworks } from '.';
-import { executeCallback, fibers } from './impulse';
-import createState, { effects, scheduleCallbacks } from './state';
+import { frameworks } from '../view/dom';
+import { executeCallback, fibers } from './fiber';
+import createState, { effects, scheduleCallbacks } from '.';
 
 // TODO: add option for function after deps (or after cueCount if that exists) that runs if memo is not called
 // - prevValue is passed to it but function is mostly so we can return true to avoid processing child element

@@ -1,5 +1,5 @@
-import { fibers } from './impulse';
-import { frameworks } from '.';
+import { fibers } from './fiber';
+import { frameworks } from '../view/dom';
 
 export const effects = [];
 export const queue = new Set();
@@ -7,14 +7,11 @@ const resets = [];
 let timeout;
 
 export function scheduleCallbacks (subscriptions) {
-	// add to queue
-	if (typeof subscriptions === 'function') {
-		effects.push(subscriptions);
-	} else {
-		for (const fiber of subscriptions) {
-			queue.add(fiber);
-		}
+	for (const fiber of subscriptions) {
+		queue.add(fiber);
 	}
+
+	// TODO: maybe use requestAnimationFrame instead of setTimeout
 
 	// schedule update after all main thread tasks have finished
 	timeout = timeout !== undefined ? timeout : setTimeout(() => {
@@ -84,7 +81,7 @@ export default function createState (object, key) {
 				if (fibers.length) {
 					const [fiber] = fibers;
 					subscriptions.add(fiber);
-					fiber.s.add(subscriptions);
+					fiber.r.add(subscriptions);
 				}
 
 				return value;
