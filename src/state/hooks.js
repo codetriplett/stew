@@ -2,9 +2,6 @@ import { frameworks } from '../view/dom';
 import { executeCallback, fibers } from './fiber';
 import createState, { effects, scheduleCallbacks } from '.';
 
-// TODO: add option for function after deps (or after cueCount if that exists) that runs if memo is not called
-// - prevValue is passed to it but function is mostly so we can return true to avoid processing child element
-// - useMemo(() => ...sublayout, [...deps], () => true) // return sublayout when changes occur, otherwise return true which will keep previous view
 export function useMemo (callback, deps, ...rest) {
 	// extract params and previous values
 	if (frameworks[0]?.isServer) return executeCallback(callback, undefined, undefined);

@@ -62,7 +62,7 @@ export default function processFiber (callback, state, parentFiber, parentView, 
 				view.fiber = fiber;
 			}
 
-			// TODO: check for child impulses to deactivate here instead of in removeNode
+			// teardown and unsubscribe disconnected child fibers
 			for (const childFiber of oldChildFibers) {
 				if (!newChildFibers.has(childFiber)) deactivateFiber(childFiber);
 			}

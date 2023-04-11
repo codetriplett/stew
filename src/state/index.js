@@ -4,17 +4,18 @@ import { frameworks } from '../view/dom';
 export const effects = [];
 export const queue = new Set();
 const resets = [];
-let timeout;
+let animationFrame;
 
 export function scheduleCallbacks (subscriptions) {
 	for (const fiber of subscriptions) {
 		queue.add(fiber);
 	}
 
-	// TODO: maybe use requestAnimationFrame instead of setTimeout
+	// wait on previously requested animation frame
+	if (animationFrame) return;
 
 	// schedule update after all main thread tasks have finished
-	timeout = timeout !== undefined ? timeout : setTimeout(() => {
+	requestAnimationFrame(() => {
 		// prepare copies
 		const resetsCopy = resets.splice(0);
 		const queueLayers = {};
@@ -48,7 +49,7 @@ export function scheduleCallbacks (subscriptions) {
 		for (const [state, name] of resetsCopy) {
 			state[name] = undefined;
 		}
-	}, 0);
+	});
 }
 
 export default function createState (object, key) {
