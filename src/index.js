@@ -44,15 +44,15 @@ export default function stew (container, layout, framework = defaultFramework) {
 	// prepare hydrate nodes and load framework
 	const fiber = [,];
 	const view = Object.assign([container], { keyedViews: {} });
-	const dom = { container };
-	const hydrateNodes = framework.isServer ? undefined : [...container.childNodes];
+	const candidates = framework.isServer ? undefined : [...container.childNodes];
+	const dom = { container, candidates };
 	frameworks.unshift(framework);
-	reconcileNode(layout, {}, fiber, view, 0, dom, hydrateNodes);
+	reconcileNode(layout, {}, fiber, view, 0, dom);
 	frameworks.shift();
 
 	// remove unclaimed nodes
-	if (hydrateNodes) {
-		for (const node of hydrateNodes) {
+	if (candidates) {
+		for (const node of candidates) {
 			container.removeChild(node);
 		}
 	}

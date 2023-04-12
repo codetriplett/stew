@@ -22,11 +22,11 @@ export function scheduleCallbacks (subscriptions) {
 
 		// organized impulses
 		for (const fiber of [...queue]) {
-			const { 0: impulse, d } = fiber;
-			const queueLayer = queueLayers[d];
+			const { 0: impulse, depth } = fiber;
+			const queueLayer = queueLayers[depth];
 			if (queueLayer) queueLayer.push(impulse);
-			else queueLayers[d] = [impulse];
-			fiber[0].q = true;
+			else queueLayers[depth] = [impulse];
+			fiber[0].queued = true;
 		}
 		
 		// clear queues and timeout
@@ -41,7 +41,7 @@ export function scheduleCallbacks (subscriptions) {
 		// filter out any impulses that will already be covered by a parent update
 		for (const i of Object.keys(queueLayers).sort((a, b) => a - b)) {
 			for (const impulse of queueLayers[i]) {
-				if (impulse.q) impulse();
+				if (impulse.queued) impulse();
 			}
 		}
 
@@ -82,7 +82,7 @@ export default function createState (object, key) {
 				if (fibers.length) {
 					const [fiber] = fibers;
 					subscriptions.add(fiber);
-					fiber.r.add(subscriptions);
+					fiber.registry.add(subscriptions);
 				}
 
 				return value;

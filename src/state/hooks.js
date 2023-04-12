@@ -8,7 +8,7 @@ export function useMemo (callback, deps, ...rest) {
 	const cueCount = rest.length && typeof rest[0] !== 'function' ? rest.shift() : 0;
 	const [callbackOnPersist] = rest;
 	const [fiber] = fibers;
-	const { m: memos, i: index } = fiber || [];
+	const { memos, index } = fiber || [];
 	let memo = memos?.[index]
 	let prevDeps, persist;
 
@@ -24,7 +24,7 @@ export function useMemo (callback, deps, ...rest) {
 
 	if (!persist) memo[0] = executeCallback(callback, memo[0], prevDeps);
 	if (deps) memo.push(...deps);
-	if (fiber) memos[fiber.i++] = memo;
+	if (fiber) memos[fiber.index++] = memo;
 	return persist && callbackOnPersist ? callbackOnPersist(memo[0]) : memo[0];
 }
 
@@ -32,7 +32,7 @@ export function useEffect (...params) {
 	// ignore for virtual document, otherwise extract previous values
 	if (frameworks[0].isServer) return;
 	const [fiber] = fibers;
-	const { m: memos, i: index, t: teardowns } = fiber;
+	const { memos, index, teardowns } = fiber;
 
 	// add effect
 	effects.push(() => {

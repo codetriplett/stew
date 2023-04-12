@@ -18,12 +18,12 @@ export function processText (text, view = []) {
 	return view;
 };
 
-export default function processElement (tagName, obj, view, hydrateNodes) {
+export default function processElement (tagName, obj, view) {
 	const [framework] = frameworks;
 	const [document, updater, defaultProps] = framework;
 	let [node] = view;
 
-	if (!hydrateNodes && !('keyedViews' in view) || tagName !== node?.tagName?.toLowerCase?.()) {
+	if (!('keyedViews' in view) || tagName !== node?.tagName?.toLowerCase?.()) {
 		// register defaults if not yet done
 		if (!Object.prototype.hasOwnProperty.call(defaultProps, tagName)) {
 			const example = document.createElement(tagName);
@@ -33,10 +33,6 @@ export default function processElement (tagName, obj, view, hydrateNodes) {
 		// create new element and attach to dom
 		node = document.createElement(tagName);
 		view = Object.assign([node], { keyedViews: {} });
-	} else if (hydrateNodes) {
-		// claim node and prepare new set for children
-		hydrateNodes.pop();
-		view.keyedViews = {};
 	}
 	
 	// update attributes

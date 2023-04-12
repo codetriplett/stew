@@ -3,13 +3,7 @@ import processFiber, { executeCallback } from '../state/fiber';
 import processElement, { processText } from './element';
 
 function appendNode (node, dom) {
-	const { container } = dom;
-	let sibling;
-
-	// find the next valid sibling node
-	while (dom && !sibling) {
-		({ node: sibling, sibling: dom } = dom);
-	}
+	const { container, sibling } = dom;
 
 	if (sibling && sibling.previousSibling !== node) {
 		container.insertBefore(node, sibling);
@@ -33,22 +27,40 @@ export function removeNode (view, container) {
 	}
 }
 
-function populateChildren (infos, state, parentFiber, parentView, dom, hydrateNodes) {
-	// backup previous views
+function prepareCandidate (candidates, dom) {
+	if (!candidates.length) return;
+	const [candidate] = dom.candidate = Object.assign(candidates?.splice?.(-1), { keyedViews: {} });
+	return candidate;
+}
+
+function populateChildren (infos, state, parentFiber, parentView, dom) {
+	// backup previous views before removing extra child views
+	const { container, candidates, doAppend } = dom;
 	const [, ...childViews] = parentView;
+	let candidate = prepareCandidate(candidates || [], dom);
+	parentView.splice(infos.length + 1);
 
 	// update children
 	for (let i = infos.length - 1; i >= 0; i--) {
-		const sibling = { ...dom };
-		const view = reconcileNode(infos[i], state, parentFiber, parentView, i, dom, hydrateNodes);
-		let [node] = parentView[i + 1] = view;
-		if (!node && dom.node !== sibling.node) node = dom.node;
-		if (node) Object.assign(dom, { node, sibling: undefined });
+		const prevView = parentView[i + 1];
+		const view = reconcileNode(infos[i], state, parentFiber, parentView, i, dom);
+		const [node] = parentView[i + 1] = view;
+		
+		if (!node) {
+			// backup sibling
+			view.sibling = dom.sibling;
+			continue;
+		} else if (node === candidate) {
+			// prepare new candidate
+			candidate = prepareCandidate(candidates, dom);
+		} else if (doAppend || node !== prevView?.[0]) {
+			// append new or moved node
+			appendNode(node, dom);
+		}
+		
+		// set as sibling for next child
+		dom.sibling = node;
 	}
-
-	// adjust children length to match current state
-	const { container } = dom;
-	parentView.splice(infos.length + 1);
 
 	// remove outdated views
 	for (const childView of childViews) {
@@ -60,45 +72,33 @@ function populateChildren (infos, state, parentFiber, parentView, dom, hydrateNo
 	const entries = Object.entries(parentView.keyedViews);
 	const validEntries = entries.filter(([, childView]) => parentView.indexOf(childView) > 0);
 	if (validEntries.length !== entries.length) parentView.keyedViews = Object.fromEntries(validEntries);
+
+	// clear temporary dom props
+	Object.assign(dom, { doAppend: false, candidates: undefined });
 }
 
-export default function reconcileNode (info, state, parentFiber, parentView, i, dom, hydrateNodes) {
+export default function reconcileNode (info, state, parentFiber, parentView, i, dom) {
 	// get candidate view
-	const { doAppend } = dom;
-	let indexedView = hydrateNodes ? hydrateNodes.slice(-1) : parentView[i + 1];
+	const { candidate = parentView[i + 1], candidates, doAppend } = dom;
 
 	if (!Array.isArray(info)) {
 		switch (typeof info) {
-			case 'string':
-			case 'number': {
-				// text node
-				const view = processText(info, indexedView, dom);
-				if (doAppend || view !== indexedView) appendNode(view[0], dom);
-				else if (hydrateNodes && view === indexedView) hydrateNodes.pop();
-				return view;
-			}
-			case 'object': {
-				// static node
-				if (doAppend) appendNode(info, dom);
-				return [info];
-			}
 			case 'function': {
 				// skip fiber overhead on server
 				if (frameworks[0]?.isServer) {
 					info = executeCallback(info, state);
-					return reconcileNode(info, state, parentFiber, parentView, i, dom, hydrateNodes);
+					return reconcileNode(info, state, parentFiber, parentView, i, dom);
 				}
 				
 				// dynamic node
-				return processFiber(info, state, parentFiber, parentView, i, dom, hydrateNodes);
+				return processFiber(info, state, parentFiber, parentView, i, dom);
 			}
-			default: {
-				// either skip or persist node
-				if (!info || !indexedView) return [];
-				const [node] = indexedView;
-				if (doAppend && node) appendNode(node, dom);
-				return indexedView;
-			}
+			// static node
+			case 'object': return [info];
+			// text node
+			case 'string': case 'number': return processText(info, candidate);
+			// persist or ignore node
+			default: return info && candidate || [];
 		}
 	}
 
@@ -106,33 +106,24 @@ export default function reconcileNode (info, state, parentFiber, parentView, i, 
 	const [str, obj, ...arr] = info;
 	const hasKey = ~str.indexOf(':');
 	const [, tagName, key] = hasKey ? str.match(/^\s*(.*?)\s*(?::(.*?))?$/) : [, str];
-	let view = !hydrateNodes && hasKey && parentView.keyedViews[key] || indexedView || [];
+	let view = !candidates && hasKey && parentView.keyedViews[key] || candidate || [];
 	let [node] = view;
 
 	if (tagName === '') {
-		// reject view if it was for an element
+		// reject view if it was for an element, the apply state and/or set doAppend if necessary
 		if (node || !('keyedViews' in view)) view = Object.assign([], { keyedViews: {} });
 		if (obj) state = obj;
-
-		// flag dom as needing to append children if fragment moves
-		if (!doAppend) dom.doAppend = view !== indexedView;
+		if (!doAppend) dom.doAppend = view !== candidate;
 	} else {
-		// create or update node
-		[node] = view = processElement(tagName.toLowerCase(), obj, view, hydrateNodes);
-
-		// update dom
-		if (doAppend || view !== indexedView) appendNode(node, dom);
+		// create or update node and create new dom object for children
+		[node] = view = processElement(tagName.toLowerCase(), obj, view);
 		dom = { container: node };
-
-		if (hydrateNodes) {
-			// prepare new set for children
-			hydrateNodes = [...node.childNodes];
-		}
+		if (candidates) dom.candidates = [...node.childNodes];
 	}
 
 	// update views and temporarily store new future views in place of node
 	if (hasKey) parentView.keyedViews[key] = view;
-	populateChildren(arr, state, parentFiber, view, dom, hydrateNodes);
+	populateChildren(arr, state, parentFiber, view, dom);
 	dom.doAppend = doAppend;
 	return view;
 }
