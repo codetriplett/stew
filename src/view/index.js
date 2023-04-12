@@ -45,9 +45,9 @@ function populateChildren (infos, state, parentFiber, parentView, dom) {
 		const prevView = parentView[i + 1];
 		const view = reconcileNode(infos[i], state, parentFiber, parentView, i, dom);
 		const [node] = parentView[i + 1] = view;
-		
+
 		if (!node) {
-			// backup sibling
+			// set first sibling in fragment
 			view.sibling = dom.sibling;
 			continue;
 		} else if (node === candidate) {

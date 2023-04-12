@@ -30,12 +30,11 @@ import reconcileNode from './view';
 //   - impulses are flagged as queued when triggered and this flag is cleared when processed
 //   - impulses in the queue are ignored if they no longer have the queued flag set
 export default function stew (container, layout, framework = defaultFramework) {
-	let isFragment;
+	const isFragment = container === '';
 
 	if (typeof container === 'string') {
 		// locate container
 		const [document] = framework;
-		isFragment = container === '';
 		if (isFragment) container = document.createDocumentFragment();
 		else if (!('querySelector' in document)) return;
 		else container = document.querySelector(container);
@@ -47,7 +46,7 @@ export default function stew (container, layout, framework = defaultFramework) {
 	const candidates = framework.isServer ? undefined : [...container.childNodes];
 	const dom = { container, candidates };
 	frameworks.unshift(framework);
-	reconcileNode(layout, {}, fiber, view, 0, dom);
+	reconcileNode(['', null, layout], {}, fiber, view, 0, dom);
 	frameworks.shift();
 
 	// remove unclaimed nodes

@@ -28,10 +28,10 @@ export function scheduleCallbacks (subscriptions) {
 			else queueLayers[depth] = [impulse];
 			fiber[0].queued = true;
 		}
-		
+
 		// clear queues and timeout
 		queue.clear();
-		timeout = undefined;
+		animationFrame = undefined;
 
 		// resolve effects
 		for (const effect of effects.splice(0)) {
