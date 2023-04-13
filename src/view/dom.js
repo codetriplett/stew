@@ -67,7 +67,7 @@ export const virtualDocument = {
 				}
 				
 				const styleString = Object.entries(style).map(([name, value]) => {
-					return `${name}:${value}`;
+					return `${name.replace(/(?=[A-Z])/g, '-').toLowerCase()}:${value}`;
 				}).join(';');
 
 				if (styleString) html += ` style="${styleString}"`;

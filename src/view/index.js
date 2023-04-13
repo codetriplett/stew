@@ -27,17 +27,16 @@ export function removeNode (view, container) {
 	}
 }
 
-function prepareCandidate (candidates, dom) {
-	if (!candidates.length) return;
-	const [candidate] = dom.candidate = Object.assign(candidates?.splice?.(-1), { keyedViews: {} });
-	return candidate;
+export function prepareCandidates (container) {
+	const childNodes = [...container.childNodes].reverse();
+	return childNodes.map(node => Object.assign([node], { keyedViews: {} }));
 }
 
-function populateChildren (infos, state, parentFiber, parentView, dom) {
+export function populateChildren (infos, state, parentFiber, parentView, dom) {
 	// backup previous views before removing extra child views
 	const { container, candidates, doAppend } = dom;
 	const [, ...childViews] = parentView;
-	let candidate = prepareCandidate(candidates || [], dom);
+	let candidate = candidates?.[0];
 	parentView.splice(infos.length + 1);
 
 	// update children
@@ -50,9 +49,10 @@ function populateChildren (infos, state, parentFiber, parentView, dom) {
 			// set first sibling in fragment
 			view.sibling = dom.sibling;
 			continue;
-		} else if (node === candidate) {
-			// prepare new candidate
-			candidate = prepareCandidate(candidates, dom);
+		} else if (view === candidate) {
+			// claim candidate
+			candidates.shift();
+			[candidate] = candidates;
 		} else if (doAppend || node !== prevView?.[0]) {
 			// append new or moved node
 			appendNode(node, dom);
@@ -72,14 +72,12 @@ function populateChildren (infos, state, parentFiber, parentView, dom) {
 	const entries = Object.entries(parentView.keyedViews);
 	const validEntries = entries.filter(([, childView]) => parentView.indexOf(childView) > 0);
 	if (validEntries.length !== entries.length) parentView.keyedViews = Object.fromEntries(validEntries);
-
-	// clear temporary dom props
-	Object.assign(dom, { doAppend: false, candidates: undefined });
 }
 
 export default function reconcileNode (info, state, parentFiber, parentView, i, dom) {
 	// get candidate view
-	const { candidate = parentView[i + 1], candidates, doAppend } = dom;
+	const { candidates, doAppend } = dom;
+	const candidate = candidates?.[0] || parentView[i + 1]
 
 	if (!Array.isArray(info)) {
 		switch (typeof info) {
@@ -106,24 +104,26 @@ export default function reconcileNode (info, state, parentFiber, parentView, i, 
 	const [str, obj, ...arr] = info;
 	const hasKey = ~str.indexOf(':');
 	const [, tagName, key] = hasKey ? str.match(/^\s*(.*?)\s*(?::(.*?))?$/) : [, str];
+	const isFragment = tagName === '';
 	let view = !candidates && hasKey && parentView.keyedViews[key] || candidate || [];
 	let [node] = view;
 
-	if (tagName === '') {
+	if (isFragment) {
 		// reject view if it was for an element, the apply state and/or set doAppend if necessary
 		if (node || !('keyedViews' in view)) view = Object.assign([], { keyedViews: {} });
 		if (obj) state = obj;
-		if (!doAppend) dom.doAppend = view !== candidate;
+		if (!candidates && !doAppend) dom.doAppend = view !== candidate;
 	} else {
 		// create or update node and create new dom object for children
 		[node] = view = processElement(tagName.toLowerCase(), obj, view);
 		dom = { container: node };
-		if (candidates) dom.candidates = [...node.childNodes];
+		if (candidates) dom.candidates = prepareCandidates(node);
 	}
 
 	// update views and temporarily store new future views in place of node
 	if (hasKey) parentView.keyedViews[key] = view;
 	populateChildren(arr, state, parentFiber, view, dom);
-	dom.doAppend = doAppend;
+	if (isFragment) dom.doAppend = doAppend;
+	else dom.candidates = undefined;
 	return view;
 }

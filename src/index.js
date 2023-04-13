@@ -22,7 +22,7 @@
  */
 
 import { frameworks, defaultFramework } from './view/dom';
-import reconcileNode from './view';
+import { prepareCandidates, populateChildren } from './view';
 
 // BASIC RULES
 // - impulse should teardown when there is no longer a view in the layout that originated from it
@@ -43,18 +43,12 @@ export default function stew (container, layout, framework = defaultFramework) {
 	// prepare hydrate nodes and load framework
 	const fiber = [,];
 	const view = Object.assign([container], { keyedViews: {} });
-	const candidates = framework.isServer ? undefined : [...container.childNodes];
+	const candidates = framework.isServer ? undefined : prepareCandidates(container);
 	const dom = { container, candidates };
 	frameworks.unshift(framework);
-	reconcileNode(['', null, layout], {}, fiber, view, 0, dom);
+	populateChildren([layout], {}, fiber, view, dom);
 	frameworks.shift();
-
-	// remove unclaimed nodes
-	if (candidates) {
-		for (const node of candidates) {
-			container.removeChild(node);
-		}
-	}
+	dom.candidates = undefined;
 
 	// only return container if it was created here
 	if (isFragment) return container;
