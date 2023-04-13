@@ -34,7 +34,7 @@ export default function processElement (tagName, obj, view) {
 		node = document.createElement(tagName);
 		view = Object.assign([node], { keyedViews: {} });
 	}
-	
+
 	// update attributes
 	if (obj) {
 		const prevNames = managedProps.get(node);

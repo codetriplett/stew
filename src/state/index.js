@@ -6,7 +6,7 @@ export const queue = new Set();
 const resets = [];
 let animationFrame;
 
-export function scheduleCallbacks (subscriptions) {
+export function scheduleDispatches (subscriptions) {
 	for (const fiber of subscriptions) {
 		queue.add(fiber);
 	}
@@ -100,7 +100,7 @@ export default function createState (object, key) {
 				}
 
 				// dispatch change to subscribed listeners
-				scheduleCallbacks(subscriptions);
+				scheduleDispatches(subscriptions);
 				subscriptions.clear();
 			},
 		});

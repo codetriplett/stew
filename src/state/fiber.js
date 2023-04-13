@@ -5,7 +5,8 @@ export const fibers = [];
 
 // recursively call teardowns
 function deactivateFiber (fiber) {
-	const { memos, teardowns, registry } = fiber;
+	const { view, memos, teardowns, registry } = fiber;
+	view.fiber = undefined;
 
 	// unsubscribe from all state properties
 	for (const subscriptions of registry) {
@@ -50,7 +51,8 @@ export default function processFiber (callback, state, parentFiber, parentView, 
 
 			// process dynamic section and overwrite previously set dom siblings
 			if (prevView) dom.sibling = parentView.slice(i + 1).find(view => view[0] || view.sibling)?.[0];
-			const view = reconcileNode(info, state, fiber, parentView, i, dom);
+			const view = fiber.view = reconcileNode(info, state, fiber, parentView, i, dom);
+			view.fiber = fiber;
 
 			if (prevView) {
 				// replace old view if it represents new ref
@@ -61,7 +63,7 @@ export default function processFiber (callback, state, parentFiber, parentView, 
 
 				// teardown and unsubscribe disconnected child fibers
 				for (const childFiber of oldChildFibers) {
-					if (!fiber.indexOf(childFiber)) deactivateFiber(childFiber);
+					if (!~fiber.indexOf(childFiber)) deactivateFiber(childFiber);
 				}
 			}
 

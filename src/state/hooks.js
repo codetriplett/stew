@@ -1,6 +1,6 @@
 import { frameworks } from '../view/dom';
 import { executeCallback, fibers } from './fiber';
-import createState, { effects, scheduleCallbacks } from '.';
+import createState, { effects, scheduleDispatches } from '.';
 
 export function useMemo (callback, deps, ...rest) {
 	// extract params and previous values
@@ -43,7 +43,7 @@ export function useEffect (...params) {
 	});
 
 	// schedule resolution and return previous value
-	scheduleCallbacks([]);
+	scheduleDispatches([]);
 	return memos[index];
 }
 
