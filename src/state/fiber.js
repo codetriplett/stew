@@ -1,5 +1,5 @@
-import { frameworks } from '../view/dom';
 import reconcileNode, { removeNode } from '../view';
+import { frameworks } from '../view/dom';
 
 export const fibers = [];
 
@@ -40,7 +40,7 @@ export default function processFiber (callback, state, parentFiber, parentView, 
 
 	if (!fiber) {
 		// allows dynamic section of layout to update with the same context it had originally
-		function impulse () {
+		function impulse (isDispatch) {
 			// resurface stored framework
 			frameworks.unshift(framework);
 			fibers.unshift(fiber);
@@ -50,38 +50,40 @@ export default function processFiber (callback, state, parentFiber, parentView, 
 			const info = executeCallback(callback, state);
 
 			// process dynamic section and overwrite previously set dom siblings
-			if (prevView) dom.sibling = parentView.slice(i + 1).find(view => view[0] || view.sibling)?.[0];
-			const view = fiber.view = reconcileNode(info, state, fiber, parentView, i, dom);
-			view.fiber = fiber;
+			if (isDispatch) dom.sibling = parentView.slice(i + 1).find(view => view[0] || view.sibling)?.[0];
+			const view = reconcileNode(info, state, fiber, parentView, i, dom);
 
-			if (prevView) {
+			// handle updates here if impulse is reacting to dispatch
+			if (isDispatch) {
+				const prevView = fiber.view;
+				impulse.queued = false;
+
 				// replace old view if it represents new ref
 				if (view !== prevView) {
 					removeNode(prevView, dom.container);
 					parentView[i + 1] = view;
 				}
+			}
 
-				// teardown and unsubscribe disconnected child fibers
-				for (const childFiber of oldChildFibers) {
-					if (!~fiber.indexOf(childFiber)) deactivateFiber(childFiber);
-				}
+			// teardown and unsubscribe disconnected child fibers
+			for (const childFiber of oldChildFibers) {
+				if (!~fiber.indexOf(childFiber)) deactivateFiber(childFiber);
 			}
 
 			// reset stack
 			fibers.shift();
 			frameworks.shift();
-			impulse.queued = false;
-			return prevView = view;
+			view.fiber = fiber;
+			return fiber.view = view;
 		}
 
 		// create new view and set fiber
 		const [framework] = frameworks;
-		let prevView;
 		fiber = Object.assign([impulse], { depth: fibers.length, memos: [], registry: new Set() });
 	}
 
 	// ready callback and call impulse with state
 	parentFiber.push(fiber);
 	Object.assign(fiber, { callback, state });
-	return fiber[0](state);
+	return fiber[0]();
 }

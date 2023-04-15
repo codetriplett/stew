@@ -1,6 +1,6 @@
+import createState, { queue } from '.';
 import { frameworks, virtualFramework } from '../view/dom';
 import { fibers } from './fiber';
-import createState, { queue } from '.';
 
 describe('createState', () => {
 	const impulse = jest.fn();
@@ -42,21 +42,19 @@ describe('createState', () => {
 		expect(impulse.mock.calls).toEqual([[]]);
 	});
 
-	// test this after activate is tested
-	it.skip('prevents nested executions', async () => {
-		queue.add(parentImpulse);
-		const actual = createState({ str: 'abc' });
-		actual.str;
+	it('prevents nested executions', async () => {
 		const childImpulse = jest.fn();
-		const childFIber = Object.assign([childImpulse], { registry: new Set });
-		childImpulse.fiber = childFiber;
-		impulse.Fiber.push(childFiber);
-		fibers.unshift(childImpulse);
+		const childFiber = Object.assign([childImpulse], { registry: new Set() });
+		queue.add(fiber);
+		impulse.queued = true;
+		impulse.mockImplementation(() => childImpulse.queued = false);
+		const actual = createState({ str: 'abc' });
+		fibers.unshift(childFiber);
 		actual.str;
 		fibers.shift();
 		actual.str = 'xyz';
 		await new Promise(resolve => setTimeout(resolve, 10));
 		expect(impulse.mock.calls).toEqual([[]]);
-		expect(impulse).not.toHaveBeenCalled();
+		expect(childImpulse).not.toHaveBeenCalled();
 	});
 });

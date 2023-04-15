@@ -1,6 +1,6 @@
-import { useMemo, useEffect, useState } from './hooks';
-import { fibers } from './fiber';
 import { frameworks, virtualFramework } from '../view/dom';
+import { fibers } from './fiber';
+import { useMemo } from './hooks';
 
 describe('useMemo', () => {
 	let memos, fiber;

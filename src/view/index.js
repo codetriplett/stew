@@ -1,7 +1,6 @@
-import { frameworks } from './dom';
+import stew from '..';
 import processFiber, { executeCallback } from '../state/fiber';
 import processElement, { processText } from './element';
-import stew from '..';
 
 function appendNode (node, dom) {
 	const { container, sibling } = dom;
@@ -93,7 +92,7 @@ export default function reconcileNode (info, state, parentFiber, parentView, i, 
 				return processFiber(info, state, parentFiber, parentView, i, dom);
 			}
 			// static node
-			case 'object': return [info];
+			case 'object': return info ? [info] : [];
 			// text node
 			case 'string': case 'number': return processText(info, candidate);
 			// persist or ignore node

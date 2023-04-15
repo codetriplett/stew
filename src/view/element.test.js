@@ -1,5 +1,5 @@
-import processElement, { processText, managedProps } from './element';
 import { frameworks, virtualFramework } from './dom';
+import processElement, { managedProps, processText } from './element';
 
 const [virtualDocument] = virtualFramework;
 

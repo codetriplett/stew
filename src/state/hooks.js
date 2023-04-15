@@ -1,6 +1,6 @@
-import { executeCallback, fibers } from './fiber';
 import createState, { effects, scheduleDispatches } from '.';
 import stew from '..';
+import { executeCallback, fibers } from './fiber';
 
 export function useMemo (callback, deps, ...rest) {
 	// extract params and previous values

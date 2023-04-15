@@ -21,14 +21,9 @@
  * SOFTWARE.
  */
 
-import defaultFramework, { frameworks, virtualFramework, isClient } from './view/dom';
-import { prepareCandidates, populateChildren } from './view';
+import { populateChildren, prepareCandidates } from './view';
+import defaultFramework, { frameworks, isClient, virtualFramework } from './view/dom';
 
-// BASIC RULES
-// - impulse should teardown when there is no longer a view in the layout that originated from it
-// - impulses should be added to queues by depth with triggered and queues are resolved from top to bottom
-//   - impulses are flagged as queued when triggered and this flag is cleared when processed
-//   - impulses in the queue are ignored if they no longer have the queued flag set
 export default function stew (container, layout, framework = defaultFramework) {
 	const { isServer = !isClient } = stew;
 	const isFragment = container === '';

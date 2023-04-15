@@ -1,6 +1,5 @@
-import { fibers } from './fiber';
-import { frameworks } from '../view/dom';
 import stew from '..';
+import { fibers } from './fiber';
 
 export const effects = [];
 export const queue = new Set();
@@ -42,7 +41,7 @@ export function scheduleDispatches (subscriptions) {
 		// filter out any impulses that will already be covered by a parent update
 		for (const i of Object.keys(queueLayers).sort((a, b) => a - b)) {
 			for (const impulse of queueLayers[i]) {
-				if (impulse.queued) impulse();
+				if (impulse.queued) impulse(true);
 			}
 		}
 

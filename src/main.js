@@ -1,4 +1,4 @@
-import stew, { useMemo, useEffect, useState } from './module';
+import stew, { useEffect, useMemo, useState } from './module';
 
 Object.assign(stew, {
 	useMemo,
