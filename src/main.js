@@ -1,7 +1,6 @@
-import stew, { virtualFramework, useMemo, useEffect, useState } from './module';
+import stew, { useMemo, useEffect, useState } from './module';
 
 Object.assign(stew, {
-	virtualFramework,
 	useMemo,
 	useEffect,
 	useState,

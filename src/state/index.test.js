@@ -1,14 +1,15 @@
-import { frameworks, virtualFramework } from '.';
-import { fibers } from './impulse';
-import createState, { queue } from './state';
+import { frameworks, virtualFramework } from '../view/dom';
+import { fibers } from './fiber';
+import createState, { queue } from '.';
 
 describe('createState', () => {
 	const impulse = jest.fn();
 	let fiber;
 
 	beforeEach(() => {
+		global.requestAnimationFrame = callback => setTimeout(callback, 0);
 		jest.clearAllMocks();
-		fiber = Object.assign([impulse], { subscriptionsSet: new Set() });
+		fiber = Object.assign([impulse], { registry: new Set() });
 		frameworks.splice(0, frameworks.length, virtualFramework);
 		fibers.splice(0, fibers.length, fiber);
 	});
@@ -20,7 +21,7 @@ describe('createState', () => {
 		await new Promise(resolve => setTimeout(resolve, 10));
 		expect(impulse).not.toHaveBeenCalled();
 		actual.str = 'xyz';
-		expect(queue).toEqual(new Set([impulse]));
+		expect(queue).toEqual(new Set([fiber]));
 		await new Promise(resolve => setTimeout(resolve, 10));
 		expect(impulse).toHaveBeenCalledWith();
 		const after = actual.str;
@@ -47,7 +48,7 @@ describe('createState', () => {
 		const actual = createState({ str: 'abc' });
 		actual.str;
 		const childImpulse = jest.fn();
-		const childFIber = Object.assign([childImpulse], { subscriptionSet: new Set });
+		const childFIber = Object.assign([childImpulse], { registry: new Set });
 		childImpulse.fiber = childFiber;
 		impulse.Fiber.push(childFiber);
 		fibers.unshift(childImpulse);

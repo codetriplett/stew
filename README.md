@@ -1,5 +1,5 @@
 # Stew
-A stateful virtual DOM for any purpose. It supports local states and refs, client-side hydration and effects, server-side rendering, and portals. The document used to create elements can be overriden to support whatever you want to display. The total uncompressed size is less than 7kB, and it does not rely on any other dependencies.
+A stateful virtual DOM for any purpose. It supports local states and refs, client-side hydration and effects, server-side rendering, and portals. The document used to create elements can be overriden to support whatever you want to display. The total uncompressed size is around 7kB, and it does not rely on any other dependencies.
 
 ## Render
 To render a layout, pass it to the stew function after the DOM element that should hold the content. If the container element already contains content, it will be hydrated instead of replaced. A selector string can also be passed in instead of an existing DOM element to have stew locate the container element itself. This will be ignored when server-side rendering, and can be used to simulate a portal into another part of your page. If the selector is an empty string, a new fragment will be created as the container. The fragment will also be returned from the stew function so you can append it where you need it to be.

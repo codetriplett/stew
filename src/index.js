@@ -21,7 +21,7 @@
  * SOFTWARE.
  */
 
-import { frameworks, defaultFramework } from './view/dom';
+import defaultFramework, { frameworks, virtualFramework, isClient } from './view/dom';
 import { prepareCandidates, populateChildren } from './view';
 
 // BASIC RULES
@@ -30,20 +30,27 @@ import { prepareCandidates, populateChildren } from './view';
 //   - impulses are flagged as queued when triggered and this flag is cleared when processed
 //   - impulses in the queue are ignored if they no longer have the queued flag set
 export default function stew (container, layout, framework = defaultFramework) {
+	const { isServer = !isClient } = stew;
 	const isFragment = container === '';
+	stew.isServer = isServer;
+
+	if (framework.length < 3) {
+		// add defaults to incomplete frameworks
+		framework = Object.assign([], virtualFramework, framework);
+	}
 
 	if (typeof container === 'string') {
 		// locate container
 		const [document] = framework;
 		if (isFragment) container = document.createDocumentFragment();
-		else if (!('querySelector' in document)) return;
+		else if (isServer) return;
 		else container = document.querySelector(container);
 	}
 
 	// prepare hydrate nodes and load framework
 	const fiber = [,];
 	const view = Object.assign([container], { keyedViews: {} });
-	const candidates = framework.isServer ? undefined : prepareCandidates(container);
+	const candidates = isServer ? undefined : prepareCandidates(container);
 	const dom = { container, candidates };
 	frameworks.unshift(framework);
 	populateChildren([layout], {}, fiber, view, dom);

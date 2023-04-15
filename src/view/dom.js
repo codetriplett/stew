@@ -1,3 +1,5 @@
+import stew from '..';
+
 // tags that shouldn't wrap content when server rendered
 const selfClosingTags = new Set([
 	'wbr', 'track', 'source', 'param', 'meta', 'link', 'keygen', 'input',
@@ -10,17 +12,39 @@ const nameMap = {
 	tabIndex: 'tabindex',
 };
 
+function findMatches (nodes, selectors, matches) {
+	for (const node of nodes) {
+		const nodeClasses = new Set((node.className || '').trim().split(/\s+/));
+
+		for (const [query, ...childQueries] of selectors) {
+			const [tagName, id, ...classes] = query;
+			let childSelectors = selectors;
+
+			const isMatch = (!tagName || tagName === node.tagName) &&
+				(!id || id === node.id) && classes.every(item => nodeClasses.has(item));
+
+			if (isMatch) {
+				if (!childQueries.length) matches.add(node);
+				else childSelectors = [childQueries, ...childSelectors];
+			}
+
+			findMatches(node.childNodes, childSelectors, matches);
+		}
+	}
+}
+
 export const virtualDocument = {
 	createTextNode (nodeValue) {
 		return {
 			nodeValue,
 			toString () {
-				return this.nodeValue;
+				return this.nodeValue.replace(/\&/, '&amp;').replace(/</, '&lt;').replace(/>/g, '&gt;');
 			}
 		};
 	},
 	createDocumentFragment () {
 		return {
+			parentElement: null,
 			childNodes: [],
 			appendChild (child) {
 				this.removeChild(child);
@@ -41,6 +65,20 @@ export const virtualDocument = {
 				childNodes.splice(index, 1);
 				child.parentElement = null;
 			},
+			querySelector (selector) {
+				const selectors = selector.trim().split(/\s*,\s*/).map(selector => {
+					return selector.split(/\s+/).map(level => {
+						const items = level.split('.');
+						const [tagName, id = ''] = items.shift().split('#');
+						items.unshift(tagName, id);
+						return items;
+					});
+				});
+
+				const matches = new Set();
+				findMatches(this.childNodes, selectors, matches);
+				return [...matches];
+			},
 			toString () {
 				return this.childNodes.join('');
 			},
@@ -52,33 +90,46 @@ export const virtualDocument = {
 		return Object.assign(fragment, {
 			tagName,
 			style: {},
+			setAttribute (name, value) {
+				if (!staticAttributeNames.has(name)) this[name] = value;
+			},
+			getAttribute (name) {
+				if (!staticAttributeNames.has(name)) return this[name];
+			},
+			removeAttribute (name) {
+				if (!staticAttributeNames.has(name)) this[name] = undefined;
+			},
 			toString () {
-				const {
-					appendChild, insertBefore, removeChild, toString,
-					tagName, style, childNodes, parentElement, ...attributes
-				} = this;
-
 				let html = `<${tagName === '!doctype' ? '!DOCTYPE' : tagName}`;
+				const attributeEntries = Object.entries(this).filter(([name]) => !staticAttributeNames.has(name));
+				const styleEntries = Object.entries(this.style);
 
-				for (let [name, value] of Object.entries(attributes)) {
-					if (!value && value !== 0 || typeof value === 'function') continue;
-					name = nameMap[name] || name.replace(/(?=[A-Z])/g, '-').toLowerCase();
-					html += ` ${name}="${value === true ? '' : value}"`;
+				if (!stew.isServer) {
+					attributeEntries.sort(([a], [b]) => a.localeCompare(b));
+					styleEntries.sort(([a], [b]) => a.localeCompare(b));
 				}
-				
-				const styleString = Object.entries(style).map(([name, value]) => {
-					return `${name.replace(/(?=[A-Z])/g, '-').toLowerCase()}:${value}`;
-				}).join(';');
+
+				for (let [name, value] of attributeEntries) {
+					if (!value && value !== 0 || typeof value === 'function' || /['"&<>]/.test(name)) continue;
+					name = nameMap[name] || name.replace(/(?=[A-Z])/g, '-').toLowerCase();
+					html += ` ${name}${value === true ? '' : `="${String(value).replace(/"/g, '&quot;')}"`}`;
+				}
+
+				const styleString = styleEntries.map(([name, value]) => {
+					return `${name.replace(/(?=[A-Z])/g, '-').toLowerCase()}:${value};`;
+				}).join('');
 
 				if (styleString) html += ` style="${styleString}"`;
-				if (selfClosingTags.has(tagName.toLowerCase())) return `${html}>`;
+				if (selfClosingTags.has(tagName)) return `${html}>`;
 				return `${html}>${this.childNodes.join('')}</${tagName}>`;
 			},
 		});
 	},
 };
 
-export function defaultUpdater (element, props, prevNames, defaultProps, ignoreRef) {
+const staticAttributeNames = new Set(Object.keys(virtualDocument.createElement('div')));
+
+export function defaultUpdater (element, props, prevNames, defaultElement, ignoreRef) {
 	prevNames = new Set(prevNames);
 
 	const changes = Object.entries(props).filter(([name, value]) => {
@@ -88,7 +139,7 @@ export function defaultUpdater (element, props, prevNames, defaultProps, ignoreR
 	});
 
 	for (const name of prevNames) {
-		const defaultValue = ~name.indexOf('-') ? defaultElement.getAttribute(name) : defaultProps[name];
+		const defaultValue = ~name.indexOf('-') ? defaultElement.getAttribute(name) : defaultElement[name];
 		changes.push([name, defaultValue]);
 	}
 
@@ -105,6 +156,8 @@ export function defaultUpdater (element, props, prevNames, defaultProps, ignoreR
 				if (style[name] === String(value)) continue;
 				style[name] = value;
 			}
+		} else if (staticAttributeNames.has(name)) {
+			continue;
 		} else if (!~name.indexOf('-')) {
 			element[name] = value;
 		} else if (value === undefined || value === null) {
@@ -116,8 +169,7 @@ export function defaultUpdater (element, props, prevNames, defaultProps, ignoreR
 }
 
 export const frameworks = [];
-const isClient = typeof window === 'object';
+export const isClient = typeof window === 'object';
+export const virtualFramework = [virtualDocument, defaultUpdater, {}];
 const defaultDocument = isClient && window.document || virtualDocument;
-export const defaultFramework = [defaultDocument, defaultUpdater, {}];
-export default [virtualDocument, defaultUpdater, {}];
-Object.assign(defaultFramework, { isServer: !isClient });
+export default [defaultDocument, defaultUpdater, {}];

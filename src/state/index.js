@@ -1,5 +1,6 @@
 import { fibers } from './fiber';
 import { frameworks } from '../view/dom';
+import stew from '..';
 
 export const effects = [];
 export const queue = new Set();
@@ -59,7 +60,7 @@ export default function createState (object, key) {
 	const cuesObject = Object.fromEntries(cues.map(cue => [cue]));
 	const entries = Object.entries({ ...cuesObject, ...object });
 
-	if (frameworks[0]?.isServer) {
+	if (stew.isServer) {
 		// skip subscriptions on server
 		Object.assign(state, Object.fromEntries(entries.splice(0)));
 	}

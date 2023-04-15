@@ -18,7 +18,7 @@ export function processText (text, view = []) {
 	return view;
 };
 
-export default function processElement (tagName, obj, view) {
+export default function processElement (tagName, obj, view = []) {
 	const [framework] = frameworks;
 	const [document, updater, defaultProps] = framework;
 	let [node] = view;

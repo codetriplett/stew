@@ -1,13 +1,13 @@
 import { useMemo, useEffect, useState } from './hooks';
-import { fibers } from './impulse';
-import { frameworks, virtualFramework } from '.';
+import { fibers } from './fiber';
+import { frameworks, virtualFramework } from '../view/dom';
 
 describe('useMemo', () => {
 	let memos, fiber;
 
 	beforeEach(() => {
 		memos = [];
-		fiber = Object.assign([], { m: memos, i: 0, t: [] });
+		fiber = Object.assign([], { memos, index: 0, teardowns: [] });
 		fibers.splice(0, fibers.length, fiber);
 		frameworks.splice(0, frameworks.length, virtualFramework);
 	});
@@ -17,7 +17,7 @@ describe('useMemo', () => {
 		const actual = useMemo(callback, [123]);
 		expect(callback).toHaveBeenCalled();
 		expect(actual).toEqual('abc');
-		expect(fiber).toEqual(Object.assign([], { m: memos, i: 1, t: [] }));
+		expect(fiber).toEqual(Object.assign([], { memos, index: 1, teardowns: [] }));
 		expect(memos).toEqual([['abc', 123]]);
 	});
 
@@ -26,11 +26,11 @@ describe('useMemo', () => {
 		useMemo(callback, [123]);
 		callback.mockClear();
 		callback.mockReturnValue('xyz');
-		fiber.i = 0;
+		fiber.index = 0;
 		const actual = useMemo(callback, [123]);
 		expect(callback).not.toHaveBeenCalled();
 		expect(actual).toEqual('abc');
-		expect(fiber).toEqual(Object.assign([], { m: memos, i: 1, t: [] }))
+		expect(fiber).toEqual(Object.assign([], { memos, index: 1, teardowns: [] }))
 		expect(memos).toEqual([['abc', 123]]);
 	});
 
@@ -39,11 +39,11 @@ describe('useMemo', () => {
 		useMemo(callback, [123]);
 		callback.mockClear();
 		callback.mockReturnValue('xyz');
-		fiber.i = 0;
+		fiber.index = 0;
 		const actual = useMemo(callback, [789]);
 		expect(callback).toHaveBeenCalled();
 		expect(actual).toEqual('xyz');
-		expect(fiber).toEqual(Object.assign([], { m: memos, i: 1, t: [] }));
+		expect(fiber).toEqual(Object.assign([], { memos, index: 1, teardowns: [] }));
 		expect(memos).toEqual([['xyz', 789]]);
 	});
 });

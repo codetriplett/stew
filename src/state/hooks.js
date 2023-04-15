@@ -1,10 +1,10 @@
-import { frameworks } from '../view/dom';
 import { executeCallback, fibers } from './fiber';
 import createState, { effects, scheduleDispatches } from '.';
+import stew from '..';
 
 export function useMemo (callback, deps, ...rest) {
 	// extract params and previous values
-	if (frameworks[0]?.isServer) return executeCallback(callback, undefined, undefined);
+	if (stew.isServer) return executeCallback(callback, undefined, undefined);
 	const cueCount = rest.length && typeof rest[0] !== 'function' ? rest.shift() : 0;
 	const [callbackOnPersist] = rest;
 	const [fiber] = fibers;
@@ -30,7 +30,7 @@ export function useMemo (callback, deps, ...rest) {
 
 export function useEffect (...params) {
 	// ignore for virtual document, otherwise extract previous values
-	if (frameworks[0].isServer) return;
+	if (stew.isServer) return;
 	const [fiber] = fibers;
 	const { memos, index, teardowns } = fiber;
 

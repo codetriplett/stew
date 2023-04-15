@@ -1,6 +1,7 @@
 import { frameworks } from './dom';
 import processFiber, { executeCallback } from '../state/fiber';
 import processElement, { processText } from './element';
+import stew from '..';
 
 function appendNode (node, dom) {
 	const { container, sibling } = dom;
@@ -83,7 +84,7 @@ export default function reconcileNode (info, state, parentFiber, parentView, i, 
 		switch (typeof info) {
 			case 'function': {
 				// skip fiber overhead on server
-				if (frameworks[0]?.isServer) {
+				if (stew.isServer) {
 					info = executeCallback(info, state);
 					return reconcileNode(info, state, parentFiber, parentView, i, dom);
 				}
