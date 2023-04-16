@@ -32,16 +32,17 @@ export function prepareCandidates (container) {
 	return childNodes.map(node => Object.assign([node], { keyedViews: {} }));
 }
 
-export function populateChildren (infos, state, parentFiber, parentView, dom) {
+export function populateChildren (infos, state, parentView, dom) {
 	// backup previous views before removing extra child views
 	const { container, candidates = [], doAppend } = dom;
 	const [parentNode, ...childViews] = parentView;
+	const newKeyedViews = parentView.newKeyedViews = {};
 	parentView.splice(infos.length + 1);
 
 	// update children
 	for (let i = infos.length - 1; i >= 0; i--) {
 		const prevView = parentView[i + 1];
-		const view = reconcileNode(infos[i], state, parentFiber, parentView, i, dom);
+		const view = reconcileNode(infos[i], state, parentView, i, dom);
 		const [node] = parentView[i + 1] = view;
 
 		if (!node) {
@@ -60,24 +61,18 @@ export function populateChildren (infos, state, parentFiber, parentView, dom) {
 		dom.sibling = node;
 	}
 
-	// add remaining hydration nodes to list to be removed
-	if (parentNode && candidates.length) {
-		childViews.push(...candidates);
-	}
+	// replace keyed refs and shift hydration nodes to previous views
+	Object.assign(parentView, { keyedViews: newKeyedViews, newKeyedViews: undefined });
+	if (parentNode && candidates.length) childViews.push(...candidates);
 
 	// remove outdated views
 	for (const childView of childViews) {
 		if (!childView?.length || parentView.indexOf(childView) > 0) continue;
 		removeNode(childView, container);
 	}
-
-	// remove outdated keyed views
-	const entries = Object.entries(parentView.keyedViews);
-	const validEntries = entries.filter(([, childView]) => parentView.indexOf(childView) > 0);
-	if (validEntries.length !== entries.length) parentView.keyedViews = Object.fromEntries(validEntries);
 }
 
-export default function reconcileNode (info, state, parentFiber, parentView, i, dom) {
+export default function reconcileNode (info, state, parentView, i, dom) {
 	// get candidate view
 	const { candidates, doAppend } = dom;
 	const candidate = candidates?.[0] || parentView[i + 1]
@@ -88,11 +83,11 @@ export default function reconcileNode (info, state, parentFiber, parentView, i, 
 				// skip fiber overhead on server
 				if (stew.isServer) {
 					info = executeCallback(info, state);
-					return reconcileNode(info, state, parentFiber, parentView, i, dom);
+					return reconcileNode(info, state, parentView, i, dom);
 				}
 				
 				// dynamic node
-				return processFiber(info, state, parentFiber, parentView, i, dom);
+				return processFiber(info, state, parentView, i, dom);
 			}
 			// static node
 			case 'object': return info ? [info] : [];
@@ -124,8 +119,8 @@ export default function reconcileNode (info, state, parentFiber, parentView, i, 
 	}
 
 	// update views and temporarily store new future views in place of node
-	if (hasKey) parentView.keyedViews[key] = view;
-	populateChildren(arr, state, parentFiber, view, dom);
+	if (hasKey) parentView.newKeyedViews[key] = view;
+	populateChildren(arr, state, view, dom);
 	if (isFragment) dom.doAppend = doAppend;
 	else dom.candidates = undefined;
 	return view;

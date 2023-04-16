@@ -21,6 +21,7 @@
  * SOFTWARE.
  */
 
+import { fibers } from './state/fiber';
 import { populateChildren, prepareCandidates } from './view';
 import defaultFramework, { frameworks, isClient, virtualFramework } from './view/dom';
 
@@ -43,12 +44,14 @@ export default function stew (container, layout, framework = defaultFramework) {
 	}
 
 	// prepare hydrate nodes and load framework
-	const fiber = [,];
+	const fiber = Object.assign([() => {}], { registry: new Set() });
 	const view = Object.assign([container], { keyedViews: {} });
 	const candidates = isServer ? undefined : prepareCandidates(container);
 	const dom = { container, candidates };
 	frameworks.unshift(framework);
-	populateChildren([layout], {}, fiber, view, dom);
+	fibers.unshift(fiber);
+	populateChildren([layout], {}, view, dom);
+	fibers.shift();
 	frameworks.shift();
 	dom.candidates = undefined;
 

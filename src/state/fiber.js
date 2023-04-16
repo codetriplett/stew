@@ -34,8 +34,9 @@ export function executeCallback (callback, ...params) {
 	}
 }
 
-export default function processFiber (callback, state, parentFiber, parentView, i, dom) {
+export default function processFiber (callback, state, parentView, i, dom) {
 	// get previous fiber
+	const [parentFiber] = fibers;
 	let fiber = parentView[i + 1]?.fiber;
 
 	if (!fiber) {
@@ -51,7 +52,7 @@ export default function processFiber (callback, state, parentFiber, parentView, 
 			Object.assign(fiber, { index: 0, teardowns: [] });
 			const oldChildFibers = fiber.splice(1);
 			const info = executeCallback(callback, state);
-			const view = reconcileNode(info, state, fiber, parentView, i, dom);
+			const view = reconcileNode(info, state, parentView, i, dom);
 
 			// handle updates here if impulse is reacting to dispatch
 			if (!context) {

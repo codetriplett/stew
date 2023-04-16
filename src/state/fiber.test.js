@@ -1,5 +1,5 @@
 import { frameworks, virtualFramework } from '../view/dom';
-import processFiber from './fiber';
+import processFiber, { fibers } from './fiber';
 
 function testArrObj (actual, arr, obj, expected) {
 	if (expected) expect(actual).toBe(expected);
@@ -10,7 +10,7 @@ function testArrObj (actual, arr, obj, expected) {
 }
 
 describe('processFiber', () => {
-	let document, state, parentFiber, parentView, container, dom, hydrateNodes, view, fiber;
+	let document, state, parentFiber, parentView, container, dom, fiber;
 
 	beforeEach(() => {
 		[document] = virtualFramework;
@@ -19,20 +19,20 @@ describe('processFiber', () => {
 		parentFiber = [,];
 		parentView = Object.assign([container], { keyedViews: {} });
 		dom = { container };
-		hydrateNodes = [];
 		fiber = Object.assign([expect.any(Function)], { depth: 0, memos: [], index: 0, teardowns: [], subscriptionSet: new Set() });
 		frameworks.splice(0, frameworks.length, virtualFramework);
+		fibers.splice(0, fibers.length, parentFiber);
 	});
 
 	it('creates fiber', () => {
 		const callback = () => 'abc';
-		const actual = processFiber(callback, state, parentFiber, parentView, 0, dom, hydrateNodes);
+		const actual = processFiber(callback, state, parentView, 0, dom);
 		expect(parentFiber).toEqual([, actual.fiber]);
 		testArrObj(parentView, [container], { keyedViews: {} });
 		testArrObj(actual, [expect.any(Object)], { fiber: expect.any(Array) });
 
 		testArrObj(actual.fiber, [expect.any(Function)], {
-			depth: 0,
+			depth: 1,
 			memos: [],
 			registry: new Set(),
 			index: 0,
@@ -44,17 +44,17 @@ describe('processFiber', () => {
 	});
 
 	it('reuses fiber', () => {
-		const view = processFiber(() => {}, state, parentFiber, parentView, 0, dom, hydrateNodes);
+		const view = processFiber(() => {}, state, parentView, 0, dom);
 		const callback = () => 'abc';
 		parentFiber.splice(1);
 		const { fiber } = parentView[1] = view;
-		const actual = processFiber(callback, state, parentFiber, parentView, 0, dom, hydrateNodes);
+		const actual = processFiber(callback, state, parentView, 0, dom);
 		expect(parentFiber).toEqual([, fiber]);
 		testArrObj(parentView, [container, view], { keyedViews: {} });
 		testArrObj(actual, [expect.any(Object)], { fiber: expect.any(Array) });
 
 		testArrObj(actual.fiber, [expect.any(Function)], {
-			depth: 0,
+			depth: 1,
 			memos: [],
 			registry: new Set(),
 			index: 0,
@@ -65,7 +65,7 @@ describe('processFiber', () => {
 
 	it('handles own dispatch', () => {
 		const callback = jest.fn().mockReturnValue('abc');
-		const oldView = processFiber(callback, state, parentFiber, parentView, 0, dom, hydrateNodes);
+		const oldView = processFiber(callback, state, parentView, 0, dom);
 		const { fiber } = parentView[1] = oldView;
 		callback.mockReturnValue(undefined);
 		const [impulse] = fiber;
@@ -86,7 +86,7 @@ describe('processFiber', () => {
 		subscriptions.add(childFiber);
 
 		const callback = jest.fn().mockReturnValue('abc');
-		const oldView = processFiber(callback, state, parentFiber, parentView, 0, dom, hydrateNodes);
+		const oldView = processFiber(callback, state, parentView, 0, dom);
 		const { fiber } = parentView[1] = oldView;
 		fiber.push(childFiber);
 		fiber[0]();
