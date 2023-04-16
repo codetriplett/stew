@@ -9,7 +9,7 @@ export function useMemo (callback, deps, ...rest) {
 	const [callbackOnPersist] = rest;
 	const [fiber] = fibers;
 	const { memos, index } = fiber || [];
-	let memo = memos?.[index]
+	let memo = memos?.[index];
 	let prevDeps, persist;
 
 	if (memo) {

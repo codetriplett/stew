@@ -100,10 +100,10 @@ export default function reconcileNode (info, state, parentView, i, dom) {
 
 	// element or fragment node
 	const [str, obj, ...arr] = info;
-	const hasKey = ~str.indexOf(':');
-	const [, tagName, key] = hasKey ? str.match(/^\s*(.*?)\s*(?::(.*?))?$/) : [, str];
-	const isFragment = tagName === '';
-	let view = !candidates && hasKey && parentView.keyedViews[key] || candidate || [];
+	const keyIndex = str.indexOf(':');
+	const hasKey = keyIndex !== -1;
+	const isFragment = str === '' || keyIndex === 0;
+	let view = !candidates && hasKey && parentView.keyedViews[str] || candidate || [];
 	let [node] = view;
 
 	if (isFragment) {
@@ -113,13 +113,14 @@ export default function reconcileNode (info, state, parentView, i, dom) {
 		if (!candidates && !doAppend) dom.doAppend = view !== candidate;
 	} else {
 		// create or update node and create new dom object for children
+		const tagName = hasKey ? str.slice(0, keyIndex) : str;
 		[node] = view = processElement(tagName.toLowerCase(), obj, view);
 		dom = { container: node };
 		if (candidates) dom.candidates = prepareCandidates(node);
 	}
 
 	// update views and temporarily store new future views in place of node
-	if (hasKey) parentView.newKeyedViews[key] = view;
+	if (hasKey) parentView.newKeyedViews[str] = view;
 	populateChildren(arr, state, view, dom);
 	if (isFragment) dom.doAppend = doAppend;
 	else dom.candidates = undefined;
