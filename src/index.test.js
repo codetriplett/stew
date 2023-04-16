@@ -1,55 +1,67 @@
-import stew, { frameworks, virtualDocument, defaultUpdater } from '.';
-import reconcile from './reconcile';
+import { useState, useEffect } from './state/hooks';
+import stew from '.';
 
-jest.mock('./reconcile');
+stew.isServer = false;
 
 describe('stew', () => {
-	let container, state, node;
-
-	beforeEach(() => {
-		container = virtualDocument.createElement('div');
-		state = {};
-		node = virtualDocument.createElement('div');
-		jest.clearAllMocks();
-		reconcile.mockReturnValue(node);
+	it('renders fragment', () => {
+		const actual = stew('', ['div'], []);
+		expect(String(actual)).toEqual('<div></div>');
 	});
 
-	it('uses custom document and updater', () => {
-		let frameworkStack;
+	it('renders dynamic content', async () => {
+		const state = useState({ expanded: false });
 
-		reconcile.mockImplementation(() => {
-			frameworkStack = [...frameworks];
-		});
+		const actual = stew('', () => ['button', {
+			type: 'button',
+			onclick: () => state.expanded = !state.expanded,
+		}, state.expanded ? 'Collapse' : 'Expand'], []);
 
-		const outline = ['div', 'Hello Page'];
-		const updater = () => {};
-		const framework = [virtualDocument, updater, {}];
-		stew(container, outline, framework);
-		expect(frameworkStack).toEqual([framework]);
+		const button = actual.querySelector('button');
+		expect(String(actual)).toEqual('<button type="button">Expand</button>');
+		button.onclick();
+		await useEffect();
+		expect(String(actual)).toEqual('<button type="button">Collapse</button>');
 	});
 
-	it('hydrates content', () => {
-		container.appendChild(node);
-		const updater = () => {};
-		const framework = [virtualDocument, updater, {}];
-		const outline = ['div', 'Hello Page'];
-		const view = Object.assign([container], { keyedViews: {} });
-		stew(container, outline, framework);
-		expect(reconcile).toHaveBeenCalledWith(outline, {}, view, 0, { container }, [node]);
+	it('allows state updates in effect', async () => {
+		const state = useState({ initialized: false });
+
+		const actual = stew('', () => {
+			useEffect(() => state.initialized = true, []);
+			return ['p', {}, state.initialized ? 'After' : 'Before'];
+		}, []);
+
+		expect(String(actual)).toEqual('<p>Before</p>');
+		await useEffect();
+		expect(String(actual)).toEqual('<p>After</p>');
 	});
 
-	it('creates fragment container', () => {
-		const outline = ['div', 'Hello Page'];
-		const updater = () => {};
-		const framework = [virtualDocument, updater, {}];
-		const container = stew('', outline, framework);
+	it('locates next sibling across dynamic content', async () => {
+		const state = useState({ iteration: 1 });
 
-		expect(container).toEqual({
-			childNodes: [],
-			appendChild: expect.anything(),
-			insertBefore: expect.anything(),
-			removeChild: expect.anything(),
-			toString: expect.anything(),
-		});
+		const actual = stew('', ['', null,
+			'(',
+			() => state.iteration % 2 === 0 ? 'fizz' : undefined,
+			() => state.iteration % 3 === 0 ? 'buzz' : undefined,
+			')'
+		], []);
+
+		expect(String(actual)).toEqual('()');
+		state.iteration++;
+		await useEffect();
+		expect(String(actual)).toEqual('(fizz)');
+		state.iteration++;
+		await useEffect();
+		expect(String(actual)).toEqual('(buzz)');
+		state.iteration++;
+		await useEffect();
+		expect(String(actual)).toEqual('(fizz)');
+		state.iteration++;
+		await useEffect();
+		expect(String(actual)).toEqual('()');
+		state.iteration++;
+		await useEffect();
+		expect(String(actual)).toEqual('(fizzbuzz)');
 	});
 });
