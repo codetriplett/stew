@@ -32,19 +32,20 @@ export function useEffect (...params) {
 	// ignore for virtual document, otherwise extract previous values
 	if (stew.isServer) return;
 	const [fiber] = fibers;
-	const { memos, index, teardowns } = fiber;
 
-	// add effect
-	effects.push(() => {
-		fibers.unshift(fiber);
-		useMemo(...params);
-		fibers.shift();
-		teardowns.push(index);
+	return new Promise(resolve => {
+		// add effect
+		effects.push(() => {
+			fibers.unshift(fiber);
+			const value = useMemo(...params);
+			fibers.shift();
+			if (fiber) fiber.teardowns.push(fiber.index);
+			resolve(value);
+		});
+
+		// schedule resolution and return previous value
+		scheduleDispatches([]);
 	});
-
-	// schedule resolution and return previous value
-	scheduleDispatches([]);
-	return memos[index];
 }
 
 // put string first

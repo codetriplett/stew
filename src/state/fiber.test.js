@@ -35,8 +35,6 @@ describe('processFiber', () => {
 			depth: 0,
 			memos: [],
 			registry: new Set(),
-			callback,
-			state,
 			index: 0,
 			teardowns: [],
 			view: actual
@@ -59,8 +57,6 @@ describe('processFiber', () => {
 			depth: 0,
 			memos: [],
 			registry: new Set(),
-			callback,
-			state,
 			index: 0,
 			teardowns: [],
 			view: actual
@@ -74,7 +70,7 @@ describe('processFiber', () => {
 		callback.mockReturnValue(undefined);
 		const [impulse] = fiber;
 		impulse.queued = true;
-		const newView = impulse(true);
+		const newView = impulse();
 		expect(impulse.queued).toEqual(false);
 		expect(parentFiber).toEqual([, fiber]);
 		expect(newView).not.toBe(oldView);
@@ -93,7 +89,7 @@ describe('processFiber', () => {
 		const oldView = processFiber(callback, state, parentFiber, parentView, 0, dom, hydrateNodes);
 		const { fiber } = parentView[1] = oldView;
 		fiber.push(childFiber);
-		fiber[0](true);
+		fiber[0]();
 
 		expect(subscriptions).toEqual(new Set());
 		expect(teardown).toHaveBeenCalledWith([123]);

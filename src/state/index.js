@@ -15,7 +15,12 @@ export function scheduleDispatches (subscriptions) {
 	if (animationFrame) return;
 
 	// schedule update after all main thread tasks have finished
-	requestAnimationFrame(() => {
+	setTimeout(() => {
+		// resolve effects
+		for (const effect of effects.splice(0)) {
+			effect();
+		}
+
 		// prepare copies
 		const resetsCopy = resets.splice(0);
 		const queueLayers = {};
@@ -33,15 +38,10 @@ export function scheduleDispatches (subscriptions) {
 		queue.clear();
 		animationFrame = undefined;
 
-		// resolve effects
-		for (const effect of effects.splice(0)) {
-			effect();
-		}
-
-		// filter out any impulses that will already be covered by a parent update
+		// call impulses by depth, skipping ones that were triggered by parent
 		for (const i of Object.keys(queueLayers).sort((a, b) => a - b)) {
 			for (const impulse of queueLayers[i]) {
-				if (impulse.queued) impulse(true);
+				if (impulse.queued) impulse();
 			}
 		}
 
@@ -49,7 +49,7 @@ export function scheduleDispatches (subscriptions) {
 		for (const [state, name] of resetsCopy) {
 			state[name] = undefined;
 		}
-	});
+	}, 0);
 }
 
 export default function createState (object, key) {

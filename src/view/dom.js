@@ -14,6 +14,7 @@ const nameMap = {
 
 function findMatches (nodes, selectors, matches) {
 	for (const node of nodes) {
+		if (!('tagName' in node)) continue;
 		const nodeClasses = new Set((node.className || '').trim().split(/\s+/));
 
 		for (const [query, ...childQueries] of selectors) {
@@ -24,13 +25,26 @@ function findMatches (nodes, selectors, matches) {
 				(!id || id === node.id) && classes.every(item => nodeClasses.has(item));
 
 			if (isMatch) {
-				if (!childQueries.length) matches.add(node);
+				if (!matches) return node;
+				else if (!childQueries.length) matches.add(node);
 				else childSelectors = [childQueries, ...childSelectors];
 			}
 
-			findMatches(node.childNodes, childSelectors, matches);
+			const childNode = findMatches(node.childNodes, childSelectors, matches);
+			if (childNode) return childNode;
 		}
 	}
+}
+
+function parseSelector (selector) {
+	return selector.trim().split(/\s*,\s*/).map(selector => {
+		return selector.split(/\s+/).map(level => {
+			const items = level.split('.');
+			const [tagName, id = ''] = items.shift().split('#');
+			items.unshift(tagName, id);
+			return items;
+		});
+	});
 }
 
 export const virtualDocument = {
@@ -66,15 +80,11 @@ export const virtualDocument = {
 				child.parentElement = null;
 			},
 			querySelector (selector) {
-				const selectors = selector.trim().split(/\s*,\s*/).map(selector => {
-					return selector.split(/\s+/).map(level => {
-						const items = level.split('.');
-						const [tagName, id = ''] = items.shift().split('#');
-						items.unshift(tagName, id);
-						return items;
-					});
-				});
-
+				const selectors = parseSelector(selector);
+				return findMatches(this.childNodes, selectors) || null;
+			},
+			querySelectorAll (selector) {
+				const selectors = parseSelector(selector);
 				const matches = new Set();
 				findMatches(this.childNodes, selectors, matches);
 				return [...matches];

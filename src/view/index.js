@@ -2,7 +2,7 @@ import stew from '..';
 import processFiber, { executeCallback } from '../state/fiber';
 import processElement, { processText } from './element';
 
-function appendNode (node, dom) {
+export function appendNode (node, dom) {
 	const { container, sibling } = dom;
 
 	if (sibling && sibling.previousSibling !== node) {
@@ -34,9 +34,8 @@ export function prepareCandidates (container) {
 
 export function populateChildren (infos, state, parentFiber, parentView, dom) {
 	// backup previous views before removing extra child views
-	const { container, candidates, doAppend } = dom;
-	const [, ...childViews] = parentView;
-	let candidate = candidates?.[0];
+	const { container, candidates = [], doAppend } = dom;
+	const [parentNode, ...childViews] = parentView;
 	parentView.splice(infos.length + 1);
 
 	// update children
@@ -46,13 +45,12 @@ export function populateChildren (infos, state, parentFiber, parentView, dom) {
 		const [node] = parentView[i + 1] = view;
 
 		if (!node) {
-			// set first sibling in fragment
+			// set first sibling in fragment and update candidate
 			view.sibling = dom.sibling;
 			continue;
-		} else if (view === candidate) {
+		} else if (view === candidates[0]) {
 			// claim candidate
 			candidates.shift();
-			[candidate] = candidates;
 		} else if (doAppend || node !== prevView?.[0]) {
 			// append new or moved node
 			appendNode(node, dom);
@@ -60,6 +58,11 @@ export function populateChildren (infos, state, parentFiber, parentView, dom) {
 		
 		// set as sibling for next child
 		dom.sibling = node;
+	}
+
+	// add remaining hydration nodes to list to be removed
+	if (parentNode && candidates.length) {
+		childViews.push(...candidates);
 	}
 
 	// remove outdated views

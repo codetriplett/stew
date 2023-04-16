@@ -29,6 +29,7 @@ describe('virtualDocumnet', () => {
 			insertBefore: expect.any(Function),
 			removeChild: expect.any(Function),
 			querySelector: expect.any(Function),
+			querySelectorAll: expect.any(Function),
 			toString: expect.any(Function),
 		});
 
@@ -132,6 +133,7 @@ describe('virtualDocumnet', () => {
 			insertBefore: expect.any(Function),
 			removeChild: expect.any(Function),
 			querySelector: expect.any(Function),
+			querySelectorAll: expect.any(Function),
 			toString: expect.any(Function),
 		});
 
@@ -167,72 +169,101 @@ describe('virtualDocumnet', () => {
 		const actual = virtualDocument.createDocumentFragment();
 		const child = virtualDocument.createElement('div');
 		actual.childNodes.push(child);
-		expect(actual.querySelector('div')).toEqual([child]);
+		expect(actual.querySelector('div')).toEqual(child);
 	});
 });
 
-describe('querySelector', () => {
+describe('querySelectorAll', () => {
 	it('matches against tag', () => {
 		const fragment = stew('', ['', null, ['div'], ['span'], ['div']], []);
-		const actual = fragment.querySelector('div');
+		const actual = fragment.querySelectorAll('div');
 		const { childNodes } = fragment;
 		expect(actual).toEqual([childNodes[0], childNodes[2]]);
 	});
 
 	it('matches against id', () => {
 		const fragment = stew('', ['', null, ['div'], ['span', { id: 'lmno' }]], []);
-		const actual = fragment.querySelector('#lmno');
+		const actual = fragment.querySelectorAll('#lmno');
 		const { childNodes } = fragment;
 		expect(actual).toEqual([childNodes[1]]);
 	});
 
 	it('matches against tag and id', () => {
 		const fragment = stew('', ['', null, ['div', { id: 'lmno' }], ['span', { id: 'lmno' }]], []);
-		const actual = fragment.querySelector('span#lmno');
+		const actual = fragment.querySelectorAll('span#lmno');
 		const { childNodes } = fragment;
 		expect(actual).toEqual([childNodes[1]]);
 	});
 
 	it('matches against single class', () => {
 		const fragment = stew('', ['', null, ['div'], ['span', { className: 'abc xyz' }]], []);
-		const actual = fragment.querySelector('.abc');
+		const actual = fragment.querySelectorAll('.abc');
 		const { childNodes } = fragment;
 		expect(actual).toEqual([childNodes[1]]);
 	});
 
 	it('matches against multiple classes', () => {
 		const fragment = stew('', ['', null, ['div'], ['span', { className: 'abc xyz' }]], []);
-		const actual = fragment.querySelector('.abc.xyz');
+		const actual = fragment.querySelectorAll('.abc.xyz');
 		const { childNodes } = fragment;
 		expect(actual).toEqual([childNodes[1]]);
 	});
 
 	it('matches against tag, id and classes', () => {
 		const fragment = stew('', ['', null, ['div'], ['span', { id: 'lmno', className: 'abc xyz' }]], []);
-		const actual = fragment.querySelector('span#lmno.abc.xyz');
+		const actual = fragment.querySelectorAll('span#lmno.abc.xyz');
 		const { childNodes } = fragment;
 		expect(actual).toEqual([childNodes[1]]);
 	});
 
 	it('matches child nodes', () => {
 		const fragment = stew('', ['', null, ['div', {}, ['span']]], []);
-		const actual = fragment.querySelector('span');
+		const actual = fragment.querySelectorAll('span');
 		const { childNodes } = fragment;
 		expect(actual).toEqual([childNodes[0].childNodes[0]]);
 	});
 
 	it('matches parent and child nodes', () => {
 		const fragment = stew('', ['', null, ['div', {}, ['div']]], []);
-		const actual = fragment.querySelector('div');
+		const actual = fragment.querySelectorAll('div');
 		const { childNodes } = fragment;
 		expect(actual).toEqual([childNodes[0], childNodes[0].childNodes[0]]);
 	});
 
 	it('matches multiple selectors', () => {
 		const fragment = stew('', ['', null, ['div', {}, ['span']]], []);
-		const actual = fragment.querySelector('div, span');
+		const actual = fragment.querySelectorAll('div, span');
 		const { childNodes } = fragment;
 		expect(actual).toEqual([childNodes[0], childNodes[0].childNodes[0]]);
+	});
+});
+
+describe('querySelector', () => {
+	it('returns first match', () => {
+		const fragment = stew('', ['', null, ['div', { id: 'abc' }], ['div', { id: 'xyz' }]], []);
+		const actual = fragment.querySelector('div');
+		const { childNodes } = fragment;
+		expect(actual).toEqual(childNodes[0]);
+	});
+
+	it('matches child node', () => {
+		const fragment = stew('', ['', null, ['div', {}, ['span']]], []);
+		const actual = fragment.querySelector('span');
+		const { childNodes } = fragment;
+		expect(actual).toEqual(childNodes[0].childNodes[0]);
+	});
+
+	it('matches multiple selectors', () => {
+		const fragment = stew('', ['', null, ['span']], []);
+		const actual = fragment.querySelector('div, span');
+		const { childNodes } = fragment;
+		expect(actual).toEqual(childNodes[0]);
+	});
+
+	it('empty match', () => {
+		const fragment = stew('', ['', null, ['span']], []);
+		const actual = fragment.querySelector('div');
+		expect(actual).toEqual(null);
 	});
 });
 
