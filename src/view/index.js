@@ -93,9 +93,10 @@ export default function reconcileNode (info, state, parentView, i, dom) {
 			case 'object': return info ? [info] : [];
 			// text node
 			case 'string': case 'number': return processText(info, candidate);
-			// persist or ignore node
-			default: return info && candidate || [];
 		}
+
+		// persist or ignore node
+		return info && candidate || [];
 	}
 
 	// element or fragment node
