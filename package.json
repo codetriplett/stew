@@ -8,7 +8,7 @@
 	"module": "dist/stew.min.mjs",
 	"scripts": {
 		"test": "jest --watch",
-		"build": "rimraf dist && esbuild src/main.js --outfile=dist/stew.min.js --bundle --minify --banner:js=//@triplett/stew@v3.1.1 --legal-comments=linked && esbuild src/module.js --outfile=dist/stew.min.mjs --format=esm --bundle --minify --banner:js=//@triplett/stew@v3.1.1 --legal-comments=linked",
+		"build": "rimraf dist && esbuild src/main.js --outfile=dist/stew.min.js --bundle --minify --banner:js=//@triplett/stew@v3.2.0 --legal-comments=linked && esbuild src/module.js --outfile=dist/stew.min.mjs --format=esm --bundle --minify --banner:js=//@triplett/stew@v3.2.0 --legal-comments=linked",
 		"build:watch": "esbuild src/main.js --outfile=preview/stew.min.js --bundle --watch",
 		"start": "node preview/server.js"
 	},

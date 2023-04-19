@@ -1,5 +1,5 @@
 # Stew
-This library manages stateful fontend layouts built for any purpose. It supports global and local states and refs, client-side hydration and effects, server-side rendering, portals, and basic testing. The total uncompressed size is under 7KB and requires no additional dependencies. It is highly extensible, and even allows the document to be overriden.
+This library manages stateful frontend layouts built for any purpose. It supports global and local states and refs, client-side hydration and effects, server-side rendering, portals, and basic testing. The total uncompressed size is under 7KB and requires no additional dependencies. It is highly extensible, and even allows the document to be overridden.
 
 ## Quick Pitch
 For those already familiar with declarative layout management libraries, here is an example of how a basic layout would be authored using Stew.
@@ -8,7 +8,7 @@ For those already familiar with declarative layout management libraries, here is
 // creates a global state
 const state = createState({ expanded: false });
 
-// creates an active fragment
+// creates an active fragment to append somewhere on your page
 const actual = stew('', () => ['', null,
 	['button', {
 		type: 'button',
@@ -20,7 +20,7 @@ const actual = stew('', () => ['', null,
 ```
 
 ## Testing
-The code above applies to both the server and client environment. The server will use a simulated dom whose nodes are converted to HTML when cast to strings. Dynamic aspects of the library are skipped while server rendering, but this behavior can be overriden to unit test layout changes.
+The code above on both the server and client environment. The server will use a simulated DOM whose nodes are converted to HTML when cast to strings. Dynamic aspects of the library are skipped while server rendering, but this behavior can be overridden to support unit testing client-side functionality.
 
 ```js
 // override flag to enforce client mode (not necessary when running in actual browser)
@@ -40,7 +40,7 @@ expect(String(actual)).toEqual('<button type="button">Collapse</button><p>Hello 
 ```
 
 ## Render
-To render a layout, pass it to the stew function after the DOM element that should hold the content. If the container element already contains content, it will be hydrated instead of replaced. A selector string can also be passed in instead of an existing DOM element to have stew locate the container element itself. This will be ignored when server-side rendering, and can be used to simulate a portal into another part of your page. If the selector is an empty string, a new fragment will be created as the container. The fragment will also be returned from the stew function so you can append it where you need it to be.
+To render a layout, pass it to the stew function after the DOM element that should hold the content. If the container element already contains content, it will be hydrated instead of replaced. A selector string can also be passed in instead of an existing DOM element to have stew locate the container element itself. If the selector is an empty string, a new fragment will be created as the container. The fragment will also be returned from the stew function so you can append it where you need it to be.
 
 ```js
 stew(container, layout) // render in provided container
@@ -49,7 +49,7 @@ stew('', layout) // render in a new fragment (returns fragment container)
 ```
 
 ## Layouts
-This library allows you to define your components declaratively, similar to libraries like React, except layouts are completely defined using arrays, objects, and strings. Functions can also be used in place of any of these to make a section of your layout dynamic, updating automatically in response to state changes. Nullish and boolean false values will be ignored, and boolean true will maintain whatever existed previously.
+This library allows you to define your components declaratively, similar to libraries like React, except layouts are defined using arrays, objects, and strings. Functions can also be used in place of any of these to make a section of your layout dynamic, updating automatically in response to state changes. Nullish and boolean false values will be ignored, and boolean true will maintain whatever existed previously.
 
 ```js
 'Hello World' // text node
@@ -59,10 +59,10 @@ This library allows you to define your components declaratively, similar to libr
 element // preprocessed element (non-array objects only)
 ```
 
-Functions return their own portion of the larger layout, and have access to values that can persist between renders (see useMemo section further down). Preprocessed elements are essentially DOM elements that have already been created. They allow you to include content that is controlled by other libraries, like React, if you wish.
+Functions return their own portion of the layout, and have access to values that can persist between renders (see memoization section further down). Preprocessed elements are essentially DOM elements that have already been created. They allow you to include content that is controlled by other libraries, like React, if you wish.
 
 ### Attributes
-The names of attributes you set follow their property names in JS, not what would normally be set in HTML, and need to honor the data types JavaScript expects for those properties. For example, setting tabIndex as a number instead of a string will lead to unexpected results, but boolean attributes, like 'selected', should not be cast to strings. However, names that contain dashes will be processed as HTML attributes instead of properties.
+The names of attributes you set follow their property names in JavaScript, not what would normally be set in HTML, and need to honor the data types JavaScript expects for those properties. For example, setting tabIndex as a number instead of a string will lead to unexpected results, but boolean attributes, like 'selected', should not be cast to strings. However, names that contain dashes will be processed as HTML attributes instead of properties.
 
 ### Keys
 DOM nodes are only created if there was no previous instance to update, or if the previous one is incompatible with the type that needed. If you are changing the order of the child nodes, but want to maintain their references, include a key. Keys are set after the tag name, separated by a colon.
@@ -73,7 +73,7 @@ DOM nodes are only created if there was no previous instance to update, or if th
 ```
 
 ### Refs
-Ref attributes provide access to DOM elements created from your layout. You can pass it a function that will receive the DOM element as a parameter, or you can pass it an array that you want the element pushed to. Elements are stored after the layout has been processed but can be accessed by code that you have delayed, such as event listeners or effects. See the useMemo section for more info on effets.
+Ref properties provide access to DOM elements created from your layout. You can pass it a function that will receive the DOM element as a parameter, or you can pass it an array that you want the element pushed to. Elements are stored after the layout has been processed but can be accessed by code that you have delayed, such as event listeners or effects.
 
 ```js
 const ref = [];
@@ -82,17 +82,21 @@ const ref = [];
 ```
 
 ## createState
-Component functions in your layout will automically subscribe to changes to the props of any states it reads while rendering. To create a state pass its initial values to the createState function. States aren't tied to any component and can be used anywhere within your layout.
+Component functions in your layout will automically subscribe to changes to the props of any states it reads while rendering. To create a state, pass its initial values to the createState function. States aren't tied to any component and can be used anywhere within your layout. States can be set in fragments in place of an attributes object to have it pass that state along to any component functions that reside within it.
 
 ```js
-stew.createState({ expanded: false }) // create state
-stew.createState({ ... }, ['speed']) // add cue propes
+const state = stew.createState({ expanded: false }) // create state
+const state = stew.createState({ ... }, ['speed']) // add cue propes
+
+// set the state for child components to receive as a parameter
+['', state, ...children]
+// it isn't necessary for states to be passed along this way, but it can be convenient
 ```
 
-Cue props are ones that reset to undefined after the layout has updated and are only really useful for custom documents, for example, ones that have internal physics
+Cue props are ones that reset to undefined after the layout has updated and are only really useful for custom documents, like ones that have internal physics.
 
 ## Memoization
-Component functions are provided an array after the state param that values can be read from and pushed to that persist between renders. You may want to use this to store values to check if they have changed, as well as other objects that only need to be rebuilt if the right conditions are met.
+Component functions are provided an array after the state param. This array can hold whatever values you need to persist between renders. It can be used to support memoization by storing a set of parameters from the previous render and the value that was produced by them.
 
 ```js
 // on mount example
@@ -102,7 +106,7 @@ Component functions are provided an array after the state param that values can 
 	}
 }
 
-// on update example
+// on update example that detects change
 (state, memos) => {
 	if (state.speaker !== memos[0]) {
 		memos[0] = state.speaker;
@@ -112,7 +116,7 @@ Component functions are provided an array after the state param that values can 
 ```
 
 ## onRender
-You may have code that you want to delay and run as a follow-up to your layout updates. This can be be done by using the onRender function. It will accept a function that will run once the current rendering task has finished and returns a promise that resolves with its return value. If that value is a function, it will also be treated as a teardown function for the component. Teardown functions run when the component unmounts, or is no longer a part of the layout. onRender does not require a callback function if you just want to know when the render has complete, like in your unit tests.
+You may have code that you want to delay and run as a follow-up to your layout updates. This can be be done by using the onRender function. It will accept a function that will run once the current rendering task has finished and returns a promise that resolves with that callback's return value. If the return value is a function, it will also be treated as a teardown function for the component. Teardown functions run when the component unmounts, or is no longer a part of the layout. onRender does not require a callback function if you just want to know when the render has completed, like in your unit tests.
 
 ```js
 // set up subscriptions
@@ -132,10 +136,10 @@ await onRender();
 ```
 
 ## Custom Documents
-Stew can work with other document models beyond HTML. The third and final parameter passed to stew can be provided to override how DOM elements are created and updated. This parameter should be an array containing the new document object, updater function, and an object of default attributes for elements. The default attributes object will be filled in automatically as new elements are created if that elements type is missing. The document object needs a 'createTextNode' function that accepts a string and returns an object containing that string as the 'nodeValue' prop, and a 'createElement' function that accepts a string and returns an object containing that string as the 'tagName' prop. 'createElement' also needs to have a 'childNodes' prop that is an array and 'appendChild', 'insertBefore', and 'removeChild' functions that add and remove nodes from that array.
+Stew can work with other document models beyond HTML. The third and final parameter passed to stew can be provided to override how DOM elements are created and updated. This parameter should be an array containing the new document object, updater function, and an object of default attributes for elements. The default attributes object will be filled in automatically as new elements are created if that element's type is missing. The document object needs a 'createTextNode' function that accepts a string and returns an object containing that string as the 'nodeValue' prop, and a 'createElement' function that accepts a string and returns an object containing that string as the 'tagName' prop. 'createElement' also needs to have a 'childNodes' prop that is an array and 'appendChild', 'insertBefore', and 'removeChild' functions that add and remove nodes from that array.
 
 ```js
 stew(container, layout, framework) // use a custom document and updater function
 stew(container, layout, []) // ensure simulated dom is used
-stew(contaienr, layout, [document]) // partial override of simulated dom
+stew(container, layout, [document]) // partial override of simulated dom
 ```
