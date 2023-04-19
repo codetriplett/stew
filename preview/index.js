@@ -75,7 +75,7 @@ function generateRecommendations () {
 }
 // END: content generation functions to simulate data from server
 
-const { useState, useEffect } = stew;
+const { createState, onRender } = stew;
 
 function loadRecommendation (index, outerState) {
 	const { recommendations: { recommendations } } = outerState;
@@ -87,103 +87,117 @@ function loadRecommendation (index, outerState) {
 function VideoPlayer ({ id, title, action, color, shape, ft, length, owner }, outerState) {
 	const iterationCount = length / 5000;
 	
-	return () => ['', useState('state', {
-		playState: 'paused',
-		currentTime: 0,
-		playTimestamp: undefined,
-		completed: false,
-		hoverActive: false,
-	}, [id]),
-		({ state, playState, currentTime, playTimestamp, hoverActive, completed }) => {
-			useEffect(clearCompleteTimeout => {
-				console.log('===== set video', playState);
-				clearCompleteTimeout?.();
-				if (playState !== 'running') return;
+	return ({}, memos) => {
+		const [prevId] = memos.splice(0, 1, id);
+		
+		const state = memos[1] = prevId === id && memos[1] || createState({
+			playState: 'paused',
+			currentTime: 0,
+			playTimestamp: undefined,
+			completed: false,
+			hoverActive: false,
+		});
 
-				const timeout = setTimeout(() => {
-					state.playState = 'paused';
-					state.currentTime = length;
-					state.completed = true;
-				}, length - currentTime);
+		return ['', state,
+			({ playState, currentTime, playTimestamp, hoverActive, completed }, memos) => {
+				const [prevPlayState] = memos.splice(0, 1, playState);
 
-				return () => clearTimeout(timeout);
-			}, [playState]);
+				if (playState !== prevPlayState) {
+					onRender(() => {
+						console.log('===== set video', playState);
+						memos[1]?.();
+						if (playState !== 'running') return;
 
-			return ['div', {
-				className: [
-					'video-player',
-					`video-${playState}`,
-					!hoverActive ? '' : 'video-hover-active',
-					`video-${action}`,
-					`video-${color}`,
-					`video-${shape}`,
-					!ft ? '' : [
-						'video-ft',
-						`video-ft-${ft.action}`,
-						`video-ft-${ft.color}`,
-						`video-ft-${ft.shape}`,
+						const timeout = setTimeout(() => {
+							state.playState = 'paused';
+							state.currentTime = length;
+							state.completed = true;
+						}, length - currentTime);
+
+						return memos[1] = () => clearTimeout(timeout);
+					});
+				}
+
+				return ['div', {
+					className: [
+						'video-player',
+						`video-${playState}`,
+						!hoverActive ? '' : 'video-hover-active',
+						`video-${action}`,
+						`video-${color}`,
+						`video-${shape}`,
+						!ft ? '' : [
+							'video-ft',
+							`video-ft-${ft.action}`,
+							`video-ft-${ft.color}`,
+							`video-ft-${ft.shape}`,
+						].join(' '),
 					].join(' '),
-				].join(' '),
-				onmouseenter: () => state.hoverActive = true,
-				onmouseleave: () => state.hoverActive = false,
-			},
-				['span', {
-					className: 'primary',
-					style: { animationPlayState: playState, animationIterationCount: iterationCount }
-				}],
-				['span', {
-					className: 'secondary',
-					style: { animationPlayState: playState, animationIterationCount: iterationCount }
-				}],
-				['div', { className: 'overlay' }],
-				['div', {
-					className: 'progress',
-					style: playState === 'running' ? {
-						width: '100%', transitionDuration: `${Math.max(0, length - currentTime)}ms`,
-					} : {
-						width: `${Math.min(1, currentTime / length) * 100}%`, transitionDuration: '0ms',
-					}
-				}],
-				['button', {
-					type: 'button',
-					className: 'play-pause',
-					onclick: () => {
-						if (completed) {
-							loadRecommendation(0, outerState);
-							return;
+					onmouseenter: () => state.hoverActive = true,
+					onmouseleave: () => state.hoverActive = false,
+				},
+					['span', {
+						className: 'primary',
+						style: { animationPlayState: playState, animationIterationCount: iterationCount }
+					}],
+					['span', {
+						className: 'secondary',
+						style: { animationPlayState: playState, animationIterationCount: iterationCount }
+					}],
+					['div', { className: 'overlay' }],
+					['div', {
+						className: 'progress',
+						style: playState === 'running' ? {
+							width: '100%', transitionDuration: `${Math.max(0, length - currentTime)}ms`,
+						} : {
+							width: `${Math.min(1, currentTime / length) * 100}%`, transitionDuration: '0ms',
 						}
+					}],
+					['button', {
+						type: 'button',
+						className: 'play-pause',
+						onclick: () => {
+							if (completed) {
+								loadRecommendation(0, outerState);
+								return;
+							}
 
-						state.playState = playState === 'running' ? 'paused' : 'running';
-						const now = Date.now();
-						
-						if (state.playState === 'running') {
-							state.playTimestamp = now;
-						} else if (playTimestamp < now) {
-							state.currentTime += Math.min(now - playTimestamp, length - currentTime);
-						}
-					},
-				}, completed ? 'Play Next' : playState === 'running' ? 'Pause' : 'Play'],
-			];
-		},
-		['h1', { className: 'video-title' }, title],
-		['strong', { className: 'video-owner' }, owner],
-	];
+							state.playState = playState === 'running' ? 'paused' : 'running';
+							const now = Date.now();
+							
+							if (state.playState === 'running') {
+								state.playTimestamp = now;
+							} else if (playTimestamp < now) {
+								state.currentTime += Math.min(now - playTimestamp, length - currentTime);
+							}
+						},
+					}, completed ? 'Play Next' : playState === 'running' ? 'Pause' : 'Play'],
+				];
+			},
+			['h1', { className: 'video-title' }, title],
+			['strong', { className: 'video-owner' }, owner],
+		];
+	};
 }
 
 function Comments ({ comments }, outerState) {
 	const { video: { owner } } = outerState;
 	const { length } = comments;
+	let state;
 
-	return !length ? null : () => ['', useState('state', {
+	return !length ? null : ({}, memos) => ['', state = memos[0] = memos[0] || createState({
 		expandedCount: 10,
-	}, []),
-		({ state, expandedCount }) => {
+	}),
+		({ expandedCount }, memos) => {
 			const ref = [];
+			const [prevExpandedCount] = memos.splice(0, 1, expandedCount);
 
-			useEffect(() => {
-				console.log('===== set focus on', ref[0]);
-				if (ref.length) ref[0].focus();
-			}, [expandedCount]);
+			if (expandedCount !== prevExpandedCount) {
+				onRender(() => {
+					console.log('===== set focus on', ref[0]);
+					if (ref.length) ref[0].focus();
+				});
+			}
 
 			return ['', null,
 				...comments.slice(0, expandedCount).map(({ user, message }, i) => {
@@ -232,15 +246,17 @@ function Recommendations ({ recommendations }, outerState) {
 }
 
 function App () {
-	return () => ['', useState('state', {
+	let state;
+
+	return ({}, memos) => ['', state = memos[0] = memos[0] || createState({
 		video: generateVideo(),
 		comments: generateComments(), 
 		recommendations: generateRecommendations(),
-	}, []),
+	}),
 		['div', { className: 'header' },
 			['strong', { className: 'logo' }, 'StewTube'],
 		],
-		({ state, video, comments, recommendations }) => ['div', { className: 'container' },
+		({ video, comments, recommendations }) => ['div', { className: 'container' },
 			['div', { className: 'row' },
 				['div', { className: 'col col-8' },
 					VideoPlayer(video, state),

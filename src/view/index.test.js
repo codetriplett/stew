@@ -19,6 +19,12 @@ describe('reconcileNode', () => {
 		expect(actual).toEqual([]);
 	});
 
+	it('persists view', () => {
+		const view = parentView[1] = [];
+		const actual = reconcileNode(true, {}, parentView, 0, dom);
+		expect(actual).toBe(view);
+	});
+
 	it('processes text view', () => {
 		const actual = reconcileNode('abc', {}, parentView, 0, dom);
 		expect(actual).toEqual([expect.any(Object)]);

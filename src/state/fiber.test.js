@@ -33,9 +33,7 @@ describe('processFiber', () => {
 
 		testArrObj(actual.fiber, [expect.any(Function)], {
 			depth: 1,
-			memos: [],
 			registry: new Set(),
-			index: 0,
 			teardowns: [],
 			view: actual
 		});
@@ -55,9 +53,7 @@ describe('processFiber', () => {
 
 		testArrObj(actual.fiber, [expect.any(Function)], {
 			depth: 1,
-			memos: [],
 			registry: new Set(),
-			index: 0,
 			teardowns: [],
 			view: actual
 		}, fiber);
@@ -81,7 +77,7 @@ describe('processFiber', () => {
 		const teardown = jest.fn();
 		const subscriptions = new Set();
 		const registry = new Set([subscriptions]);
-		const childFiber = Object.assign([], { view: [], memos: [[teardown, 123]], teardowns: [0], registry })
+		const childFiber = Object.assign([], { view: [], teardowns: [teardown], registry })
 		childFiber.view.fiber = childFiber;
 		subscriptions.add(childFiber);
 
@@ -92,7 +88,7 @@ describe('processFiber', () => {
 		fiber[0]();
 
 		expect(subscriptions).toEqual(new Set());
-		expect(teardown).toHaveBeenCalledWith([123]);
+		expect(teardown).toHaveBeenCalledWith();
 		expect(childFiber.view.fiber).toEqual(undefined);
 	});
 });

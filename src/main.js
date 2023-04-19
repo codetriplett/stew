@@ -1,9 +1,8 @@
-import stew, { useEffect, useMemo, useState } from './module';
+import stew, { createState, onRender } from './module';
 
 Object.assign(stew, {
-	useMemo,
-	useEffect,
-	useState,
+	createState,
+	onRender,
 });
 
 if (typeof window === 'object') {

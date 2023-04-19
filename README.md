@@ -1,12 +1,12 @@
 # Stew
-This library manages stateful fontend layouts built for any purpose. It supports global and local states and refs, client-side hydration and effects, server-side rendering, portals, and basic testing. The total uncompressed size is 7.5KB and requires no additonal dependencies. It is highly extensible, and even allows the document to be overriden.
+This library manages stateful fontend layouts built for any purpose. It supports global and local states and refs, client-side hydration and effects, server-side rendering, portals, and basic testing. The total uncompressed size is under 7KB and requires no additional dependencies. It is highly extensible, and even allows the document to be overriden.
 
 ## Quick Pitch
 For those already familiar with declarative layout management libraries, here is an example of how a basic layout would be authored using Stew.
 
 ```js
 // creates a global state
-const state = useState({ expanded: false });
+const state = createState({ expanded: false });
 
 // creates an active fragment
 const actual = stew('', () => ['', null,
@@ -32,9 +32,9 @@ const actual = stew('', [...layout], []);
 const button = actual.querySelector('button');
 expect(String(actual)).toEqual('<button type="button">Expand</button>');
 
-// useEffect returns a promise that resolves when the layout has been updated
+// onRender returns a promise that resolves when the layout has been updated
 button.onclick();
-await useEffect();
+await stew.onRender();
 expect(String(actual)).toEqual('<button type="button">Collapse</button><p>Hello World!</p>');
 // attributes will exist in alphabetical order when running simulated dom in client mode
 ```
@@ -81,30 +81,55 @@ const ref = [];
 ['div', { ref: node => { ... } }, ...children] // pass node to callback
 ```
 
-## useMemo
-All hooks use this one at their core. It accepts a function and an optional dependency array and will only execute the function if any of the values in the dependency array have changed since the previous render. The callback will receive its previous return value and previous values of the dependency array as parameters. useMemo will return the new or previous return value of the callback function.
+## createState
+Component functions in your layout will automically subscribe to changes to the props of any states it reads while rendering. To create a state pass its initial values to the createState function. States aren't tied to any component and can be used anywhere within your layout.
 
 ```js
-// call function only if memoDependencies differ from what they were when this ran previously
-const value = stew.useMemo((prevValue, ...prevDependencies) => {
-	...createValue
-}, [...memoDependencies])
-// value will remain the same as it was in the previous render if function passed to useMemo isn't called
+stew.createState({ expanded: false }) // create state
+stew.createState({ ... }, ['speed']) // add cue propes
 ```
 
-### useEffect
-This one works the same as useMemo, except the input function will wait for all current rendering tasks to finish. It will also be ignored when server-side rendering. If its return value is a function, that function will be called if the parent component maintaining this hook leaves the page. useEffect itself returns a promise that resolves when the effect has completed and the layout has updated.
+Cue props are ones that reset to undefined after the layout has updated and are only really useful for custom documents, for example, ones that have internal physics
 
-### useState
-This one works the same as useMemo, except it will use the return value to set up a new state. Component functions in your layout will automically subscribe to changes to the props of any states it reads while rendering.
+## Memoization
+Component functions are provided an array after the state param that values can be read from and pushed to that persist between renders. You may want to use this to store values to check if they have changed, as well as other objects that only need to be rebuilt if the right conditions are met.
 
 ```js
-stew.useState({ expanded: false }) // create state
-stew.useState('state', { expanded: false }) // also adds a reference to itself under a name you choose
-stew.useState((...memoParams) => ({ expanded: false }), [...memoDependencies]) // memoize state
+// on mount example
+(state, memos) => {
+	if (!memos.length) {
+		memos.push(expensiveObject);
+	}
+}
+
+// on update example
+(state, memos) => {
+	if (state.speaker !== memos[0]) {
+		memos[0] = state.speaker;
+		console.log('Hello', state.speaker);
+	}
+}
 ```
 
-Since the state values are updated by setting them directly, adding a reference to itself is just a conveient way of maintaining this ability when destructuring the rest of its properites. Any changes made to either one will dispatch those updates to functions that had used them, except when server-side rendering.
+## onRender
+You may have code that you want to delay and run as a follow-up to your layout updates. This can be be done by using the onRender function. It will accept a function that will run once the current rendering task has finished and returns a promise that resolves with its return value. If that value is a function, it will also be treated as a teardown function for the component. Teardown functions run when the component unmounts, or is no longer a part of the layout. onRender does not require a callback function if you just want to know when the render has complete, like in your unit tests.
+
+```js
+// set up subscriptions
+(state, memos) => {
+	if (!memos.length) {
+		// schedules code to run after initial render completes
+		memos[0] = onRender(() => {
+			...setup;
+			return () => { ...teardown };
+		});
+		// promise is stored to memo in this case to prevent effect from running again
+	}
+}
+
+// standalone effect (callback is optional)
+await onRender();
+```
 
 ## Custom Documents
 Stew can work with other document models beyond HTML. The third and final parameter passed to stew can be provided to override how DOM elements are created and updated. This parameter should be an array containing the new document object, updater function, and an object of default attributes for elements. The default attributes object will be filled in automatically as new elements are created if that elements type is missing. The document object needs a 'createTextNode' function that accepts a string and returns an object containing that string as the 'nodeValue' prop, and a 'createElement' function that accepts a string and returns an object containing that string as the 'tagName' prop. 'createElement' also needs to have a 'childNodes' prop that is an array and 'appendChild', 'insertBefore', and 'removeChild' functions that add and remove nodes from that array.
@@ -113,12 +138,4 @@ Stew can work with other document models beyond HTML. The third and final parame
 stew(container, layout, framework) // use a custom document and updater function
 stew(container, layout, []) // ensure simulated dom is used
 stew(contaienr, layout, [document]) // partial override of simulated dom
-```
-
-### Cues
-Cues are short-lived state properties. The values set to them only stay active during the next round of rendering before they reset to undefined. They can be useful for custom documents that makes changes to an element's properties outside of what the layout has described, like setting the initial speed of an object and letting gravity affect it from that point on. They are defined on the state by setting an initial value on the property that will become the states self reference (see useState for more info on that). Cues can be used in dependency arrays, but should be flagged so only their intentional values count as changes. An integer can be passed in after a dependency array to specificy the number of cues at the start of the array.
-
-```js
-stew.useState('state', { state: ['verticalSpeed'] }) // sets up 'verticalSpeed' as a cue property
-stew.useMemo(() => { ... }, ['verticalSpeed', 'other'], 1) // ignores undefined values for the first n items in dependency array
 ```

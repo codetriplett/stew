@@ -1,5 +1,5 @@
 import stew from '..';
-import { fibers } from './fiber';
+import { executeCallback, fibers } from './fiber';
 
 export const effects = [];
 export const queue = new Set();
@@ -52,12 +52,36 @@ export function scheduleDispatches (subscriptions) {
 	}, 0);
 }
 
-export default function createState (object, key) {
-	// prepare state and entries
+export function onRender (callback) {
+	// ignore effects on the server
+	if (stew.isServer) return Promise.resolve();
+	const [fiber] = fibers;
+
+	// process either state or effect
+	return new Promise(resolve => {
+		// add effect and schedule resolution
+		effects.push(() => {
+			const teardown = callback ? executeCallback(callback) : undefined;
+			if (fiber) fiber.teardowns.push(teardown);
+			resolve(teardown)
+		});
+
+		scheduleDispatches([]);
+	});
+}
+
+export default function createState (object, cues = []) {
+	// create empty state
 	const state = Array.isArray(object) ? [] : {};
-	const cues = key !== undefined && object[key] || [];
-	const cuesObject = Object.fromEntries(cues.map(cue => [cue]));
-	const entries = Object.entries({ ...cuesObject, ...object });
+
+	if (cues.length) {
+		// add defaults for cues
+		const cuesObject = Object.fromEntries(cues.map(cue => [cue]))
+		object = Object.assign(cuesObject, object);
+	}
+
+	// prepare entries
+	const entries = Object.entries(object);
 
 	if (stew.isServer) {
 		// skip subscriptions on server
@@ -65,7 +89,6 @@ export default function createState (object, key) {
 	}
 
 	for (let [name, value] of entries) {
-		if (name === key) continue;
 		const isCue = ~cues.indexOf(name);
 		const subscriptions = new Set();
 
@@ -106,7 +129,5 @@ export default function createState (object, key) {
 		});
 	}
 
-	// return state as-is or add self reference first
-	if (key === undefined) return state;
-	return Object.defineProperty(state, key, { value: state, writeable: false });
+	return state
 }

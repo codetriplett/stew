@@ -5,7 +5,7 @@ export const fibers = [];
 
 // recursively call teardowns
 function deactivateFiber (fiber) {
-	const { view, memos, teardowns, registry } = fiber;
+	const { view, teardowns, registry } = fiber;
 	view.fiber = undefined;
 
 	// unsubscribe from all state properties
@@ -19,16 +19,15 @@ function deactivateFiber (fiber) {
 	}
 
 	// call teardowns
-	for (const index of teardowns) {
-		const [teardown, ...prevDeps] = memos[index];
-		if (typeof teardown === 'function') teardown(prevDeps);
+	for (const teardown of teardowns) {
+		if (typeof teardown === 'function') teardown();
 	}
 }
 
 // safely call user defined code
 export function executeCallback (callback, ...params) {
 	try {
-		return callback?.(...params);
+		return callback(...params);
 	} catch (e) {
 		console.error(e);
 	}
@@ -49,9 +48,9 @@ export default function processFiber (callback, state, parentView, i, dom) {
 			// resurface stored framework and process callback
 			frameworks.unshift(framework);
 			fibers.unshift(fiber);
-			Object.assign(fiber, { index: 0, teardowns: [] });
+			teardowns.splice(0);
 			const oldChildFibers = fiber.splice(1);
-			const info = executeCallback(callback, state);
+			const info = executeCallback(callback, state, memos);
 			const view = reconcileNode(info, state, parentView, i, dom);
 
 			// handle updates here if impulse is reacting to dispatch
@@ -81,7 +80,9 @@ export default function processFiber (callback, state, parentView, i, dom) {
 
 		// create new view and set fiber
 		const [framework] = frameworks;
-		fiber = Object.assign([impulse], { depth: fibers.length, memos: [], registry: new Set() });
+		const memos = [];
+		const teardowns = [];
+		fiber = Object.assign([impulse], { depth: fibers.length, registry: new Set(), teardowns });
 	}
 
 	// ready callback and call impulse with state
