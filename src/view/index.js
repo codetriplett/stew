@@ -36,7 +36,7 @@ export function populateChildren (infos, state, parentView, dom) {
 	// backup previous views before removing extra child views
 	const { container, candidates = [], doAppend } = dom;
 	const [parentNode, ...childViews] = parentView;
-	const newKeyedViews = parentView.newKeyedViews = {};
+	const newKeyedViews = {};
 	parentView.splice(infos.length + 1);
 
 	// update children
@@ -44,6 +44,7 @@ export function populateChildren (infos, state, parentView, dom) {
 		const prevView = parentView[i + 1];
 		const view = reconcileNode(infos[i], state, parentView, i, dom);
 		const [node] = parentView[i + 1] = view;
+		if (view.key) newKeyedViews[view.key] = view;
 
 		if (!node) {
 			// set first sibling in fragment and update candidate
@@ -61,8 +62,8 @@ export function populateChildren (infos, state, parentView, dom) {
 		dom.sibling = node;
 	}
 
-	// replace keyed refs and shift hydration nodes to previous views
-	Object.assign(parentView, { keyedViews: newKeyedViews, newKeyedViews: undefined });
+	// replace keyed views and shift hydration nodes to previous views
+	parentView.keyedViews = newKeyedViews;
 	if (parentNode && candidates.length) childViews.push(...candidates);
 
 	// remove outdated views
@@ -82,7 +83,7 @@ export default function reconcileNode (info, state, parentView, i, dom) {
 			case 'function': {
 				// skip fiber overhead on server
 				if (stew.isServer) {
-					info = executeCallback(info, state);
+					info = executeCallback(info, state, []);
 					return reconcileNode(info, state, parentView, i, dom);
 				}
 				
@@ -121,7 +122,7 @@ export default function reconcileNode (info, state, parentView, i, dom) {
 	}
 
 	// update views and temporarily store new future views in place of node
-	if (hasKey) parentView.newKeyedViews[str] = view;
+	view.key = hasKey ? str : undefined;
 	populateChildren(arr, state, view, dom);
 	if (isFragment) dom.doAppend = doAppend;
 	else dom.candidates = undefined;
