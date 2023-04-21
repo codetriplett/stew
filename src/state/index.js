@@ -129,5 +129,5 @@ export default function createState (object, cues = []) {
 		});
 	}
 
-	return state
+	return state;
 }
