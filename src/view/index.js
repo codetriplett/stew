@@ -1,5 +1,4 @@
-import stew from '..';
-import processFiber, { executeCallback } from '../state/fiber';
+import processFiber, { executeCallback, fibers } from '../state/fiber';
 import processElement, { processText } from './element';
 
 export function appendNode (node, dom) {
@@ -82,8 +81,8 @@ export default function reconcileNode (info, state, parentView, i, dom) {
 		switch (typeof info) {
 			case 'function': {
 				// skip fiber overhead on server
-				if (stew.isServer) {
-					info = executeCallback(info, state, []);
+				if (fibers.isServer) {
+					info = executeCallback(info, [], state);
 					return reconcileNode(info, state, parentView, i, dom);
 				}
 				
@@ -101,30 +100,29 @@ export default function reconcileNode (info, state, parentView, i, dom) {
 	}
 
 	// element or fragment node
-	const [str, obj, ...arr] = info;
-	const keyIndex = str.indexOf(':');
-	const hasKey = keyIndex !== -1;
-	const isFragment = str === '' || keyIndex === 0;
-	let view = !candidates && hasKey && parentView.keyedViews[str] || candidate || [];
+	const [tagName, object, ...children] = info;
+	const { key, ref, ...props } = object || {};
+	const isFragment = tagName === '';
+	let view = (!candidates && key ? parentView.keyedViews[key] : candidate) || [];
 	let [node] = view;
 
 	if (isFragment) {
 		// reject view if it was for an element, the apply state and/or set doAppend if necessary
 		if (node || !('keyedViews' in view)) view = Object.assign([], { keyedViews: {} });
-		if (obj) state = obj;
+		if ('context' in props) state = props.context;
 		if (!candidates && !doAppend) dom.doAppend = view !== candidate;
 	} else {
 		// create or update node and create new dom object for children
-		const tagName = hasKey ? str.slice(0, keyIndex) : str;
-		[node] = view = processElement(tagName.toLowerCase(), obj, view);
+		[node] = view = processElement(tagName.toLowerCase(), props, view);
 		dom = { container: node };
 		if (candidates) dom.candidates = prepareCandidates(node);
 	}
 
-	// update views and temporarily store new future views in place of node
-	view.key = hasKey ? str : undefined;
-	populateChildren(arr, state, view, dom);
+	// set key and ref, then update views
+	if (ref) ref.unshift(dom.container);
+	populateChildren(children, state, view, dom);
 	if (isFragment) dom.doAppend = doAppend;
 	else dom.candidates = undefined;
+	view.key = key;
 	return view;
 }

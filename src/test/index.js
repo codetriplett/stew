@@ -1,8 +1,6 @@
 import { fibers } from '../state/fiber';
 import * as view from '../view';
-import stew from '..';
 
-stew.isServer = false;
 const { populateChildren } = view;
 let rootFiber, rootView, prevRootFiber, prevRootView;
 

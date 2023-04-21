@@ -87,19 +87,23 @@ function loadRecommendation (index, outerState) {
 function VideoPlayer ({ id, title, action, color, shape, ft, length, owner }, outerState) {
 	const iterationCount = length / 5000;
 	
-	return ({}, memos) => {
+	return memos => {
 		const [prevId] = memos.splice(0, 1, id);
-		
-		const state = memos[1] = prevId === id && memos[1] || createState({
-			playState: 'paused',
-			currentTime: 0,
-			playTimestamp: undefined,
-			completed: false,
-			hoverActive: false,
-		});
 
-		return ['', state,
-			({ playState, currentTime, playTimestamp, hoverActive, completed }, memos) => {
+		if (id !== prevId) {
+			memos[1] = createState({
+				playState: 'paused',
+				currentTime: 0,
+				playTimestamp: undefined,
+				completed: false,
+				hoverActive: false,
+			});
+		}
+
+		const state = memos[1];
+
+		return ['', { context: state },
+			(memos, { playState, currentTime, playTimestamp, hoverActive, completed }) => {
 				const [prevPlayState] = memos.splice(0, 1, playState);
 
 				if (playState !== prevPlayState) {
@@ -181,42 +185,47 @@ function VideoPlayer ({ id, title, action, color, shape, ft, length, owner }, ou
 }
 
 function Comments ({ comments }, outerState) {
-	const { video: { owner } } = outerState;
+	const { video: { id, owner } } = outerState;
 	const { length } = comments;
-	let state;
 
-	return !length ? null : ({}, memos) => ['', state = memos[0] = memos[0] || createState({
-		expandedCount: 10,
-	}),
-		({ expandedCount }, memos) => {
-			const ref = [];
-			const [prevExpandedCount] = memos.splice(0, 1, expandedCount);
+	return !length ? null : memos => {
+		const [prevId] = memos.splice(0, 1, id);
 
-			if (expandedCount !== prevExpandedCount) {
-				onRender(() => {
-					console.log('===== set focus on', ref[0]);
-					if (ref.length) ref[0].focus();
-				});
-			}
+		if (id !== prevId) {
+			memos[1] = createState({
+				expandedCount: 10,
+			});
+		}
 
-			return ['', null,
-				...comments.slice(0, expandedCount).map(({ user, message }, i) => {
-					return ['div', {
-						ref: i && i === expandedCount - 10 && ref,
-						className: 'comment',
-						tabIndex: '-1',
-					},
-						['strong', { className: `comment-user ${user === owner ? 'comment-user-owner' : ''}` }, user],
-						['p', { className: 'comment-message' }, message],
-					];
-				}),
-				length > expandedCount && ['button', {
-					type: 'button',
-					onclick: () => state.expandedCount += 10,
-				}, 'Show More'],
-			];
-		},
-	];
+		const state = memos[1];
+		const { expandedCount } = state;
+		const ref = [];
+		const [prevExpandedCount] = memos.splice(2, 1, expandedCount);
+
+		if (expandedCount !== prevExpandedCount) {
+			onRender(() => {
+				console.log('===== set focus on', ref[0]);
+				if (ref.length) ref[0].focus();
+			});
+		}
+
+		return ['', null,
+			...comments.slice(0, expandedCount).map(({ user, message }, i) => {
+				return ['div', {
+					ref: i && i === expandedCount - 10 && ref,
+					className: 'comment',
+					tabIndex: '-1',
+				},
+					['strong', { className: `comment-user ${user === owner ? 'comment-user-owner' : ''}` }, user],
+					['p', { className: 'comment-message' }, message],
+				];
+			}),
+			length > expandedCount && ['button', {
+				type: 'button',
+				onclick: () => state.expandedCount += 10,
+			}, 'Show More'],
+		];
+	};
 }
 
 function Recommendations ({ recommendations }, outerState) {
@@ -246,27 +255,37 @@ function Recommendations ({ recommendations }, outerState) {
 }
 
 function App () {
-	let state;
+	return memos => {
+		if (!memos.length) {
+			memos[0] = createState({
+				video: generateVideo(),
+				comments: generateComments(), 
+				recommendations: generateRecommendations(),
+			});
+		}
 
-	return ({}, memos) => ['', state = memos[0] = memos[0] || createState({
-		video: generateVideo(),
-		comments: generateComments(), 
-		recommendations: generateRecommendations(),
-	}),
-		['div', { className: 'header' },
-			['strong', { className: 'logo' }, 'StewTube'],
-		],
-		({ video, comments, recommendations }) => ['div', { className: 'container' },
-			['div', { className: 'row' },
-				['div', { className: 'col col-8' },
-					VideoPlayer(video, state),
-					Comments(comments, state),
-				],
-				['div', { className: 'col col-4' },
-					Recommendations(recommendations, state),
-				],
+		const [state] = memos;
+		
+		return ['', null,
+			['div', { className: 'header' },
+				['strong', { className: 'logo' }, 'StewTube'],
 			],
-		],
-	];
+			() => {
+				const { video, comments, recommendations } = state;
+
+				return ['div', { className: 'container' },
+					['div', { className: 'row' },
+						['div', { className: 'col col-8' },
+							VideoPlayer(video, state),
+							Comments(comments, state),
+						],
+						['div', { className: 'col col-4' },
+							Recommendations(recommendations, state),
+						],
+					],
+				];
+			},
+		];
+	};
 }
 })();

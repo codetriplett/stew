@@ -1,42 +1,24 @@
 # Stew
-This library manages stateful frontend layouts built for any purpose. It supports global and local states and refs, client-side hydration and effects, server-side rendering, portals, and basic testing. The total uncompressed size is under 7KB and requires no additional dependencies. It is highly extensible, and even allows the document to be overridden.
-
-## Quick Pitch
-For those already familiar with declarative layout management libraries, here is an example of how a basic layout would be authored using Stew.
+This library manages stateful frontend layouts built for any purpose. It supports global and local states and refs, client-side hydration and effects, server-side rendering, portals, and basic testing. The total uncompressed size is under 7KB and requires no additional dependencies. It is highly extensible, and even allows the document to be overridden. Here is a quick overview, followed by more detail on each feature.
 
 ```js
-// creates a global state
+// create a global state
 const state = createState({ expanded: false });
 
-// creates an active fragment to append somewhere on your page
-const actual = stew('', () => ['', null,
+// define a layout
+const layout = () => ['', null,
 	['button', {
 		type: 'button',
 		onclick: () => state.expanded = !state.expanded,
 	}, state.expanded ? 'Collapse' : 'Expand'],
 	state.expanded && ['p', {}, 'Hello World!'],
-]);
-// functions will automatically subscribe to props read from state
-```
+];
 
-## Testing
-The code above on both the server and client environment. The server will use a simulated DOM whose nodes are converted to HTML when cast to strings. Dynamic aspects of the library are skipped while server rendering, but this behavior can be overridden to support unit testing client-side functionality.
+// render layout as detached fragment
+const fragment = stew('', layout);
 
-```js
-// override flag to enforce client mode (not necessary when running in actual browser)
-stew.isServer = false;
-const actual = stew('', [...layout], []);
-// empty array as third param ensures the simulated dom is used
-
-// basic support exists for querySelector and all nodes stringify into HTML
-const button = actual.querySelector('button');
-expect(String(actual)).toEqual('<button type="button">Expand</button>');
-
-// onRender returns a promise that resolves when the layout has been updated
-button.onclick();
-await stew.onRender();
-expect(String(actual)).toEqual('<button type="button">Collapse</button><p>Hello World!</p>');
-// attributes will exist in alphabetical order when running simulated dom in client mode
+// render fragmetn as html on server
+const html = String(fragment);
 ```
 
 ## Render
@@ -62,52 +44,37 @@ element // preprocessed element (non-array objects only)
 Functions return their own portion of the layout, and have access to values that can persist between renders (see memoization section further down). Preprocessed elements are essentially DOM elements that have already been created. They allow you to include content that is controlled by other libraries, like React, if you wish.
 
 ### Attributes
-The names of attributes you set follow their property names in JavaScript, not what would normally be set in HTML, and need to honor the data types JavaScript expects for those properties. For example, setting tabIndex as a number instead of a string will lead to unexpected results, but boolean attributes, like 'selected', should not be cast to strings. However, names that contain dashes will be processed as HTML attributes instead of properties.
-
-### Keys
-DOM nodes are only created if there was no previous instance to update, or if the previous one is incompatible with the type that needed. If you are changing the order of the child nodes, but want to maintain their references, include a key. Keys are set after the tag name, separated by a colon.
+The names of attributes you set follow their property names in JavaScript, not what would normally be set in HTML, and need to honor the data types JavaScript expects for those properties. The key property is also available to help maintain references to the DOM nodes, even if the order of items in your layout has changed. The ref property will allow you store the rendered node for later use.
 
 ```js
-['div:item-0', { ...attributes }, ...children] // element with key
-[':item-0', null, ...children] // fragment with key
-```
-
-### Refs
-Ref properties provide access to DOM elements created from your layout. You can pass it a function that will receive the DOM element as a parameter, or you can pass it an array that you want the element pushed to. Elements are stored after the layout has been processed but can be accessed by code that you have delayed, such as event listeners or effects.
-
-```js
-const ref = [];
-['div', { ref }, ...children] // add node to existing ref array
-['div', { ref: node => { ... } }, ...children] // pass node to callback
+['div', { key: 'item-0', ...attributes }, ...children] // maintain DOM reference using key prop
+['div', { ref: refArray, ...attributes }, ...children] // push DOM node to an array using ref prop
+['', { key: 'item-0', ref: refArray }, ...children] // work with fragments as well, but ref will store parent node
 ```
 
 ## createState
-Component functions in your layout will automically subscribe to changes to the props of any states it reads while rendering. To create a state, pass its initial values to the createState function. States aren't tied to any component and can be used anywhere within your layout. States can be set in fragments in place of an attributes object to have it pass that state along to any component functions that reside within it.
+Component functions in your layout will automically subscribe to changes to the properties of any states it reads while rendering, and update when those properties change. To create a state, pass its initial values to the createState function. States are global by nature, but can be passed internally within your layout using contexts (see that section for more info).
 
 ```js
 const state = stew.createState({ expanded: false }) // create state
 const state = stew.createState({ ... }, ['speed']) // add cue propes
-
-// set the state for child components to receive as a parameter
-['', state, ...children]
-// it isn't necessary for states to be passed along this way, but it can be convenient
 ```
 
-Cue props are ones that reset to undefined after the layout has updated and are only really useful for custom documents, like ones that have internal physics.
+Cue props are ones that reset to undefined after the layout has updated and are only really useful for custom documents, like ones that have built-in physics.
 
 ## Memoization
-Component functions are provided an array after the state param. This array can hold whatever values you need to persist between renders. It can be used to support memoization by storing a set of parameters from the previous render and the value that was produced by them.
+Component functions are provided an array that values can be stored to and be retrieved from on the next render. This allows you identify when the component has first rendered, or when a specific property has chagned by storing its value in one render and comparing in the next. Detecting changes is a good way to prevent code from running unless you know it needs to update a value it may have created previously.
 
 ```js
 // on mount example
-(state, memos) => {
+memos => {
 	if (!memos.length) {
 		memos.push(expensiveObject);
 	}
 }
 
 // on update example that detects change
-(state, memos) => {
+memos => {
 	if (state.speaker !== memos[0]) {
 		memos[0] = state.speaker;
 		console.log('Hello', state.speaker);
@@ -115,24 +82,56 @@ Component functions are provided an array after the state param. This array can 
 }
 ```
 
+## Contexts
+A context prop can be used for fragments to store a value to pass to all of its component functions. This is a good way to store a state, or collection of states, for nested code to use without having to pass them through many layers of function calls. If a fragment does not set a context prop, it will continue to use the value of its parent component function for its children.
+
+```js
+['', { context: state }, ...children] // sets state for child component functions
+['', { context: { gameState, uiState } }, ...children] // sets multiple states
+(memos, context) => { ... } // context will be passed to component functions as the second parameter
+```
+
 ## onRender
 You may have code that you want to delay and run as a follow-up to your layout updates. This can be be done by using the onRender function. It will accept a function that will run once the current rendering task has finished and returns a promise that resolves with that callback's return value. If the return value is a function, it will also be treated as a teardown function for the component. Teardown functions run when the component unmounts, or is no longer a part of the layout. onRender does not require a callback function if you just want to know when the render has completed, like in your unit tests.
 
 ```js
 // set up subscriptions
-(state, memos) => {
+(memos, context) => {
 	if (!memos.length) {
 		// schedules code to run after initial render completes
-		memos[0] = onRender(() => {
+		onRender(() => {
 			...setup;
 			return () => { ...teardown };
 		});
-		// promise is stored to memo in this case to prevent effect from running again
+
+		// set a value to memos array to prevent onRender from being called on update
+		memos[0] = true;
+		// the memos array can be used however you want to control when onRenders run
 	}
 }
 
 // standalone effect (callback is optional)
 await onRender();
+// waits for next render of any active layout
+```
+
+## Testing
+The simulated document used by the server can be overriden to support unit testing. Pass a third param to define a custom document. This is will be explained further in the next section, but for now, an empty array will be enough to unlock testing features, even on the client.
+
+```js
+// override flag to enforce simulated document is used in client mode
+const actual = stew('', [...layout], []);
+
+// basic support exists for querySelector
+const button = actual.querySelector('button');
+expect(String(actual)).toEqual('<button type="button">Expand</button>');
+// any down within the simulated DOM will become HTML when converted to a string
+
+// call event listener directly to simulate its action
+button.onclick();
+await stew.onRender();
+expect(String(actual)).toEqual('<button type="button">Collapse</button><p>Hello World!</p>');
+// attributes will exist in alphabetical order when running in this mode
 ```
 
 ## Custom Documents

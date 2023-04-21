@@ -1,4 +1,4 @@
-import stew from '..';
+import { fibers } from '../state/fiber';
 
 // tags that shouldn't wrap content when server rendered
 const selfClosingTags = new Set([
@@ -114,7 +114,7 @@ export const virtualDocument = {
 				const attributeEntries = Object.entries(this).filter(([name]) => !staticAttributeNames.has(name));
 				const styleEntries = Object.entries(this.style);
 
-				if (!stew.isServer) {
+				if (!fibers.isServer) {
 					attributeEntries.sort(([a], [b]) => a.localeCompare(b));
 					styleEntries.sort(([a], [b]) => a.localeCompare(b));
 				}
@@ -139,7 +139,7 @@ export const virtualDocument = {
 
 const staticAttributeNames = new Set(Object.keys(virtualDocument.createElement('div')));
 
-export function defaultUpdater (element, props, prevNames, defaultElement, ignoreRef) {
+export function defaultUpdater (element, props, prevNames, defaultElement) {
 	prevNames = new Set(prevNames);
 
 	const changes = Object.entries(props).filter(([name, value]) => {
@@ -154,11 +154,7 @@ export function defaultUpdater (element, props, prevNames, defaultElement, ignor
 	}
 
 	for (const [name, value] of changes) {
-		if (name === 'ref') {
-			if (ignoreRef) continue;
-			if (typeof value === 'function') value(element);
-			else if (Array.isArray(value)) value.unshift(element);
-		} else if (name === 'style') {
+		if (name === 'style') {
 			const entries = Object.entries(value);
 			const { style } = element;
 
@@ -179,7 +175,5 @@ export function defaultUpdater (element, props, prevNames, defaultElement, ignor
 }
 
 export const frameworks = [];
-export const isClient = typeof window === 'object';
 export const virtualFramework = [virtualDocument, defaultUpdater, {}];
-const defaultDocument = isClient && window.document || virtualDocument;
-export default [defaultDocument, defaultUpdater, {}];
+export default typeof window === 'object' ? [window.document, defaultUpdater, {}] : virtualFramework;

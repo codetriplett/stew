@@ -1,4 +1,5 @@
 import stew from '..';
+import { fibers } from '../state/fiber';
 import { virtualDocument } from './dom';
 
 describe('virtualDocumnet', () => {
@@ -79,11 +80,11 @@ describe('virtualDocumnet', () => {
 	});
 	
 	it('does not sort attributes for server render', () => {
-		stew.isServer = true;
+		fibers.isServer = true;
 		const actual = virtualDocument.createElement('div');
 		Object.assign(actual, { id: 'lmno', className: 'abc xyz', tabIndex: 0 });
 		expect(String(actual)).toEqual('<div id="lmno" class="abc xyz" tabindex="0"></div>');
-		stew.isServer = false;
+		fibers.isServer = false;
 	});
 
 	it('sets boolean attributes', () => {

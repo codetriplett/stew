@@ -50,7 +50,7 @@ export default function processFiber (callback, state, parentView, i, dom) {
 			fibers.unshift(fiber);
 			teardowns.splice(0);
 			const oldChildFibers = fiber.splice(1);
-			const info = executeCallback(callback, state, memos);
+			const info = executeCallback(callback, memos, state);
 			const view = reconcileNode(info, state, parentView, i, dom);
 
 			// handle updates here if impulse is reacting to dispatch

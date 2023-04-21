@@ -23,12 +23,11 @@
 
 import { fibers } from './state/fiber';
 import { populateChildren, prepareCandidates } from './view';
-import defaultFramework, { frameworks, isClient, virtualFramework } from './view/dom';
+import defaultFramework, { frameworks, virtualFramework } from './view/dom';
 
 export default function stew (container, layout, framework = defaultFramework) {
-	const { isServer = !isClient } = stew;
 	const isFragment = container === '';
-	stew.isServer = isServer;
+	const isServer = framework === virtualFramework;
 
 	if (framework.length < 3) {
 		// add defaults to incomplete frameworks
@@ -50,7 +49,9 @@ export default function stew (container, layout, framework = defaultFramework) {
 	const dom = { container, candidates };
 	frameworks.unshift(framework);
 	fibers.unshift(fiber);
+	fibers.isServer = isServer;
 	populateChildren([layout], {}, view, dom);
+	fibers.isServer = undefined;
 	fibers.shift();
 	frameworks.shift();
 	dom.candidates = undefined;

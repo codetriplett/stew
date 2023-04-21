@@ -1,4 +1,3 @@
-import stew from '..';
 import { executeCallback, fibers } from './fiber';
 
 export const effects = [];
@@ -52,9 +51,10 @@ export function scheduleDispatches (subscriptions) {
 	}, 0);
 }
 
+// TODO: is this not firing in preview, or is ref not beign set
 export function onRender (callback) {
 	// ignore effects on the server
-	if (stew.isServer) return Promise.resolve();
+	if (fibers.isServer) return;
 	const [fiber] = fibers;
 
 	// process either state or effect
@@ -83,7 +83,7 @@ export default function createState (object, cues = []) {
 	// prepare entries
 	const entries = Object.entries(object);
 
-	if (stew.isServer) {
+	if (fibers.isServer) {
 		// skip subscriptions on server
 		Object.assign(state, Object.fromEntries(entries.splice(0)));
 	}
