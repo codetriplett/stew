@@ -10,6 +10,7 @@ const types = {
 	html: 'text/html',
 	css: 'text/css',
 	js: 'application/javascript',
+	mjs: 'application/javascript',
 	json: 'application/json',
 	bmp: 'image/bmp',
 	gif: 'image/gif',

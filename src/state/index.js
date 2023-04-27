@@ -3,7 +3,7 @@ import { executeCallback, fibers } from './fiber';
 export const effects = [];
 export const queue = new Set();
 const resets = [];
-let animationFrame;
+let timeout;
 
 export function scheduleDispatches (subscriptions) {
 	for (const fiber of subscriptions) {
@@ -11,10 +11,10 @@ export function scheduleDispatches (subscriptions) {
 	}
 
 	// wait on previously requested animation frame
-	if (animationFrame) return;
+	if (timeout) return;
 
 	// schedule update after all main thread tasks have finished
-	setTimeout(() => {
+	timeout = setTimeout(() => {
 		// resolve effects
 		for (const effect of effects.splice(0)) {
 			effect();
@@ -35,7 +35,7 @@ export function scheduleDispatches (subscriptions) {
 
 		// clear queues and timeout
 		queue.clear();
-		animationFrame = undefined;
+		timeout = undefined;
 
 		// call impulses by depth, skipping ones that were triggered by parent
 		for (const i of Object.keys(queueLayers).sort((a, b) => a - b)) {

@@ -38,8 +38,8 @@ Layouts are defined using arrays, objects, and strings. Functions can also be us
 ```js
 'Hello World' // text node
 ['div', { ...attributes }, ...children] // element
-['', state, ...children] // fragment
-({ ...state }) => { ...dynamicContent } // component
+['', null, ...children] // fragment
+() => { ...dynamicContent } // component
 element // preprocessed element (non-array objects only)
 ```
 
