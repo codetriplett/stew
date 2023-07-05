@@ -1,5 +1,6 @@
 import processFiber, { executeCallback, fibers } from '../state/fiber';
 import processElement, { processText } from './element';
+import { isClient, frameworks, converters } from './dom';
 
 export function appendNode (node, dom) {
 	const { container, sibling } = dom;
@@ -10,6 +11,8 @@ export function appendNode (node, dom) {
 		container.appendChild(node);
 	}
 }
+
+const { TEXT_NODE, COMMENT_NODE } = isClient ? window.Node : {};
 
 export function removeNode (view, container) {
 	let [node, ...childViews] = view;
@@ -27,8 +30,11 @@ export function removeNode (view, container) {
 }
 
 export function prepareCandidates (container) {
-	const childNodes = [...container.childNodes].reverse();
-	return childNodes.map(node => Object.assign([node], { keyedViews: {} }));
+	const candidates = [...container.childNodes].filter(({ nodeType }) => nodeType !== COMMENT_NODE).reverse();
+
+	return candidates.map(node => {
+		return node.nodeType === TEXT_NODE ? [node] : Object.assign([node], { keyedViews: {} });
+	});
 }
 
 export function populateChildren (infos, state, parentView, dom) {
@@ -90,7 +96,21 @@ export default function reconcileNode (info, state, parentView, i, dom) {
 				return processFiber(info, state, parentView, i, dom);
 			}
 			// static node
-			case 'object': return info ? [info] : [];
+			case 'object': {
+				// return empty or previously initialized node
+				if (!info) return [];
+				if (candidate && !candidates?.[0]) return candidate;
+
+				// create initial node
+				const [[document,,, containerTag]] = frameworks;
+				const [[convert, vars, promises]] = converters;
+				const isHydrating = candidate && 'keyedViews' in candidate;
+				const view = isHydrating ? candidate : Object.assign([document.createElement(containerTag)], { keyedViews: {} });
+				const [container] = view;
+				const node = convert(info, vars, container);
+				promises.push(node);
+				return view;
+			}
 			// text node
 			case 'string': case 'number': return processText(info, candidate);
 		}

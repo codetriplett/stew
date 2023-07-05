@@ -23,9 +23,13 @@
 
 import { fibers } from './state/fiber';
 import { populateChildren, prepareCandidates } from './view';
-import defaultFramework, { frameworks, virtualFramework } from './view/dom';
+import defaultFramework, { frameworks, converters, defaultConverter, virtualFramework } from './view/dom';
 
-export default function stew (container, layout, framework = defaultFramework) {
+export default function stew (container, layout, ...rest) {
+	const converter = typeof rest[0] === 'function' ? rest.shift() : defaultConverter;
+	const vars = rest.length && !Array.isArray(rest[0]) ? rest.shift() : {};
+	const promises = [];
+	let [framework = defaultFramework] = rest;
 	const isFragment = container === '';
 	const isServer = framework === virtualFramework;
 
@@ -42,20 +46,23 @@ export default function stew (container, layout, framework = defaultFramework) {
 		else container = document.querySelector(container);
 	}
 
-	// prepare hydrate nodes and load framework
+	// prepare hydrate nodes and load converter and framework
 	const fiber = Object.assign([() => {}], { registry: new Set() });
 	const view = Object.assign([container], { keyedViews: {} });
 	const candidates = isServer ? undefined : prepareCandidates(container);
 	const dom = { container, candidates };
 	frameworks.unshift(framework);
+	converters.unshift([converter, vars, promises]);
 	fibers.unshift(fiber);
 	fibers.isServer = isServer;
 	populateChildren([layout], {}, view, dom);
 	fibers.isServer = undefined;
 	fibers.shift();
+	converters.shift();
 	frameworks.shift();
 	dom.candidates = undefined;
 
-	// only return container if it was created here
-	if (isFragment) return container;
+	// return as promise if custom converter was used and only return container if it was created here
+	let result = isFragment ? container : undefined;
+	return converter !== defaultConverter ? Promise.all(promises).then(() => result) : result;
 };

@@ -1,21 +1,30 @@
 import reconcileNode from '.';
 import { fibers } from '../state/fiber';
-import { frameworks, virtualDocument, virtualFramework } from './dom';
+import { frameworks, converters, virtualDocument, virtualFramework } from './dom';
 
 describe('reconcileNode', () => {
+	const convert = jest.fn();
 	let parentFiber, parentView, container, dom;
 
 	beforeEach(() => {
+		jest.clearAllMocks();
+		convert.mockReturnValue({ toString: () => '' });
 		container = virtualDocument.createElement('div');
 		parentFiber = [,];
 		parentView = [container]
 		dom = { container };
 		frameworks.splice(0, frameworks.length, virtualFramework);
+		converters.splice(0, converters.length, [convert, {}]);
 		fibers.splice(0, fibers.length, parentFiber);
 	});
 
-	it('processes empty view', () => {
+	it('processes undefined view', () => {
 		const actual = reconcileNode(undefined, {}, parentView, 0, dom);
+		expect(actual).toEqual([]);
+	});
+
+	it('processes null view', () => {
+		const actual = reconcileNode(null, {}, parentView, 0, dom);
 		expect(actual).toEqual([]);
 	});
 
@@ -40,6 +49,14 @@ describe('reconcileNode', () => {
 	it('processes dynamic view', () => {
 		const actual = reconcileNode(() => ['div'], {}, parentView, 0, dom);
 		expect(actual).toEqual(Object.assign([expect.any(Object)], { keyedViews: {}, newKeyedViews: undefined, fiber: expect.any(Array) }));
+		expect(String(actual[0])).toEqual('<div></div>');
+		expect(parentFiber).toEqual([, actual.fiber]);
+	});
+
+	it('processes static view', () => {
+		convert.mockReturnValue(virtualDocument.createElement('div'));
+		const actual = reconcileNode({}, {}, parentView, 0, dom);
+		expect(actual).toEqual([expect.any(Object)]);
 		expect(String(actual[0])).toEqual('<div></div>');
 		expect(parentFiber).toEqual([, actual.fiber]);
 	});

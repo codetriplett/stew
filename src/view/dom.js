@@ -47,6 +47,22 @@ function parseSelector (selector) {
 	});
 }
 
+function writeChildNodes (parentNode) {
+	const { childNodes, innerHTML } = parentNode;
+	if (typeof innerHTML === 'string') return innerHTML;
+	const allChildNodes = [];
+	let wasTextNode = false;
+
+	for (const node of childNodes) {
+		const isTextNode = 'nodeValue' in node;
+		if (wasTextNode && isTextNode) allChildNodes.push('<!---->');
+		allChildNodes.push(node);
+		wasTextNode = isTextNode;
+	}
+
+	return allChildNodes.join('');
+}
+
 export const virtualDocument = {
 	createTextNode (nodeValue) {
 		return {
@@ -59,6 +75,7 @@ export const virtualDocument = {
 	createDocumentFragment () {
 		return {
 			parentElement: null,
+			innerHTML: null,
 			childNodes: [],
 			appendChild (child) {
 				this.removeChild(child);
@@ -90,7 +107,7 @@ export const virtualDocument = {
 				return [...matches];
 			},
 			toString () {
-				return this.childNodes.join('');
+				return writeChildNodes(this);
 			},
 		};
 	},
@@ -131,7 +148,7 @@ export const virtualDocument = {
 
 				if (styleString) html += ` style="${styleString}"`;
 				if (selfClosingTags.has(tagName)) return `${html}>`;
-				return `${html}>${this.childNodes.join('')}</${tagName}>`;
+				return `${html}>${writeChildNodes(this)}</${tagName}>`;
 			},
 		});
 	},
@@ -174,6 +191,9 @@ export function defaultUpdater (element, props, prevNames, defaultElement) {
 	}
 }
 
+export const isClient = typeof window === 'object';
 export const frameworks = [];
-export const virtualFramework = [virtualDocument, defaultUpdater, {}];
-export default typeof window === 'object' ? [window.document, defaultUpdater, {}] : virtualFramework;
+export const converters = [];
+export const virtualFramework = [virtualDocument, defaultUpdater, {}, 'div'];
+export const defaultConverter = () => {};
+export default isClient ? [window.document, defaultUpdater, {}, 'div'] : virtualFramework;

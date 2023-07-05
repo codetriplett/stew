@@ -1,5 +1,5 @@
 import reconcileNode, { appendNode, removeNode } from '../view';
-import { frameworks } from '../view/dom';
+import { frameworks, converters } from '../view/dom';
 
 export const fibers = [];
 
@@ -47,6 +47,7 @@ export default function processFiber (callback, state, parentView, i, dom) {
 
 			// resurface stored framework and process callback
 			frameworks.unshift(framework);
+			converters.unshift(converter);
 			fibers.unshift(fiber);
 			teardowns.splice(0);
 			const oldChildFibers = fiber.splice(1);
@@ -73,6 +74,7 @@ export default function processFiber (callback, state, parentView, i, dom) {
 
 			// reset stack
 			fibers.shift();
+			converters.shift();
 			frameworks.shift();
 			view.fiber = fiber;
 			return fiber.view = view;
@@ -80,6 +82,7 @@ export default function processFiber (callback, state, parentView, i, dom) {
 
 		// create new view and set fiber
 		const [framework] = frameworks;
+		const [converter] = converters;
 		const memos = [];
 		const teardowns = [];
 		fiber = Object.assign([impulse], { depth: fibers.length, registry: new Set(), teardowns });

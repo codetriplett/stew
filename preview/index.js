@@ -140,6 +140,9 @@ function VideoPlayer ({ id, title, action, color, shape, ft, length, owner }, ou
 					onmouseenter: () => state.hoverActive = true,
 					onmouseleave: () => state.hoverActive = false,
 				},
+					'video is',
+					state.playState === 'paused' && ' not',
+					' playing',
 					['span', {
 						className: 'primary',
 						style: { animationPlayState: playState, animationIterationCount: iterationCount }
@@ -283,9 +286,22 @@ function App () {
 							Recommendations(recommendations, state),
 						],
 					],
+					{ name: 'component' },
 				];
 			},
 		];
 	};
 }
+
+App.component = (container) => {
+	const state = createState({ expanded: false })
+
+	stew(container, () => ['', null,
+		['button', {
+			type: 'button',
+			onclick: () => state.expanded = !state.expanded,
+		}, state.expanded ? 'Collapse' : 'Expand'],
+		state.expanded && ['p', null, 'Hello World'],
+	]);
+};
 })();

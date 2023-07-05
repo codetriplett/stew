@@ -99,4 +99,33 @@ describe('stew', () => {
 		expect(String(actual)).toEqual('(fizzbuzz)');
 		testStructure([true, [true], [true]], [true, [true, [true], [false], [false], [true]]]);
 	});
+
+	it('accepts custom converter and vars', async () => {
+		const convert = jest.fn().mockImplementation(async ({ key }, vars) => {
+			return { toString: () => `<p>${vars[key]}</p>` };
+		});
+
+		const vars = {
+			abc: 123,
+			lmno: 456,
+			xyz: 789,
+		};
+
+		const actual = stew('', ['', null,
+			{ key: 'abc' },
+			['div', { className: 'wrapper' },
+				{ key: 'lmno' },
+			],
+			{ key: 'xyz' },
+		], convert, vars);
+
+		expect(convert.mock.calls).toEqual([
+			[{ key: 'xyz' }, vars, expect.any(Object)],
+			[{ key: 'lmno' }, vars, expect.any(Object)],
+			[{ key: 'abc' }, vars, expect.any(Object)],
+		]);
+
+		expect(actual).toEqual(expect.any(Promise));
+		expect(String(await actual)).toEqual('<div><p>123</p></div><div class="wrapper"><div><p>456</p></div></div><div><p>789</p></div>');
+	});
 });

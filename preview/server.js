@@ -46,7 +46,11 @@ function send (res, content, type = types.txt) {
 	res.end(content);
 }
 
-createServer(({ url }, res) => {
+function convertComponent ({ name }, vars, container) {
+	return App[name](container);
+}
+
+createServer(async ({ url }, res) => {
 	if (url === '/') {
 		const html = [
 			'<!DOCTYPE html>',
@@ -57,9 +61,10 @@ createServer(({ url }, res) => {
 					'<script src="/stew.min.js"></script>',
 				'</head>',
 				'<body>',
-					stew('', ['div', { id: 'app' }, App()]),
+					await stew('', ['div', { id: 'app' }, App()], convertComponent),
 					'<script src="/index.js"></script>',
-					'<script>stew(\'#app\', App());</script>',
+					'<script>window.convertComponent = ({ name }, vars, container) => App[name](container)</script>',
+					'<script>stew(\'#app\', App(), window.convertComponent);</script>',
 				'</body>',
 			'</html>',
 		].join('');
