@@ -1,4 +1,4 @@
-import { frameworks } from './dom';
+import { frameworks, converters } from './dom';
 
 export const managedProps = new WeakMap();
 
@@ -22,6 +22,13 @@ export default function processElement (tagName, obj, view = []) {
 	const [framework] = frameworks;
 	const [document, updater, defaultProps] = framework;
 	let [node] = view;
+
+	if (typeof tagName === 'number') {
+		const [[headingDepth]] = converters;
+		tagName = `h${headingDepth + tagName}`;
+	} else {
+		tagName = tagName.toLowerCase();
+	}
 
 	if (!('keyedViews' in view) || tagName !== node?.tagName?.toLowerCase?.()) {
 		// register defaults if not yet done

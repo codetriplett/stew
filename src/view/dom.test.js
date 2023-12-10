@@ -25,6 +25,7 @@ describe('virtualDocumnet', () => {
 			getAttribute: expect.any(Function),
 			removeAttribute: expect.any(Function),
 			parentElement: null,
+			innerHTML: null,
 			childNodes: [],
 			appendChild: expect.any(Function),
 			insertBefore: expect.any(Function),
@@ -129,6 +130,7 @@ describe('virtualDocumnet', () => {
 
 		expect(actual).toEqual({
 			parentElement: null,
+			innerHTML: null,
 			childNodes: [],
 			appendChild: expect.any(Function),
 			insertBefore: expect.any(Function),

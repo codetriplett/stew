@@ -78,6 +78,7 @@ export default function createState (object, cues = []) {
 		// add defaults for cues
 		const cuesObject = Object.fromEntries(cues.map(cue => [cue]))
 		object = Object.assign(cuesObject, object);
+		resets.push(...cues.map(cue => [state, cue]));
 	}
 
 	// prepare entries

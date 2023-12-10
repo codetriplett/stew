@@ -64,6 +64,15 @@ The names of attributes you set follow their property names in JavaScript, not w
 ['', { key: 'item-0', ref: refArray }, ...children] // work with fragments as well, but ref will store parent node
 ```
 
+### Headings
+Heading tags can also be rendered by using an integer as the tag name. The heading level used will be relative to the starting value passed into the stew function. This is useful for creating components that can be embedded at any level in your page's heading hierarchy.
+
+```js
+const subheading = [1, {}, 'Heading']
+stew('', subheading) // <h1>Heading</h1>
+stew('', subheading, 1) // <h2>Heading</h2>
+```
+
 ## createState
 Component functions in your layout will automically subscribe to changes to the properties of any states it reads from while rendering, and update when any of those specific properties change. To create a state, pass its initial values to the createState function. States are global by nature, but can be passed internally within your layout using contexts (see that section for more info).
 

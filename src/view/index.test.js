@@ -14,7 +14,7 @@ describe('reconcileNode', () => {
 		parentView = [container]
 		dom = { container };
 		frameworks.splice(0, frameworks.length, virtualFramework);
-		converters.splice(0, converters.length, [convert, {}]);
+		converters.splice(0, converters.length, [0, convert, {}, []]);
 		fibers.splice(0, fibers.length, parentFiber);
 	});
 
@@ -54,9 +54,10 @@ describe('reconcileNode', () => {
 	});
 
 	it('processes static view', () => {
-		convert.mockReturnValue(virtualDocument.createElement('div'));
+		const node = virtualDocument.createElement('div');
+		convert.mockReturnValue(node);
 		const actual = reconcileNode({}, {}, parentView, 0, dom);
-		expect(actual).toEqual([expect.any(Object)]);
+		expect(actual).toEqual(Object.assign([expect.any(Object)], { keyedViews: {} }));
 		expect(String(actual[0])).toEqual('<div></div>');
 		expect(parentFiber).toEqual([, actual.fiber]);
 	});

@@ -1,10 +1,11 @@
-import { frameworks, virtualFramework } from './dom';
+import { frameworks, converters, virtualFramework } from './dom';
 import processElement, { managedProps, processText } from './element';
 
 const [virtualDocument] = virtualFramework;
 
 beforeEach(() => {
 	frameworks.splice(0, frameworks.length, virtualFramework);
+	converters.splice(0, converters.length, [0]);
 });
 
 describe('processText', () => {
@@ -50,6 +51,19 @@ describe('processElement', () => {
 		const actual = processElement('div');
 		expect(actual).toEqual(Object.assign([expect.anything()], { keyedViews: {} }));
 		expect(String(actual[0])).toEqual('<div></div>');
+	});
+
+	it('creates heading', () => {
+		const actual = processElement(1);
+		expect(actual).toEqual(Object.assign([expect.anything()], { keyedViews: {} }));
+		expect(String(actual[0])).toEqual('<h1></h1>');
+	});
+
+	it('creates nested heading', () => {
+		converters[0][0] = 1;
+		const actual = processElement(1);
+		expect(actual).toEqual(Object.assign([expect.anything()], { keyedViews: {} }));
+		expect(String(actual[0])).toEqual('<h2></h2>');
 	});
 
 	it('adds attributes', () => {

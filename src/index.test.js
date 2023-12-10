@@ -76,33 +76,35 @@ describe('stew', () => {
 			')'
 		], []);
 
-		expect(String(actual)).toEqual('()');
+		expect(String(actual)).toEqual('(<!---->)');
 		testStructure();
 		state.iteration++;
 		await onRender();
-		expect(String(actual)).toEqual('(fizz)');
+		expect(String(actual)).toEqual('(<!---->fizz<!---->)');
 		testStructure([true, [true], [true]], [true, [true, [true], [false], [false], [true]]]);
 		state.iteration++;
 		await onRender();
-		expect(String(actual)).toEqual('(buzz)');
+		expect(String(actual)).toEqual('(<!---->buzz<!---->)');
 		testStructure([true, [true], [true]], [true, [true, [true], [false], [false], [true]]]);
 		state.iteration++;
 		await onRender();
-		expect(String(actual)).toEqual('(fizz)');
+		expect(String(actual)).toEqual('(<!---->fizz<!---->)');
 		testStructure([true, [true], [true]], [true, [true, [true], [false], [false], [true]]]);
 		state.iteration++;
 		await onRender();
-		expect(String(actual)).toEqual('()');
+		expect(String(actual)).toEqual('(<!---->)');
 		testStructure([true, [true], [true]], [true, [true, [true], [false], [false], [true]]]);
 		state.iteration++;
 		await onRender();
-		expect(String(actual)).toEqual('(fizzbuzz)');
+		expect(String(actual)).toEqual('(<!---->fizz<!---->buzz<!---->)');
 		testStructure([true, [true], [true]], [true, [true, [true], [false], [false], [true]]]);
 	});
 
 	it('accepts custom converter and vars', async () => {
-		const convert = jest.fn().mockImplementation(async ({ key }, vars) => {
-			return { toString: () => `<p>${vars[key]}</p>` };
+		const convert = jest.fn().mockImplementation(async ({ key }, vars, container) => {
+			const node = { toString: () => `<p>${vars[key]}</p>` };
+			container.appendChild(node);
+			return node;
 		});
 
 		const vars = {
@@ -120,9 +122,9 @@ describe('stew', () => {
 		], convert, vars);
 
 		expect(convert.mock.calls).toEqual([
-			[{ key: 'xyz' }, vars, expect.any(Object)],
-			[{ key: 'lmno' }, vars, expect.any(Object)],
-			[{ key: 'abc' }, vars, expect.any(Object)],
+			[{ key: 'xyz' }, vars, expect.any(Object), 0],
+			[{ key: 'lmno' }, vars, expect.any(Object), 0],
+			[{ key: 'abc' }, vars, expect.any(Object), 0],
 		]);
 
 		expect(actual).toEqual(expect.any(Promise));

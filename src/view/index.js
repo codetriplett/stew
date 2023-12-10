@@ -103,11 +103,11 @@ export default function reconcileNode (info, state, parentView, i, dom) {
 
 				// create initial node
 				const [[document,,, containerTag]] = frameworks;
-				const [[convert, vars, promises]] = converters;
+				const [[headingDepth, convert, vars, promises]] = converters;
 				const isHydrating = candidate && 'keyedViews' in candidate;
 				const view = isHydrating ? candidate : Object.assign([document.createElement(containerTag)], { keyedViews: {} });
 				const [container] = view;
-				const node = convert(info, vars, container);
+				const node = convert(info, vars, container, headingDepth);
 				promises.push(node);
 				return view;
 			}
@@ -133,13 +133,13 @@ export default function reconcileNode (info, state, parentView, i, dom) {
 		if (!candidates && !doAppend) dom.doAppend = view !== candidate;
 	} else {
 		// create or update node and create new dom object for children
-		[node] = view = processElement(tagName.toLowerCase(), props, view);
+		[node] = view = processElement(tagName, props, view);
 		dom = { container: node };
 		if (candidates) dom.candidates = prepareCandidates(node);
 	}
 
 	// set key and ref, then update views
-	if (ref) ref.unshift(dom.container);
+	if (ref) ref[0] = dom.container;
 	populateChildren(children, state, view, dom);
 	if (isFragment) dom.doAppend = doAppend;
 	else dom.candidates = undefined;

@@ -26,6 +26,7 @@ import { populateChildren, prepareCandidates } from './view';
 import defaultFramework, { frameworks, converters, defaultConverter, virtualFramework } from './view/dom';
 
 export default function stew (container, layout, ...rest) {
+	const headingDepth = typeof rest[0] === 'number' ? rest.shift() : 0;
 	const converter = typeof rest[0] === 'function' ? rest.shift() : defaultConverter;
 	const vars = rest.length && !Array.isArray(rest[0]) ? rest.shift() : {};
 	const promises = [];
@@ -52,10 +53,10 @@ export default function stew (container, layout, ...rest) {
 	const candidates = isServer ? undefined : prepareCandidates(container);
 	const dom = { container, candidates };
 	frameworks.unshift(framework);
-	converters.unshift([converter, vars, promises]);
+	converters.unshift([headingDepth, converter, vars, promises]);
 	fibers.unshift(fiber);
 	fibers.isServer = isServer;
-	populateChildren([layout], {}, view, dom);
+	populateChildren([layout], vars, view, dom);
 	fibers.isServer = undefined;
 	fibers.shift();
 	converters.shift();
