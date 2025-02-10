@@ -42,13 +42,13 @@ describe('reconcileNode', () => {
 
 	it('processes element view', () => {
 		const actual = reconcileNode(['div'], {}, parentView, 0, dom);
-		expect(actual).toEqual(Object.assign([expect.any(Object)], { keyedViews: {}, newKeyedViews: undefined }));
+		expect(actual).toEqual(Object.assign([expect.any(Object)], { keyedViews: {}, newKeyedViews: undefined, tagName: 'div' }));
 		expect(String(actual[0])).toEqual('<div></div>');
 	});
 
 	it('processes dynamic view', () => {
 		const actual = reconcileNode(() => ['div'], {}, parentView, 0, dom);
-		expect(actual).toEqual(Object.assign([expect.any(Object)], { keyedViews: {}, newKeyedViews: undefined, fiber: expect.any(Array) }));
+		expect(actual).toEqual(Object.assign([expect.any(Object)], { keyedViews: {}, newKeyedViews: undefined, fiber: expect.any(Array), tagName: 'div' }));
 		expect(String(actual[0])).toEqual('<div></div>');
 		expect(parentFiber).toEqual([, actual.fiber]);
 	});

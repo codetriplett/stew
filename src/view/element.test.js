@@ -49,26 +49,26 @@ describe('processText', () => {
 describe('processElement', () => {
 	it('creates element', () => {
 		const actual = processElement('div');
-		expect(actual).toEqual(Object.assign([expect.anything()], { keyedViews: {} }));
+		expect(actual).toEqual(Object.assign([expect.anything()], { keyedViews: {}, tagName: 'div' }));
 		expect(String(actual[0])).toEqual('<div></div>');
 	});
 
 	it('creates heading', () => {
 		const actual = processElement(1);
-		expect(actual).toEqual(Object.assign([expect.anything()], { keyedViews: {} }));
+		expect(actual).toEqual(Object.assign([expect.anything()], { keyedViews: {}, tagName: 'h1' }));
 		expect(String(actual[0])).toEqual('<h1></h1>');
 	});
 
 	it('creates nested heading', () => {
 		converters[0][0] = 1;
 		const actual = processElement(1);
-		expect(actual).toEqual(Object.assign([expect.anything()], { keyedViews: {} }));
+		expect(actual).toEqual(Object.assign([expect.anything()], { keyedViews: {}, tagName: 'h2' }));
 		expect(String(actual[0])).toEqual('<h2></h2>');
 	});
 
 	it('adds attributes', () => {
 		const actual = processElement('div', { className: 'abc' });
-		expect(actual).toEqual(Object.assign([expect.anything()], { keyedViews: {} }));
+		expect(actual).toEqual(Object.assign([expect.anything()], { keyedViews: {}, tagName: 'div' }));
 		expect(String(actual[0])).toEqual('<div class="abc"></div>');
 	});
 

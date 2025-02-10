@@ -30,7 +30,8 @@ export default function processElement (tagName, obj, view = []) {
 		tagName = tagName.toLowerCase();
 	}
 
-	if (!('keyedViews' in view) || tagName !== node?.tagName?.toLowerCase?.()) {
+	// TODO: store tagName prop in candidates, and simply check tagName on view
+	if (tagName !== (('tagName' in view) ? view.tagName : node?.tagName?.toLowerCase?.())) {
 		// register defaults if not yet done
 		if (!Object.prototype.hasOwnProperty.call(defaultProps, tagName)) {
 			const example = document.createElement(tagName);
@@ -39,13 +40,13 @@ export default function processElement (tagName, obj, view = []) {
 
 		// create new element and attach to dom
 		node = document.createElement(tagName);
-		view = Object.assign([node], { keyedViews: {} });
+		view = Object.assign([node], { keyedViews: {}, tagName });
 	}
 
 	// update attributes
 	if (obj) {
 		const prevNames = managedProps.get(node);
-		updater(node, obj, prevNames, defaultProps[node.tagName.toLowerCase()]);
+		updater(node, obj, prevNames, defaultProps[tagName]);
 		managedProps.set(node, Object.keys(obj));
 	}
 

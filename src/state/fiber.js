@@ -50,8 +50,9 @@ export default function processFiber (callback, state, parentView, i, dom) {
 			converters.unshift(converter);
 			fibers.unshift(fiber);
 			teardowns.splice(0);
+			memos[''] = state;
 			const oldChildFibers = fiber.splice(1);
-			const info = executeCallback(callback, memos, state);
+			const info = executeCallback(callback, memos);
 			const view = reconcileNode(info, state, parentView, i, dom);
 
 			// handle updates here if impulse is reacting to dispatch
@@ -83,7 +84,7 @@ export default function processFiber (callback, state, parentView, i, dom) {
 		// create new view and set fiber
 		const [framework] = frameworks;
 		const [converter] = converters;
-		const memos = [];
+		const memos = {};
 		const teardowns = [];
 		fiber = Object.assign([impulse], { depth: fibers.length, registry: new Set(), teardowns });
 	}

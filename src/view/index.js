@@ -88,7 +88,7 @@ export default function reconcileNode (info, state, parentView, i, dom) {
 			case 'function': {
 				// skip fiber overhead on server
 				if (fibers.isServer) {
-					info = executeCallback(info, [], state);
+					info = executeCallback(info, { '': state });
 					return reconcileNode(info, state, parentView, i, dom);
 				}
 				
@@ -99,15 +99,28 @@ export default function reconcileNode (info, state, parentView, i, dom) {
 			case 'object': {
 				// return empty or previously initialized node
 				if (!info) return [];
-				if (candidate && !candidates?.[0]) return candidate;
+				const [[headingDepth, convert, vars, promises]] = converters;
+				let view = candidate;
 
 				// create initial node
-				const [[document,,, containerTag]] = frameworks;
-				const [[headingDepth, convert, vars, promises]] = converters;
-				const isHydrating = candidate && 'keyedViews' in candidate;
-				const view = isHydrating ? candidate : Object.assign([document.createElement(containerTag)], { keyedViews: {} });
+				if (!view || candidates?.[0]) {
+					const [[document,,, containerTag]] = frameworks;
+					const isContainer = view && 'keyedViews' in view;
+
+					if (!isContainer) {
+						view = Object.assign([document.createElement(containerTag)], { keyedViews: {} });
+					}
+				}
+
 				const [container] = view;
-				const node = convert(info, vars, container, headingDepth);
+				let node;
+
+				try {
+					node = convert(info, container, vars, headingDepth);
+				} catch (e) {
+					console.error(e);
+				}
+
 				promises.push(node);
 				return view;
 			}
@@ -131,6 +144,12 @@ export default function reconcileNode (info, state, parentView, i, dom) {
 		if (node || !('keyedViews' in view)) view = Object.assign([], { keyedViews: {} });
 		if ('context' in props) state = props.context;
 		if (!candidates && !doAppend) dom.doAppend = view !== candidate;
+	} else if (typeof tagName === 'function') {
+		// component
+		info = executeCallback(info, { '': children, ...props });
+		view = reconcileNode(info, state, parentView, i, dom);
+		view.tagName = tagName;
+		return view;
 	} else {
 		// create or update node and create new dom object for children
 		[node] = view = processElement(tagName, props, view);
