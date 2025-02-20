@@ -62,7 +62,7 @@ export default function processFiber (callback, state, parentView, i, dom) {
 
 				// replace old view if it represents new ref
 				if (view !== prevView) {
-					removeNode(prevView, dom.container);
+					removeNode(prevView, dom.root);
 					const [node] = parentView[i + 1] = view;
 					if (node) appendNode(node, dom);
 				}

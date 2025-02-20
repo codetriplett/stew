@@ -21,6 +21,8 @@ describe('virtualDocumnet', () => {
 		expect(actual).toEqual({
 			tagName: 'div',
 			style: {},
+			dataset: {},
+			mode: null,
 			setAttribute: expect.any(Function),
 			getAttribute: expect.any(Function),
 			removeAttribute: expect.any(Function),
@@ -40,8 +42,8 @@ describe('virtualDocumnet', () => {
 
 	it('sets attribute using method', () => {
 		const actual = virtualDocument.createElement('div');
-		actual.setAttribute('data-value', 'abc');
-		expect(actual['data-value']).toEqual('abc');
+		actual.setAttribute('abc', '123');
+		expect(actual['abc']).toEqual('123');
 	});
 
 	it('does not overwrite static prop', () => {
@@ -118,7 +120,35 @@ describe('virtualDocumnet', () => {
 		expect(String(actual)).toEqual('<div style="color:green;font-size:12px;"></div>');
 	});
 
+	it('stringifies data attribute', () => {
+		const actual = virtualDocument.createElement('div');
+		actual.dataset = { abc: 123, xyz: 789 }
+		expect(String(actual)).toEqual('<div data-abc="123" data-xyz="789"></div>');
+	});
+
 	it('stringifies element children', () => {
+		const actual = virtualDocument.createElement('div');
+		actual.appendChild(virtualDocument.createElement('div'));
+		actual.appendChild(virtualDocument.createElement('span'));
+		expect(String(actual)).toEqual('<div><div></div><span></span></div>');
+	});
+
+	it('stringifies style tag', () => {
+		const actual = virtualDocument.createElement('style');
+		actual.appendChild(virtualDocument.createTextNode('.abc > .xyz {}'));
+		expect(String(actual)).toEqual('<style>.abc > .xyz {}</style>');
+	});
+
+	it('stringifies shadow template', () => {
+		const actual = virtualDocument.createElement('div');
+		actual.mode = 'open';
+		actual.appendChild(virtualDocument.createElement('div'));
+		actual.appendChild(virtualDocument.createElement('span'));
+		expect(String(actual)).toEqual('<div><template shadowrootmode="open"><div></div><span></span></template></div>');
+	});
+	
+
+	it('stringifies style tag children', () => {
 		const actual = virtualDocument.createElement('div');
 		actual.appendChild(virtualDocument.createElement('div'));
 		actual.appendChild(virtualDocument.createElement('span'));

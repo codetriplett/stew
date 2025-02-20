@@ -25,6 +25,9 @@ import { fibers } from './state/fiber';
 import { populateChildren, prepareCandidates } from './view';
 import defaultFramework, { frameworks, converters, defaultConverter, virtualFramework } from './view/dom';
 
+// TODO: change this to stew(selector, { ...options }, ...children)
+// - matches signature of fragment [selector, { ...props }, ...children]
+// - options: { depth, converter, vars, framework }
 export default function stew (container, layout, ...rest) {
 	const headingDepth = typeof rest[0] === 'number' ? rest.shift() : 0;
 	const converter = typeof rest[0] === 'function' ? rest.shift() : defaultConverter;
@@ -50,8 +53,9 @@ export default function stew (container, layout, ...rest) {
 	// prepare hydrate nodes and load converter and framework
 	const fiber = Object.assign([() => {}], { registry: new Set() });
 	const view = Object.assign([container], { keyedViews: {} });
-	const candidates = isServer ? undefined : prepareCandidates(container);
-	const dom = { container, candidates };
+	const root = container.shadowRoot || container;
+	const candidates = isServer ? undefined : prepareCandidates(root);
+	const dom = { container, root, candidates };
 	frameworks.unshift(framework);
 	converters.unshift([headingDepth, converter, vars, promises]);
 	fibers.unshift(fiber);

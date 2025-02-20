@@ -48,7 +48,7 @@ function parseSelector (selector) {
 }
 
 function writeChildNodes (parentNode) {
-	const { childNodes, innerHTML } = parentNode;
+	const { tagName, childNodes, innerHTML } = parentNode;
 	if (typeof innerHTML === 'string') return innerHTML;
 	const allChildNodes = [];
 	let wasTextNode = false;
@@ -58,6 +58,11 @@ function writeChildNodes (parentNode) {
 		if (wasTextNode && isTextNode) allChildNodes.push('<!---->');
 		allChildNodes.push(node);
 		wasTextNode = isTextNode;
+	}
+
+	if (tagName === 'style' || tagName === 'script') {
+		const [firstChild = ''] = allChildNodes;
+		return firstChild.nodeValue.replace(/<\//, '&lt;/');
 	}
 
 	return allChildNodes.join('');
@@ -117,6 +122,8 @@ export const virtualDocument = {
 		return Object.assign(fragment, {
 			tagName,
 			style: {},
+			dataset: {},
+			mode: null,
 			setAttribute (name, value) {
 				if (!staticAttributeNames.has(name)) this[name] = value;
 			},
@@ -130,10 +137,13 @@ export const virtualDocument = {
 				let html = `<${tagName === '!doctype' ? '!DOCTYPE' : tagName}`;
 				const attributeEntries = Object.entries(this).filter(([name]) => !staticAttributeNames.has(name));
 				const styleEntries = Object.entries(this.style);
+				const datasetEntries = Object.entries(this.dataset);
+				let content = writeChildNodes(this);
 
 				if (!fibers.isServer) {
 					attributeEntries.sort(([a], [b]) => a.localeCompare(b));
 					styleEntries.sort(([a], [b]) => a.localeCompare(b));
+					datasetEntries.sort(([a], [b]) => a.localeCompare(b));
 				}
 
 				for (let [name, value] of attributeEntries) {
@@ -145,10 +155,19 @@ export const virtualDocument = {
 				const styleString = styleEntries.map(([name, value]) => {
 					return `${name.replace(/(?=[A-Z])/g, '-').toLowerCase()}:${value};`;
 				}).join('');
-
+				
 				if (styleString) html += ` style="${styleString}"`;
+
+				for (const [name, value] of datasetEntries) {
+					html += ` data-${name}${value === true ? '' : `="${String(value).replace(/"/g, '&quot;')}"`}`;
+				}
+
+				if (this.mode !== null) {
+					content = `<template shadowrootmode="${this.mode}">${content}</template>`;
+				}
+
 				if (selfClosingTags.has(tagName)) return `${html}>`;
-				return `${html}>${writeChildNodes(this)}</${tagName}>`;
+				return `${html}>${content}</${tagName}>`;
 			},
 		});
 	},
@@ -179,6 +198,12 @@ export function defaultUpdater (element, props, prevNames, defaultElement) {
 				if (style[name] === String(value)) continue;
 				style[name] = value;
 			}
+		} else if (name === 'mode') {
+			if (!element.shadowRoot) {
+				element.attachShadow({ mode: value });
+			}
+		} else if (name === 'dataset') {
+			Object.assign(element.dataset, value);
 		} else if (staticAttributeNames.has(name)) {
 			continue;
 		} else if (!~name.indexOf('-')) {

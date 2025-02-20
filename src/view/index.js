@@ -2,35 +2,38 @@ import processFiber, { executeCallback, fibers } from '../state/fiber';
 import processElement, { processText } from './element';
 import { isClient, frameworks, converters } from './dom';
 
+// TODO: maybe store shadowRoot as container in dom object
+// - or set a separate 'root' prop in dom to append and remove children from and continue to use container for setting attributes
+
 export function appendNode (node, dom) {
-	const { container, sibling } = dom;
+	let { root, sibling } = dom;
 
 	if (sibling && sibling.previousSibling !== node) {
-		container.insertBefore(node, sibling);
-	} else if (!sibling && container.lastChild !== node) {
-		container.appendChild(node);
+		root.insertBefore(node, sibling);
+	} else if (!sibling && root.lastChild !== node) {
+		root.appendChild(node);
 	}
 }
 
 const { TEXT_NODE, COMMENT_NODE } = isClient ? window.Node : {};
 
-export function removeNode (view, container) {
+export function removeNode (view, root) {
 	let [node, ...childViews] = view;
 
 	if (node) {
 		// remove node from DOM
-		container.removeChild(node);
+		root.removeChild(node);
 		return;
 	}
 
 	// remove nodes from fragment
 	for (const childView of childViews) {
-		removeNode(childView, container);
+		removeNode(childView, root);
 	}
 }
 
-export function prepareCandidates (container) {
-	const candidates = [...container.childNodes].filter(({ nodeType }) => nodeType !== COMMENT_NODE).reverse();
+export function prepareCandidates (root) {
+	const candidates = [...root.childNodes].filter(({ nodeType }) => nodeType !== COMMENT_NODE).reverse();
 
 	return candidates.map(node => {
 		return node.nodeType === TEXT_NODE ? [node] : Object.assign([node], { keyedViews: {} });
@@ -144,16 +147,10 @@ export default function reconcileNode (info, state, parentView, i, dom) {
 		if (node || !('keyedViews' in view)) view = Object.assign([], { keyedViews: {} });
 		if ('context' in props) state = props.context;
 		if (!candidates && !doAppend) dom.doAppend = view !== candidate;
-	} else if (typeof tagName === 'function') {
-		// component
-		info = executeCallback(info, { '': children, ...props });
-		view = reconcileNode(info, state, parentView, i, dom);
-		view.tagName = tagName;
-		return view;
 	} else {
 		// create or update node and create new dom object for children
 		[node] = view = processElement(tagName, props, view);
-		dom = { container: node };
+		dom = { container: node, root: node.shadowRoot || node };
 		if (candidates) dom.candidates = prepareCandidates(node);
 	}
 

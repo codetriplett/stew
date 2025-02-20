@@ -38,9 +38,9 @@ Layouts are defined using arrays, objects, and strings. Functions can also be us
 ```js
 'Hello World' // text
 ['div', { ...attributes }, ...children] // element
-['', null, ...children] // fragment
-() => { ...dynamicContent } // component
-{ ...properties } // attachment
+['', null, ...children] // fragment (appends children to parent element)
+() => { ...code } // boundary (live section of layout)
+{ ...prop } // attachment (static or async content)
 ```
 
 Attachments are sections of your layout that are controlled by separate code, even other libraries, like React. A container element will be rendered in its place, but the contents are determined by the converter you passed to stew. The converter will receive the original object from the layout, the properties object passed to stew, and the container element that will hold the content being generated. Stew will also return its result as a promise if a converter is provided to allow attachments to work asynchronously.
@@ -52,7 +52,7 @@ function convert (attachment, data, container) {
 
 const data = { abc: 123 };
 const promise = stew('', layout, convert, data);
-// promise will resolve with fragment once all attachments have completed
+// stew returns a promise only if converter function is provided, and it will resolve once all attachments have completed
 ```
 
 ### Attributes
@@ -84,22 +84,22 @@ const state = stew.createState({ ... }, ['speed']) // add cue propes
 Cue props are ones that reset to undefined after the layout has updated and are only really useful for custom documents, like ones that have built-in physics.
 
 ## Memoization
-Component functions are provided an array that values can be stored to and be retrieved from on the next render. This allows you identify when the component has first rendered, or when a specific property has chagned by storing its value in one render and comparing in the next. Detecting changes is a good way to prevent code from running unless you know it needs to update the value it previously created.
+Inline functions are provided an object that props can be stored to and be retrieved from on the next render. This allows you identify when the component has first rendered, or when a specific property has chagned. Detecting changes is a good way to prevent code from running unless you know it needs to update the value it previously created.
 
 ```js
-// on mount example
-memos => {
-	if (!memos.length) {
+// example that executes code only once
+memo => {
+	if (!memo.initialized) {
 		// run code to create object
 		const expensiveObject = (...);
-		memos.push(expensiveObject);
+		memo.initialized = true;
 	}
 }
 
-// on update example that detects change
-memos => {
-	if (state.speaker !== memos[0]) {
-		memos[0] = state.speaker;
+// example that executes code only when changed
+memo => {
+	if (state.speaker !== memo.speaker) {
+		memo.speaker = state.speaker;
 		console.log('Hello', state.speaker);
 	}
 }
@@ -111,7 +111,7 @@ A context prop can be used for fragments to store a value to pass to all of its 
 ```js
 ['', { context: state }, ...children] // sets state for child component functions
 ['', { context: { gameState, uiState } }, ...children] // sets multiple states
-(memos, context) => { ... } // context will be passed to component functions as the second parameter
+memo => ['p', null, memo[''].value] // context will be passed to component functions as the '' prop of memo
 ```
 
 ## onRender

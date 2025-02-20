@@ -18,7 +18,7 @@ describe('processFiber', () => {
 		state = {};
 		parentFiber = [,];
 		parentView = Object.assign([container], { keyedViews: {} });
-		dom = { container };
+		dom = { container, root: container };
 		fiber = Object.assign([expect.any(Function)], { depth: 0, memos: [], index: 0, teardowns: [], subscriptionSet: new Set() });
 		frameworks.splice(0, frameworks.length, virtualFramework);
 		fibers.splice(0, fibers.length, parentFiber);
