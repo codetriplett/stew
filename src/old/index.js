@@ -21,19 +21,14 @@
  * SOFTWARE.
  */
 
-import defaultFramework, { virtualFramework } from './dom';
+import { fibers } from './state/fiber';
+import { populateChildren, prepareCandidates } from './view';
+import defaultFramework, { frameworks, converters, defaultConverter, virtualFramework } from './view/dom';
 
 // TODO: change this to stew(selector, { ...options }, ...children)
 // - matches signature of fragment [selector, { ...props }, ...children]
 // - options: { depth, converter, vars, framework }
 export default function stew (container, layout, ...rest) {
-	// TODO: for hydration, pass [node, ...node.childNodes] as dom param
-
-
-
-
-
-
 	const headingDepth = typeof rest[0] === 'number' ? rest.shift() : 0;
 	const converter = typeof rest[0] === 'function' ? rest.shift() : defaultConverter;
 	const vars = rest.length && !Array.isArray(rest[0]) ? rest.shift() : {};

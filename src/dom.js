@@ -1,5 +1,3 @@
-import { fibers } from '../state/fiber';
-
 // tags that shouldn't wrap content when server rendered
 const selfClosingTags = new Set([
 	'wbr', 'track', 'source', 'param', 'meta', 'link', 'keygen', 'input',
@@ -79,27 +77,22 @@ export const virtualDocument = {
 	},
 	createDocumentFragment () {
 		return {
-			parentElement: null,
-			innerHTML: null,
 			childNodes: [],
 			appendChild (child) {
 				this.removeChild(child);
 				this.childNodes.push(child);
-				child.parentElement = this;
 			},
 			insertBefore (child, sibling) {
 				const { childNodes } = this;
 				this.removeChild(child);
 				const index = childNodes.indexOf(sibling);
 				childNodes.splice(index, 0, child);
-				child.parentElement = this;
 			},
 			removeChild (child) {
 				const { childNodes } = this;
 				const index = childNodes.indexOf(child);
 				if (index === -1) return;
 				childNodes.splice(index, 1);
-				child.parentElement = null;
 			},
 			querySelector (selector) {
 				const selectors = parseSelector(selector);
@@ -140,7 +133,7 @@ export const virtualDocument = {
 				const datasetEntries = Object.entries(this.dataset);
 				let content = writeChildNodes(this);
 
-				if (!fibers.isServer) {
+				if (isServer) {
 					attributeEntries.sort(([a], [b]) => a.localeCompare(b));
 					styleEntries.sort(([a], [b]) => a.localeCompare(b));
 					datasetEntries.sort(([a], [b]) => a.localeCompare(b));
@@ -216,9 +209,72 @@ export function defaultUpdater (element, props, prevNames, defaultElement) {
 	}
 }
 
-export const isClient = typeof window === 'object';
-export const frameworks = [];
-export const converters = [];
-export const virtualFramework = [virtualDocument, defaultUpdater, {}, 'div'];
-export const defaultConverter = () => {};
-export default isClient ? [window.document, defaultUpdater, {}, 'div'] : virtualFramework;
+export function find (parentRef, fromIndex) {
+	for (let i = fromIndex; i < parentRef.length; i++) {
+		const ref = parentRef[i + 2];
+		const [node] = ref || [];
+		const { tagName } = node || {};
+
+		if (tagName) {
+			return node;
+		} else if (tagName === '') {
+			const node = find(ref, 2);
+
+			if (node) {
+				return node;
+			}
+		}
+	}
+}
+
+// recursively populate fragments again for transport
+function reload (ref) {
+	const [node,, ...children] = ref;
+
+	if (node && !node.tagName && node.childNodes?.length === 0) {
+		for (const childRef of children) {
+			const childNode = reload(childRef);
+
+			if (childNode) {
+				node.appendChild(childNode);
+			}
+		}
+	}
+
+	return node;
+}
+
+export function insert (ref, parentNode, sibling) {
+	const node = reload(ref);
+
+	if (!sibling) {
+		parentNode.appendChild(node);
+	} else {
+		parentNode.insertBefore(node, sibling);
+	}
+
+	return node || sibling;
+}
+
+// recursively teardown and remove from dom
+export function remove (ref, parentNode) {
+	const [node, teardown, ...children] = ref;
+
+	if (typeof teardown === 'function') {
+		teardown();
+	}
+
+	if (!node) {
+		return;
+	} else if (node.tagName) {
+		parentNode.removeChild(node);
+	} else {
+		for (const childRef of children) {
+			remove(childRef, parentNode);
+		}
+	}
+}
+
+export const isServer = typeof window !== 'object';
+export const virtualFramework = [virtualDocument, defaultUpdater, 'div'];
+export default isServer ? virtualFramework : [window.document, defaultUpdater, 'div'];
