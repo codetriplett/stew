@@ -62,23 +62,21 @@ export function pick (dom, tagName) {
 
 // parentNode is the nearest non-fragment element (or root documentFragment from stew)
 // - have parentNode be shadowRoot if element has attached one
-export default function render (layout, framework, context, dom, container, i, childRef) {
-	let ref = childRef || container[i + 2];
-	let componentProps, componentChildren;
+export default function render (layout, framework, context, dom, container, i) {
+	let ref = container[i + 2];
 
-	element:
 	if (Array.isArray(layout)) {
 		const { document, updater } = framework;
 		const [type, object, ...rest] = layout;
-		const { '': key = '', ...props } = object || {};
+		const { key = '', ...props } = object || {};
 		ref = key && container[1][key] || ref;
 		let node = ref?.[0];
 		let tagName = '';
 		
 		switch (typeof type) {
 			case 'number': {
-				const { '': depth = 0 } = context;
-				tagName = `H${depth + type}`;
+				const { key = 0 } = context;
+				tagName = `H${key + type}`;
 				break;
 			}
 			case 'string': {
@@ -97,10 +95,69 @@ export default function render (layout, framework, context, dom, container, i, c
 				break;
 			}
 			case 'function': {
-				layout = type;
-				componentProps = object;
-				componentChildren = rest;
-				break element;
+				if (!ref || typeof ref[1] !== 'function') {
+					const [parentNode] = dom;
+					const listeners = new Set();
+					const memo = {};
+					let teardowns = [];
+					let props, children, childRef;
+		
+					// create new impulse
+					const impulse = () => {
+						if (!ref[1]) {
+							return;
+						}
+		
+						listeners.clear();
+						impulses.unshift([impulse, listeners]);
+						const result = execute(layout, { ...props, key: memo }, ...children);
+						const followups = impulses.shift().splice(2);
+						teardowns = followups.map(execute);
+						const newChildRef = render(result, framework, context, dom, [,, childRef], 0);
+	
+						if (newChildRef === childRef) {
+							return;
+						}
+	
+						// reconcile happens here since impulse can trigger on its own
+						const sibling = find(container, i);
+						insert(newChildRef, parentNode, sibling);
+	
+						if (childRef) {
+							remove(childRef, parentNode);
+						}
+	
+						ref[0] = newChildRef[0];
+						ref.splice(2, ref.length, ...newChildRef.slice(2));
+						childRef = newChildRef;
+					};
+	
+					ref = [null, (...params) => {
+						if (params.length) {
+							// forward params before calling
+							[layout, context, props, children] = params;
+							impulse();
+							return;
+						}
+	
+						// teardown
+						teardowns.map(execute);
+	
+						// unsubscribe
+						for (const listener of listeners) {
+							listener.delete(impulse);
+						}
+					}];
+					
+					tree.set(impulse, impulses.slice(0));
+				}
+	
+				if (key) {
+					container[1][''][key] = ref;
+				}
+	
+				ref[1](layout, context, componentProps || context, componentChildren || []);
+				return ref;
 			}
 		}
 
@@ -148,7 +205,7 @@ export default function render (layout, framework, context, dom, container, i, c
 			}
 		}
 
-		if (key && !childRef) {
+		if (key) {
 			container[1][''][key] = ref;
 		}
 
@@ -186,76 +243,12 @@ export default function render (layout, framework, context, dom, container, i, c
 	switch (typeof layout) {
 		case 'object': {
 			const { converter } = framework;
-			componentProps = layout;
-			layout = converter;
+			const props = layout;
+			layout = () => converter(props);
 		}
 		case 'function': {
-			let key = componentProps?.[''];
-			ref = key && container[1][key] || ref;
-
-			if (!ref || typeof ref[1] !== 'function') {
-				const [parentNode] = dom;
-				const listeners = new Set();
-				const memo = {};
-				let teardowns = [];
-				let props, children, childRef;
-	
-				// create new impulse
-				const impulse = () => {
-					if (!ref[1]) {
-						return;
-					}
-	
-					listeners.clear();
-					impulses.unshift([impulse, listeners]);
-					const result = execute(layout, { ...props, '': memo }, ...children);
-					const followups = impulses.shift().splice(2);
-					teardowns = followups.map(execute);
-					const newChildRef = render(result, framework, context, dom, container, i, childRef || []);
-
-					if (newChildRef === childRef) {
-						return;
-					}
-
-					// reconcile happens here since impulse can trigger on its own
-					const sibling = find(container, i);
-					insert(newChildRef, parentNode, sibling);
-
-					if (childRef) {
-						remove(childRef, parentNode);
-					}
-
-					ref[0] = newChildRef[0];
-					ref.splice(2, ref.length, ...newChildRef.slice(2));
-					childRef = newChildRef;
-				};
-
-				ref = [null, (...params) => {
-					if (params.length) {
-						// forward params before calling
-						[layout, context, props, children] = params;
-						impulse();
-						return;
-					}
-
-					// teardown
-					teardowns.map(execute);
-
-					// unsubscribe
-					for (const listener of listeners) {
-						listener.delete(impulse);
-					}
-				}];
-				
-				tree.set(impulse, impulses.slice(0));
-			}
-
-			if (key && !childRef) {
-				container[1][''][key] = ref;
-			}
-
-			ref[1](layout, context, componentProps || context, componentChildren || []);
-			return ref;
+			layout = layout(context);
+			return render(layout, framework, context, dom, container, i);
 		}
 		case 'number': {
 			layout = String(layout);
