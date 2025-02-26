@@ -1,10 +1,10 @@
-import render from './view';
+import render, { onRender } from './view';
 
 const appendChild = jest.fn();
 const insertBefore = jest.fn();
 const removeChild = jest.fn();
-const updater = jest.fn((node, props) => Object.assign(node, props));
-const converter = jest.fn(() => ['div']);
+const updater = jest.fn();
+const converter = jest.fn();
 let document, promises, framework, context, parentNode, dom, container;
 
 beforeEach(() => {
@@ -27,90 +27,179 @@ beforeEach(() => {
 	};
 
 	jest.clearAllMocks();
+	updater.mockImplementation((node, props) => Object.assign(node, props));
+	converter.mockImplementation(({ '': memo, ...props }) => ['div', props]);
 	promises = ['div'];
 	framework = { promises, document, updater, converter };
-	context = { abc: 123 };
+	context = { '': 1, abc: 123 };
 	parentNode = document.createElement('div');
 	dom = [parentNode];
 	container = [parentNode, { '': {} }];
 });
 
 describe('render', () => {
-	it('new boolean', () => {
-		const layout = false;
-		const actual = render(layout, framework, context, dom, container, 0);
-		expect(actual).toEqual(undefined);
-	});
-
-	it('new number', () => {
-		const layout = 123;
-		const actual = render(layout, framework, context, dom, container, 0);
-		expect(actual).toEqual([{ nodeValue: '123' }]);
-	});
-
-	it('new string', () => {
-		const layout = 'abc';
-		const actual = render(layout, framework, context, dom, container, 0);
-		expect(actual).toEqual([{ nodeValue: 'abc' }]);
-	});
-
-	it('create element', () => {
-		const layout = ['div', { '': 'key', lmno: 456 }, 'content'];
-		const actual = render(layout, framework, context, dom, container, 0);
-		expect(actual).toEqual([{ tagName: 'DIV', lmno: 456 }, { '': 'key' }, [{ nodeValue: 'content' }]]);
-		expect(updater).toHaveBeenCalledWith(actual[0], { lmno: 456 });
-		expect(appendChild).toHaveBeenCalledWith(actual[2][0]);
-		expect(container[1]).toEqual({ '': { key: actual } });
-	});
-
-	it('update keyless element', () => {
-		const node = { tagName: 'DIV', lmno: 456 };
-		const ref = [node, {}, [{ nodeValue: 'content' }]];
-		container.push(ref);
-		const layout = ['div', { lmno: 456 }, 'content'];
-		const actual = render(layout, framework, context, dom, container, 0);
-		expect(actual).toEqual(ref);
-		expect(updater).toHaveBeenCalledWith(node, { lmno: 456 });
-		expect(appendChild).toHaveBeenCalledWith(actual[2][0]);
-		expect(container[1]).toEqual({ '': {} });
-	});
-
-	it('update keyed element', () => {
-		const node = { tagName: 'DIV', lmno: 456 };
-		const ref = [node, { '': 'key' }, [{ nodeValue: 'content' }]];
-		container[1][''].key = ref;
-		const layout = ['div', { '': 'key', lmno: 456 }, 'content'];
-		const actual = render(layout, framework, context, dom, container, 0);
-		expect(actual).toEqual(ref);
-		expect(updater).toHaveBeenCalledWith(node, { lmno: 456 });
-		expect(appendChild).toHaveBeenCalledWith(actual[2][0]);
-		expect(container[1]).toEqual({ '': { key: actual } });
-	});
-
-	it('new component', () => {
-		const layout = { '': 'key', lmno: 456 };
-		const actual = render(layout, framework, context, dom, container, 0);
-		expect(actual).toEqual([{ tagName: 'DIV' }, expect.any(Function)]);
-		expect(converter).toHaveBeenCalledWith({ '': {}, lmno: 456 });
-	});
-
-	it('new callback', () => {
-		const layout = jest.fn(({ '': memo, abc }) => {
-			memo.xyz = 789;
-			return ['div', { abc }];
+	describe('create', () => {
+		it('undefined', () => {
+			const layout = false;
+			const actual = render(layout, framework, context, dom, container, 0);
+			expect(actual).toEqual(undefined);
 		});
 
-		const actual = render(layout, framework, context, dom, container, 0);
-		expect(actual).toEqual([{ tagName: 'DIV', abc: 123 }, expect.any(Function), ]);
-		expect(layout).toHaveBeenCalledWith({ '': { xyz: 789 }, abc: 123 });
+		it('null', () => {
+			const layout = false;
+			const actual = render(layout, framework, context, dom, container, 0);
+			expect(actual).toEqual(undefined);
+		});
+
+		it('boolean', () => {
+			const layout = false;
+			const actual = render(layout, framework, context, dom, container, 0);
+			expect(actual).toEqual(undefined);
+		});
+
+		it('number', () => {
+			const layout = 123;
+			const actual = render(layout, framework, context, dom, container, 0);
+			expect(actual).toEqual([{ nodeValue: '123' }]);
+		});
+
+		it('string', () => {
+			const layout = 'abc';
+			const actual = render(layout, framework, context, dom, container, 0);
+			expect(actual).toEqual([{ nodeValue: 'abc' }]);
+		});
+
+		it('attachment', () => {
+			// TODO: impulse of converter with their own props, has no children params
+			// - could be achieved with an inline function that calls converter directly, and wrapped in fragment for key if needed
+			// - this method allows layouts to be fully defined in JSON though
+			const layout = { '': 'key', lmno: 456 };
+			const actual = render(layout, framework, context, dom, container, 0);
+			expect(actual).toEqual([{ tagName: 'DIV', lmno: 456 }, expect.any(Function)]);
+			expect(converter).toHaveBeenCalledWith({ '': {}, lmno: 456 });
+			expect(container[1]).toEqual({ '': { key: actual } });
+		});
+
+		it('promise', async () => {
+			const layout = Promise.resolve('content');
+			const actual = render(layout, framework, context, dom, container, 0);
+			expect(actual).toEqual([{ tagName: 'DIV' }, layout]);
+			expect(converter).not.toHaveBeenCalled();
+			expect(container[1]).toEqual({ '': {} });
+			await onRender();
+			expect(actual).toEqual([{ tagName: 'DIV' }, layout, [{ nodeValue: 'content' }]]);
+			expect(appendChild).toHaveBeenCalledWith(actual[2][0]);
+		});
+
+		it('impulse', () => {
+			// TODO: custom impulse with context as props, has no children params
+		});
+
+		it('fragment', () => {
+			const layout = ['', { '': 'key', lmno: 456 }, 'content'];
+			const actual = render(layout, framework, context, dom, container, 0);
+			expect(actual).toEqual([{}, { '': 'key' }, [{ nodeValue: 'content' }]]);
+			expect(updater).not.toHaveBeenCalled();
+			expect(appendChild).toHaveBeenCalledWith(actual[2][0]);
+			expect(container[1]).toEqual({ '': { key: actual } });
+		});
+
+		it('heading', () => {
+			const layout = [2, { lmno: 456 }, 'content'];
+			const actual = render(layout, framework, context, dom, container, 0);
+			expect(actual).toEqual([{ tagName: 'H3', lmno: 456 }, { '': '' }, [{ nodeValue: 'content' }]]);
+			expect(updater).toHaveBeenCalledWith(actual[0], { lmno: 456 });
+			expect(appendChild).toHaveBeenCalledWith(actual[2][0]);
+			expect(container[1]).toEqual({ '': {} });
+		});
+
+		it('element', () => {
+			const layout = ['div', { '': 'key', lmno: 456 }, 'content'];
+			const actual = render(layout, framework, context, dom, container, 0);
+			expect(actual).toEqual([{ tagName: 'DIV', lmno: 456 }, { '': 'key' }, [{ nodeValue: 'content' }]]);
+			expect(updater).toHaveBeenCalledWith(actual[0], { lmno: 456 });
+			expect(appendChild).toHaveBeenCalledWith(actual[2][0]);
+			expect(container[1]).toEqual({ '': { key: actual } });
+		});
+
+		it('portal', () => {
+			const node = document.createElement('div');
+			const layout = [node, { '': 'key', lmno: 456 }, 'content'];
+			const actual = render(layout, framework, context, dom, container, 0);
+			expect(actual).toEqual([{ tagName: 'DIV', lmno: 456 }, { '': 'key' }, [{ nodeValue: 'content' }]]);
+			expect(actual[0]).toBe(node);
+			expect(updater).toHaveBeenCalledWith(actual[0], { lmno: 456 });
+			expect(appendChild).toHaveBeenCalledWith(actual[2][0]);
+			expect(container[1]).toEqual({ '': { key: actual } });
+		});
+
+		it('component', () => {
+			// TODO: custom impulse with its own props and children (what most people would be used to)
+			// - could be achieved with inline function that calls custom function directly, and wrapped in fragment for key if needed
+			// - this resembles other frameworks more closely
+		});
 	});
 
-	it('new fragment', () => {
-		const callback = jest.fn(() => 'content');
-		const layout = ['', { '': 'key', xyz: 789 }, callback];
-		const actual = render(layout, framework, context, dom, container, 0);
-		expect(actual).toEqual([{}, { '': 'key' }, [{ nodeValue: 'content' }, expect.any(Function)]]);
-		expect(callback).toHaveBeenCalledWith({ '': {}, abc: 123, xyz: 789 });
-		expect(context).toEqual({ abc: 123 });
+	describe('update', () => {
+		it('number', () => {
+			let layout = 123;
+			const ref = render(layout, framework, context, dom, container, 0);
+			container[2] = ref;
+			layout = 789;
+			const actual = render(layout, framework, context, dom, container, 0);
+			expect(actual).toEqual([{ nodeValue: '789' }]);
+			expect(actual).toBe(ref);
+		});
+
+		it('string', () => {
+			let layout = 'abc';
+			const ref = render(layout, framework, context, dom, container, 0);
+			container[2] = ref;
+			layout = 'xyz';
+			const actual = render(layout, framework, context, dom, container, 0);
+			expect(actual).toEqual([{ nodeValue: 'xyz' }]);
+			expect(actual).toBe(ref);
+		});
+
+		it('attachment', () => {
+			let layout = { lmno: 123 };
+			const ref = render(layout, framework, context, dom, container, 0);
+			container[2] = ref;
+			layout = { lmno: 789 };
+			converter.mockClear();
+			const actual = render(layout, framework, context, dom, container, 0);
+			expect(actual).toEqual([{ tagName: 'DIV', lmno: 789 }, expect.any(Function)]);
+			expect(converter).toHaveBeenCalledWith({ '': {}, lmno: 789});
+		});
+
+		it('element', () => {
+			let layout = ['div', { lmno: 123 }, 'abc'];
+			const ref = render(layout, framework, context, dom, container, 0);
+			container[2] = ref;
+			layout = ['div', { lmno: 789 }, 'xyz'];
+			const actual = render(layout, framework, context, dom, container, 0);
+			expect(actual).toEqual([{ tagName: 'DIV', lmno: 789 }, { '': '' }, [{ nodeValue: 'xyz' }]]);
+			expect(actual).toBe(ref);
+		});
 	});
+
+	// it('new impulse', () => {
+	// 	const layout = jest.fn(({ '': memo, abc }) => {
+	// 		memo.xyz = 789;
+	// 		return ['div', { abc }];
+	// 	});
+
+	// 	const actual = render(layout, framework, context, dom, container, 0);
+	// 	expect(actual).toEqual([{ tagName: 'DIV', abc: 123 }, expect.any(Function), ]);
+	// 	expect(layout).toHaveBeenCalledWith({ '': { xyz: 789 }, abc: 123 });
+	// });
+
+	// it('new fragment', () => {
+	// 	const callback = jest.fn(() => 'content');
+	// 	const layout = ['', { '': 'key', xyz: 789 }, callback];
+	// 	const actual = render(layout, framework, context, dom, container, 0);
+	// 	expect(actual).toEqual([{}, { '': 'key' }, [{ nodeValue: 'content' }, expect.any(Function)]]);
+	// 	expect(callback).toHaveBeenCalledWith({ '': {}, abc: 123, xyz: 789 });
+	// 	expect(context).toEqual({ abc: 123 });
+	// });
 });

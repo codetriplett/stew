@@ -1,7 +1,7 @@
 import { isServer } from './dom';
 import { tree, impulses, followups } from './view';
 
-const queue = new Set();
+export const queue = new Set();
 let unlocked = new Set();
 let unlock = new Set();
 
@@ -21,7 +21,7 @@ export function schedule (subscriptions) {
 	setTimeout(() => {
 		// call impulses not contained within another queued impulse
 		for (const impulse of queue) {
-			if (tree.get(impulse).some(queue.has)) {
+			if (tree.get(impulse)?.some?.(queue.has)) {
 				continue;
 			}
 

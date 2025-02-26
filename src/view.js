@@ -4,24 +4,34 @@ import { queue } from './state';
 export const tree = new WeakMap();
 export const impulses = [[]];
 export const followups = [[]];
+export const promises = new Set();
 
-function execute (callback, param) {
+function execute (callback, ...params) {
 	try {
-		return callback?.(param);
+		return callback?.(...params);
 	} catch (err) {
 		console.error(err);
 	}
 }
 
 export function onRender (callback) {
-	if (isServer) {
-		return;
-	}
+	if (impulses.length < 2) {
+		const promiseArray = [...promises];
+		promises.clear();
 
-	if (impulses.length < 2 && !queue.size) {
-		// no need to wait at top level when nothing is queued
-		const value = execute(callback);
-		return Promise.resolve(value);
+		if (queue.size) {
+			promiseArray.push(new Promise(resolve => queue.add(resolve)));
+		}
+
+		// server can call this to await all active promises before returning result
+		// - hydration is set up to wait for promise to resolve client side as well
+		return Promise.all(promiseArray).then(() => {
+			// no need to wait at top level when nothing is queued
+			const value = execute(callback);
+			return Promise.resolve(value);
+		});
+	} else if (isServer) {
+		return;
 	}
 
 	// return a promise and add as followup
@@ -52,26 +62,54 @@ export function pick (dom, tagName) {
 
 // parentNode is the nearest non-fragment element (or root documentFragment from stew)
 // - have parentNode be shadowRoot if element has attached one
-export default function render (layout, framework, context, dom, container, i, ref) {
-	if (!ref) {
-		ref = container[i + 2];
-	}
+export default function render (layout, framework, context, dom, container, i, childRef) {
+	let ref = childRef || container[i + 2];
+	let componentProps, componentChildren;
 
+	element:
 	if (Array.isArray(layout)) {
 		const { document, updater } = framework;
-		const [parentNode] = dom;
-		const [string, object, ...rest] = layout;
-		const { '': key, ...props } = object || {};
-		const tagName = string.toUpperCase();
+		const [type, object, ...rest] = layout;
+		const { '': key = '', ...props } = object || {};
 		ref = key && container[1][key] || ref;
-		let node = ref?.[0]
+		let node = ref?.[0];
+		let tagName = '';
+		
+		switch (typeof type) {
+			case 'number': {
+				const { '': depth = 0 } = context;
+				tagName = `H${depth + type}`;
+				break;
+			}
+			case 'string': {
+				tagName = type.toUpperCase();
+				break;
+			}
+			case 'object': {
+				// TODO: test that this creates/updates/hydrates ref properly
+				node = type;
+				dom = [node, node];
+				tagName = node.tagName;
+				// TODO: need to inform parent to not append this one, it is a portal and should be left were it is in the DOM
+				// - store in ref as '', but have reconciliation use input node
+				// - this can skip hydration, since it is a client side feature
+				// - maybe set in ref as null, and have remove() handle teardown for this as if it were a fragment
+				break;
+			}
+			case 'function': {
+				layout = type;
+				componentProps = object;
+				componentChildren = rest;
+				break element;
+			}
+		}
 
 		// TODO: allow other tagNames to share children if their keys match
 		// - this would allow wrapping content from fragment into anchor tag without rebuilding those items
 		// - would need to append all children from old element to new one, and then fill in the ref
-		if (!ref || typeof ref[1] !== 'object' || ref[0]?.tagName !== tagName) {
+		if (!ref || typeof ref[1]?.[''] !== 'string' || ref[0]?.tagName !== tagName) {
 			if (!tagName) {
-				node = document.createDocumentFragment();
+				node = node || document.createDocumentFragment();
 			} else {
 				dom = dom.length > 1 && pick(dom, tagName) || [document.createElement(tagName)];
 				[node] = dom;
@@ -101,20 +139,20 @@ export default function render (layout, framework, context, dom, container, i, r
 				return true;
 			}
 
-			remove(ref, parentNode);
+			remove(ref, node);
 		});
 
 		for (const [i, childRef] of children.reverse().entries()) {
 			if (childRef !== previous[i]) {
-				sibling = insert(childRef, parentNode, sibling);
+				sibling = insert(childRef, node, sibling);
 			}
 		}
 
-		if (key) {
+		if (key && !childRef) {
 			container[1][''][key] = ref;
-			refs[''] = key;
 		}
 
+		refs[''] = key;
 		ref[1] = refs;
 		return ref;
 	} else if (layout instanceof Promise) {
@@ -122,20 +160,24 @@ export default function render (layout, framework, context, dom, container, i, r
 		// - the result of that can be put in the layout without having to trigger a second full render
 		// - this is really good
 
-		if (!ref || ref[2] !== layout) {
+		if (!ref || ref[1] !== layout) {
 			// set up placeholder container
-			const { document, promises } = framework;
-			const node = document.createElement(promises[0]);
-			ref = [node,, layout];
+			const { document, tagName = 'div' } = framework;
+			dom = dom.length > 1 && pick(dom, tagName) || [document.createElement(tagName)];
+			const [node] = dom;
+			ref = [node, layout];
 
 			const promise = layout.then(layout => {
 				// only reconcile if it hasn't been invalidated
-				if (ref[2]) {
-					render(layout, framework, context, node, container, i);
+				if (ref[1]) {
+					layout = [node, {}, layout];
+					const childRef = render(layout, framework, context, dom, [node], 0);
+					ref.splice(2, ref.length, ...childRef.slice(2));
+					promises.delete(promise);
 				}
 			});
 
-			promises.push(promise);
+			promises.add(promise);
 		}
 
 		return ref;
@@ -144,25 +186,19 @@ export default function render (layout, framework, context, dom, container, i, r
 	switch (typeof layout) {
 		case 'object': {
 			const { converter } = framework;
-			const { '': key, ...props } = layout;
-			ref = key && container[1][key] || ref;
-			context = props;
+			componentProps = layout;
 			layout = converter;
-
-			if (key) {
-				container[1][''][key] = ref;
-				// note: ref[1] will be setup/teardown function, but that isn't an issue here since key is only used by parent map to point to this ref
-				// - elements and fragments store their own key prop to allow them to reuse their children if there is a match, even if their tagNames differ
-			}
-			// note: converter will receive memo on '' prop, so it can detect its own need to update itself
 		}
 		case 'function': {
+			let key = componentProps?.[''];
+			ref = key && container[1][key] || ref;
+
 			if (!ref || typeof ref[1] !== 'function') {
 				const [parentNode] = dom;
 				const listeners = new Set();
 				const memo = {};
 				let teardowns = [];
-				let childRef;
+				let props, children, childRef;
 	
 				// create new impulse
 				const impulse = () => {
@@ -172,10 +208,10 @@ export default function render (layout, framework, context, dom, container, i, r
 	
 					listeners.clear();
 					impulses.unshift([impulse, listeners]);
-					const result = execute(layout, { ...context, '': memo });
+					const result = execute(layout, { ...props, '': memo }, ...children);
 					const followups = impulses.shift().splice(2);
 					teardowns = followups.map(execute);
-					const newChildRef = render(result, framework, context, dom, container, i, childRef);
+					const newChildRef = render(result, framework, context, dom, container, i, childRef || []);
 
 					if (newChildRef === childRef) {
 						return;
@@ -197,7 +233,7 @@ export default function render (layout, framework, context, dom, container, i, r
 				ref = [null, (...params) => {
 					if (params.length) {
 						// forward params before calling
-						[layout, context] = params;
+						[layout, context, props, children] = params;
 						impulse();
 						return;
 					}
@@ -214,7 +250,11 @@ export default function render (layout, framework, context, dom, container, i, r
 				tree.set(impulse, impulses.slice(0));
 			}
 
-			ref[1](layout, context);
+			if (key && !childRef) {
+				container[1][''][key] = ref;
+			}
+
+			ref[1](layout, context, componentProps || context, componentChildren || []);
 			return ref;
 		}
 		case 'number': {
