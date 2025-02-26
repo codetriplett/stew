@@ -68,8 +68,9 @@ export default function render (layout, framework, context, dom, container, i) {
 	if (Array.isArray(layout)) {
 		const { document, updater } = framework;
 		const [type, object, ...rest] = layout;
-		const { key = '', ...props } = object || {};
+		const { key = '', children = [], ...props } = object || {};
 		ref = key && container[1][key] || ref;
+		rest.unshift(...children);
 		let node = ref?.[0];
 		let tagName = '';
 		
@@ -114,7 +115,7 @@ export default function render (layout, framework, context, dom, container, i) {
 						const followups = impulses.shift().splice(2);
 						teardowns = followups.map(execute);
 						const newChildRef = render(result, framework, context, dom, [,, childRef], 0);
-	
+
 						if (newChildRef === childRef) {
 							return;
 						}
@@ -135,7 +136,7 @@ export default function render (layout, framework, context, dom, container, i) {
 					ref = [null, (...params) => {
 						if (params.length) {
 							// forward params before calling
-							[layout, context, props, children] = params;
+							[context, layout, props, children] = params;
 							impulse();
 							return;
 						}
@@ -156,7 +157,7 @@ export default function render (layout, framework, context, dom, container, i) {
 					container[1][''][key] = ref;
 				}
 	
-				ref[1](layout, context, componentProps || context, componentChildren || []);
+				ref[1](context, type, props, rest);
 				return ref;
 			}
 		}
@@ -187,19 +188,19 @@ export default function render (layout, framework, context, dom, container, i) {
 			sibling = find(container, i);
 		}
 
-		const children = rest.map((layout, i) => {
+		const childRefs = rest.map((layout, i) => {
 			return render(layout, framework, context, dom, container, i, ref);
 		});
 
-		const previous = ref.splice(2, ref.length, ...children).filter(ref => {
-			if (children.indexOf(ref) !== -1) {
+		const previous = ref.splice(2, ref.length, ...childRefs).filter(ref => {
+			if (childRefs.indexOf(ref) !== -1) {
 				return true;
 			}
 
 			remove(ref, node);
 		});
 
-		for (const [i, childRef] of children.reverse().entries()) {
+		for (const [i, childRef] of childRefs.reverse().entries()) {
 			if (childRef !== previous[i]) {
 				sibling = insert(childRef, node, sibling);
 			}

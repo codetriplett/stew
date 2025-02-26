@@ -69,15 +69,20 @@ describe('render', () => {
 			expect(actual).toEqual([{ nodeValue: 'abc' }]);
 		});
 
+		it('inline', () => {
+			const layout = jest.fn(() => 'content');
+			const actual = render(layout, framework, context, dom, container, 0);
+			expect(actual).toEqual([{ nodeValue: 'content' }]);
+		});
+
 		it('attachment', () => {
 			// TODO: impulse of converter with their own props, has no children params
 			// - could be achieved with an inline function that calls converter directly, and wrapped in fragment for key if needed
 			// - this method allows layouts to be fully defined in JSON though
-			const layout = { key: 'lmno', lmno: 456 };
+			const layout = { lmno: 456 };
 			const actual = render(layout, framework, context, dom, container, 0);
 			expect(actual).toEqual([{ tagName: 'DIV', lmno: 456 }, { '': '' }]);
-			expect(converter).toHaveBeenCalledWith({ key: 'lmno', lmno: 456 });
-			expect(container[1]).toEqual({ '': {} });
+			expect(converter).toHaveBeenCalledWith({ lmno: 456 });
 		});
 
 		it('promise', async () => {
@@ -91,17 +96,12 @@ describe('render', () => {
 			expect(appendChild).toHaveBeenCalledWith(actual[2][0]);
 		});
 
-		it('impulse', () => {
-			// TODO: custom impulse with context as props, has no children params
-		});
-
 		it('fragment', () => {
-			const layout = ['', { key: 'lmno', lmno: 456 }, 'content'];
+			const layout = ['', { lmno: 456 }, 'content'];
 			const actual = render(layout, framework, context, dom, container, 0);
-			expect(actual).toEqual([{}, { '': 'lmno' }, [{ nodeValue: 'content' }]]);
+			expect(actual).toEqual([{}, { '': '' }, [{ nodeValue: 'content' }]]);
 			expect(updater).not.toHaveBeenCalled();
 			expect(appendChild).toHaveBeenCalledWith(actual[2][0]);
-			expect(container[1]).toEqual({ '': { lmno: actual } });
 		});
 
 		it('heading', () => {
@@ -110,33 +110,33 @@ describe('render', () => {
 			expect(actual).toEqual([{ tagName: 'H3', lmno: 456 }, { '': '' }, [{ nodeValue: 'content' }]]);
 			expect(updater).toHaveBeenCalledWith(actual[0], { lmno: 456 });
 			expect(appendChild).toHaveBeenCalledWith(actual[2][0]);
-			expect(container[1]).toEqual({ '': {} });
 		});
 
 		it('element', () => {
-			const layout = ['div', { key: 'lmno', lmno: 456 }, 'content'];
+			const layout = ['div', { lmno: 456 }, 'content'];
 			const actual = render(layout, framework, context, dom, container, 0);
-			expect(actual).toEqual([{ tagName: 'DIV', lmno: 456 }, { '': 'lmno' }, [{ nodeValue: 'content' }]]);
+			expect(actual).toEqual([{ tagName: 'DIV', lmno: 456 }, { '': '' }, [{ nodeValue: 'content' }]]);
 			expect(updater).toHaveBeenCalledWith(actual[0], { lmno: 456 });
 			expect(appendChild).toHaveBeenCalledWith(actual[2][0]);
-			expect(container[1]).toEqual({ '': { lmno: actual } });
+		});
+
+		it('component', () => {
+			const callback = jest.fn(() => ['div']);
+			const layout = [callback, { lmno: 456 }, 'content'];
+			const actual = render(layout, framework, context, dom, container, 0);
+			expect(actual).toEqual([{ tagName: 'DIV' }, expect.any(Function)]);
+			expect(callback).toHaveBeenCalledWith({ key: {}, lmno: 456 }, 'content');
+			expect(updater).toHaveBeenCalledWith(actual[0], {});
 		});
 
 		it('portal', () => {
 			const node = document.createElement('div');
-			const layout = [node, { key: 'lmno', lmno: 456 }, 'content'];
+			const layout = [node, { lmno: 456 }, 'content'];
 			const actual = render(layout, framework, context, dom, container, 0);
-			expect(actual).toEqual([{ tagName: 'DIV', lmno: 456 }, { '': 'lmno' }, [{ nodeValue: 'content' }]]);
+			expect(actual).toEqual([{ tagName: 'DIV', lmno: 456 }, { '': '' }, [{ nodeValue: 'content' }]]);
 			expect(actual[0]).toBe(node);
 			expect(updater).toHaveBeenCalledWith(actual[0], { lmno: 456 });
 			expect(appendChild).toHaveBeenCalledWith(actual[2][0]);
-			expect(container[1]).toEqual({ '': { lmno: actual } });
-		});
-
-		it('component', () => {
-			// TODO: custom impulse with its own props and children (what most people would be used to)
-			// - could be achieved with inline function that calls custom function directly, and wrapped in fragment for key if needed
-			// - this resembles other frameworks more closely
 		});
 	});
 
