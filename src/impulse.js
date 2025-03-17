@@ -1,84 +1,78 @@
+import render, { execute } from './lite';
+import { teardown, reconcile } from './element';
 
-export default function renderImpulse (ref, props, children, context) {
-	// keep this simple
-	// - render a comment node when nothing is returned from impulse so it has something to attach to if nodes need to be inserted on the next render
-	// - this should be self sufficient
+export const tree = new WeakMap();
+export const impulses = [[]];
+export const followups = [[]];
 
+// TODO: export onRender from here if it makes more sense
 
+export function onRender (callback) {
+	if (impulses.length < 2) {
+		const promiseArray = [...promises];
+		promises.clear();
 
+		if (queue.size) {
+			promiseArray.push(new Promise(resolve => queue.add(resolve)));
+		}
 
+		// server can call this to await all active promises before returning result
+		// - hydration is set up to wait for promise to resolve client side as well
+		return Promise.all(promiseArray).then(() => {
+			// no need to wait at top level when nothing is queued
+			const value = execute(callback);
+			return Promise.resolve(value);
+		});
+	} else if (isServer) {
+		return;
+	}
 
-	// let [node, info] = ref;
+	// return a promise and add as followup
+	return new Promise(resolve => {
+		followups[0].push(() => {
+			const value = execute(callback);
+			resolve(value);
+		});
+	});
+}
 
-	// if (callback !== info['']?.[0]) {
-	// 	[node, info] = ref = [null, { '': [callback, {}] }];
-	// }
+export default function renderImpulse (ref, props, children, context, document, nodes) {
+	let subscriptions, followups, prevNodes, nextNodes;
 
-	// const impulseRef = info[''];
-	// const listeners = new Set();
-	// const memo = {};
-	// let teardowns = [];
-	// let previousRef;
+	if (!ref[1]) {
+		const unsubscribe = () => {
+			for (const subscription of subscriptions) {
+				subscription.delete(impulse);
+			}
+		};
 
-	// // create new impulse
-	// const impulse = () => {
-	// 	if (!ref[1]) {
-	// 		return;
-	// 	}
+		ref.splice(1, ref.length, {}, undefined, unsubscribe);
+	}
 
-	// 	listeners.clear();
-	// 	impulses.unshift([impulse, listeners]);
-	// 	ref[1] = {};
-	// 	const nextLayout = execute(callback, { '': impulseRef[1], ...props });
-	// 	const nextRef = render(nextLayout, context, container, i, map, module, document, candidates);
-	// 	ref[1] = setup;
-	// 	const followups = impulses.shift().splice(2);
-	// 	impulseRef.splice(2, impulseRef.length, ...followups.map(execute));
+	const impulse = () => {
+		const [callback, memo, proxy, unsubscribe] = ref;
+		impulses.unshift([impulse, new Set()]);
+		const layout = execute(callback, { ...props, '': memo }, ...children) || '';
+		nextNodes = nodes.slice(0, 1);
+		ref[2] = render(layout, context, document, nextNodes, ref, -1, {});
+		const parentNode = nextNodes.shift();
 
-	// 	if (nextRef === previousRef) {
-	// 		return;
-	// 	}
+		if (prevNodes) {
+			unsubscribe();
+			reconcile(parentNode, nextNodes, prevNodes);
 
-	// 	[node, info] = ref;
-	// 	previousRef = nextRef;
+			if (ref[2] !== proxy) {
+				teardown(proxy);
+			}
+		}
 
-	// 	// reconcile happens here since impulse can trigger on its own
-	// 	const sibling = find(container, i);
-	// 	insert(newChildRef, parentNode, sibling);
+		[, subscriptions, ...followups] = impulses.shift();
+		const teardowns = followups.map(execute);
+		ref.splice(4, ref.length, ...teardowns);
+		prevNodes = nextNodes;
+	};
 
-	// 	if (childRef) {
-	// 		remove(childRef, parentNode);
-	// 	}
-	// };
-
-
-
-
-	// 	const setup = (...params) => {
-	// 		if (params.length) {
-	// 			// forward params before calling
-	// 			[callback, context, i, props, children] = params;
-	// 			impulse();
-	// 			return;
-	// 		}
-
-	// 		// teardown
-	// 		teardowns.map(execute);
-
-	// 		// unsubscribe
-	// 		for (const listener of listeners) {
-	// 			listener.delete(impulse);
-	// 		}
-	// 	};
-
-	// 	[, info] = ref = [null, setup];
-	// 	tree.set(impulse, impulses.slice(0));
-	// }
-
-	// if (key) {
-	// 	container[1][key] = ref;
-	// }
-
-	// info(callback, context, i, props, children);
-	// return ref;
+	impulse();
+	nodes.push(...nextNodes);
+	tree.set(impulse, impulses.slice(0));
 }

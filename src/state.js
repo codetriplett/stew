@@ -1,5 +1,5 @@
 import { isServer } from './dom';
-import { tree, impulses, followups } from './view';
+import { tree, impulses, followups } from './impulse';
 
 export const queue = new Set();
 let unlocked = new Set();

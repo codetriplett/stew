@@ -6,7 +6,7 @@ export const tree = new WeakMap();
 export const impulses = [[]];
 export const promises = new Set();
 
-function execute (callback, ...params) {
+export function execute (callback, ...params) {
 	try {
 		return callback?.(...params);
 	} catch (err) {
@@ -43,12 +43,11 @@ export function prepare (node) {
 // remove nulls/undefineds/booleans from childRefs
 
 
-export default function render (layout, context, document, container, i, map) {
+export default function render (layout, context, document, nodes, container, i, map) {
 	let ref = container[i + 3];
-	let node;
 
 	if (Array.isArray(layout)) {
-		let [tagName, { '': key, ...props }, ...children] = layout;
+		let [tagName, { '': key, ...props } = {}, ...children] = layout;
 		let callback;
 		ref = container[1]?.[key] || ref;
 	
@@ -87,7 +86,7 @@ export default function render (layout, context, document, container, i, map) {
 			map[key] = ref;
 		}
 	
-		node = callback(ref, props, children, context, document, container);
+		callback(ref, props, children, context, document, nodes, container, i);
 	} else {
 		switch (typeof layout) {
 			default: {
@@ -104,12 +103,13 @@ export default function render (layout, context, document, container, i, map) {
 					ref.nodeValue = layout;
 				}
 
-				node = ref;
+				nodes.push(ref);
 				break;
 			}
 			case 'object': {
 				const { '': key, ...props } = layout;
 				const { '': convert } = context;
+				let node;
 				ref = container[1]?.[key] || ref;
 
 				if (ref?.[0] !== null) {
@@ -129,17 +129,18 @@ export default function render (layout, context, document, container, i, map) {
 					map[key] = ref;
 				}
 
+				nodes.push(node);
 				break;
 			}
 			case 'function': {
 				layout = layout(context);
-				return render(layout, context, document, container, i, map);
+				render(layout, context, document, nodes, container, i, map);
+				return;
 			}
 		}
 	}
 
-	container[i + 3] = ref;
-	return node;
+	return container[i + 3] = ref;
 }
 
 

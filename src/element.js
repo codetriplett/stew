@@ -1,4 +1,4 @@
-import render from './lite';
+import render, { execute } from './lite';
 
 	// the direct ref holds layout info for quicker validation, e.g. [tagName, domRef, ...previousRefs]
 	// the nested ref is for the dom, and it is made up of only dom nodes, e.g. [node, map, ...childElementOrTextNodes]
@@ -36,62 +36,58 @@ import render from './lite';
 // - impulse will replace its node, and will use empty array if it has no node
 // - nodes exist to speed up reconciliation, so it doesn't have to detect the type
 
-// call this when a ref is removed or shifts within dom
-export function gather (ref, nodes = []) {
-	if (!Array.isArray(ref)) {
-		return;
-	}
-
-	const [tagName,, proxy, ...children] = ref;
-
-	if (Array.isArray(proxy)) {
-		gather(proxy, nodes);
-	} else if (tagName === '') {
-		for (const childRef of children) {
-			gather(childRef, nodes);
-		}
-	} else if (proxy) {
-		nodes.push(proxy);
-	}
-
-	return nodes;
-}
-
 // call this when ref is removed from dom
-export function teardown (ref) {
+export function teardown (ref, parentNode) {
 	if (!Array.isArray(ref)) {
+		parentNode?.removeChild?.(ref);
 		return;
 	}
 
 	const [,, proxy, ...children] = ref;
 
-	if (Array.isArray(proxy)) {
-		teardown(proxy);
+	if (proxy && !proxy.tagName) {
+		teardown(proxy, node);
 
 		for (const callback of children) {
 			execute(callback);
 		}
 	} else {
+		if (proxy && parentNode) {
+			parentNode.removeChild.remove(proxy);
+			parentNode = undefiend;
+		}
+
 		for (const childRef of children) {
-			teardown(childRef)
+			teardown(childRef, parentNode)
 		}
 	}
 }
 
-// [type, memo, proxy, ...children]
-// - 
+export function reconcile (node, nextNodes, prevNodes) {
+	let nodeIndex = prevNodes.length - 1;
+	let prevNode = prevNodes[nodeIndex];
+	let sibling;
 
-// ['',        { ...map }, <node>, ...childRefs]
-// ['tagName', { ...map }, siblingRef, ...childRefs]
-// - sibling is used mainly by impulse to insert new nodes into dom when it had none previously
+	for (let i = nextNodes.length - 1; i >=0; i--) {
+		const nextNode = nextNodes[i];
 
-// - fragments store the index of thier first childNode within their container
-// - impulses, and other dynamic refs, will store their ref as childNode
-export default function renderElement (ref, props, children, context, document, container) {
+		if (nextNode === prevNode) {
+			nodeIndex--;
+			prevNode = prevNodes[nodeIndex];
+		} else if (sibling) {
+			node.insertBefore(nextNode, sibling);
+		} else {
+			node.appendChild(nextNode);
+		}
+
+		sibling = nextNode;
+	}
+}
+
+export default function renderElement (ref, props, children, context, document, nodes) {
 	let [tagName, memo, node] = ref;
-	const isFragment = tagName === '';
-	
-	if (!node && !isFragment) {
+
+	if (!node && tagName !== '') {
 		const { shadowrootmode } = props;
 
 		if (typeof shadowrootmode === 'boolean' && tagName?.toUpperCase?.() === 'TEMPLATE') {
@@ -103,9 +99,7 @@ export default function renderElement (ref, props, children, context, document, 
 		ref[2] = node;
 	}
 
-	if (isFragment) {
-		context = { ...context, ...props };
-	} else {
+	if (node) {
 		for (const [name, value] of Object.entries(props)) {
 			if (name === 'style' || name === 'dataset') {
 				const object = node[name];
@@ -119,106 +113,38 @@ export default function renderElement (ref, props, children, context, document, 
 				node[name] = value;
 			}
 		}
+	} else {
+		context = { ...context, ...props };
 	}
 
 	const map = {};
 	const removeRefs = new Set(ref.slice(3));
-	const nextNodes = [];
+	const nextNodes = [node];
 
-	for (let i = children.length - 1; i >= 0; i--) {
-		const childNode = render(children[i], context, document, ref, i, map);
-		const childRef = ref[i + 3];
+	for (const [i, childLayout] of children.entries()) {
+		const childRef = render(childLayout, context, document, nextNodes, ref, i, map);
 
 		if (childRef) {
 			removeRefs.delete(childRef);
-			
-			if (Array.isArray(childNode)) {
-				nextNodes.push(...childNode);
-			} else {
-				nextNodes.push(childNode);
-			}
-		} else if (!memo) {
+		} else if (memo === undefined) {
 			// shift items in hydration mode for next child to process
 			ref.splice(i + 3, 0, undefined);
 		}
 	}
 
 	for (const childRef of removeRefs) {
-		const childNodes = gather(childRef);
-		teardown(childRef);
-	
-		for (const childNode of childNodes) {
-			node.removeChild(childNode);
-		}
+		teardown(childRef, node);
 	}
 
-	ref[1] = map;
+	ref[1] = Object.keys(map).length ? map : null;
 	ref.splice(children.length + 3);
+	nextNodes.shift();
 
-	if (isFragment) {
-		return nextNodes;
+	if (!node) {
+		nodes.push(...nextNodes);
+		return;
 	}
 
-	// reconcile child nodes of elements once all have been gathered and the old ones are removed
-	if (nextNodes.length) {
-		const prevNodes = [...node.childNodes];
-		let prevNode = prevNodes.pop();
-		let sibling;
-
-		for (const nextNode of nextNodes) {
-			if (nextNode === prevNode) {
-				prevNode = prevNodes.pop();
-			} else if (sibling) {
-				node.insertBefore(nextNode, sibling);
-			} else {
-				node.appendChild(nextNode);
-			}
-
-			sibling = nextNode;
-		}
-	}
-
-	return node;
-
-
-
-
-
-
-	// TODO: only reconcile children of elements, not fragments
-	// - use gather to get the fragment and impulse nodes
-	// - only impulse needs to insert a placeholder comment when it empty, since it can update itself after element's reconciliation
-
-	// let nodeIndex = childNodes.length - 1;
-
-	// if (!sibling) {
-	// 	if (isFragment && !nextNodes.length) {
-
-	// 	}
-
-	// 	sibling = nextNodes.shift();
-
-	// 	if (sibling !== childNodes[nodeIndex]) {
-	// 		node.appendChild(sibling);
-	// 	} else {
-	// 		nodeIndex--;
-	// 	}
-	// }
-
-	// for (const [i, childRef] of nextRefs.entries().reverse()) {
-
-
-	// 	if (childNode !== sibling) {
-	// 		node.insertBefore(childNode, sibling);
-	// 	}
-
-	// 	sibling = childNode.previousSibling;
-	// }
-
-	// ref.splice(1, map, isFragment ? sibling : node, ...nextRefs);
+	reconcile(node, nextNodes, [...node.childNodes]);
+	nodes.push(node);
 }
-
-
-	// TODO: store fragment and impulse refs in previousNodes so they can be processed
-	// - these are the only ones stored as arrays, so they can be detected and gathered into a documentFragment or so that teardowns can be detected
-	// - update logic below to check for the difference while setting and looping through nodes
