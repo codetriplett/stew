@@ -1,9 +1,4 @@
-import renderElement from './element';
-import renderImpulse from './impulse';
 
-export const tree = new WeakMap();
-export const impulses = [[]];
-export const promises = new Set();
 
 // adds self to parent and returns node
 // maybe last param should be dom [candidate, ...siblings]
@@ -29,83 +24,6 @@ export const promises = new Set();
 // remove nulls/undefineds/booleans from childRefs
 
 
-export default function render (layout, context, document, nodes, container, i, map) {
-	let ref = container[i + 3] || [];
-
-	if (Array.isArray(layout)) {
-		let [tagName, { '': key, ...props } = {}, ...children] = layout;
-		let callback, node;
-		ref = container[1]?.[key] || ref;
-	
-		switch (typeof tagName) {
-			default: {
-				tagName = '';
-			}
-			case 'number':
-			case 'string': {
-				callback = renderElement;
-				break;
-			}
-			case 'object': {
-				// just handle portal, promise didn't really work well with multiple impulse renders
-				// - this should be all that's needed since new ref resembles an element that was already been set up, but not added to parent
-				node = tagName;
-				nodes = [];
-				break;
-			}
-			case 'function': {
-				callback = renderImpulse;
-				break;
-			}
-		}
-		
-		if (tagName !== ref[0]) {
-			if (ref.tagName && tagName.toUpperCase() === ref.tagName) {
-				ref = [tagName,, ref, ...ref.childNodes];
-			} else {
-				ref = [tagName,, node];
-			}
-		}
-	
-		if (key) {
-			map[key] = ref;
-		}
-	
-		callback(ref, props, children, context, document, nodes, container, i);
-	} else {
-		switch (typeof layout) {
-			default: {
-				ref = undefined;
-				break
-			}
-			case 'number': {
-				layout = String(layout);
-			}
-			case 'string': {
-				if (ref.nodeValue === undefined) {
-					ref = document.createTextNode(layout);
-				} else if (layout !== ref.nodeValue) {
-					ref.nodeValue = layout;
-				}
-
-				nodes.push(ref);
-				break;
-			}
-			case 'object': {
-				const { '': callback } = context;
-				context = layout;
-				layout = callback;
-			}
-			case 'function': {
-				layout = layout(context);
-				render(layout, context, document, nodes, container, i, map);
-				return;
-			}
-		}
-	}
-
-	return container[i + 3] = ref;
-}
 
 
 	// renderElement: renders children, with optional wrapper element
