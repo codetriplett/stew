@@ -1,4 +1,5 @@
-import render, { execute } from './lite';
+import render from './render';
+import { execute } from './impulse';
 
 	// the direct ref holds layout info for quicker validation, e.g. [tagName, domRef, ...previousRefs]
 	// the nested ref is for the dom, and it is made up of only dom nodes, e.g. [node, map, ...childElementOrTextNodes]
@@ -48,7 +49,7 @@ export function teardown (ref, parentNode) {
 	if (proxy && !proxy.tagName) {
 		teardown(proxy, node);
 
-		for (const callback of children) {
+		for (const [callback] of children) {
 			execute(callback);
 		}
 	} else {

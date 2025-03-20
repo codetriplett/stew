@@ -1,23 +1,9 @@
 import renderElement from './element';
 import renderImpulse from './impulse';
-import renderPromise from './promise';
 
 export const tree = new WeakMap();
 export const impulses = [[]];
 export const promises = new Set();
-
-export function execute (callback, ...params) {
-	try {
-		return callback?.(...params);
-	} catch (err) {
-		console.error(err);
-	}
-}
-
-// creates initial tree ahead of hydration
-export function prepare (node) {
-	return 'nodeValue' in node ? [node] : [node,, ...node.childNodes.entries().map(prepare)];
-}
 
 // adds self to parent and returns node
 // maybe last param should be dom [candidate, ...siblings]
@@ -44,11 +30,11 @@ export function prepare (node) {
 
 
 export default function render (layout, context, document, nodes, container, i, map) {
-	let ref = container[i + 3];
+	let ref = container[i + 3] || [];
 
 	if (Array.isArray(layout)) {
 		let [tagName, { '': key, ...props } = {}, ...children] = layout;
-		let callback;
+		let callback, node;
 		ref = container[1]?.[key] || ref;
 	
 		switch (typeof tagName) {
@@ -61,11 +47,10 @@ export default function render (layout, context, document, nodes, container, i, 
 				break;
 			}
 			case 'object': {
-				// TODO: make this compatible with the fragment type
-				// - portals will move its content to that other node
-				// - promises will replace the content once the promise resolves
-				// - store the resolved layout in the proxy part of the ref
-				callback = renderPromise;
+				// just handle portal, promise didn't really work well with multiple impulse renders
+				// - this should be all that's needed since new ref resembles an element that was already been set up, but not added to parent
+				node = tagName;
+				nodes = [];
 				break;
 			}
 			case 'function': {
@@ -74,11 +59,11 @@ export default function render (layout, context, document, nodes, container, i, 
 			}
 		}
 		
-		if (tagName !== ref?.[0]) {
-			if (ref?.tagName && tagName.toUpperCase() === ref.tagName) {
-				ref = [tagName,, ref];
+		if (tagName !== ref[0]) {
+			if (ref.tagName && tagName.toUpperCase() === ref.tagName) {
+				ref = [tagName,, ref, ...ref.childNodes];
 			} else {
-				ref = [tagName];
+				ref = [tagName,, node];
 			}
 		}
 	
@@ -97,7 +82,7 @@ export default function render (layout, context, document, nodes, container, i, 
 				layout = String(layout);
 			}
 			case 'string': {
-				if (ref?.nodeValue === undefined) {
+				if (ref.nodeValue === undefined) {
 					ref = document.createTextNode(layout);
 				} else if (layout !== ref.nodeValue) {
 					ref.nodeValue = layout;
@@ -107,30 +92,9 @@ export default function render (layout, context, document, nodes, container, i, 
 				break;
 			}
 			case 'object': {
-				const { '': key, ...props } = layout;
-				const { '': convert } = context;
-				let node;
-				ref = container[1]?.[key] || ref;
-
-				if (ref?.[0] !== null) {
-					// initialize
-					node = ref?.tagName === 'DIV' ? ref : document.createElement('div');
-					ref = [null,, node, convert({ '': node, ...props })];
-					// NOTE: there is no longer a need to track promises
-					// - custom converter can be set up to store promises in an array the server code can use
-					// - the other promise type is meant to work like a fragment, but with its content replaced by resolved layout
-				} else {
-					// update
-					node = ref[2];
-					execute(ref[3], props);
-				}
-
-				if (key) {
-					map[key] = ref;
-				}
-
-				nodes.push(node);
-				break;
+				const { '': callback } = context;
+				context = layout;
+				layout = callback;
 			}
 			case 'function': {
 				layout = layout(context);

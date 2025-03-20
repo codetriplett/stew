@@ -1,4 +1,4 @@
-import render from './lite';
+import render from './render';
 
 const appendChild = jest.fn();
 const insertBefore = jest.fn();

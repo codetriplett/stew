@@ -1,6 +1,6 @@
 import { virtualDocument } from './dom';
 import * as elementHelpers from './element';
-import renderImpulse, { impulses } from './impulse';
+import renderImpulse, { impulses, processFollowups, onRender } from './impulse';
 import { track, check } from './test';
 
 const reconcile = jest.spyOn(elementHelpers, 'reconcile');
@@ -21,6 +21,12 @@ beforeEach(() => {
 		[impulse] = impulses[0];
 		return layout || ['div', props, ...children];
 	};
+});
+
+describe.only('processFollowups', () => {
+	it('processes followup', () => {
+
+	});
 });
 
 describe('renderImpulse', () => {

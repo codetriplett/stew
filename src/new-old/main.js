@@ -1,4 +1,4 @@
-import stew, { createState, onRender, virtualDocument } from './module';
+import stew, { createState, onRender } from './module';
 
 Object.assign(stew, {
 	createState,

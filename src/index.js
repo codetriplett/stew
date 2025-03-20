@@ -21,58 +21,20 @@
  * SOFTWARE.
  */
 
-import defaultFramework, { virtualFramework } from './dom';
+import virtualDocument, { isServer } from './dom';
+import { processEffects } from './impulse';
+import render from './render';
 
-// TODO: change this to stew(selector, { ...options }, ...children)
-// - matches signature of fragment [selector, { ...props }, ...children]
-// - options: { depth, converter, vars, framework }
-export default function stew (container, layout, ...rest) {
-	// TODO: for hydration, pass [node, ...node.childNodes] as dom param
+const defaultDocument = isServer ? virtualDocument : window.document;
 
-
-
-
-
-
-	const headingDepth = typeof rest[0] === 'number' ? rest.shift() : 0;
-	const converter = typeof rest[0] === 'function' ? rest.shift() : defaultConverter;
-	const vars = rest.length && !Array.isArray(rest[0]) ? rest.shift() : {};
-	const promises = [];
-	let [framework = defaultFramework] = rest;
-	const isFragment = container === '';
-	const isServer = framework === virtualFramework;
-
-	if (framework.length < 3) {
-		// add defaults to incomplete frameworks
-		framework = Object.assign([], virtualFramework, framework);
+export default function stew (layout, node, context = {}, document = defaultDocument) {
+	if (!node) {
+		node = document.createDocumentFragment();
+	} else if (typeof node === 'string') {
+		node = document.querySelector(node);
 	}
 
-	if (typeof container === 'string') {
-		// locate container
-		const [document] = framework;
-		if (isFragment) container = document.createDocumentFragment();
-		else if (isServer) return;
-		else container = document.querySelector(container);
-	}
-
-	// prepare hydrate nodes and load converter and framework
-	const fiber = Object.assign([() => {}], { registry: new Set() });
-	const view = Object.assign([container], { keyedViews: {} });
-	const root = container.shadowRoot || container;
-	const candidates = isServer ? undefined : prepareCandidates(root);
-	const dom = { container, root, candidates };
-	frameworks.unshift(framework);
-	converters.unshift([headingDepth, converter, vars, promises]);
-	fibers.unshift(fiber);
-	fibers.isServer = isServer;
-	populateChildren([layout], vars, view, dom);
-	fibers.isServer = undefined;
-	fibers.shift();
-	converters.shift();
-	frameworks.shift();
-	dom.candidates = undefined;
-
-	// return as promise if custom converter was used and only return container if it was created here
-	let result = isFragment ? container : undefined;
-	return converter !== defaultConverter ? Promise.all(promises).then(() => result) : result;
+	render(layout, context, document, [node], [null, {}, node], 0, {});
+	processEffects();
+	return node;
 };
