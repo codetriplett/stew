@@ -5,10 +5,12 @@ export function print (ref) {
 		return String(ref || '');
 	}
 
-	const node = ref[2];
+	const [tagName,, node] = ref;
 
 	if (!node) {
 		return ref.slice(3).map(print).join('');
+	} else if (tagName === node) {
+		return '';
 	}
 
 	return Array.isArray(node) ? print(node) : String(node);
@@ -42,6 +44,8 @@ export function check (expectedString, refExpectations) {
 	if (refExpectations) {
 		prevRefRoot = checkStep(refExpectations, prevRefRoot, currentRefRoot);
 	}
+
+	return actualString;
 }
 
 export function track (ref) {

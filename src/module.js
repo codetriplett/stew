@@ -1,2 +1,5 @@
-export { default as default, virtualDocument } from './index';
-export { default as createState, onRender } from './state';
+export { default as default, hotSwap } from '.';
+export { createState } from './state';
+export { onRender } from './impulse';
+export { virtualDocument } from './document';
+

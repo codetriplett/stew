@@ -1,14 +1,18 @@
-import stew, { createState, onRender, virtualDocument } from './module';
+import stew, { createState, onRender, virtualDocument, hotSwap } from './module';
+import { isServer } from './document';
 
 Object.assign(stew, {
 	createState,
 	onRender,
 	virtualDocument,
+	hotSwap,
 });
 
-if (typeof window === 'object') {
+if (!isServer) {
 	window.stew = stew;
-} else if (typeof module === 'object') {
+}
+
+if (typeof module === 'object') {
 	module.exports = stew;
 }
 
