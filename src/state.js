@@ -1,20 +1,30 @@
 import { isServer } from './document';
 import { impulses, processEffects } from './impulse';
 
-const queue = new Set();
+export const queue = new Set();
 const scheduleQueue = typeof requestAnimationFrame !== 'undefined' ? requestAnimationFrame : setTimeout;
 
-function schedule (subscriptions) {
+export function unsubscribe (impulse) {
+	const subscriptions = impulse[1];
+
+	for (const subscription of subscriptions) {
+		subscription.delete(impulse);
+	}
+
+	subscriptions.clear();
+}
+
+export function schedule (subscriptions) {
 	if (!subscriptions.size) {
 		return;
 	} else if (!queue.size) {
 		scheduleQueue(() => {
-			for (const array of queue) {
-				const [impulse, [unsubscribe, ...parents]] = array;
-				unsubscribe();
+			for (const impulse of queue) {
+				const [update,,, ...parentImpulses] = impulse;
+				unsubscribe(impulse);
 
-				if (!parents.some(queue.has)) {
-					impulse();
+				if (!parentImpulses.some(parentImpulse => queue.has(parentImpulse))) {
+					update();
 				}
 			}
 
@@ -23,8 +33,8 @@ function schedule (subscriptions) {
 		}, 0);
 	}
 
-	for (const callback of subscriptions) {
-		queue.add(callback);
+	for (const impulse of subscriptions) {
+		queue.add(impulse);
 	}
 }
 
@@ -37,16 +47,11 @@ export function createState (state) {
 		const subscriptions = new Set();
 		let value = state[name];
 
-		// TODO: check that function maintain their binding after definePropery
-		// if (typeof value === 'function') {
-		// 	value = value.bind(state);
-		// }
-
 		Object.defineProperty(state, name, {
 			get () {
-				const [array] = impulses;
-				subscriptions.add(array);
-				array[2].add(subscriptions); // this is what allows impulses to unsub themselves
+				const [impulse] = impulses;
+				subscriptions.add(impulse);
+				impulse[1].add(subscriptions); // this is what allows impulses to unsub themselves
 				return value;
 			},
 			set (newValue) {

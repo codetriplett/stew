@@ -5,26 +5,28 @@ export function print (ref) {
 		return String(ref || '');
 	}
 
-	const [tagName,, node] = ref;
+	const [tagName,, node, ...children] = ref;
 
 	if (!node) {
-		return ref.slice(3).map(print).join('');
+		return children.map(print).join('');
 	} else if (tagName === node) {
 		return '';
+	} else if (!Array.isArray(node)) {
+		return String(node);
 	}
 
-	return Array.isArray(node) ? print(node) : String(node);
+	return print(node[2]);
 }
 
-function checkStep (expectations, prevRef, currentRef) {
-	expect(expectations.length).toBeGreaterThanOrEqual(prevRef.length);
+function checkStep (prevRef, currentRef, expectations) {
+	expect(expectations?.length).toEqual(currentRef?.length);
 
-	return expectations.map((expected, i) => {
+	return currentRef.map((currentValue, i) => {
 		const prevValue = prevRef[i];
-		const currentValue = currentRef[i];
+		const expected = expectations[i];
 
 		if (Array.isArray(expected)) {
-			return check(expected, prevValue, currentValue);
+			return checkStep(prevValue, currentValue, expected);
 		} else if (expected === false) {
 			expect(currentValue).not.toBe(prevValue);
 		} else if (expected === true) {
@@ -38,18 +40,42 @@ function checkStep (expectations, prevRef, currentRef) {
 }
 
 export function check (expectedString, refExpectations) {
-	const actualString = print(currentRefRoot); 
+	const actualString = print(currentRefRoot);
 	expect(actualString).toEqual(expectedString);
 
 	if (refExpectations) {
-		prevRefRoot = checkStep(refExpectations, prevRefRoot, currentRefRoot);
+		prevRefRoot = checkStep(prevRefRoot, currentRefRoot, refExpectations);
 	}
 
 	return actualString;
 }
 
+function clone (ref) {
+	return Array.isArray(ref) ? ref.map(clone) : ref;
+}
+
 export function track (ref) {
 	currentRefRoot = ref;
-	prevRefRoot = checkStep(Array(ref.length).fill(true), ref, ref);
+	prevRefRoot = clone(ref);
 	return ref;
 }
+
+export const text = {
+	toString: expect.any(Function),
+};
+
+export const fragment = {
+	...text,
+	appendChild: expect.any(Function),
+	insertBefore: expect.any(Function),
+	removeChild: expect.any(Function),
+	querySelector: expect.any(Function),
+	querySelectorAll: expect.any(Function),
+};
+
+export const element = {
+	...fragment,
+	style: expect.any(Object),
+	dataset: expect.any(Object),
+	mode: null,
+};

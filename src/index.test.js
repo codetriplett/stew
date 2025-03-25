@@ -1,14 +1,17 @@
-import stew, { execute, hotSwap } from '.';
+import stew, { hotSwap } from '.';
 import { virtualDocument } from './document';
-import { processEffects } from './impulse';
+import { processEffects, onRender } from './impulse';
 import render from './view';
+import * as stateModule from './state';
+
+const schedule = jest.spyOn(stateModule, 'schedule');
 
 jest.mock('./document', () => ({
 	virtualDocument: {},
-	isServer: true,
+	isServer: false,
 }));
 
-jest.mock('./impulse');
+// jest.mock('./impulse');
 jest.mock('./view');
 
 const createDocumentFragment = jest.fn();
@@ -21,6 +24,41 @@ beforeEach(() => {
 	querySelector.mockImplementation(tagName => ({ tagName }));
 	Object.assign(virtualDocument, { createDocumentFragment, querySelector });
 	render.mockReturnValue(ref);
+});
+
+describe('hotSwap', () => {
+	it.only('swaps callback', async () => {
+		const prevChildCallback = () => {};
+		const nextChildCallback = () => {};
+		const prevCallback = () => {};
+		const nextCallback = () => {};
+		const childUpdate = jest.fn();
+		const update = jest.fn();
+		const childImpulse = [childUpdate, new Set(), undefined];
+		const childImpulseRef = [prevChildCallback, {}, childImpulse];
+		const impulse = [update, new Set(), childImpulseRef];
+		const impulseRef = [prevCallback, {}, impulse];
+		const manifest = new Map();
+		childImpulse.push(impulse);
+		manifest.set(prevChildCallback, nextChildCallback);
+		manifest.set(prevCallback, nextCallback);
+
+		const ref = ['div', {}, {},
+			['span', {}],
+			impulseRef,
+			{ nodeValue: 'text' },
+		];
+
+		const actual = hotSwap(ref, manifest);
+		await onRender();
+		
+		expect(actual).toEqual(new Set([impulse, childImpulse]));
+		expect(impulseRef[0]).toEqual(nextCallback);
+		expect(childImpulseRef[0]).toEqual(nextChildCallback);
+		expect(schedule).toHaveBeenCalledWith(actual);
+		expect(childUpdate).not.toHaveBeenCalled();
+		expect(update).toHaveBeenCalled();
+	});
 });
 
 describe('stew', () => {

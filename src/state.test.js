@@ -9,18 +9,28 @@ describe('createState', () => {
 		expect(actual).toEqual({ lmno: 456 });
 	});
 	
+	it('callbacks are bound', () => {
+		const actual = createState({
+			callback: function () {
+				context = this;
+			},
+		});
+
+		let context;
+		actual.callback();
+		expect(actual).toEqual(context);
+	});
+	
 	it('subscribes impulse', async () => {
 		const actual = createState({ lmno: 123 });
 		const subscriptions = new Set();
-		const impulse = jest.fn();
-		const unsubscribe = jest.fn();
-		impulses.unshift([impulse, [unsubscribe], subscriptions]);
+		const update = jest.fn();
+		impulses.unshift([update, subscriptions]);
 		actual.lmno;
 		impulses.shift();
 		expect(subscriptions).toEqual(new Set([expect.any(Set)]));
 		actual.lmno = 789;
 		await new Promise(resolve => setTimeout(resolve, 10));
-		expect(unsubscribe).toHaveBeenCalled();
-		expect(impulse).toHaveBeenCalled();
+		expect(update).toHaveBeenCalled();
 	});
 });

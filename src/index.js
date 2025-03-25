@@ -1,6 +1,7 @@
 import { virtualDocument, isServer } from './document';
 import { processEffects } from './impulse';
 import render from './view';
+import { schedule } from './state';
 
 const defaultDocument = isServer ? virtualDocument : globalThis.document;
 
@@ -12,8 +13,34 @@ export function execute (callback, ...params) {
 	}
 }
 
+function hotSwapStep (ref, manifest, subscriptions) {
+	if (!Array.isArray(ref)) {
+		return;
+	}
+
+	const [callback,, impulse, ...children] = ref;
+
+	if (!Array.isArray(impulse)) {
+		children.map(childRef => hotSwapStep(childRef, manifest, subscriptions))
+		return;
+	}
+
+	const replacement = manifest.get(callback);
+
+	if (replacement) {
+		ref[0] = replacement;
+		subscriptions.add(impulse);
+	}
+
+	const proxy = impulse[2];
+	hotSwapStep(proxy, manifest, subscriptions);
+}
+
 export function hotSwap (ref, manifest) {
-	// locate and replace all callback tagNames that exist as keys in manifest (WeakMap) with their values, then schedule them to update
+	const subscriptions = new Set();
+	hotSwapStep(ref, manifest, subscriptions);
+	schedule(subscriptions);
+	return subscriptions;
 }
 
 export default function stew (node, context = {}, ...children) {

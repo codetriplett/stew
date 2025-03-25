@@ -23,6 +23,7 @@
 
 import renderElement from './element';
 import renderImpulse from './impulse';
+import { unsubscribe } from './state';
 
 export function remove (ref, parentNode) {
 	if (!Array.isArray(ref)) {
@@ -30,17 +31,19 @@ export function remove (ref, parentNode) {
 		return;
 	}
 
-	const [,, proxy, ...children] = ref;
+	const [,, node, ...children] = ref;
 
-	if (proxy && !proxy.tagName) {
+	if (Array.isArray(node)) {
+		const [, subscriptions, proxy] = node;
+		unsubscribe(subscriptions);
 		remove(proxy, node);
 
-		for (const [callback] of children) {
-			execute(callback);
+		for (const [teardown] of children) {
+			execute(teardown);
 		}
 	} else {
-		if (proxy && parentNode) {
-			parentNode.removeChild(proxy);
+		if (node && parentNode) {
+			parentNode.removeChild(node);
 			parentNode = undefined;
 		}
 

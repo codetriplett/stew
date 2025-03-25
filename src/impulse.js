@@ -1,15 +1,21 @@
 import { execute } from '.';
 import { isServer } from './document';
 import render, { remove, reconcile } from './view';
+import { queue } from './state';
 
-const root = [() => {}, [], new WeakSet(), []];
+const root = [() => {}, new WeakSet()];
 export const impulses = [root];
+const effects = [];
+let prevEffects;
 
 export function processEffects () {
-	for (const effect of root.splice(3)) {
-		const [callback, param] = effect.splice(0, 2);
-		const teardown = callback ? execute(callback, param) : param;
-		effect.unshift(undefined, teardown);
+	for (const effect of effects.splice(0)) {
+		const [teardown, callback] = effect;
+
+		if (callback) {
+			const param = teardown && execute(teardown);
+			effect.splice(0, 2, execute(callback, param), undefined);
+		}
 	}
 }
 
@@ -17,58 +23,52 @@ export function onRender (callback, deps) {
 	if (isServer) {
 		return;
 	} else if (!callback) {
-		return queue.size ? new Promise(resolve => root.push([resolve])) : Promise.resolve();
+		return queue.size ? new Promise(resolve => effects.push([, resolve])) : Promise.resolve();
 	}
+
+	let effect = prevEffects.shift();
 	
-	const [array] = impulses;
-	const previous = array[3].shift();
-	
-	if (previous && deps?.some?.((value, i) => value !== previous[i + 2])) {
-		array.push(previous);
-		return;
+	if (!effect || deps?.some?.((value, i) => value !== effect[i + 2])) {
+		const teardown = effect?.[0];
+		effect = [teardown, callback, ...deps];
 	}
-	
-	const [teardown] = previous;
-	const param = execute(teardown);
-	const effect = [callback, param, ...deps];
-	root.push(effect);
-	array.push(effect);
+
+	effects.push(effect);
 }
 
 export default function renderImpulse (ref, props, children, context, document, nodes) {
-	const [parentNode] = nodes;
-	let subscriptions, prevNodes, nextNodes, effects;
-
 	if (!ref[1]) {
-		const unsubscribe = () => {
-			for (const subscription of subscriptions) {
-				subscription.delete(impulse);
-			}
-		};
-
-		ref.splice(1, ref.length, {}, undefined, [unsubscribe, ...impulses.slice(0)]);
+		ref.splice(1, 2, {}, [, new Set(),, ...impulses.slice(0, -1)]);
 	}
+	
+	const [, memo, impulse] = ref;
+	const [parentNode] = nodes;
+	let prevProxy, prevNodes;
 
-	const impulse = () => {
-		const [callback, memo, proxy] = ref;
-		impulses.unshift([impulse, ref[3], new Set(), ref.splice(4)]);
+	const update = () => {
+		impulses.unshift(impulse);
+		prevEffects = ref.splice(3);
+		const effectCount = effects.length;
+		const [callback] = ref;
+		const nextNodes = [];
 		const layout = execute(callback, { ...props, '': memo }, ...children) || '';
-		nextNodes = [];
-		ref[2] = render(layout, context, document, nextNodes, ref, -1, {});
-		[,, subscriptions,, ...effects] = impulses.shift();
+		const proxy = render(layout, context, document, nextNodes, impulse, -1, {});
 
 		if (prevNodes) {
 			reconcile(parentNode, nextNodes, prevNodes);
 
-			if (ref[2] !== proxy) {
-				remove(proxy, parentNode);
+			if (proxy !== prevProxy) {
+				remove(prevProxy, parentNode);
 			}
 		}
-
-		ref.push(...effects);
+		
+		impulses.shift();
+		ref.push(...effects.slice(effectCount));
+		prevProxy = proxy;
 		prevNodes = nextNodes;
+		return nextNodes;
 	};
 
-	impulse();
-	nodes.push(...nextNodes);
+	impulse[0] = update;
+	nodes.push(...update());
 }
