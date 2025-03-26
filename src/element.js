@@ -31,7 +31,7 @@ export default function renderElement (ref, props, children, context, document, 
 					continue;
 				}
 				case 'ref': {
-					value.push(node);
+					value?.push?.(node);
 					continue;
 				}
 			}

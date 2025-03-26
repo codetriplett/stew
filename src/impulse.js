@@ -3,8 +3,7 @@ import { isServer } from './document';
 import render, { remove, reconcile } from './view';
 import { queue } from './state';
 
-const root = [() => {}, new WeakSet()];
-export const impulses = [root];
+export const impulses = [];
 const effects = [];
 let prevEffects;
 

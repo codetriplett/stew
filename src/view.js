@@ -27,7 +27,10 @@ import { unsubscribe } from './state';
 
 export function remove (ref, parentNode) {
 	if (!Array.isArray(ref)) {
-		parentNode?.removeChild?.(ref);
+		if (ref && parentNode) {
+			parentNode.removeChild(ref);
+		}
+
 		return;
 	}
 
@@ -107,7 +110,8 @@ export default function render (layout, context, document, nodes, container, i, 
 			}
 		}
 	} else {
-		let [tagName, { '': key, ...props } = {}, ...children] = layout;
+		let [tagName, object, ...children] = layout;
+		const { '': key, ...props } = object || {};
 		let callback = renderElement;
 		let node;
 		ref = container[1]?.[key] || ref;

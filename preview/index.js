@@ -60,38 +60,37 @@ function generateVideo () {
 }
 
 function generateComments () {
-	return {
-		comments: Array(random(100)).fill(null).map(() => ({
-			user: `${random(colors)} ${random(shapes)}`,
-			message: Array(random(49) + 1).fill(null).map(() => random(words)).join(' '),
-		})),
-	};
+	return Array(random(100)).fill(null).map(() => ({
+		user: `${random(colors)} ${random(shapes)}`,
+		message: Array(random(49) + 1).fill(null).map(() => random(words)).join(' '),
+	}));
 }
 
 function generateRecommendations () {
-	return {
-		recommendations: Array(5).fill(null).map(generateVideo),
-	};
+	return Array(5).fill(null).map(generateVideo);
 }
 // END: content generation functions to simulate data from server
 
 const { createState, onRender } = stew;
 
-function loadRecommendation (index, outerState) {
-	const { recommendations: { recommendations } } = outerState;
-	outerState.video = recommendations[index];
-	outerState.comments = generateComments();
-	outerState.recommendations = { recommendations: [...recommendations.slice(0, index), ...recommendations.slice(index + 1), generateVideo()] };
+function loadRecommendation (index, globalState) {
+	const { recommendations } = globalState;
+	globalState.video = recommendations[index];
+	globalState.comments = generateComments();
+	globalState.recommendations = [...recommendations.slice(0, index), ...recommendations.slice(index + 1), generateVideo()];
 }
 
-function VideoPlayer ({ id, title, action, color, shape, ft, length, owner }, outerState) {
-	const iterationCount = length / 5000;
-	
-	return memos => {
-		const [prevId] = memos.splice(0, 1, id);
-
+function VideoPlayer ({ '': memo }) {
+	return ({ globalState }) => {
+		const { video } = globalState;
+		const { id, title, action, color, shape, ft, length, owner } = video;
+		const iterationCount = length / 5000;
+		let { prevId, state } = memo;
+		
 		if (id !== prevId) {
-			memos[1] = createState({
+			memo.prevId = id;
+
+			memo.state = state = createState({
 				playState: 'paused',
 				currentTime: 0,
 				playTimestamp: undefined,
@@ -99,118 +98,116 @@ function VideoPlayer ({ id, title, action, color, shape, ft, length, owner }, ou
 				hoverActive: false,
 			});
 		}
+		
+		const { playState, currentTime, playTimestamp, hoverActive, completed } = state;
 
-		const state = memos[1];
+		onRender(() => {
+			console.log('===== set video', playState);
+			if (playState !== 'running') return;
 
-		return ['', { context: state },
-			(memos, { playState, currentTime, playTimestamp, hoverActive, completed }) => {
-				const [prevPlayState] = memos.splice(0, 1, playState);
+			const timeout = setTimeout(() => {
+				state.playState = 'paused';
+				state.currentTime = length;
+				state.completed = true;
+			}, length - currentTime);
 
-				if (playState !== prevPlayState) {
-					onRender(() => {
-						console.log('===== set video', playState);
-						memos[1]?.();
-						if (playState !== 'running') return;
+			return () => clearTimeout(timeout);
+		}, [playState]);
 
-						const timeout = setTimeout(() => {
-							state.playState = 'paused';
-							state.currentTime = length;
-							state.completed = true;
-						}, length - currentTime);
-
-						return memos[1] = () => clearTimeout(timeout);
-					});
-				}
-
-				return ['div', {
-					className: [
-						'video-player',
-						`video-${playState}`,
-						!hoverActive ? '' : 'video-hover-active',
-						`video-${action}`,
-						`video-${color}`,
-						`video-${shape}`,
-						!ft ? '' : [
-							'video-ft',
-							`video-ft-${ft.action}`,
-							`video-ft-${ft.color}`,
-							`video-ft-${ft.shape}`,
-						].join(' '),
+		return ['', null,
+			['div', {
+				className: [
+					'video-player',
+					`video-${playState}`,
+					!hoverActive ? '' : 'video-hover-active',
+					`video-${action}`,
+					`video-${color}`,
+					`video-${shape}`,
+					!ft ? '' : [
+						'video-ft',
+						`video-ft-${ft.action}`,
+						`video-ft-${ft.color}`,
+						`video-ft-${ft.shape}`,
 					].join(' '),
-					onmouseenter: () => state.hoverActive = true,
-					onmouseleave: () => state.hoverActive = false,
-				},
-					'video is',
-					state.playState === 'paused' && ' not',
-					' playing',
-					['span', {
-						className: 'primary',
-						style: { animationPlayState: playState, animationIterationCount: iterationCount }
-					}],
-					['span', {
-						className: 'secondary',
-						style: { animationPlayState: playState, animationIterationCount: iterationCount }
-					}],
-					['div', { className: 'overlay' }],
-					['div', {
-						className: 'progress',
-						style: playState === 'running' ? {
-							width: '100%', transitionDuration: `${Math.max(0, length - currentTime)}ms`,
-						} : {
-							width: `${Math.min(1, currentTime / length) * 100}%`, transitionDuration: '0ms',
-						}
-					}],
-					['button', {
-						type: 'button',
-						className: 'play-pause',
-						onclick: () => {
-							if (completed) {
-								loadRecommendation(0, outerState);
-								return;
-							}
-
-							state.playState = playState === 'running' ? 'paused' : 'running';
-							const now = Date.now();
-							
-							if (state.playState === 'running') {
-								state.playTimestamp = now;
-							} else if (playTimestamp < now) {
-								state.currentTime += Math.min(now - playTimestamp, length - currentTime);
-							}
-						},
-					}, completed ? 'Play Next' : playState === 'running' ? 'Pause' : 'Play'],
-				];
+				].join(' '),
+				onmouseenter: () => state.hoverActive = true,
+				onmouseleave: () => state.hoverActive = false,
 			},
+				'video is',
+				state.playState === 'paused' && ' not',
+				' playing',
+				['span', {
+					className: 'primary',
+					style: { animationPlayState: playState, animationIterationCount: iterationCount }
+				}],
+				['span', {
+					className: 'secondary',
+					style: { animationPlayState: playState, animationIterationCount: iterationCount }
+				}],
+				['div', { className: 'overlay' }],
+				['div', {
+					className: 'progress',
+					style: playState === 'running' ? {
+						width: '100%', transitionDuration: `${Math.max(0, length - currentTime)}ms`,
+					} : {
+						width: `${Math.min(1, currentTime / length) * 100}%`, transitionDuration: '0ms',
+					}
+				}],
+				['button', {
+					type: 'button',
+					className: 'play-pause',
+					onclick: () => {
+						if (completed) {
+							loadRecommendation(0, globalState);
+							return;
+						}
+
+						state.playState = playState === 'running' ? 'paused' : 'running';
+						const now = Date.now();
+						
+						if (state.playState === 'running') {
+							state.playTimestamp = now;
+						} else if (playTimestamp < now) {
+							state.currentTime += Math.min(now - playTimestamp, length - currentTime);
+						}
+					},
+				},
+					completed ? 'Play Next' : playState === 'running' ? 'Pause' : 'Play',
+				],
+			],
 			['h1', { className: 'video-title' }, title],
 			['strong', { className: 'video-owner' }, owner],
 		];
 	};
 }
 
-function Comments ({ comments }, outerState) {
-	const { video: { id, owner } } = outerState;
-	const { length } = comments;
+function Comments ({ '': memo }) {
+	return ({ globalState }) => {
+		const { video, comments } = globalState;
+		const { id, owner } = video;
+		const { length } = comments;
 
-	return !length ? null : memos => {
-		const [prevId] = memos.splice(0, 1, id);
+		if (!length) {
+			return;
+		}
 
+		let { prevId, state } = memo;
+		
 		if (id !== prevId) {
-			memos[1] = createState({
+			memo.prevId = id;
+
+			memo.state = state = createState({
 				expandedCount: 10,
 			});
 		}
 
-		const state = memos[1];
 		const { expandedCount } = state;
 		const ref = [];
-		const [prevExpandedCount] = memos.splice(2, 1, expandedCount);
 
-		if (expandedCount !== prevExpandedCount) {
-			onRender(() => {
-				console.log('===== set focus on', ref[0]);
-				if (ref.length) ref[0].focus();
-			});
-		}
+		onRender(() => {
+			console.log('===== set focus on', ref[0]);
+			if (ref.length) ref[0].focus();
+		}, [expandedCount]);
 
 		return ['', null,
 			...comments.slice(0, expandedCount).map(({ user, message }, i) => {
@@ -231,67 +228,69 @@ function Comments ({ comments }, outerState) {
 	};
 }
 
-function Recommendations ({ recommendations }, outerState) {
-	return ['', null,
-		...recommendations.map(({ title, color, shape, ft, length, owner }, i) => ['div', {
-			className: 'recommendation',
-			onclick: () => loadRecommendation(i, outerState),
-		},
-			['div', {
-				className: [
-					'video-player',
-					`video-${color}`,
-					`video-${shape}`,
-					!ft ? '' : [
-						'video-ft',
-						`video-ft-${ft.color}`,
-						`video-ft-${ft.shape}`,
-					].join(' '),
-				].join(' '),
-			},
-				['span', { className: 'primary' }],
-				['span', { className: 'secondary' }],
-			],
-			['strong', { className: 'title' }, title]
-		]),
-	];
-}
+function Recommendations () {
+	return ({ globalState }) => {
+		const { recommendations } = globalState;
 
-function App () {
-	return memos => {
-		if (!memos.length) {
-			memos[0] = createState({
-				video: generateVideo(),
-				comments: generateComments(), 
-				recommendations: generateRecommendations(),
-			});
-		}
-
-		const [state] = memos;
-		
 		return ['', null,
-			['div', { className: 'header' },
-				['strong', { className: 'logo' }, 'StewTube'],
-			],
-			() => {
-				const { video, comments, recommendations } = state;
-
-				return ['div', { className: 'container' },
-					['div', { className: 'row' },
-						['div', { className: 'col col-8' },
-							VideoPlayer(video, state),
-							Comments(comments, state),
-						],
-						['div', { className: 'col col-4' },
-							Recommendations(recommendations, state),
-						],
-					],
-					{ name: 'component' },
-				];
+			...recommendations.map(({ title, color, shape, ft, length, owner }, i) => ['div', {
+				className: 'recommendation',
+				onclick: () => loadRecommendation(i, globalState),
 			},
+				['div', {
+					className: [
+						'video-player',
+						`video-${color}`,
+						`video-${shape}`,
+						!ft ? '' : [
+							'video-ft',
+							`video-ft-${ft.color}`,
+							`video-ft-${ft.shape}`,
+						].join(' '),
+					].join(' '),
+				},
+					['span', { className: 'primary' }],
+					['span', { className: 'secondary' }],
+				],
+				['strong', { className: 'title' }, title]
+			]),
 		];
 	};
 }
+
+function Body () {
+	return ['div', { className: 'container' },
+		['div', { className: 'row' },
+			['div', { className: 'col col-8' },
+				[VideoPlayer],
+				[Comments],
+			],
+			['div', { className: 'col col-4' },
+				[Recommendations],
+			],
+		],
+		// { name: 'component' },
+	];
+}
+
+function App (initialProps) {
+	const globalState = createState(initialProps)
+
+	return ['', { globalState },
+		['div', { className: 'header' },
+			['strong', { className: 'logo' }, 'StewTube'],
+		],
+		[Body],
+	];
+}
+
+App.generateInitialState = () => {
+	return {
+		video: generateVideo(),
+		comments: generateComments(), 
+		recommendations: generateRecommendations(),
+	};
+};
 
 App.component = (container) => {
 	const state = createState({ expanded: false })

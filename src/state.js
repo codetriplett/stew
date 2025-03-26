@@ -49,9 +49,12 @@ export function createState (state) {
 
 		Object.defineProperty(state, name, {
 			get () {
-				const [impulse] = impulses;
-				subscriptions.add(impulse);
-				impulse[1].add(subscriptions); // this is what allows impulses to unsub themselves
+				if (impulses.length) {
+					const [impulse] = impulses;
+					subscriptions.add(impulse);
+					impulse[1].add(subscriptions); // this is what allows impulses to unsub themselves
+				}
+				
 				return value;
 			},
 			set (newValue) {

@@ -36,13 +36,6 @@ function hotSwapStep (ref, manifest, subscriptions) {
 	hotSwapStep(proxy, manifest, subscriptions);
 }
 
-export function hotSwap (ref, manifest) {
-	const subscriptions = new Set();
-	hotSwapStep(ref, manifest, subscriptions);
-	schedule(subscriptions);
-	return subscriptions;
-}
-
 export default function stew (node, context = {}, ...children) {
 	let document = defaultDocument;
 
@@ -55,10 +48,25 @@ export default function stew (node, context = {}, ...children) {
 		node = document.createDocumentFragment();
 	} else if (typeof node === 'string') {
 		node = document.querySelector(node);
+
+		if (!node) {
+			return;
+		}
 	}
 
 	const layout = [node, {}, ...children];
 	const ref = render(layout, context, document, [node], ['', {}], 0, {});
 	processEffects();
-	return ref;
+
+	return Object.assign(manifest => {
+		if (!manifest) {
+			return node;
+		}
+
+		const subscriptions = new Set();
+		hotSwapStep(ref, manifest, subscriptions);
+		schedule(subscriptions);
+	}, {
+		toString: () => String(node),
+	});
 };

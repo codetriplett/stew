@@ -47,11 +47,14 @@ function send (res, content, type = types.txt) {
 }
 
 function convertComponent ({ name }, vars, container) {
-	return App[name](container);
+	console.log('======');
+	// return App[name](container);
 }
 
 createServer(async ({ url }, res) => {
 	if (url === '/') {
+		const initialProps = App.generateInitialState();
+
 		const html = [
 			'<!DOCTYPE html>',
 			'<html lang="en">',
@@ -61,10 +64,13 @@ createServer(async ({ url }, res) => {
 					'<script src="/stew.min.js"></script>',
 				'</head>',
 				'<body>',
-					await stew('', ['div', { id: 'app' }, App()], convertComponent),
+					// stew('', { '': convertComponent }, ['div', { id: 'app' }, App(initialProps)]),
 					'<script src="/index.js"></script>',
 					'<script>window.convertComponent = ({ name }, vars, container) => App[name](container)</script>',
-					'<script>stew(\'#app\', App(), window.convertComponent);</script>',
+					// `<script>stew(\'#app\', { \'\': window.convertComponent }, App(${JSON.stringify(initialProps)}));</script>`,
+					
+					stew('', {}, ['div', { id: 'app' }]),
+					`<script>stew(\'#app\', { \'\': window.convertComponent }, App(${JSON.stringify(initialProps)}));</script>`,
 				'</body>',
 			'</html>',
 		].join('');
