@@ -221,6 +221,7 @@ function Comments ({ '': memo }) {
 				];
 			}),
 			length > expandedCount && ['button', {
+				'': 'expand-button',
 				type: 'button',
 				onclick: () => state.expandedCount += 10,
 			}, 'Show More'],
@@ -258,21 +259,6 @@ function Recommendations () {
 	};
 }
 
-function Body () {
-	return ['div', { className: 'container' },
-		['div', { className: 'row' },
-			['div', { className: 'col col-8' },
-				[VideoPlayer],
-				[Comments],
-			],
-			['div', { className: 'col col-4' },
-				[Recommendations],
-			],
-		],
-		// { name: 'component' },
-	];
-}
-
 function App (initialProps) {
 	const globalState = createState(initialProps)
 
@@ -280,7 +266,18 @@ function App (initialProps) {
 		['div', { className: 'header' },
 			['strong', { className: 'logo' }, 'StewTube'],
 		],
-		[Body],
+		['div', { className: 'container' },
+			['div', { className: 'row' },
+				['div', { className: 'col col-8' },
+					[VideoPlayer],
+					[Comments],
+				],
+				['div', { className: 'col col-4' },
+					[Recommendations],
+				],
+			],
+			// { name: 'component' },
+		],
 	];
 }
 

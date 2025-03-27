@@ -39,7 +39,7 @@ export function remove (ref, parentNode) {
 	if (Array.isArray(node)) {
 		const [, subscriptions, proxy] = node;
 		unsubscribe(subscriptions);
-		remove(proxy, node);
+		remove(proxy, parentNdoe);
 
 		for (const [teardown] of children) {
 			execute(teardown);
@@ -56,10 +56,9 @@ export function remove (ref, parentNode) {
 	}
 }
 
-export function reconcile (node, nextNodes, prevNodes) {
+export function reconcile (node, nextNodes, prevNodes, sibling) {
 	let nodeIndex = prevNodes.length - 1;
 	let prevNode = prevNodes[nodeIndex];
-	let sibling;
 
 	for (let i = nextNodes.length - 1; i >=0; i--) {
 		const nextNode = nextNodes[i];

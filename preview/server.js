@@ -84,7 +84,10 @@ createServer(async ({ url }, res) => {
 	const type = types[extension];
 	const options = !/^image\/(?!svg)/.test(type) ? ['utf8'] : [];
 	path += `.${extension}`;
-	if (!resources.includes(path) && !path.startsWith('static/')) return send(res);
+
+	if (!resources.includes(path) && !path.startsWith('static/')) {
+		return send(res);
+	}
 
 	readFile(`${__dirname}/${path}`, ...options, (err, content) => {
 		send(res, content, type);

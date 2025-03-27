@@ -14,7 +14,7 @@ describe('renderElement', () => {
 		it('element', () => {
 			const ref = track(['div']);
 			renderElement(ref, { lmno: 456 }, ['content'], context, virtualDocument, nodes);
-			expect(ref).toEqual(['div', null, expect.any(Object), expect.any(Object)]);
+			expect(ref).toEqual(['div', { '': new Set(['lmno']) }, expect.any(Object), expect.any(Object)]);
 			expect(nodes).toEqual([{}, ref[2]]);
 			check('<div lmno="456">content</div>');
 		});
@@ -22,7 +22,7 @@ describe('renderElement', () => {
 		it('fragment', () => {
 			const ref = track(['']);
 			renderElement(ref, { lmno: 456 }, ['content'], context, virtualDocument, nodes);
-			expect(ref).toEqual(['', null, undefined, expect.any(Object)]);
+			expect(ref).toEqual(['', {}, undefined, expect.any(Object)]);
 			expect(nodes).toEqual([{}, ref[3]]);
 			check('content');
 		});
@@ -31,18 +31,33 @@ describe('renderElement', () => {
 	describe('update nodes', () => {
 		it('element', () => {
 			const ref = ['div'];
-			renderElement(ref, { lmno: 123 }, ['abc'], context, virtualDocument, nodes);
+
+			renderElement(ref, {
+				abc: 456, lmno: 123,
+				style: { abc: 456, lmno: 123 },
+				dataset: { abc: 456, lmno: 123 },
+			}, ['abc'], context, virtualDocument, nodes);
+
 			track(ref);
-			renderElement(ref, { lmno: 789 }, ['xyz'], context, virtualDocument, nodes);
-			check('<div lmno="789">xyz</div>', ['div', null, true, true]);
+
+			renderElement(ref, {
+				lmno: 789, xyz: 456,
+				style: { lmno: 789, xyz: 456 },
+				dataset: { lmno: 789, xyz: 456 },
+			}, ['xyz'], context, virtualDocument, nodes);
+
+			check(
+				'<div lmno="789" xyz="456" style="lmno:789;xyz:456;" data-lmno="789" data-xyz="456">xyz</div>',
+				['div', { '': new Set(['lmno', 'xyz', 'style', 'style.lmno', 'style.xyz', 'dataset', 'dataset.lmno', 'dataset.xyz']) }, true, true],
+			);
 		});
 		
 		it('fragment', () => {
 			const ref = [''];
-			renderElement(ref, { lmno: 123 }, ['abc'], context, virtualDocument, nodes);
+			renderElement(ref, { abc: 456, lmno: 123 }, ['abc'], context, virtualDocument, nodes);
 			track(ref);
-			renderElement(ref, { lmno: 789 }, ['xyz'], context, virtualDocument, nodes);
-			check('xyz', ['', true, undefined, true]);
+			renderElement(ref, { lmno: 789, xyz: 456 }, ['xyz'], context, virtualDocument, nodes);
+			check('xyz', ['', {}, undefined, true]);
 		});
 	});
 
@@ -52,7 +67,7 @@ describe('renderElement', () => {
 			renderElement(ref, {}, ['lmno'], context, virtualDocument, nodes);
 			track(ref);
 			renderElement(ref, {}, [['span', {}, 'lmno']], context, virtualDocument, nodes);
-			check('<div><span>lmno</span></div>', ['div', null, true, false]);
+			check('<div><span>lmno</span></div>', ['div', { '': new Set() }, true, false]);
 		});
 		
 		it('fragment', () => {
@@ -60,7 +75,7 @@ describe('renderElement', () => {
 			renderElement(ref, {}, ['lmno'], context, virtualDocument, nodes);
 			track(ref);
 			renderElement(ref, {}, [['span', {}, 'lmno']], context, virtualDocument, nodes);
-			check('<span>lmno</span>', ['', true, undefined, false]);
+			check('<span>lmno</span>', ['', {}, undefined, false]);
 		});
 	});
 

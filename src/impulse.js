@@ -45,29 +45,29 @@ export default function renderImpulse (ref, props, children, context, document, 
 	let prevProxy, prevNodes;
 
 	const update = () => {
-		impulses.unshift(impulse);
 		prevEffects = ref.splice(3);
+		impulses.unshift(impulse);
 		const effectCount = effects.length;
 		const [callback] = ref;
-		const nextNodes = [];
 		const layout = execute(callback, { ...props, '': memo }, ...children) || '';
-		const proxy = render(layout, context, document, nextNodes, impulse, -1, {});
+		const proxy = render(layout, context, document, nodes, impulse, -1, {});
+		impulses.shift();
 
 		if (prevNodes) {
-			reconcile(parentNode, nextNodes, prevNodes);
+			const sibling = prevNodes[prevNodes.length - 1].nextSibling;
+			reconcile(parentNode, nodes.slice(1), prevNodes, sibling);
 
 			if (proxy !== prevProxy) {
 				remove(prevProxy, parentNode);
 			}
 		}
 		
-		impulses.shift();
 		ref.push(...effects.slice(effectCount));
 		prevProxy = proxy;
-		prevNodes = nextNodes;
-		return nextNodes;
+		prevNodes = nodes.slice(1);
+		nodes = [parentNode];
 	};
 
 	impulse[0] = update;
-	nodes.push(...update());
+	update();
 }

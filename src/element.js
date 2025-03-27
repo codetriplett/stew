@@ -1,7 +1,7 @@
 import render, { remove, reconcile } from './view';
 
 export default function renderElement (ref, props, children, context, document, nodes) {
-	let [tagName, memo, node] = ref;
+	let [tagName, map, node] = ref;
 
 	if (!node && tagName !== '') {
 		const { shadowrootmode } = props;
@@ -16,15 +16,31 @@ export default function renderElement (ref, props, children, context, document, 
 	}
 
 	if (node) {
+		if (node !== tagName) {
+			nodes.push(node);
+		}
+
+		const { '': prevNames = new Set() } = map || {};
+		let nextNames = new Set();
+		map = { '': nextNames };
+		nodes = [node];
+
 		for (const [name, value] of Object.entries(props)) {
+			prevNames.delete(name);
+			nextNames.add(name);
+
 			switch (name) {
 				case 'style':
 				case 'dataset': {
 					const object = node[name];
 
-					for (const [name, string] of Object.entries(value)) {
-						if (string !== object[name]) {
-							object[name] = string;
+					for (const [valueName, string] of Object.entries(value)) {
+						const fullName = `${name}.${valueName}`;
+						prevNames.delete(fullName);
+						nextNames.add(fullName);
+
+						if (string !== object[valueName]) {
+							object[valueName] = string;
 						}
 					}
 
@@ -40,41 +56,53 @@ export default function renderElement (ref, props, children, context, document, 
 				node[name] = value;
 			}
 		}
+
+		for (const name of prevNames) {
+			const [objectName, valueName] = name.split('.');
+
+			if (valueName === undefined) {
+				node.removeAttribute(objectName);
+				continue;
+			}
+
+			switch (objectName) {
+				case 'style': {
+					node.style.removeProperty(valueName);
+					break;
+				}
+				case 'dataset': {
+					delete node.dataset[valueName];
+					break;
+				}
+			}
+		}
 	} else {
 		context = { ...context, ...props };
+		map = {};
 	}
 
-	const map = {};
+	const [parentNode] = nodes;
 	const removeRefs = new Set(ref.slice(3));
-	const nextNodes = [node];
 
 	for (const [i, childLayout] of children.entries()) {
-		const childRef = render(childLayout, context, document, nextNodes, ref, i, map);
+		const childRef = render(childLayout, context, document, nodes, ref, i, map);
 
 		if (childRef) {
 			removeRefs.delete(childRef);
-		} else if (memo === undefined) {
+		} else if (map === undefined) {
 			// shift items in hydration mode for next child to process
 			ref.splice(i + 3, 0, undefined);
 		}
 	}
 
 	for (const childRef of removeRefs) {
-		remove(childRef, node);
+		remove(childRef, parentNode);
 	}
 
-	ref[1] = Object.keys(map).length ? map : null;
+	ref[1] = map;
 	ref.splice(children.length + 3);
-	nextNodes.shift();
 
-	if (!node) {
-		nodes.push(...nextNodes);
-		return;
-	}
-
-	reconcile(node, nextNodes, [...node.childNodes]);
-
-	if (tagName !== node) {
-		nodes.push(node);
+	if (node) {
+		reconcile(node, nodes.slice(1), [...node.childNodes]);
 	}
 }

@@ -87,15 +87,18 @@ export const virtualDocument = {
 	createDocumentFragment () {
 		return {
 			childNodes: [],
+			nextSibling: null,
 			appendChild (child) {
 				this.removeChild(child);
 				this.childNodes.push(child);
+				child.nextSibling = null;
 			},
 			insertBefore (child, sibling) {
 				const { childNodes } = this;
 				this.removeChild(child);
 				const index = childNodes.indexOf(sibling);
 				childNodes.splice(index, 0, child);
+				child.nextSibling = sibling;
 			},
 			removeChild (child) {
 				const { childNodes } = this;
@@ -103,6 +106,7 @@ export const virtualDocument = {
 
 				if (index !== -1) {
 					childNodes.splice(index, 1);
+					child.nextSibling = null;
 				}
 			},
 			querySelector (selector) {
@@ -122,7 +126,7 @@ export const virtualDocument = {
 		};
 	},
 	createElement (tagName) {
-		return {
+		const element = {
 			tagName: tagName.toUpperCase(),
 			style: {},
 			dataset: {},
@@ -177,6 +181,28 @@ export const virtualDocument = {
 				return `${html}>${content}</${lowercaseTagName}>`;
 			},
 		};
+
+		const names = new Set(Object.keys(element));
+		const { style } = element;
+
+		Object.defineProperty(element, 'removeAttribute', {
+			value: name => {
+				if (!names.has(name)) {
+					delete element[name];
+				}
+			},
+			enumerable: false,
+		});
+
+		Object.defineProperty(style, 'removeProperty', {
+			value: name => {
+				delete style[name];
+			},
+			enumerable: false,
+			writeable: false,
+		});
+
+		return element;
 	},
 };
 
