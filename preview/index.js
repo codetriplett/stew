@@ -80,6 +80,53 @@ function loadRecommendation (index, globalState) {
 	globalState.recommendations = [...recommendations.slice(0, index), ...recommendations.slice(index + 1), generateVideo()];
 }
 
+function AdvancedVideoPlayer ({ '': memo }) {
+	return ({ globalState }) => {
+		const { video } = globalState;
+		const { id, title, action, color, shape, ft, length, owner } = video;
+		const iterationCount = length / 5000;
+		let { prevId, state, gl } = memo;
+		
+		if (id !== prevId) {
+			memo.prevId = id;
+
+			memo.state = state = createState({
+				playState: 'paused',
+				currentTime: 0,
+				playTimestamp: undefined,
+				completed: false,
+				hoverActive: false,
+			});
+		}
+
+		onRender(() => {
+			const [canvas] = ref;
+			// setup
+
+			return () => {};
+			// teardown
+		}, []);
+
+		return ['', { gl },
+			['canvas', { ref },
+				({ gl }) => {
+					// render
+				},
+			],
+		];
+
+
+
+		// have stew set up webgl if there are children
+		// - allow onbeforedraw and onafterdraw events
+		return ['canvas', { context: 'webgl' },
+			gl => {
+				// render
+			}
+		];
+	};
+}
+
 function VideoPlayer ({ '': memo }) {
 	return ({ globalState }) => {
 		const { video } = globalState;
@@ -181,7 +228,21 @@ function VideoPlayer ({ '': memo }) {
 	};
 }
 
-function Comments ({ '': memo }) {
+function renderComment ({ user, message, owner, ref, isRich }) {
+	return ['div', {
+		ref,
+		className: 'comment',
+		tabIndex: '-1',
+	},
+		['strong', { className: `comment-user ${user === owner ? 'comment-user-owner' : ''}` }, user],
+		['p', { className: 'comment-message' }, message],
+		isRich && ['button', { type: 'button' }, 'Like'],
+	];
+}
+
+function Comments ({ '': memo, isRich }) {
+	memo.initialized = true;
+
 	return ({ globalState }) => {
 		const { video, comments } = globalState;
 		const { id, owner } = video;
@@ -210,15 +271,8 @@ function Comments ({ '': memo }) {
 		}, [expandedCount]);
 
 		return ['', null,
-			...comments.slice(0, expandedCount).map(({ user, message }, i) => {
-				return ['div', {
-					ref: i && i === expandedCount - 10 && ref,
-					className: 'comment',
-					tabIndex: '-1',
-				},
-					['strong', { className: `comment-user ${user === owner ? 'comment-user-owner' : ''}` }, user],
-					['p', { className: 'comment-message' }, message],
-				];
+			...comments.slice(0, expandedCount).map((props, i) => {
+				return renderComment({ ...props, owner, ref: i && i === expandedCount - 10 && ref, isRich });
 			}),
 			length > expandedCount && ['button', {
 				'': 'expand-button',
@@ -227,6 +281,11 @@ function Comments ({ '': memo }) {
 			}, 'Show More'],
 		];
 	};
+}
+
+function RichComments ({ '': memo }) {
+	console.log('======', memo.initialized);
+	return Comments({ '': memo, isRich: true });
 }
 
 function Recommendations () {
@@ -262,9 +321,10 @@ function Recommendations () {
 function App (initialProps) {
 	const globalState = createState(initialProps)
 
-	return ['', { globalState },
+	return ({ swap }) => ['', { globalState },
 		['div', { className: 'header' },
 			['strong', { className: 'logo' }, 'StewTube'],
+			['button', { type: 'button', onclick: swap }, 'Update'],
 		],
 		['div', { className: 'container' },
 			['div', { className: 'row' },
@@ -300,4 +360,7 @@ App.component = (container) => {
 		state.expanded && ['p', null, 'Hello World'],
 	]);
 };
+
+App.Comments = Comments;
+App.RichComments = RichComments;
 })();

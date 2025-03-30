@@ -1,3 +1,4 @@
+import { isServer } from './document';
 import render, { remove, reconcile } from './view';
 
 export default function renderElement (ref, props, children, context, document, nodes) {
@@ -6,10 +7,10 @@ export default function renderElement (ref, props, children, context, document, 
 	if (!node && tagName !== '') {
 		const { shadowrootmode } = props;
 
-		if (typeof shadowrootmode === 'boolean' && tagName?.toUpperCase?.() === 'TEMPLATE') {
+		if (!isServer && typeof shadowrootmode === 'boolean' && tagName?.toUpperCase?.() === 'TEMPLATE') {
 			node = parentNode.shadowRoot || parentNode.attachShadow({ mode: shadowrootmode });
 		} else {
-			node = document.createElement(typeof tagName === 'number' ? `h${tagName}` : tagName);
+			node = document.createElement(typeof tagName === 'number' ? `h${tagName}` : tagName === 'webgl' ? 'canvas' : tagName);
 		}
 
 		ref[2] = node;
@@ -24,6 +25,12 @@ export default function renderElement (ref, props, children, context, document, 
 		let nextNames = new Set();
 		map = { '': nextNames };
 		nodes = [node];
+
+		if (node.tagName === 'CANVAS') {
+			const { type = 'webgl', paused, ...rest } = props;
+			context = renderCanvas(ref, rest, children, type, paused);
+			props = rest;
+		}
 
 		for (const [name, value] of Object.entries(props)) {
 			prevNames.delete(name);

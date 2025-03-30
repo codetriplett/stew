@@ -37,6 +37,12 @@ function hotSwapStep (ref, manifest, subscriptions) {
 }
 
 export default function stew (node, context = {}, ...children) {
+	if (Array.isArray(node)) {
+		// process as spry shader (only enough of spry to take care of the webGL boilerplate, no additional helpers)
+		// - keep only if it ends up below 2kb
+		return;
+	}
+
 	let document = defaultDocument;
 
 	if (node?.createDocumentFragment) {

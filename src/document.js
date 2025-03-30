@@ -130,7 +130,6 @@ export const virtualDocument = {
 			tagName: tagName.toUpperCase(),
 			style: {},
 			dataset: {},
-			mode: null,
 			...this.createDocumentFragment(),
 			toString () {
 				const { tagName, childNodes, style, dataset, ...rest } = this;

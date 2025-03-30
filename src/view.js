@@ -45,6 +45,8 @@ export function remove (ref, parentNode) {
 			execute(teardown);
 		}
 	} else {
+		ref[1] = undefined;
+
 		if (node && parentNode) {
 			parentNode.removeChild(node);
 			parentNode = undefined;
@@ -104,7 +106,7 @@ export default function render (layout, context, document, nodes, container, i, 
 				return render(layout, context, document, nodes, container, i, map);
 			}
 			case 'function': {
-				layout = layout({ ...context, '': i });
+				layout = layout(context);
 				return render(layout, context, document, nodes, container, i, map);
 			}
 		}
