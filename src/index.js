@@ -1,5 +1,6 @@
 import { virtualDocument, isServer } from './document';
 import { processEffects } from './impulse';
+import { compileProgram } from './canvas';
 import render from './view';
 import { schedule } from './state';
 
@@ -36,13 +37,15 @@ function hotSwapStep (ref, manifest, subscriptions) {
 	hotSwapStep(proxy, manifest, subscriptions);
 }
 
-export default function stew (node, context = {}, ...children) {
+export default function stew (node, ...children) {
 	if (Array.isArray(node)) {
 		// process as spry shader (only enough of spry to take care of the webGL boilerplate, no additional helpers)
 		// - keep only if it ends up below 2kb
+		compileProgram(node, ...children)
 		return;
 	}
 
+	const context = children.shift() || {};
 	let document = defaultDocument;
 
 	if (node?.createDocumentFragment) {

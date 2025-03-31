@@ -7,8 +7,65 @@ function animate (context, callbacks) {
 
 const programMap = new WeakMap();
 
+function createAttributeSetter (gl, program, name, type, subtype) {
+	const location = gl.getAttribLocation(program, name);
+	const buffer = gl.createBuffer();
+	const [size] = type.match(/\d/) || [3];
+
+	return value => {
+		gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+		gl.bufferData(gl.ARRAY_BUFFER, value, gl.STATIC_DRAW);
+		gl.vertexAttribPointer(location, size, gl[subtype], false, 0, 0);
+		gl.enableVertexAttribArray(location);
+	}
+}
+
+function createUniformSetter (gl, program, name, type, subtype) {
+	const location = gl.getUniformLocation(program, name);
+
+	switch (type) {
+		case 'uint': return value => gl.uniform1u(location, value);
+		case 'int': return value => gl.uniform1i(location, value);
+		case 'float': return value => gl.uniform1f(location, value);
+		case 'uvec2': return value => gl.uniform2uv(location, value);
+		case 'uvec3': return value => gl.uniform3uv(location, value);
+		case 'uvec4': return value => gl.uniform4uv(location, value);
+		case 'ivec2': return value => gl.uniform2iv(location, value);
+		case 'ivec3': return value => gl.uniform3iv(location, value);
+		case 'ivec4': return value => gl.uniform4iv(location, value);
+		case 'vec2': return value => gl.uniform2fv(location, value);
+		case 'vec3': return value => gl.uniform3fv(location, value);
+		case 'vec4': return value => gl.uniform4fv(location, value);
+		case 'mat2': return value => gl.uniformMatrix2fv(location, false, value);
+		case 'mat3': return value => gl.uniformMatrix3fv(location, false, value);
+		case 'mat4': return value => gl.uniformMatrix4fv(location, false, value);
+		case 'sampler2D': {
+			const textureMap = new WeakMap;
+			const index = subtype?.startsWith('TEXTURE') && Number(subtype.slice(7)) || 0;
+
+			return image => {
+				let texture = textureMap.get(image);
+
+				if (texture) {
+					gl.bindTexture(gl.TEXTURE_2D, texture);
+					return;
+				}
+
+				texture = gl.createTexture();
+				gl.bindTexture(gl.TEXTURE_2D, texture);
+				gl.texImage2D(gl.TEXTURE_2D, index, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+				textureMap.set(image, texture);
+			}
+		}
+	}
+}
+
 export function compileProgram (strings, ...values) {
-	const render = programMap.get(strings);
+	let render = programMap.get(strings);
 
 	if (render) {
 		return render;
@@ -19,27 +76,62 @@ export function compileProgram (strings, ...values) {
 	// - calling render will set the 
 	// - if standalone array is encountered, call each of its functions to 
 
-	const hasSetup = /\S/.test(strings[0]);
-	const count = strings.find(string => /\S/.test(string));
-	const locationMap = new WeakMap();
-	let hasLinked = false;
+	const setterStart = strings.findIndex(string => /\S/.test(string));
+	const resolverStart = strings.findIndex((string, i) => i > setterStart && !/\S/.test(string));
 
-	// TODO: get count of strings that are for setting variables
+	if (resolverStart === -1) {
+		return;
+	}
 
-	return (gl, rootProgram = program) => {
-		let locations = locationMap(rootProgram);
+	const settersMap = new WeakMap();
+	let shaderStart = strings.findIndex((string, i) => i > resolverStart && /\S/.test(string));
+	let rootProgram = {};
 
-		if (!locations) {
-			// store locations to use when setting values
+	if (shaderStart === -1) {
+		shaderStart = values.length 
+	} else {
+		// TODO: create rootProgram
+	}
+
+	render = (gl, program = rootProgram) => {
+		for (let i = 0; i < setterStart; i++) {
+			values[i](gl);
 		}
 
-		if (hasSetup) {
-			const setup = values.shift();
-			setup(gl);
+		let setters = settersMap.get(program);
+
+		// this needs to be here, since nested stew calls need the parent program passed in
+		if (!setters) {
+			setters = strings.slice(0, resolverStart).map(string => {
+				const [name, type, subtype] = string.trim().split(/\s+/).reverse();
+
+				return !subtype || subtype === 'TEXTURE'
+					? createUniformSetter(gl, program, name, type, subtype)
+					: createAttributeSetter(gl, program, name, type, subtype);
+			});
+
+			settersMap.set(program, setters);
 		}
 
-		const variables = values.slice(0, count);
+		for (const [i, setter] of setters.entries()) {
+			setter(values[i + setterStart]);
+		}
+
+		for (let i = resolverStart; i < shaderStart; i++) {
+			const resolver = values[i];
+			
+			if (typeof resolver === 'function') {
+				resolver(gl);
+			} else if (Array.isArray(resolver)) {
+				for (const prepare of resolver) {
+					prepare(gl);
+				}
+			}
+		}
 	};
+
+	programMap.set(strings, render);
+	return render;
 }
 
 export default function renderCanvas (ref, props, children, type, paused) {
