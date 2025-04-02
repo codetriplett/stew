@@ -62,6 +62,12 @@ function createUniformSetter (gl, program, name, type, subtype) {
 			}
 		}
 	}
+
+	return new Error('Invalid uniform type: ', type);
+}
+
+function wrap (code, vars, prefix = '') {
+	return `${prefix}${vars.join('\n')}\n\nvoid main() {\n${code}\n}`;
 }
 
 export function compileProgram (strings, ...values) {
@@ -84,13 +90,46 @@ export function compileProgram (strings, ...values) {
 	}
 
 	const settersMap = new WeakMap();
+	const sequence = [];
 	let shaderStart = strings.findIndex((string, i) => i > resolverStart && /\S/.test(string));
-	let rootProgram = {};
+	let rootProgram;
 
 	if (shaderStart === -1) {
-		shaderStart = values.length 
+		shaderStart = values.length;
 	} else {
-		// TODO: create rootProgram
+		// 1) add lines that have value as definitions array (to be made variables)
+		// 2) add lines that don't have value as statement (to be added to code)
+		// - nested ones will replace parent (useful for using custom fragment shaders for sepecific objects)
+
+
+		// const vertexVars = [];
+		// const fragmentVars = [];
+
+		// for (const [name, value] of Object.entries(definitions)) {
+		// 	if (fragmentUniforms.has(name)) {
+		// 		fragmentVars.push(value)
+		// 	} else {
+		// 		vertexVars.push(value);
+		// 	}
+		// }
+
+		// vertexVars.push(...varyings);
+		// fragmentVars.push(...varyings);
+		
+		// const vertexCode = wrap(vertexBody, vertexVars);
+		// const fragmentCode = wrap(fragmentBody, fragmentVars, 'precision mediump float;\n\n');
+
+		// const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+		// const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+		// rootProgram = gl.createProgram();
+
+		// gl.shaderSource(vertexShader, vertexCode);
+		// gl.shaderSource(fragmentShader, fragmentCode);
+		// gl.compileShader(vertexShader);
+		// gl.compileShader(fragmentShader);
+		// gl.attachShader(rootProgram, vertexShader);
+		// gl.attachShader(rootProgram, fragmentShader);
+		// gl.linkProgram(rootProgram);
 	}
 
 	render = (gl, program = rootProgram) => {
@@ -102,7 +141,7 @@ export function compileProgram (strings, ...values) {
 
 		// this needs to be here, since nested stew calls need the parent program passed in
 		if (!setters) {
-			setters = strings.slice(0, resolverStart).map(string => {
+			setters = strings.slice(setterStart, resolverStart).map(string => {
 				const [name, type, subtype] = string.trim().split(/\s+/).reverse();
 
 				return !subtype || subtype === 'TEXTURE'
@@ -123,8 +162,8 @@ export function compileProgram (strings, ...values) {
 			if (typeof resolver === 'function') {
 				resolver(gl);
 			} else if (Array.isArray(resolver)) {
-				for (const prepare of resolver) {
-					prepare(gl);
+				for (const callback of resolver) {
+					callback(gl);
 				}
 			}
 		}
