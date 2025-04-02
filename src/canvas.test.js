@@ -1,4 +1,4 @@
-import { compileProgram } from './canvas';
+import { parse, compileProgram } from './canvas';
 
 function stew (strings, ...values) {
 	return compileProgram(strings, ...values);
@@ -44,6 +44,12 @@ const gl = mock([
 	'bindTexture',
 	'createTexture',
 	'texImage2D',
+	'createProgram',
+	'createShader',
+	'shaderSource',
+	'compileShader',
+	'attachShader',
+	'linkProgram',
 ], [
 	'RGBA',
 	'UNSIGNED_BYTE',
@@ -55,6 +61,8 @@ const gl = mock([
 	'TEXTURE_WRAP_S',
 	'TEXTURE_WRAP_T',
 	'CLAMP_TO_EDGE',
+	'VERTEX_SHADER',
+	'FRAGMENT_SHADER',
 ]);
 
 let program;
@@ -67,8 +75,79 @@ beforeEach(() => {
 	program = {};
 });
 
+describe('parse', () => {
+	it('variables', () => {
+		const actual = parse`
+			type first ${[]}
+			type second ${[]}
+		`;
+
+		expect(actual).toEqual([
+			['', ['first', 'type'], ['second', 'type']],
+		]);
+	});
+
+	it('statements', () => {
+		const actual = parse`
+			first
+			second
+		`;
+
+		expect(actual).toEqual([
+			['first;\nsecond;'],
+		]);
+	});
+
+	it('variables and statements', () => {
+		const actual = parse`
+			type first ${[]}
+			second
+			type third ${[]}
+			fourth
+		`;
+
+		expect(actual).toEqual([
+			['second;\nfourth;', ['first', 'type'], ['third', 'type']],
+		]);
+	});
+
+	it('sequence', () => {
+		const actual = parse`
+			type first ${[]}
+			second
+			${() => {}}
+			type third ${[]}
+			fourth
+		`;
+
+		expect(actual).toEqual([
+			['second;', ['first', 'type']],
+			['fourth;', ['third', 'type']],
+		]);
+	});
+
+	it('edge callbacks', () => {
+		const actual = parse`
+			${() => {}}
+			type first ${[]}
+			second
+			${() => {}}
+			type third ${[]}
+			fourth
+			${() => {}}
+		`;
+
+		expect(actual).toEqual([
+			[''],
+			['second;', ['first', 'type']],
+			['fourth;', ['third', 'type']],
+			[''],
+		]);
+	});
+});
+
 describe('compileProgram', () => {
-	it('sets variable', () => {
+	it.only('sets variable', () => {
 		const vector = [123, 456, 789];
 		
 		const actual = stew`
@@ -195,19 +274,20 @@ describe('compileProgram', () => {
 	// needs to keep of stack of active calls to compileProgram to gather all unique names
 	// - store each one to map, using render callback as key
 	// - parent will add the parse child info to itself
-	it.only('creates program', () => {
+	it.skip('creates program', () => {
 		const array = [123, 456, 789];
 		const setup = jest.fn();
 		const draw = jest.fn();
+		const followup = jest.fn();
 		
 		const actual = stew`
 			${setup}
 			vec3 uPosition ${array}
-			vec3 uColor ${array}
-			${draw}
 			gl_Position = vec4(uPosition, 1.0);
-			${['uColor']}
+			${draw}
+			vec3 uColor ${array}
 			gl_FragColor = vec4(uColor, 1.0);
+			${followup}
 		`;
 		// have it default to gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0); if not provided
 

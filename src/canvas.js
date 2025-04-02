@@ -5,17 +5,18 @@ function animate (context, callbacks) {
 
 }
 
-const programMap = new WeakMap();
-
 function createAttributeSetter (gl, program, name, type, subtype) {
 	const location = gl.getAttribLocation(program, name);
 	const buffer = gl.createBuffer();
-	const [size] = type.match(/\d/) || [3];
+	
+	if (!/^vec[2-4]$/.test(type)) {
+		throw new Error('Invalid attribute type: ', type);
+	}
 
 	return value => {
 		gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
 		gl.bufferData(gl.ARRAY_BUFFER, value, gl.STATIC_DRAW);
-		gl.vertexAttribPointer(location, size, gl[subtype], false, 0, 0);
+		gl.vertexAttribPointer(location, type[3], gl[subtype], false, 0, 0);
 		gl.enableVertexAttribArray(location);
 	}
 }
@@ -63,114 +64,257 @@ function createUniformSetter (gl, program, name, type, subtype) {
 		}
 	}
 
-	return new Error('Invalid uniform type: ', type);
+	throw new Error('Invalid uniform type: ', type);
 }
 
 function wrap (code, vars, prefix = '') {
 	return `${prefix}${vars.join('\n')}\n\nvoid main() {\n${code}\n}`;
 }
 
+export function parse (strings) {
+	const lastIndex = strings.length - 1;
+	const sequence = [];
+	var shader, varLine;
+
+	for (const [i, string] of strings.entries()) {
+		if (varLine) {
+			shader.push(varLine.split(/\s+/).reverse());
+		} else {
+			shader = [''];
+			sequence.push(shader);
+		}
+
+		const lines = string.split(/\n+/);
+
+		if (i > 0) {
+			lines.shift();
+		}
+
+		if (i < lastIndex) {
+			varLine = lines.pop().trim();
+		}
+
+		for (const line of lines) {
+			if (/\S/.test(line)) {
+				shader[0] += `${shader[0] ? '\n' : ''}${line.trim().replace(/;?$/, ';')}`;
+			}
+		}
+	}
+
+	return sequence;
+}
+
+const renderMap = new WeakMap();
+const rootMap = new WeakMap();
+
+// 1) have each one store their parsed info to a weakmap
+// 2) look to that same weakmap to link child subprograms to parent program
+// 3) it should end up with a 
+
 export function compileProgram (strings, ...values) {
-	let render = programMap.get(strings);
+	let render = renderMap.get(strings);
 
 	if (render) {
 		return render;
 	}
 
-	// this should cover both the main program and fragments
-	// - have it always return a function that accepts gl
-	// - calling render will set the 
-	// - if standalone array is encountered, call each of its functions to 
+	const sequence = parse(strings);
 
-	const setterStart = strings.findIndex(string => /\S/.test(string));
-	const resolverStart = strings.findIndex((string, i) => i > setterStart && !/\S/.test(string));
+	// TODO: create program map
+	// - parse strings when compile is called
+	// - return function to process setters and callbacks
+	// - maintain a tree of weakmaps that set either a program or another weakmap depending on if resolver is function or not
+	// - there should be a unique program for each resolver, regardless of if that resolver is referenced elsewhere
+	// - setters are processed at bottom layer, so parent renders need to be passed down
 
-	if (resolverStart === -1) {
-		return;
-	}
+	return (gl, parentMap = rootMap, ...parentShaders) => {
+		let renders = parentMap.get(strings);
+		
+		if (!renders) {
+			renders = [];
+			parentMap.set(strings, renders);
+		}
 
-	const settersMap = new WeakMap();
-	const sequence = [];
-	let shaderStart = strings.findIndex((string, i) => i > resolverStart && /\S/.test(string));
-	let rootProgram;
+		// then for each resolver encountered
+		const resolverIndex = 0;
+		const resolver = () => {};
+		let render = renders[resolverIndex];
 
-	if (shaderStart === -1) {
-		shaderStart = values.length;
-	} else {
-		// 1) add lines that have value as definitions array (to be made variables)
-		// 2) add lines that don't have value as statement (to be added to code)
-		// - nested ones will replace parent (useful for using custom fragment shaders for sepecific objects)
+		if (Array.isArray(resolver)) {
+			if (!(render instanceof WeakMap)) {
+				render = new WeakMap();
+				renders[resolverIndex] = render;
+			}
+
+			for (const child of resovler) {
+				const shaders = [sequence[0], sequence[resolverIndex + 1]];
+				child(gl, render, shaders, ...parentShaders);
+			}
+
+			return;
+		} else if (typeof resolver !== 'function') {
+			return;
+		}
+
+		if (typeof render !== 'function') {
+			program = gl.createProgram();
+			// merge all vertex and fragment shader vars and code to create program
+			// - see if later it would be more efficient to have one program per vertex shader and link each fragment one as they are processed
+
+			render = () => {};
+			renders[resolverIndex] = render;
+		}
+
+		render(gl);
 
 
-		// const vertexVars = [];
-		// const fragmentVars = [];
+		
 
-		// for (const [name, value] of Object.entries(definitions)) {
-		// 	if (fragmentUniforms.has(name)) {
-		// 		fragmentVars.push(value)
-		// 	} else {
-		// 		vertexVars.push(value);
-		// 	}
+		// const program = ownProgram || parentProgram;
+		// let setters = settersMap.get(program);
+
+		// // this needs to be here, since nested stew calls need the parent program passed in
+		// if (!setters) {
+		// 	setters = strings.slice(setterStart, resolverStart).map(string => {
+		// 		const [name, type, subtype] = string.trim().split(/\s+/).reverse();
+
+		// 		return !subtype || subtype === 'TEXTURE'
+		// 			? createUniformSetter(gl, program, name, type, subtype)
+		// 			: createAttributeSetter(gl, program, name, type, subtype);
+		// 	});
+
+		// 	settersMap.set(program, setters);
 		// }
 
-		// vertexVars.push(...varyings);
-		// fragmentVars.push(...varyings);
-		
-		// const vertexCode = wrap(vertexBody, vertexVars);
-		// const fragmentCode = wrap(fragmentBody, fragmentVars, 'precision mediump float;\n\n');
+		// for (const [i, setter] of setters.entries()) {
+		// 	setter(values[i + setterStart]);
+		// }
 
+
+		// const program = gl.createProgram();
 		// const vertexShader = gl.createShader(gl.VERTEX_SHADER);
 		// const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
-		// rootProgram = gl.createProgram();
+		// let vertexInfo = ['gl_Position = vec4(1.0, 1.0, 1.0, 1.0);'];
+		// let fragmentInfo = ['gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);'];
 
-		// gl.shaderSource(vertexShader, vertexCode);
-		// gl.shaderSource(fragmentShader, fragmentCode);
-		// gl.compileShader(vertexShader);
-		// gl.compileShader(fragmentShader);
-		// gl.attachShader(rootProgram, vertexShader);
-		// gl.attachShader(rootProgram, fragmentShader);
-		// gl.linkProgram(rootProgram);
-	}
-
-	render = (gl, program = rootProgram) => {
-		for (let i = 0; i < setterStart; i++) {
-			values[i](gl);
-		}
-
-		let setters = settersMap.get(program);
-
-		// this needs to be here, since nested stew calls need the parent program passed in
-		if (!setters) {
-			setters = strings.slice(setterStart, resolverStart).map(string => {
-				const [name, type, subtype] = string.trim().split(/\s+/).reverse();
-
-				return !subtype || subtype === 'TEXTURE'
-					? createUniformSetter(gl, program, name, type, subtype)
-					: createAttributeSetter(gl, program, name, type, subtype);
-			});
-
-			settersMap.set(program, setters);
-		}
-
-		for (const [i, setter] of setters.entries()) {
-			setter(values[i + setterStart]);
-		}
-
-		for (let i = resolverStart; i < shaderStart; i++) {
-			const resolver = values[i];
+		// for (let i = 0; i < sequence.length; i += 2) {
+		// 	vertexInfo = sequence[i] || vertexInfo;
+		// 	fragmentInfo = sequence[i + 1] || fragmentInfo;
+		// 	vertexCode = format(vertexInfo, vertexInfo);
+		// 	fragmentCode = format(fragmentInfo, fragmentCode);
 			
-			if (typeof resolver === 'function') {
-				resolver(gl);
-			} else if (Array.isArray(resolver)) {
-				for (const callback of resolver) {
-					callback(gl);
-				}
-			}
-		}
-	};
+		// 	gl.shaderSource(vertexShader, vertexCode);
+		// 	gl.shaderSource(fragmentShader, fragmentCode);
+		// 	gl.compileShader(vertexShader);
+		// 	gl.compileShader(fragmentShader);
+		// 	gl.attachShader(program, vertexShader);
+		// 	gl.attachShader(program, fragmentShader);
+		// 	gl.linkProgram(program);
+		// }
+	}; 
 
-	programMap.set(strings, render);
-	return render;
+
+
+
+
+
+
+
+	// // this should cover both the main program and fragments
+	// // - have it always return a function that accepts gl
+	// // - calling render will set the 
+	// // - if standalone array is encountered, call each of its functions to 
+
+	// const setterStart = strings.findIndex(string => /\S/.test(string));
+	// const resolverStart = strings.findIndex((string, i) => i > setterStart && !/\S/.test(string));
+
+	// if (resolverStart === -1) {
+	// 	return;
+	// }
+
+	// const settersMap = new WeakMap();
+	// // const sequence = [];
+	// let shaderStart = strings.findIndex((string, i) => i > resolverStart && /\S/.test(string));
+	// let rootProgram;
+
+	// if (shaderStart === -1) {
+	// 	shaderStart = values.length;
+	// } else {
+	// 	// 1) add lines that have value as definitions array (to be made variables)
+	// 	// 2) add lines that don't have value as statement (to be added to code)
+	// 	// - nested ones will replace parent (useful for using custom fragment shaders for sepecific objects)
+
+
+
+	// 	// const vertexVars = [];
+	// 	// const fragmentVars = [];
+
+	// 	// for (const [name, value] of Object.entries(definitions)) {
+	// 	// 	if (fragmentUniforms.has(name)) {
+	// 	// 		fragmentVars.push(value)
+	// 	// 	} else {
+	// 	// 		vertexVars.push(value);
+	// 	// 	}
+	// 	// }
+
+	// 	// vertexVars.push(...varyings);
+	// 	// fragmentVars.push(...varyings);
+		
+	// 	// const vertexCode = wrap(vertexBody, vertexVars);
+	// 	// const fragmentCode = wrap(fragmentBody, fragmentVars, 'precision mediump float;\n\n');
+
+	// 	// const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+	// 	// const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+	// 	// rootProgram = gl.createProgram();
+
+	// 	// gl.shaderSource(vertexShader, vertexCode);
+	// 	// gl.shaderSource(fragmentShader, fragmentCode);
+	// 	// gl.compileShader(vertexShader);
+	// 	// gl.compileShader(fragmentShader);
+	// 	// gl.attachShader(rootProgram, vertexShader);
+	// 	// gl.attachShader(rootProgram, fragmentShader);
+	// 	// gl.linkProgram(rootProgram);
+	// }
+
+	// render = (gl, program = rootProgram) => {
+	// 	for (let i = 0; i < setterStart; i++) {
+	// 		values[i](gl);
+	// 	}
+
+	// 	let setters = settersMap.get(program);
+
+	// 	// this needs to be here, since nested stew calls need the parent program passed in
+	// 	if (!setters) {
+	// 		setters = strings.slice(setterStart, resolverStart).map(string => {
+	// 			const [name, type, subtype] = string.trim().split(/\s+/).reverse();
+
+	// 			return !subtype || subtype === 'TEXTURE'
+	// 				? createUniformSetter(gl, program, name, type, subtype)
+	// 				: createAttributeSetter(gl, program, name, type, subtype);
+	// 		});
+
+	// 		settersMap.set(program, setters);
+	// 	}
+
+	// 	for (const [i, setter] of setters.entries()) {
+	// 		setter(values[i + setterStart]);
+	// 	}
+
+	// 	for (let i = resolverStart; i < shaderStart; i++) {
+	// 		const resolver = values[i];
+			
+	// 		if (typeof resolver === 'function') {
+	// 			resolver(gl);
+	// 		} else if (Array.isArray(resolver)) {
+	// 			for (const callback of resolver) {
+	// 				callback(gl);
+	// 			}
+	// 		}
+	// 	}
+	// };
+
+	// programMap.set(strings, render);
+	// return render;
 }
 
 export default function renderCanvas (ref, props, children, type, paused) {
