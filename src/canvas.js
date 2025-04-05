@@ -1,11 +1,11 @@
 // how should it end previous loop?
 // - otherwise it would need to store callbacks somewhere that the initialized loop can access, along with context (aslo complicates subsequent paused renders)
 // - maybe allow WeakMap here, since shaders will need it to process template literals
-function animate (context, callbacks) {
+function animate (program) {
 
 }
 
-function createAttributeSetter (gl, program, name, type, subtype) {
+function createAttributeSetter (gl, program, subname, name, type, subtype) {
 	const location = gl.getAttribLocation(program, name);
 	const buffer = gl.createBuffer();
 	
@@ -15,110 +15,448 @@ function createAttributeSetter (gl, program, name, type, subtype) {
 
 	return value => {
 		gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-		gl.bufferData(gl.ARRAY_BUFFER, value, gl.STATIC_DRAW);
+		gl.bufferData(gl.ARRAY_BUFFER, subname ? value[subname] : value, gl.STATIC_DRAW);
 		gl.vertexAttribPointer(location, type[3], gl[subtype], false, 0, 0);
 		gl.enableVertexAttribArray(location);
 	}
 }
 
-function createUniformSetter (gl, program, name, type, subtype) {
+const setterNames = {
+	uint: 'uniform1u',
+	int: 'uniform1i',
+	float: 'uniform1f',
+	uvec2: 'uniform2uv',
+	uvec3: 'uniform3uv',
+	uvec4: 'uniform4uv',
+	ivec2: 'uniform2iv',
+	ivec3: 'uniform3iv',
+	ivec4: 'uniform4iv',
+	vec2: 'uniform2fv',
+	vec3: 'uniform3fv',
+	vec4: 'uniform4fv',
+	mat2: 'uniformMatrix2fv',
+	mat3: 'uniformMatrix3fv',
+	mat4: 'uniformMatrix4fv',
+};
+
+function createUniformSetter (gl, program, subname, name, type, subtype) {
 	const location = gl.getUniformLocation(program, name);
 
-	switch (type) {
-		case 'uint': return value => gl.uniform1u(location, value);
-		case 'int': return value => gl.uniform1i(location, value);
-		case 'float': return value => gl.uniform1f(location, value);
-		case 'uvec2': return value => gl.uniform2uv(location, value);
-		case 'uvec3': return value => gl.uniform3uv(location, value);
-		case 'uvec4': return value => gl.uniform4uv(location, value);
-		case 'ivec2': return value => gl.uniform2iv(location, value);
-		case 'ivec3': return value => gl.uniform3iv(location, value);
-		case 'ivec4': return value => gl.uniform4iv(location, value);
-		case 'vec2': return value => gl.uniform2fv(location, value);
-		case 'vec3': return value => gl.uniform3fv(location, value);
-		case 'vec4': return value => gl.uniform4fv(location, value);
-		case 'mat2': return value => gl.uniformMatrix2fv(location, false, value);
-		case 'mat3': return value => gl.uniformMatrix3fv(location, false, value);
-		case 'mat4': return value => gl.uniformMatrix4fv(location, false, value);
-		case 'sampler2D': {
-			const textureMap = new WeakMap;
-			const index = subtype?.startsWith('TEXTURE') && Number(subtype.slice(7)) || 0;
+	if (type === 'sampler2D') {
+		const textureMap = new WeakMap;
+		const index = subtype?.startsWith('TEXTURE') && Number(subtype.slice(7)) || 0;
 
-			return image => {
-				let texture = textureMap.get(image);
-
-				if (texture) {
-					gl.bindTexture(gl.TEXTURE_2D, texture);
-					return;
-				}
-
-				texture = gl.createTexture();
-				gl.bindTexture(gl.TEXTURE_2D, texture);
-				gl.texImage2D(gl.TEXTURE_2D, index, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-				textureMap.set(image, texture);
+		return image => {
+			if (subname) {
+				image = image[subname];
 			}
+
+			let texture = textureMap.get(image);
+
+			if (texture) {
+				gl.bindTexture(gl.TEXTURE_2D, texture);
+				return;
+			}
+
+			texture = gl.createTexture();
+			gl.bindTexture(gl.TEXTURE_2D, texture);
+			gl.texImage2D(gl.TEXTURE_2D, index, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+			textureMap.set(image, texture);
 		}
+	}
+	
+	const setterName = setterNames[type];
+	
+	if (/^mat[2-4]$/.test(type)) {
+		return value => gl[setterName](location, false, subname ? value[subname] : value);
+	} else if (setterName) {
+		return value => gl[setterName](location, subname ? value[subname] : value);
 	}
 
 	throw new Error('Invalid uniform type: ', type);
 }
 
-function wrap (code, vars, prefix = '') {
-	return `${prefix}${vars.join('\n')}\n\nvoid main() {\n${code}\n}`;
-}
-
 export function parse (strings) {
 	const lastIndex = strings.length - 1;
 	const sequence = [];
-	var shader, varLine;
+	let count = 0;
+	let shader, variable;
 
 	for (const [i, string] of strings.entries()) {
-		if (varLine) {
-			shader.push(varLine.split(/\s+/).reverse());
-		} else {
-			shader = [''];
-			sequence.push(shader);
-		}
-
 		const lines = string.split(/\n+/);
+		const comment = lines.shift();
 
-		if (i > 0) {
-			lines.shift();
+		if (variable) {
+			const [subname] = comment.trim().split(' ');
+			variable.unshift(subname);
+		} else if (/\S/.test(string)) {
+			shader = [count, ''];
+			sequence.push(shader);
+			count = 0;
 		}
 
 		if (i < lastIndex) {
-			varLine = lines.pop().trim();
+			const definition = lines.pop().trim();
+
+			if (definition) {
+				variable = definition.split(/\s+/).reverse();
+				shader.push(variable);
+			} else {
+				count += 1;
+				variable = undefined;
+			}
 		}
 
 		for (const line of lines) {
 			if (/\S/.test(line)) {
-				shader[0] += `${shader[0] ? '\n' : ''}${line.trim().replace(/;?$/, ';')}`;
+				shader[1] += `${shader[1] ? '\n' : ''}${line.trim().replace(/;?$/, ';')}`;
 			}
 		}
 	}
 
+	if (sequence[0][0] > 0) {
+		sequence.unshift([0, '']);
+	}
+
+	sequence[0][0] = count;
 	return sequence;
 }
 
-const renderMap = new WeakMap();
-const rootMap = new WeakMap();
+const prepareMap = new WeakMap();
+const renderStack = [new WeakMap()];
+const vertexStack = [];
+const fragmentStack = [];
 
-// 1) have each one store their parsed info to a weakmap
-// 2) look to that same weakmap to link child subprograms to parent program
-// 3) it should end up with a 
-
-export function compileProgram (strings, ...values) {
-	let render = renderMap.get(strings);
-
-	if (render) {
-		return render;
+function get (map, key, callback) {
+	if (map.has(key)) {
+		return map.get(key);
 	}
 
-	const sequence = parse(strings);
+	const value = callback();
+	map.set(key, value);
+	return value;
+}
+
+// function createAnimation (gl, values) {
+
+
+// 	const stack = type === 'VERTEX_SHADER' ? vertexStack : fragmentStack;
+// 	const allVariables = [];
+// 	const allCodes = [];
+
+// 	for (const info of stack.entries()) {
+// 		const [, code, ...variables] = info;
+// 		allVariables.unshift(...variables);
+// 		allCodes.unshift(code);
+// 	}
+
+// 	const code = [
+// 		...allVariables.map(([, name, type, subtype]) => {
+// 			const category = !subtype || type === 'sampler2D' ? 'uniform' : 'attribute';
+// 			return `${category} ${type} ${name};`;
+// 		}),
+// 		'void main() {', ...allCode, '}',
+// 	].join('\n');
+
+// 	const shader = get(renderStack[lowestIndex], lowestInfo, () => {
+// 		const shader = gl.createShader(gl[type]);
+// 		gl.shaderSource(shader, code);
+// 		gl.compileShader(shader);
+// 		return shader;
+// 	});
+
+// 	return [shader, ...allVariables];
+// }
+
+export function createShader (gl, type, codeArray, ...vars) {
+	const code = [
+		...vars.map(([, name, type, subtype]) => {
+			const category = !subtype || type === 'sampler2D' ? 'uniform' : 'attribute';
+			return `${category} ${type} ${name};`;
+		}),
+		'void main() {', ...codeArray, '}',
+	].join('\n');
+
+	const shader = gl.createShader(gl[type]);
+	gl.shaderSource(shader, code);
+	gl.compileShader(shader);
+	return shader;
+}
+
+export function compileProgram (strings, ...values) {
+	const prepare = get(prepareMap, strings, () => {
+		const sequence = parse(strings);
+		const [vertexInfo, ...fragmentInfos] = sequence;
+
+		// [callbackCount, code, ...definitions]: agnostic info
+		// - store in stack as prepare functions are called
+
+		// [totalSetupCount, shader, ...allSetters]: linked info
+		// - shader is created whenever a function resolver is encountered for the first time
+		// - it merges everything from stack and stores it
+		// - need to maintain a weakMap at each level of prepare chain to store it
+
+		// prepare function also needs to merge the values at each level
+		// - store setups at the beginning and make sure the rest match up with the order the setters will be in
+
+		// don't deal with setup
+		// - have callback lines always preceed fragment code
+		// - have string prefix always be vertexCode
+		// - followup callbacks are still allowed
+		// - setup code can be included in the first resolver anyway
+		prepare = (gl, values, ...parentValues) => {
+			const renderMap = get(renderStack[0], strings, () => new WeakMap());
+			const [followupCount] = vertexInfo;
+			const followups = followupCount ? values.splice(-followupCount) : [];
+			const renders = [];
+			parentValues.push(values.splice(vertexInfo.length - 2));
+			vertexStack.unshift(vertexInfo);
+			renderStack.ushift(renderMap);
+
+			for (const fragmentInfo of fragmentInfos) {
+				const [resolverCount] = fragmentInfo;
+				const resolvers = values.splice(resolverCount);
+				const allValues = [...parentValues, ...values.splice(fragmentInfo.length - 2)];
+				fragmentStack.unshift(fragmentInfo);
+
+				for (const resolver of resolvers) {
+					if (Array.isArray(resolver)) {
+						for (const prepare of resolvers) {
+							const childRender = prepare(gl, ...allValues);
+							renders.push(childRender);
+						}
+
+						// TOOD: have prepare functions return their entry to the tree that wille eventlly be passed to animate function
+						// - it is only passed to animate function if stack is empty 
+
+						continue;
+					} else if (typeof resolver !== 'function') {
+						continue;
+					}
+
+					const render = get(renderMap, fragmentInfo, () => {
+						let allVertexCode = [];
+						let allFragmentCode = [];
+						let allVertexVars = [];
+						let allFragmentVars = [];
+						let allVars = [];
+
+						for (const [i, fragmentInfo] of fragmentStack) {
+							const [, vertexCode, ...vertexVars] = vertexStack[i];
+							const [, fragmentCode, ...fragmentVars] = fragmentInfo;
+							allVertexCode.push(vertexCode);
+							allFragmentCode.push(fragmentCode);
+							allVertexVars.push(...vertexVars);
+							allFragmentVars.push(...fragmentVars);
+							allVars.push(...vertexVars, ...fragmentVars);
+						}
+
+						const vertexShader = createShader(gl, 'VERTEX_SHADER', allVertexCode, ...allVertexVars);
+						const fragmentShader = createShader(gl, 'FRAGMENT_SHADER', allFragmentCode, ...allFragmentVars);
+						const program = gl.createProgram();
+			
+						gl.attachShader(program, vertexShader);
+						gl.attachShader(program, fragmentShader);
+						gl.linkProgram(program);
+
+						const setters = allVars.push(definition => {
+							const [subname, name, type, subtype] = definition;
+
+							return !subtype || subtype === 'TEXTURE'
+								? createUniformSetter(gl, program, subname, name, type, subtype)
+								: createAttributeSetter(gl, program, subname, name, type, subtype);
+						});
+
+						return values => {
+							gl.attachShader(program, vertexShader);
+							gl.attachShader(program, fragmentShader);
+							gl.linkProgram(program);
+
+							// TODO: see if all values need to be set before each render or just the ones with subnames
+							// - also check for multiple programs
+							for (const [i, setter] of setters.entries()) {
+								setter(values[i]);
+							}
+
+							resolver(gl);
+						};
+					});
+
+					renders.push([render, allValues]);
+
+
+
+					// register animation using (program, vertexShader, fragmentShader, allValues);
+					// - this means each array item that was prepared will have its own animation instance, but this is needed since they have their own allValues
+					// - shaders are shared whenever possible, and parent shaders should be used if lower levels added no code of their own
+					// - use vertex/fragment stack to get keys to read from shaderStack to get a parent shader
+					// - group animations by vertexShader, and attach/link them to the common program (use gl as key for common program)
+				}
+
+				// TODO: register render function to loop, tied to allValues values
+
+				fragmentStack.shift();
+			}
+
+			renders.push(...followups.map(followup => [followup, gl]));
+			renderStack.shift();
+			vertexStack.shift();
+
+			if (renderStack.length > 0) {
+				return renders;
+			}
+
+			// TODO: deregister all previous 
+			animate(gl, renders);
+
+			// the remainder of values will be followups
+
+
+
+			// TODO: prepare animation here
+			// - adds to parent of stack if one exists, otherwise registers in animation loop
+			// - gl can be used to unsubscribe previous animations as well
+
+			// create a fragmentShader whenever a function resolver is found in sequence
+			// create a vertexShader if any fragmentShaders were created in the sequence
+			// store a single program for each gl, and swap out the shaders, then link them, as needed
+			// use stack to merge code and setters to create shaders
+		};
+
+		prepareMap.set(strings, prepare);
+	});
+
+	return (gl, ...rest) => prepare(gl, values, ...rest);
+
+	
+
+
+
+	// simplify: link these as they are processed
+	// - the array resolver item won't change after the fact, unless it is referenced by some outside array that has already been mapped over (bad pattern)
+	// - see if this could be simplified even more by assuming template literals are inlined
+	// - when encountering an array of children functions
+
+	return (gl, vertexStack, fragmentStack) => {
+		let resolvers = resolve.get(strings);
+		
+		if (!resolvers) {
+			const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+			gl.shaderSource(vertexShader, `${vertexCode}${sequence[0][1]}`);
+			gl.compileShader(vertexShader);
+			resolvers = [];
+
+			for (let i = 1; i < sequence.length - 1; i++) {
+				const fragmentShader = gl.createShader(gl.VERTEX_SHADER);
+				gl.shaderSource(fragmentShader, `${fragmentCode}${sequence[i][1]}`);
+				gl.compileShader(fragmentShader);
+				
+				const program = gl.createProgram();
+				gl.attachShader(program, vertexShader);
+				gl.attachShader(program, fragmentShader);
+				gl.linkProgram();
+
+				// TODO: create setters using program and store as array [resolveCount, program, ...setters]
+				resolvers.push(program);
+			}
+		}
+
+		let valueIndex = 0;
+
+		for (const program of resolvers) {
+			const [resolveCount,, ...setters] = program;
+			valueIndex
+		}
+
+		return resolvers;
+	};
+
+
+
+
+
+
+	// TODO: create agnostic tree here (things that don't need gl or program to set up)
+	// - [vertexCode, setters, [fragmentCode, setters, resolverCount], ...]
+	// - becomes: [vertexShader, values, [fragmentShader, values, ...resolvers], ...] when linked
+	// - setups and followups can be handled without the shaders being linked, so they don't need to be included
+
+	/*
+[
+	[map, vertexShader, ...values], // values includes all fragment resolvers and values as well
+	[resolverCount, fragmentShader],
+]
+	*/
+
+
+
+
+	// have this return an array of vert and frag shaders?
+	// resolver: [
+	//   vertexShader, (store as code when compiling and replace with shader when hydrating if not yet done)
+	//   values, (these are replaced whenever prepare is called)
+	//   ...setups,
+	//   [fragmentShader, values, ...resolvers],
+	//   ...fragmentVariations, (these are replace whenever prepare is called)
+	//   ...followups,
+	// ] (for each template literal)
+	// - resolvers can be functions as well
+	// - if vertexShader or fragmentShader is undefined, it didn't have additional code to contribute, so use parent one instead
+	// - shaders are only created and added to array if there is a function resolver at that level
+	prepare = (gl, ...values) => {
+		let program = programMap.get(gl);
+
+		if (!program) {
+			program = gl.createProgram();
+			programMap.set(gl, program);
+		}
+
+		const resolve = (...parentValues) => { 
+			const [setupCount, vertexCode, ...vertexSetters] = vertexInfo;
+			let valueIndex = 0;
+
+			for (const setup of values.slice(valueIndex, valueIndex += setupCount)) {
+				setup(gl);
+			}
+
+			const vertexValues = values.slice(valueIndex, valueIndex += vertexSetters.length);
+
+			for (const fragmentInfo of fragmentInfos) {
+				const [resolveCount, fragmentCode, ...fragmentSetters] = fragmentInfo;
+
+				for (const resolve of values.slice(valueIndex, valueIndex += resolveCount)) {
+					if (Array.isArray(resolve)) {
+						for (const render of resolve) {
+							render(gl, program, )
+						}
+
+						continue;
+					} else if (typeof resolve !== 'function') {
+						continue;
+					}
+
+					// create shader or use previous one
+				}
+			}
+		};
+
+		if (vertexInfo) {
+			return resolve();
+		}
+
+		// useProgram, set variables call resolvers
+		// - maybe have nested compile calls return a tree of shaders that were ultimately set up
+		// - [vert, frag, [vertOverride, frag, etc], etc] (arry with vert override only if vertex )
+	};
+
+	prepareMap.set(strings, prepare);
+	return prepare;
+
+
 
 	// TODO: create program map
 	// - parse strings when compile is called
@@ -127,45 +465,80 @@ export function compileProgram (strings, ...values) {
 	// - there should be a unique program for each resolver, regardless of if that resolver is referenced elsewhere
 	// - setters are processed at bottom layer, so parent renders need to be passed down
 
-	return (gl, parentMap = rootMap, ...parentShaders) => {
-		let renders = parentMap.get(strings);
+	// return (gl, resolve = rootMap, vertexCode = '', fragmentCode = '') => {
+	// 	let resolvers = resolve.get(strings);
 		
-		if (!renders) {
-			renders = [];
-			parentMap.set(strings, renders);
-		}
+	// 	if (!resolvers) {
+	// 		const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+	// 		gl.shaderSource(vertexShader, `${vertexCode}${sequence[0][1]}`);
+	// 		gl.compileShader(vertexShader);
+	// 		resolvers = [];
+
+	// 		for (let i = 1; i < sequence.length - 1; i++) {
+	// 			const fragmentShader = gl.createShader(gl.VERTEX_SHADER);
+	// 			gl.shaderSource(fragmentShader, `${fragmentCode}${sequence[i][1]}`);
+	// 			gl.compileShader(fragmentShader);
+				
+	// 			const program = gl.createProgram();
+	// 			gl.attachShader(program, vertexShader);
+	// 			gl.attachShader(program, fragmentShader);
+	// 			gl.linkProgram();
+
+	// 			// TODO: create setters using program and store as array [resolveCount, program, ...setters]
+	// 			resolvers.push(program);
+	// 		}
+	// 	}
+
+	// 	let valueIndex = 0;
+
+	// 	for (const program of resolvers) {
+	// 		const [resolveCount,, ...setters] = program;
+	// 		valueIndex
+	// 	}
+
+	// 	return resolvers;
+
+		// for (const render of renders) {
+		// 	render(gl);
+		// }
+
+
+
+
+
+
 
 		// then for each resolver encountered
-		const resolverIndex = 0;
-		const resolver = () => {};
-		let render = renders[resolverIndex];
+		// const resolverIndex = 0;
+		// const resolver = () => {};
+		// let render = renders[resolverIndex];
 
-		if (Array.isArray(resolver)) {
-			if (!(render instanceof WeakMap)) {
-				render = new WeakMap();
-				renders[resolverIndex] = render;
-			}
+		// if (Array.isArray(resolver)) {
+		// 	if (!(render instanceof WeakMap)) {
+		// 		render = new WeakMap();
+		// 		renders[resolverIndex] = render;
+		// 	}
 
-			for (const child of resovler) {
-				const shaders = [sequence[0], sequence[resolverIndex + 1]];
-				child(gl, render, shaders, ...parentShaders);
-			}
+		// 	for (const child of resolver) {
+		// 		const shaders = [sequence[0], sequence[resolverIndex + 1]];
+		// 		child(gl, render, shaders, ...stack);
+		// 	}
 
-			return;
-		} else if (typeof resolver !== 'function') {
-			return;
-		}
+		// 	return;
+		// } else if (typeof resolver !== 'function') {
+		// 	return;
+		// }
 
-		if (typeof render !== 'function') {
-			program = gl.createProgram();
-			// merge all vertex and fragment shader vars and code to create program
-			// - see if later it would be more efficient to have one program per vertex shader and link each fragment one as they are processed
+		// if (typeof render !== 'function') {
+		// 	program = gl.createProgram();
+		// 	// merge all vertex and fragment shader vars and code to create program
+		// 	// - see if later it would be more efficient to have one program per vertex shader and link each fragment one as they are processed
 
-			render = () => {};
-			renders[resolverIndex] = render;
-		}
+		// 	render = () => {};
+		// 	renders[resolverIndex] = render;
+		// }
 
-		render(gl);
+		// render(gl);
 
 
 		
@@ -211,7 +584,7 @@ export function compileProgram (strings, ...values) {
 		// 	gl.attachShader(program, fragmentShader);
 		// 	gl.linkProgram(program);
 		// }
-	}; 
+	// }; 
 
 
 

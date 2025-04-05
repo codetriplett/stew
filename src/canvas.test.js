@@ -75,7 +75,7 @@ beforeEach(() => {
 	program = {};
 });
 
-describe('parse', () => {
+describe.only('parse', () => {
 	it('variables', () => {
 		const actual = parse`
 			type first ${[]}
@@ -83,7 +83,7 @@ describe('parse', () => {
 		`;
 
 		expect(actual).toEqual([
-			['', ['first', 'type'], ['second', 'type']],
+			[0, '', ['', 'first', 'type'], ['', 'second', 'type']],
 		]);
 	});
 
@@ -94,7 +94,7 @@ describe('parse', () => {
 		`;
 
 		expect(actual).toEqual([
-			['first;\nsecond;'],
+			[0, 'first;\nsecond;'],
 		]);
 	});
 
@@ -107,7 +107,7 @@ describe('parse', () => {
 		`;
 
 		expect(actual).toEqual([
-			['second;\nfourth;', ['first', 'type'], ['third', 'type']],
+			[0, 'second;\nfourth;', ['', 'first', 'type'], ['', 'third', 'type']],
 		]);
 	});
 
@@ -121,33 +121,48 @@ describe('parse', () => {
 		`;
 
 		expect(actual).toEqual([
-			['second;', ['first', 'type']],
-			['fourth;', ['third', 'type']],
+			[0, 'second;', ['', 'first', 'type']],
+			[1, 'fourth;', ['', 'third', 'type']],
 		]);
 	});
 
 	it('edge callbacks', () => {
 		const actual = parse`
 			${() => {}}
+			${() => {}}
 			type first ${[]}
 			second
+			${() => {}}
 			${() => {}}
 			type third ${[]}
 			fourth
 			${() => {}}
+			${() => {}}
 		`;
 
 		expect(actual).toEqual([
-			[''],
-			['second;', ['first', 'type']],
-			['fourth;', ['third', 'type']],
-			[''],
+			[2, ''],
+			[2, 'second;', ['', 'first', 'type']],
+			[2, 'fourth;', ['', 'third', 'type']],
+		]);
+	});
+
+	it('variables with properties', () => {
+		const actual = parse`
+			type first ${[]} abc
+			${() => {}} lmno
+			type second ${[]} xyz
+		`;
+
+		expect(actual).toEqual([
+			[0, '', ['abc', 'first', 'type']],
+			[1, '', ['xyz', 'second', 'type']],
 		]);
 	});
 });
 
 describe('compileProgram', () => {
-	it.only('sets variable', () => {
+	it('sets variable', () => {
 		const vector = [123, 456, 789];
 		
 		const actual = stew`

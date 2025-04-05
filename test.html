@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Test</title>
+		<style>
+
+body {
+	background: gray;
+}
+
+		</style>
+	</head>
+	<body>
+		<canvas></canvas>
+		<script>
+
+const canvas = document.querySelector('canvas');
+const VIEWPORT_WIDTH = canvas.width;
+const VIEWPORT_HEIGHT = canvas.height;
+const gl = canvas.getContext('webgl');
+const program = gl.createProgram();
+const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+const fragmentShaderBlank = gl.createShader(gl.FRAGMENT_SHADER);
+
+gl.shaderSource(vertexShader, `
+precision mediump float;
+
+attribute vec3 aVertex;
+uniform vec3 uColor;
+
+void main() {
+	gl_Position = vec4(aVertex, uColor.x);
+}
+`);
+
+gl.shaderSource(fragmentShaderBlank, `
+void main() {
+	gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+}
+`);
+
+gl.compileShader(vertexShader);
+gl.compileShader(fragmentShaderBlank);
+gl.attachShader(program, vertexShader);
+gl.attachShader(program, fragmentShaderBlank);
+gl.linkProgram(program);
+
+const aVertexLocation = gl.getAttribLocation(program, 'aVertex');
+const uColorVertexLocation = gl.getUniformLocation(program, 'uColor');
+
+const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+
+gl.shaderSource(fragmentShader, `
+precision mediump float;
+
+uniform vec3 uColor;
+
+void main() {
+	gl_FragColor = vec4(uColor, 1.0);
+}
+`);
+
+gl.compileShader(fragmentShader);
+gl.detachShader(program, fragmentShaderBlank);
+gl.attachShader(program, fragmentShader);
+gl.linkProgram(program);
+
+if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+  console.log(gl.getProgramInfoLog(program));
+}
+
+const uColorFragmentLocation = gl.getUniformLocation(program, 'uColor');
+
+const elementsBuffer = gl.createBuffer();
+const vertexBuffer = gl.createBuffer();
+const indexes = new Uint16Array([0, 1, 2, 2, 3, 0]);
+const vertexes = new Float32Array([-0.5, -0.5, -0.5, 0.5, 0.5, 0.5, 0.5, -0.5]);
+const color = [1, 1, 1];
+
+gl.viewport(0, 0, VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
+gl.clearColor(0.0, 0.0, 0.0, 1.0);
+gl.useProgram(program);
+
+console.log('=====', gl.canvas);
+
+function draw () {
+	gl.clear(gl.COLOR_BUFFER_BIT);
+	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, elementsBuffer);
+	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indexes, gl.STATIC_DRAW);
+	gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, vertexes, gl.STATIC_DRAW);
+	gl.vertexAttribPointer(aVertexLocation, 2, gl.FLOAT, false, 0, 0);
+	gl.enableVertexAttribArray(aVertexLocation);
+	gl.uniform3fv(uColorVertexLocation, color);
+	gl.uniform3fv(uColorFragmentLocation, color);
+	gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+}
+
+draw();
+
+		</script>
+	</body>
+</html>
