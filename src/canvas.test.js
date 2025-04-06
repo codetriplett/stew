@@ -1,12 +1,16 @@
 import { parse, compileProgram } from './canvas';
 
-function stew (strings, ...values) {
-	return compileProgram(strings, ...values);
-} 
+jest.mock('./document', () => ({ isServer: false }));
+const canvas = {};
+let stringsArray;
 
-function mock (callbackNames, constantNames) {
-	const object = {};
+function stew (...params) {
+	const strings = params.shift();
+	stringsArray.push(strings);
+	return compileProgram(strings, ...params);
+}
 
+function mock (object, callbackNames, constantNames) {
 	for (const name of callbackNames) {
 		object[name] = jest.fn();
 	}
@@ -18,7 +22,9 @@ function mock (callbackNames, constantNames) {
 	return object;
 }
 
-const gl = mock([
+const gl = mock({
+	canvas,
+}, [
 	'getAttribLocation',
 	'createBuffer',
 	'bindBuffer',
@@ -50,6 +56,7 @@ const gl = mock([
 	'compileShader',
 	'attachShader',
 	'linkProgram',
+	'useProgram',
 ], [
 	'RGBA',
 	'UNSIGNED_BYTE',
@@ -65,17 +72,24 @@ const gl = mock([
 	'FRAGMENT_SHADER',
 ]);
 
-let program;
+const requestAnimationFrame = jest.fn();
+let program, triggerFrame;
 
 beforeEach(() => {
 	jest.clearAllMocks();
 	let location = 0;
 	gl.getAttribLocation.mockImplementation(() => location++);
 	gl.getUniformLocation.mockImplementation(() => location++);
+	gl.createShader.mockReturnValue({});
+	gl.createProgram.mockReturnValue({});
+	canvas.parentElement = {};
 	program = {};
+	stringsArray = [];
+	requestAnimationFrame.mockImplementation((...params) => [triggerFrame] = params);
+	globalThis.requestAnimationFrame = requestAnimationFrame;
 });
 
-describe.only('parse', () => {
+describe('parse', () => {
 	it('variables', () => {
 		const actual = parse`
 			type first ${[]}
@@ -83,7 +97,7 @@ describe.only('parse', () => {
 		`;
 
 		expect(actual).toEqual([
-			[0, '', ['', 'first', 'type'], ['', 'second', 'type']],
+			[0, [], ['', 'first', 'type'], ['', 'second', 'type']],
 		]);
 	});
 
@@ -94,7 +108,7 @@ describe.only('parse', () => {
 		`;
 
 		expect(actual).toEqual([
-			[0, 'first;\nsecond;'],
+			[0, ['first;', 'second;']],
 		]);
 	});
 
@@ -107,7 +121,7 @@ describe.only('parse', () => {
 		`;
 
 		expect(actual).toEqual([
-			[0, 'second;\nfourth;', ['', 'first', 'type'], ['', 'third', 'type']],
+			[0, ['second;', 'fourth;'], ['', 'first', 'type'], ['', 'third', 'type']],
 		]);
 	});
 
@@ -121,8 +135,8 @@ describe.only('parse', () => {
 		`;
 
 		expect(actual).toEqual([
-			[0, 'second;', ['', 'first', 'type']],
-			[1, 'fourth;', ['', 'third', 'type']],
+			[0, ['second;'], ['', 'first', 'type']],
+			[1, ['fourth;'], ['', 'third', 'type']],
 		]);
 	});
 
@@ -141,9 +155,10 @@ describe.only('parse', () => {
 		`;
 
 		expect(actual).toEqual([
-			[2, ''],
-			[2, 'second;', ['', 'first', 'type']],
-			[2, 'fourth;', ['', 'third', 'type']],
+			[0, []],
+			[2, ['second;'], ['', 'first', 'type']],
+			[2, ['fourth;'], ['', 'third', 'type']],
+			[2, []],
 		]);
 	});
 
@@ -155,24 +170,71 @@ describe.only('parse', () => {
 		`;
 
 		expect(actual).toEqual([
-			[0, '', ['abc', 'first', 'type']],
-			[1, '', ['xyz', 'second', 'type']],
+			[0, [], ['abc', 'first', 'type']],
+			[1, [], ['xyz', 'second', 'type']],
 		]);
 	});
 });
 
 describe('compileProgram', () => {
-	it('sets variable', () => {
+	it.only('creates program', () => {
+		const draw = jest.fn();
 		const vector = [123, 456, 789];
+		const color = [0.123, 0.456, 0.789];
 		
 		const actual = stew`
 			vec3 uVector ${vector}
+			gl_Position = vec4(uVector, 1.0)
+			${draw}
+			vec3 uColor ${color}
+			gl_FragColor = vec4(uColor, 1.0)
 		`;
 
 		expect(actual).toEqual(expect.any(Function));
-		actual(gl, program);
-		expect(gl.uniform3fv).toHaveBeenCalledWith(0, [123, 456, 789]);
+		actual(gl);
+		triggerFrame();
+		expect(draw).toHaveBeenCalledWith(gl, undefined);
+
+		expect(gl.uniform3fv.mock.calls).toEqual([
+			[0, vector],
+			[1, color],
+		]);
 	});
+
+	it.only('creates nested program', () => {
+		const draw = jest.fn();
+
+		const array = [
+			{ vector: [123, 456, 789], color: [0.123, 0.456, 0.789] },
+			{ vector: [987, 654, 321], color: [0.987, 0.654, 0.321] },
+		];
+		
+		const actual = stew`
+			gl_Position = vec4(uVector, 1.0)
+			${array.map(({ vector, color }) => stew`
+				vec3 uVector ${vector}
+				${draw}
+				vec3 uColor ${color}
+			`)}
+			gl_FragColor = vec4(uColor, 1.0)
+		`;
+
+		expect(actual).toEqual(expect.any(Function));
+		actual(gl);
+		triggerFrame();
+		expect(draw).toHaveBeenCalledWith(gl, undefined);
+
+		expect(gl.uniform3fv.mock.calls).toEqual([
+			[0, array[0].vector],
+			[1, array[0].color],
+			[0, array[1].vector],
+			[1, array[1].color],
+		]);
+	});
+
+
+
+
 
 	it('sets multiple variables', () => {
 		const vector = [123, 456, 789];

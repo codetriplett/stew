@@ -1,13 +1,35 @@
+import { isServer } from './document';
+
+export const sequenceMap = new WeakMap();
+export const rootMap = new WeakMap();
+const pauseMap = new WeakMap();
+
 // how should it end previous loop?
 // - otherwise it would need to store callbacks somewhere that the initialized loop can access, along with context (aslo complicates subsequent paused renders)
 // - maybe allow WeakMap here, since shaders will need it to process template literals
-function animate (gl, callback) {
+function animate (gl, callbackSet) {
 	const render = timestamp => {
-		callback(gl, timestamp);
-		window.requestAnimationFrame(render);
+		if (!canvas.parentElement) {
+			return;
+		}
+
+		for (const [program, ...callbacks] of callbackSet) {
+			if (program) {
+				gl.useProgram(program);
+			}
+
+			for (const callback of callbacks) {
+				callback(gl, timestamp);
+			}
+		}
+
+		if (!pauseMap.get(canvas)) {
+			requestAnimationFrame(render);
+		}
 	};
 
-	render();
+	const { canvas } = gl;
+	requestAnimationFrame(render);
 }
 
 function createAttributeSetter (gl, program, subname, name, type, subtype) {
@@ -99,7 +121,7 @@ export function parse (strings) {
 			const [subname] = comment.trim().split(' ');
 			variable.unshift(subname);
 		} else if (/\S/.test(string)) {
-			shader = [count, ''];
+			shader = [count, []];
 			sequence.push(shader);
 			count = 0;
 		}
@@ -118,22 +140,21 @@ export function parse (strings) {
 
 		for (const line of lines) {
 			if (/\S/.test(line)) {
-				shader[1] += `${shader[1] ? '\n' : ''}${line.trim().replace(/;?$/, ';')}`;
+				shader[1].push(line.trim().replace(/;?$/, ';'));
 			}
 		}
 	}
 
 	if (sequence[0][0] > 0) {
-		sequence.unshift([0, '']);
+		sequence.unshift([0, []]);
 	}
 
-	sequence[0][0] = count;
+	if (count) {
+		sequence.push([count, []]);
+	}
+
 	return sequence;
 }
-
-const prepareMap = new WeakMap();
-const programMap = new WeakMap();
-const rootMap = new WeakMap();
 
 function get (map, key, callback) {
 	if (map.has(key)) {
@@ -145,14 +166,18 @@ function get (map, key, callback) {
 	return value;
 }
 
-export function createShader (gl, type, index, ...stack) {
+export function createShader (gl, type, index, stack) {
 	const allCode = [];
 	const allVars = [];
 
 	for (const pair of stack) {
 		const [, code, ...vars] = pair[index];
-		allCode.push(code);
+		allCode.push(...code);
 		allVars.push(...vars);
+	}
+
+	if (allCode.length === 0) {
+		return;
 	}
 
 	const code = [
@@ -171,114 +196,96 @@ export function createShader (gl, type, index, ...stack) {
 
 // TODO: return empty function if isServer is true
 export function compileProgram (strings, ...values) {
-	const prepare = get(prepareMap, strings, () => {
-		const sequence = parse(strings);
-		const [vertexInfo, ...fragmentInfos] = sequence;
-		const settersSet = new WeakMap();
+	if (isServer) {
+		return;
+	}
 
-		return (values, gl, map = rootMap, ...stack) => {
-			const [followupCount] = vertexInfo;
-			const followups = followupCount ? values.splice(-followupCount) : [];
-			const vertexValues = values.splice(vertexInfo.length - 2);
-			const callbackMap = new WeakMap();
-			const allCallbackSet = new Set();
-			map = get(map, strings, () => new WeakMap());
-			let vertexShader = map.get(vertexInfo);
+	// creates and stores parsed template
+	const sequence = get(sequenceMap, strings, () => parse(strings));
+	const [vertexInfo, ...fragmentInfos] = sequence;
 
-			for (const fragmentInfo of fragmentInfos) {
-				const [resolverCount] = fragmentInfo;
-				const resolvers = values.splice(resolverCount);
-				const fragmentValues = values.splice(fragmentInfo.length - 2);
-				const callbackSet = new Set();
+	return (gl, parentMap = rootMap, allCallbackSet = new Set(), ...stack) => {
+		const vertexValues = values.splice(0, vertexInfo.length - 2);
+		const map = get(parentMap, strings, () => new WeakMap());
+		let vertexShader = map.get(vertexInfo);
 
-				for (const resolver of resolvers) {
-					if (Array.isArray(resolver)) {
-						for (const prepare of resolvers) {
-							const childArray = prepare(gl, map, [vertexInfo, fragmentInfo], ...stack);
+		for (const fragmentInfo of fragmentInfos) {
+			const [resolverCount] = fragmentInfo;
+			const resolvers = values.splice(0, resolverCount);
+			const fragmentValues = values.splice(0, fragmentInfo.length - 2);
+			const fullStack = [[vertexInfo, fragmentInfo], ...stack];
+			const callbackSet = new Set();
 
-							for (const [program, ...callbacks] of childArray) {
-								const programCallbacks = get(callbackMap, program, () => [program]);
-								programCallbacks.push(...callbacks);
-								callbackSet.add(programCallbacks);
-							}
-						}
-
-						continue;
-					} else if (typeof resolver !== 'function') {
-						continue;
+			for (const resolver of resolvers) {
+				if (Array.isArray(resolver)) {
+					for (const prepare of resolver.reverse()) {
+						prepare(gl, map, callbackSet, ...fullStack);
 					}
 
-					const programCallbacks = get(programMap, fragmentInfo, () => {
-						if (!vertexShader) {
-							const shader = createShader(gl, 'VERTEX_SHADER', stack, 0);
-							map.set(vertexInfo, shader);
-							[vertexShader, ...vertexVars] = shader;
-						}
+					continue;
+				} else if (typeof resolver !== 'function') {
+					continue;
+				}
 
-						const fragmentShader = get(map, fragmentInfo, () => createShader(gl, 'FRAGMENT_SHADER', stack, 1));
-						const program = gl.createProgram();
+				// creates and stores a program for each unique subprogram chain
+				const programCallbacks = get(map, fragmentInfo, () => {
+					if (!vertexShader) {
+						vertexShader = createShader(gl, 'VERTEX_SHADER', 0, fullStack);
+						map.set(vertexInfo, vertexShader);
+					}
 
+					const fragmentShader = createShader(gl, 'FRAGMENT_SHADER', 1, fullStack);
+					let program;
+
+					if (vertexShader && fragmentShader) {
+						program = gl.createProgram();
 						gl.attachShader(program, vertexShader);
 						gl.attachShader(program, fragmentShader);
 						gl.linkProgram(program);
+					}
 
-						return [program];
-					});
+					return [program];
+				});
 
-					programCallbacks.push(resolver);
-					callbackSet.add(programCallbacks);
-				}
-
-				// TODO: create setter here for this layer's own vertex and fragment values for each program
-				// - create only the first time and then store for later use
-
-				for (const programCallbacks of callbackSet) {
-					const [program] = programCallbacks;
-
-					const setters = get(settersSet, program, () => {
-						const [,, ...vertexVars] = vertexInfo;
-						const [,, ...fragmentVars] = fragmentInfo;
-
-						return [...vertexVars, ...fragmentVars].map(definition => {
-							const [subname, name, type, subtype] = definition;
-							const setter = !subtype || subtype === 'TEXTURE' ? createUniformSetter : createAttributeSetter;
-							return setter(gl, program, subname, name, type, subtype);
-						});
-					});
-
-					programCallback.splice(1, 0, setters);
-					allCallbackSet.add(programCallback);
-				}
+				// TODO: maybe only store program in map with fragmentInfo
+				// - it should store all resolvers for vertex/fragment pair in this array, but only during this prepare iteration
+				programCallbacks.push(resolver);
+				callbackSet.add(programCallbacks);
 			}
 
-			if (map !== rootMap) {
-				return [...allCallbackSet]
-			}
- 
-			animate(gl, () => {
-				for (const [program, setters, ...callbacks] of allCallbackSet) {
-					gl.useProgram(program);
+			for (const programCallbacks of callbackSet) {
+				const [program] = programCallbacks;
+				const values = [...vertexValues, ...fragmentValues];
+				allCallbackSet.add(programCallbacks);
 
+				// creates and stores setters for each layer in each unique subprogram chain
+				const setters = !program ? [] : get(map, program, () => {
+					const [,, ...vertexVars] = vertexInfo;
+					const [,, ...fragmentVars] = fragmentInfo;
+
+					return [...vertexVars, ...fragmentVars].map(definition => {
+						const [subname, name, type, subtype] = definition;
+						const setter = !subtype || subtype === 'TEXTURE' ? createUniformSetter : createAttributeSetter;
+						return setter(gl, program, subname, name, type, subtype);
+					});
+				});
+
+				programCallbacks.splice(1, 0, () => {
 					// TODO: see these only need to be set once before animation loop or if they are needed on each draw
 					// - what happesn when programs are switched and then switched back?
 					// - maybe only need to set the ones that have subnames on each draw
-					for (const setter of setters) {
-						setter()
+					// - if not needed on every draw, they could be iterated over here and this callback could just process the subname setters
+					for (const [i, setter] of setters.entries()) {
+						setter(values[i]);
 					}
+				});
+			}
+		}
 
-					for (const callback of callbacks) {
-						callback(gl);
-					}
-				}
-
-				for (const followup of followups) {
-					followup(gl);
-				}
-			});
-		};
-	});
-
-	return (...rest) => prepare(values, ...rest);
+		if (parentMap === rootMap) {
+			animate(gl, allCallbackSet);
+		}
+	};
 }
 
 export default function renderCanvas (ref, props, children, type, paused) {
@@ -290,18 +297,6 @@ export default function renderCanvas (ref, props, children, type, paused) {
 		context.viewport(0, 0, width, height);
 	}
 
-	if (!paused) {
-		const callbacks = [];
-
-		for (const [i, child] of children.entries()) {
-			if (typeof child === 'function') {
-				callbacks.push(child);
-				children[i] = undefined;
-			}
-		}
-
-		animate(context, callbacks);
-	}
-
+	pauseMap.set(node, paused);
 	return context;
 }
