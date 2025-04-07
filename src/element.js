@@ -28,7 +28,7 @@ export default function renderElement (ref, props, children, context, document, 
 
 		if (node.tagName === 'CANVAS') {
 			const { type = 'webgl', paused, ...rest } = props;
-			context = renderCanvas(ref, rest, children, type, paused);
+			context = renderCanvas(ref, rest, type, paused);
 			props = rest;
 		}
 

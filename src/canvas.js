@@ -7,13 +7,13 @@ const pauseMap = new WeakMap();
 // how should it end previous loop?
 // - otherwise it would need to store callbacks somewhere that the initialized loop can access, along with context (aslo complicates subsequent paused renders)
 // - maybe allow WeakMap here, since shaders will need it to process template literals
-function animate (gl, callbackSet) {
+function animate (gl, callbackMap) {
 	const render = timestamp => {
 		if (!canvas.parentElement) {
 			return;
 		}
 
-		for (const [program, ...callbacks] of callbackSet) {
+		for (const [program, callbacks] of callbackMap.entries()) {
 			if (program) {
 				gl.useProgram(program);
 			}
@@ -204,7 +204,7 @@ export function compileProgram (strings, ...values) {
 	const sequence = get(sequenceMap, strings, () => parse(strings));
 	const [vertexInfo, ...fragmentInfos] = sequence;
 
-	return (gl, parentMap = rootMap, allCallbackSet = new Set(), ...stack) => {
+	return (gl, parentMap = rootMap, allCallbackMap = new Map(), ...stack) => {
 		const vertexValues = values.splice(0, vertexInfo.length - 2);
 		const map = get(parentMap, strings, () => new WeakMap());
 		let vertexShader = map.get(vertexInfo);
@@ -214,12 +214,13 @@ export function compileProgram (strings, ...values) {
 			const resolvers = values.splice(0, resolverCount);
 			const fragmentValues = values.splice(0, fragmentInfo.length - 2);
 			const fullStack = [[vertexInfo, fragmentInfo], ...stack];
-			const callbackSet = new Set();
+			const callbackMap = new Map();
+			let callbacks;
 
 			for (const resolver of resolvers) {
 				if (Array.isArray(resolver)) {
-					for (const prepare of resolver.reverse()) {
-						prepare(gl, map, callbackSet, ...fullStack);
+					for (const prepare of resolver) {
+						prepare(gl, map, callbackMap, ...fullStack);
 					}
 
 					continue;
@@ -228,35 +229,36 @@ export function compileProgram (strings, ...values) {
 				}
 
 				// creates and stores a program for each unique subprogram chain
-				const programCallbacks = get(map, fragmentInfo, () => {
+				const program = get(map, fragmentInfo, () => {
 					if (!vertexShader) {
 						vertexShader = createShader(gl, 'VERTEX_SHADER', 0, fullStack);
 						map.set(vertexInfo, vertexShader);
 					}
 
 					const fragmentShader = createShader(gl, 'FRAGMENT_SHADER', 1, fullStack);
-					let program;
 
-					if (vertexShader && fragmentShader) {
-						program = gl.createProgram();
-						gl.attachShader(program, vertexShader);
-						gl.attachShader(program, fragmentShader);
-						gl.linkProgram(program);
+					if (!vertexShader || !fragmentShader) {
+						return;
 					}
 
-					return [program];
+					const program = gl.createProgram();
+					gl.attachShader(program, vertexShader);
+					gl.attachShader(program, fragmentShader);
+					gl.linkProgram(program);
+					return program;
 				});
 
-				// TODO: maybe only store program in map with fragmentInfo
-				// - it should store all resolvers for vertex/fragment pair in this array, but only during this prepare iteration
-				programCallbacks.push(resolver);
-				callbackSet.add(programCallbacks);
+				if (!callbacks) {
+					callbacks = [];
+					callbackMap.set(program, callbacks);
+				}
+
+				callbacks.push(resolver);
 			}
 
-			for (const programCallbacks of callbackSet) {
-				const [program] = programCallbacks;
+			for (const [program, callbacks] of callbackMap.entries()) {
 				const values = [...vertexValues, ...fragmentValues];
-				allCallbackSet.add(programCallbacks);
+				const programCallbacks = get(allCallbackMap, program, () => []);
 
 				// creates and stores setters for each layer in each unique subprogram chain
 				const setters = !program ? [] : get(map, program, () => {
@@ -270,25 +272,29 @@ export function compileProgram (strings, ...values) {
 					});
 				});
 
-				programCallbacks.splice(1, 0, () => {
-					// TODO: see these only need to be set once before animation loop or if they are needed on each draw
-					// - what happesn when programs are switched and then switched back?
-					// - maybe only need to set the ones that have subnames on each draw
-					// - if not needed on every draw, they could be iterated over here and this callback could just process the subname setters
-					for (const [i, setter] of setters.entries()) {
-						setter(values[i]);
-					}
-				});
+				if (setters.length) {
+					callbacks.unshift(() => {
+						// TODO: see these only need to be set once before animation loop or if they are needed on each draw
+						// - what happesn when programs are switched and then switched back?
+						// - maybe only need to set the ones that have subnames on each draw
+						// - if not needed on every draw, they could be iterated over here and this callback could just process the subname setters
+						for (const [i, setter] of setters.entries()) {
+							setter(values[i]);
+						}
+					});
+				}
+				
+				programCallbacks.push(...callbacks);
 			}
 		}
 
 		if (parentMap === rootMap) {
-			animate(gl, allCallbackSet);
+			animate(gl, allCallbackMap);
 		}
 	};
 }
 
-export default function renderCanvas (ref, props, children, type, paused) {
+export default function renderCanvas (ref, props, type, paused) {
 	const [,, node] = ref;
 	const { width, height } = props;
 	context = node.getContext(type);
