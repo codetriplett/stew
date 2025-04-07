@@ -80,6 +80,8 @@ function loadRecommendation (index, globalState) {
 	globalState.recommendations = [...recommendations.slice(0, index), ...recommendations.slice(index + 1), generateVideo()];
 }
 
+// TODO: rewrite video player to use basic 2d shapes, then switch to 3d
+// - this will test both webgl and hot swap features
 function AdvancedVideoPlayer ({ '': memo }) {
 	return ({ globalState }) => {
 		const { video } = globalState;
@@ -127,6 +129,10 @@ function AdvancedVideoPlayer ({ '': memo }) {
 	};
 }
 
+const indexes = new Uint16Array([0, 1, 2, 2, 3, 0]);
+const vertexes = new Float32Array([-0.5, -0.5, -0.5, 0.5, 0.5, 0.5, 0.5, -0.5]);
+const colorArray = [1, 1, 1];
+
 function VideoPlayer ({ '': memo }) {
 	return ({ globalState }) => {
 		const { video } = globalState;
@@ -162,65 +168,28 @@ function VideoPlayer ({ '': memo }) {
 		}, [playState]);
 
 		return ['', null,
-			['div', {
-				className: [
-					'video-player',
-					`video-${playState}`,
-					!hoverActive ? '' : 'video-hover-active',
-					`video-${action}`,
-					`video-${color}`,
-					`video-${shape}`,
-					!ft ? '' : [
-						'video-ft',
-						`video-ft-${ft.action}`,
-						`video-ft-${ft.color}`,
-						`video-ft-${ft.shape}`,
-					].join(' '),
-				].join(' '),
+			['canvas', {
+				width: 960,
+				height: 540,
+				style: { width: '100%' },
 				onmouseenter: () => state.hoverActive = true,
 				onmouseleave: () => state.hoverActive = false,
 			},
-				'video is',
-				state.playState === 'paused' && ' not',
-				' playing',
-				['span', {
-					className: 'primary',
-					style: { animationPlayState: playState, animationIterationCount: iterationCount }
-				}],
-				['span', {
-					className: 'secondary',
-					style: { animationPlayState: playState, animationIterationCount: iterationCount }
-				}],
-				['div', { className: 'overlay' }],
-				['div', {
-					className: 'progress',
-					style: playState === 'running' ? {
-						width: '100%', transitionDuration: `${Math.max(0, length - currentTime)}ms`,
-					} : {
-						width: `${Math.min(1, currentTime / length) * 100}%`, transitionDuration: '0ms',
-					}
-				}],
-				['button', {
-					type: 'button',
-					className: 'play-pause',
-					onclick: () => {
-						if (completed) {
-							loadRecommendation(0, globalState);
-							return;
-						}
-
-						state.playState = playState === 'running' ? 'paused' : 'running';
-						const now = Date.now();
-						
-						if (state.playState === 'running') {
-							state.playTimestamp = now;
-						} else if (playTimestamp < now) {
-							state.currentTime += Math.min(now - playTimestamp, length - currentTime);
-						}
-					},
+				gl => {
+					gl.clearColor(0.0, 0.0, 0.0, 1.0);
+					gl.clear(gl.COLOR_BUFFER_BIT);
 				},
-					completed ? 'Play Next' : playState === 'running' ? 'Pause' : 'Play',
-				],
+				stew`
+					elements ${indexes}
+					FLOAT vec3 aVertex ${vertexes}
+					gl_Position = vec4(aVertex, 1.0);
+					${gl => {
+						console.log('draw');
+						gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+					}}
+					vec3 uColor ${colorArray}
+					gl_FragColor = vec4(uColor, 1.0);
+				`,
 			],
 			['h1', { className: 'video-title' }, title],
 			['strong', { className: 'video-owner' }, owner],

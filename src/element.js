@@ -1,5 +1,6 @@
 import { isServer } from './document';
 import render, { remove, reconcile } from './view';
+import renderCanvas from './canvas';
 
 export default function renderElement (ref, props, children, context, document, nodes) {
 	let [tagName, map, node] = ref;

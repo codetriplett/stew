@@ -39,10 +39,7 @@ function hotSwapStep (ref, manifest, subscriptions) {
 
 export default function stew (node, ...children) {
 	if (Array.isArray(node)) {
-		// process as spry shader (only enough of spry to take care of the webGL boilerplate, no additional helpers)
-		// - keep only if it ends up below 2kb
-		compileProgram(node, ...children)
-		return;
+		return compileProgram(node, ...children);
 	}
 
 	const context = children.shift() || {};

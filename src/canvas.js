@@ -1,15 +1,17 @@
 import { isServer } from './document';
 
+const shaderTypes = ['VERTEX_SHADER', 'FRAGMENT_SHADER'];
 export const sequenceMap = new WeakMap();
 export const rootMap = new WeakMap();
 const pauseMap = new WeakMap();
+const animationMap = new WeakMap();
 
 // how should it end previous loop?
 // - otherwise it would need to store callbacks somewhere that the initialized loop can access, along with context (aslo complicates subsequent paused renders)
 // - maybe allow WeakMap here, since shaders will need it to process template literals
 function animate (gl, callbackMap) {
 	const render = timestamp => {
-		if (!canvas.parentElement) {
+		if (!canvas.parentElement || animationMap.get(gl) !== callbackMap) {
 			return;
 		}
 
@@ -24,11 +26,12 @@ function animate (gl, callbackMap) {
 		}
 
 		if (!pauseMap.get(canvas)) {
-			requestAnimationFrame(render);
+			// requestAnimationFrame(render);
 		}
 	};
 
 	const { canvas } = gl;
+	animationMap.set(gl, callbackMap);
 	requestAnimationFrame(render);
 }
 
@@ -69,7 +72,18 @@ const setterNames = {
 function createUniformSetter (gl, program, subname, name, type, subtype) {
 	const location = gl.getUniformLocation(program, name);
 
-	if (type === 'sampler2D') {
+	if (!type) {
+		switch (name) {
+			case 'elements': {
+				const buffer = gl.createBuffer();
+				
+				return value => {
+					gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer);
+					gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, value, gl.STATIC_DRAW);
+				};
+			}
+		}
+	} else if (type === 'sampler2D') {
 		const textureMap = new WeakMap;
 		const index = subtype?.startsWith('TEXTURE') && Number(subtype.slice(7)) || 0;
 
@@ -166,21 +180,25 @@ function get (map, key, callback) {
 	return value;
 }
 
-export function createShader (gl, type, index, stack) {
+export function createShader (gl, index, stack) {
+	const type = shaderTypes[index];
 	const allCode = [];
 	const allVars = [];
 
 	for (const pair of stack) {
 		const [, code, ...vars] = pair[index];
 		allCode.push(...code);
-		allVars.push(...vars);
+		allVars.push(...vars.filter(definition => definition.length > 2));
 	}
 
 	if (allCode.length === 0) {
 		return;
+	} else if (index === 1 && !allCode[0].startsWith('precision ')) {
+		allCode.unshift('precision mediump float;');
 	}
 
 	const code = [
+		...allCode.splice(0, allCode[0].startsWith('precision') ? 1 : 0),
 		...allVars.map(([, name, type, subtype]) => {
 			const category = !subtype || type === 'sampler2D' ? 'uniform' : 'attribute';
 			return `${category} ${type} ${name};`;
@@ -231,11 +249,11 @@ export function compileProgram (strings, ...values) {
 				// creates and stores a program for each unique subprogram chain
 				const program = get(map, fragmentInfo, () => {
 					if (!vertexShader) {
-						vertexShader = createShader(gl, 'VERTEX_SHADER', 0, fullStack);
+						vertexShader = createShader(gl, 0, fullStack);
 						map.set(vertexInfo, vertexShader);
 					}
 
-					const fragmentShader = createShader(gl, 'FRAGMENT_SHADER', 1, fullStack);
+					const fragmentShader = createShader(gl, 1, fullStack);
 
 					if (!vertexShader || !fragmentShader) {
 						return;
@@ -245,6 +263,11 @@ export function compileProgram (strings, ...values) {
 					gl.attachShader(program, vertexShader);
 					gl.attachShader(program, fragmentShader);
 					gl.linkProgram(program);
+
+					if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+						console.error(gl.getProgramInfoLog(program));
+					}
+
 					return program;
 				});
 
@@ -274,6 +297,7 @@ export function compileProgram (strings, ...values) {
 
 				if (setters.length) {
 					callbacks.unshift(() => {
+						console.log('set', values);
 						// TODO: see these only need to be set once before animation loop or if they are needed on each draw
 						// - what happesn when programs are switched and then switched back?
 						// - maybe only need to set the ones that have subnames on each draw
@@ -297,12 +321,13 @@ export function compileProgram (strings, ...values) {
 export default function renderCanvas (ref, props, type, paused) {
 	const [,, node] = ref;
 	const { width, height } = props;
-	context = node.getContext(type);
+	const context = node.getContext(type);
 	
 	if (width !== node.width || height !== node.height) {
 		context.viewport(0, 0, width, height);
 	}
 
+	animationMap.delete(context);
 	pauseMap.set(node, paused);
 	return context;
 }
