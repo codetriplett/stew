@@ -169,10 +169,6 @@ export const virtualDocument = {
 					html += ` data-${name}${value === true ? '' : `="${String(value).replace(/"/g, '&quot;')}"`}`;
 				}
 
-				if (this.mode !== null) {
-					content = `<template shadowrootmode="${this.mode}">${content}</template>`;
-				}
-
 				if (selfClosingTags.has(lowercaseTagName)) {
 					return `${html}>`;
 				}

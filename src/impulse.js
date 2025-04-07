@@ -27,9 +27,9 @@ export function onRender (callback, deps) {
 
 	let effect = prevEffects.shift();
 	
-	if (!effect || deps?.some?.((value, i) => value !== effect[i + 2])) {
+	if (!effect || !deps || deps.some((value, i) => value !== effect[i + 2])) {
 		const teardown = effect?.[0];
-		effect = [teardown, callback, ...deps];
+		effect = [teardown, callback, ...(deps || [])];
 	}
 
 	effects.push(effect);

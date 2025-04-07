@@ -70,6 +70,8 @@ const gl = mock({
 	'CLAMP_TO_EDGE',
 	'VERTEX_SHADER',
 	'FRAGMENT_SHADER',
+	'ARRAY_BUFFER',
+	'ELEMENT_ARRAY_BUFFER',
 ]);
 
 const requestAnimationFrame = jest.fn();

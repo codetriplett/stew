@@ -32,7 +32,12 @@ function animate (gl, callbackMap) {
 
 	const { canvas } = gl;
 	animationMap.set(gl, callbackMap);
-	requestAnimationFrame(render);
+
+	if (canvas.parentElement) {
+		requestAnimationFrame(render);
+	} else {
+		setTimeout(() => requestAnimationFrame(render), 0);
+	}
 }
 
 function createAttributeSetter (gl, program, subname, name, type, subtype) {
@@ -48,7 +53,7 @@ function createAttributeSetter (gl, program, subname, name, type, subtype) {
 		gl.bufferData(gl.ARRAY_BUFFER, subname ? value[subname] : value, gl.STATIC_DRAW);
 		gl.vertexAttribPointer(location, type[3], gl[subtype], false, 0, 0);
 		gl.enableVertexAttribArray(location);
-	}
+	};
 }
 
 const setterNames = {
@@ -79,7 +84,7 @@ function createUniformSetter (gl, program, subname, name, type, subtype) {
 				
 				return value => {
 					gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer);
-					gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, value, gl.STATIC_DRAW);
+					gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, subname ? value[subname] : value, gl.STATIC_DRAW);
 				};
 			}
 		}
@@ -264,6 +269,9 @@ export function compileProgram (strings, ...values) {
 					gl.attachShader(program, fragmentShader);
 					gl.linkProgram(program);
 
+					// TODO: for debugging
+					window.program = program;
+
 					if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
 						console.error(gl.getProgramInfoLog(program));
 					}
@@ -297,7 +305,6 @@ export function compileProgram (strings, ...values) {
 
 				if (setters.length) {
 					callbacks.unshift(() => {
-						console.log('set', values);
 						// TODO: see these only need to be set once before animation loop or if they are needed on each draw
 						// - what happesn when programs are switched and then switched back?
 						// - maybe only need to set the ones that have subnames on each draw
@@ -318,7 +325,9 @@ export function compileProgram (strings, ...values) {
 	};
 }
 
-export default function renderCanvas (ref, props, type, paused) {
+export default function renderCanvas (ref, props, children, type, paused) {
+	// TODO: skip all of this and don't process children if isServer is true
+
 	const [,, node] = ref;
 	const { width, height } = props;
 	const context = node.getContext(type);
@@ -327,7 +336,22 @@ export default function renderCanvas (ref, props, type, paused) {
 		context.viewport(0, 0, width, height);
 	}
 
-	animationMap.delete(context);
+	// or maybe the simpler option
+	// 1) store new empty array to animationMap whenever renderCanvas is called
+	// 2) have stew`...` add their programCallback arrays to this in the order they exist in their layout when their prepare functions are called
+	// 3) stew`${gl => {}}` can be used to act on gl with being creating any new programs
+	//   - essentially its a guaranteed subprogram chains that doesn't have any shader code set
+	/*   - effectively the same as this without having to nest it...
+				stew`
+					${gl => {}}
+					${stew`...`}
+				`;
+	*/
+	// !!!) change it to set gl on '' prop of context, so fragments can be added to canvas and parent gl templates can share state with child fragments
+	// - e.g. to unlock parts of subprogram if parent shows compatibility
+
+	// have stew`...` only add to animation map if it isn't paused, othwerise it just renders frame syncronously
+	animationMap.set(context, []);
 	pauseMap.set(node, paused);
 	return context;
 }
