@@ -150,7 +150,7 @@ export default function render (layout, context, document, nodes, container, i, 
 			map[key] = ref;
 		}
 
-		callback(ref, props, children, context, document, nodes, container, i);
+		callback(ref, props, children, context, document, nodes);
 	}
 
 	return container[i + 3] = ref;

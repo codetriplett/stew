@@ -6,6 +6,8 @@ export const rootMap = new WeakMap();
 const pauseMap = new WeakMap();
 const animationMap = new WeakMap();
 
+const programMap = new WeakMap();
+
 // how should it end previous loop?
 // - otherwise it would need to store callbacks somewhere that the initialized loop can access, along with context (aslo complicates subsequent paused renders)
 // - maybe allow WeakMap here, since shaders will need it to process template literals
@@ -129,20 +131,26 @@ function createUniformSetter (gl, program, subname, name, type, subtype) {
 export function parse (strings) {
 	const lastIndex = strings.length - 1;
 	const sequence = [];
-	let count = 0;
+	let names = [];
 	let shader, variable;
 
 	for (const [i, string] of strings.entries()) {
 		const lines = string.split(/\n+/);
-		const comment = lines.shift();
+		const comment = lines.shift().trim();
 
 		if (variable) {
-			const [subname] = comment.trim().split(' ');
+			const [subname] = comment.split(' ');
 			variable.unshift(subname);
-		} else if (/\S/.test(string)) {
-			shader = [count, []];
-			sequence.push(shader);
-			count = 0;
+		} else {
+			if (names.length) {
+				names[names.length - 1] = comment;
+			}
+
+			if (/\S/.test(string)) {
+				shader = [names, []];
+				sequence.push(shader);
+				names = [];
+			}
 		}
 
 		if (i < lastIndex) {
@@ -152,7 +160,7 @@ export function parse (strings) {
 				variable = definition.split(/\s+/).reverse();
 				shader.push(variable);
 			} else {
-				count += 1;
+				names.push('');
 				variable = undefined;
 			}
 		}
@@ -164,12 +172,12 @@ export function parse (strings) {
 		}
 	}
 
-	if (sequence[0][0] > 0) {
-		sequence.unshift([0, []]);
+	if (sequence[0][0].length > 0) {
+		sequence.unshift([[], []]);
 	}
 
-	if (count) {
-		sequence.push([count, []]);
+	if (names.length) {
+		sequence.push([names, []]);
 	}
 
 	return sequence;
@@ -217,33 +225,68 @@ export function createShader (gl, index, stack) {
 	return shader;
 }
 
+export function getInterface (node) {
+	return get(interfaceMap, node, () => {
+		const programs = get(programMap, node, () => {});
+
+		return {
+			removeChild: child => {
+				node.removeChild(child);
+
+			},
+			appendChild: child => {
+
+				programs
+			},
+			insertBefore: (child, sibling) => {
+
+			},
+		};
+	});
+}
+
 // TODO: return empty function if isServer is true
-export function compileProgram (strings, ...values) {
+// - have this return an object and process them when they are about to be appended
+// - store in WeakSet to know that they aren't regular DOM nodes
+export default function compile (strings, ...values) {
 	if (isServer) {
 		return;
 	}
+
+	// TODO: have this return function to pass gl to
+	// - have renderCanvas swap out context for 'webgl' (no type override or paused flag)
+	// - have it return its 
+
 
 	// creates and stores parsed template
 	const sequence = get(sequenceMap, strings, () => parse(strings));
 	const [vertexInfo, ...fragmentInfos] = sequence;
 
-	return (gl, parentMap = rootMap, allCallbackMap = new Map(), ...stack) => {
+	return (context, parentMap = rootMap, allCallbackMap = new Map(), ...stack) => {
+		const { '': gl } = context;
 		const vertexValues = values.splice(0, vertexInfo.length - 2);
 		const map = get(parentMap, strings, () => new WeakMap());
 		let vertexShader = map.get(vertexInfo);
+		let activeNames = [];
 
 		for (const fragmentInfo of fragmentInfos) {
-			const [resolverCount] = fragmentInfo;
-			const resolvers = values.splice(0, resolverCount);
+			const [resolverNames] = fragmentInfo;
+			const resolvers = values.splice(0, resolverNames.length);
 			const fragmentValues = values.splice(0, fragmentInfo.length - 2);
 			const fullStack = [[vertexInfo, fragmentInfo], ...stack];
 			const callbackMap = new Map();
 			let callbacks;
 
-			for (const resolver of resolvers) {
+			for (const [i, resolver] of resolvers.entries()) {
+				const resolverName = resolverNames[i];
+
 				if (Array.isArray(resolver)) {
 					for (const prepare of resolver) {
-						prepare(gl, map, callbackMap, ...fullStack);
+						const childNames = prepare(context, map, callbackMap, ...fullStack);
+
+						if (childNames) {
+							activeNames = `${resolverName} (${childNames})`;
+						}
 					}
 
 					continue;
@@ -269,9 +312,6 @@ export function compileProgram (strings, ...values) {
 					gl.attachShader(program, fragmentShader);
 					gl.linkProgram(program);
 
-					// TODO: for debugging
-					window.program = program;
-
 					if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
 						console.error(gl.getProgramInfoLog(program));
 					}
@@ -285,6 +325,7 @@ export function compileProgram (strings, ...values) {
 				}
 
 				callbacks.push(resolver);
+				activeNames.push(resolverName);
 			}
 
 			for (const [program, callbacks] of callbackMap.entries()) {
@@ -322,36 +363,10 @@ export function compileProgram (strings, ...values) {
 		if (parentMap === rootMap) {
 			animate(gl, allCallbackMap);
 		}
+
+		// return the names of the resolvers that are currently active (space delimited)
+		// - a text node is used as a proxy to reconcile the order as it changes (including impulse)
+		// - the text value of these nodes should help with debugging what is currently being rendered
+		return activeNames.join(', ');
 	};
-}
-
-export default function renderCanvas (ref, props, children, type, paused) {
-	// TODO: skip all of this and don't process children if isServer is true
-
-	const [,, node] = ref;
-	const { width, height } = props;
-	const context = node.getContext(type);
-	
-	if (width !== node.width || height !== node.height) {
-		context.viewport(0, 0, width, height);
-	}
-
-	// or maybe the simpler option
-	// 1) store new empty array to animationMap whenever renderCanvas is called
-	// 2) have stew`...` add their programCallback arrays to this in the order they exist in their layout when their prepare functions are called
-	// 3) stew`${gl => {}}` can be used to act on gl with being creating any new programs
-	//   - essentially its a guaranteed subprogram chains that doesn't have any shader code set
-	/*   - effectively the same as this without having to nest it...
-				stew`
-					${gl => {}}
-					${stew`...`}
-				`;
-	*/
-	// !!!) change it to set gl on '' prop of context, so fragments can be added to canvas and parent gl templates can share state with child fragments
-	// - e.g. to unlock parts of subprogram if parent shows compatibility
-
-	// have stew`...` only add to animation map if it isn't paused, othwerise it just renders frame syncronously
-	animationMap.set(context, []);
-	pauseMap.set(node, paused);
-	return context;
 }

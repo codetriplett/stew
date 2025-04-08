@@ -1,6 +1,6 @@
 import { virtualDocument, isServer } from './document';
 import { processEffects } from './impulse';
-import { compileProgram } from './canvas';
+import compile from './program';
 import render from './view';
 import { schedule } from './state';
 
@@ -39,7 +39,7 @@ function hotSwapStep (ref, manifest, subscriptions) {
 
 export default function stew (node, ...children) {
 	if (Array.isArray(node)) {
-		return compileProgram(node, ...children);
+		return compile(node, ...children);
 	}
 
 	const context = children.shift() || {};

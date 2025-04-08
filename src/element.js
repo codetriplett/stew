@@ -1,6 +1,6 @@
 import { isServer } from './document';
 import render, { remove, reconcile } from './view';
-import renderCanvas from './canvas';
+import { getInterface } from './program';
 
 export default function renderElement (ref, props, children, context, document, nodes) {
 	let [tagName, map, node] = ref;
@@ -28,9 +28,14 @@ export default function renderElement (ref, props, children, context, document, 
 		nodes = [node];
 
 		if (node.tagName === 'CANVAS') {
-			const { type = 'webgl', paused, ...rest } = props;
-			context = renderCanvas(ref, rest, type, paused);
-			props = rest;
+			const { width, height } = props;
+			const gl = node.getContext('webgl');
+			context = { ...context, '': gl };
+			nodes[0] = getInterface(node);
+			
+			if (width !== node.width || height !== node.height) {
+				gl.viewport(0, 0, width, height);
+			}
 		}
 
 		for (const [name, value] of Object.entries(props)) {
@@ -111,6 +116,6 @@ export default function renderElement (ref, props, children, context, document, 
 	ref.splice(children.length + 3);
 
 	if (node) {
-		reconcile(node, nodes.slice(1), [...node.childNodes]);
+		reconcile(parentNode, nodes.slice(1), [...parentNode.childNodes]);
 	}
 }
