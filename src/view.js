@@ -39,7 +39,7 @@ export function remove (ref, parentNode) {
 	if (Array.isArray(node)) {
 		const [, subscriptions, proxy] = node;
 		unsubscribe(subscriptions);
-		remove(proxy, parentNdoe);
+		remove(proxy, parentNode);
 
 		for (const [teardown] of children) {
 			execute(teardown);

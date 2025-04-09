@@ -1,45 +1,14 @@
 import { isServer } from './document';
+import { onRender } from './impulse';
 
 const shaderTypes = ['VERTEX_SHADER', 'FRAGMENT_SHADER'];
 export const sequenceMap = new WeakMap();
 export const rootMap = new WeakMap();
-const pauseMap = new WeakMap();
-const animationMap = new WeakMap();
+const convertMap = new WeakMap();
+let id = 0;
 
-const programMap = new WeakMap();
-
-// how should it end previous loop?
-// - otherwise it would need to store callbacks somewhere that the initialized loop can access, along with context (aslo complicates subsequent paused renders)
-// - maybe allow WeakMap here, since shaders will need it to process template literals
-function animate (gl, callbackMap) {
-	const render = timestamp => {
-		if (!canvas.parentElement || animationMap.get(gl) !== callbackMap) {
-			return;
-		}
-
-		for (const [program, callbacks] of callbackMap.entries()) {
-			if (program) {
-				gl.useProgram(program);
-			}
-
-			for (const callback of callbacks) {
-				callback(gl, timestamp);
-			}
-		}
-
-		if (!pauseMap.get(canvas)) {
-			// requestAnimationFrame(render);
-		}
-	};
-
-	const { canvas } = gl;
-	animationMap.set(gl, callbackMap);
-
-	if (canvas.parentElement) {
-		requestAnimationFrame(render);
-	} else {
-		setTimeout(() => requestAnimationFrame(render), 0);
-	}
+export function resetId (newId = 0) {
+	id = newId;
 }
 
 function createAttributeSetter (gl, program, subname, name, type, subtype) {
@@ -79,18 +48,7 @@ const setterNames = {
 function createUniformSetter (gl, program, subname, name, type, subtype) {
 	const location = gl.getUniformLocation(program, name);
 
-	if (!type) {
-		switch (name) {
-			case 'elements': {
-				const buffer = gl.createBuffer();
-				
-				return value => {
-					gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer);
-					gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, subname ? value[subname] : value, gl.STATIC_DRAW);
-				};
-			}
-		}
-	} else if (type === 'sampler2D') {
+	if (type === 'sampler2D') {
 		const textureMap = new WeakMap;
 		const index = subtype?.startsWith('TEXTURE') && Number(subtype.slice(7)) || 0;
 
@@ -128,6 +86,19 @@ function createUniformSetter (gl, program, subname, name, type, subtype) {
 	throw new Error('Invalid uniform type: ', type);
 }
 
+function createOtherSetter (gl, subname, name) {
+	switch (name) {
+		case 'elements': {
+			const buffer = gl.createBuffer();
+			
+			return value => {
+				gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer);
+				gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, subname ? value[subname] : value, gl.STATIC_DRAW);
+			};
+		}
+	}
+}
+
 export function parse (strings) {
 	const lastIndex = strings.length - 1;
 	const sequence = [];
@@ -154,7 +125,7 @@ export function parse (strings) {
 		}
 
 		if (i < lastIndex) {
-			const definition = lines.pop().trim();
+			const definition = lines.pop()?.trim?.();
 
 			if (definition) {
 				variable = definition.split(/\s+/).reverse();
@@ -172,7 +143,7 @@ export function parse (strings) {
 		}
 	}
 
-	if (sequence[0][0].length > 0) {
+	if (!sequence.length || sequence[0][0].length > 0) {
 		sequence.unshift([[], []]);
 	}
 
@@ -180,10 +151,11 @@ export function parse (strings) {
 		sequence.push([names, []]);
 	}
 
+	sequence[0][0] = id++;
 	return sequence;
 }
 
-function get (map, key, callback) {
+function getStored (map, key, callback) {
 	if (map.has(key)) {
 		return map.get(key);
 	}
@@ -225,23 +197,46 @@ export function createShader (gl, index, stack) {
 	return shader;
 }
 
-export function getInterface (node) {
-	return get(interfaceMap, node, () => {
-		const programs = get(programMap, node, () => {});
+export function setupCanvas (node, props) {
+	const gl = node.getContext('webgl');
+	const { width, height } = props;
+	
+	if (width !== node.width || height !== node.height) {
+		gl.viewport(0, 0, width, height);
+	}
+	
+	return getStored(convertMap, node, () => props => {
+		if (!props) {
+			return gl;
+		}
 
-		return {
-			removeChild: child => {
-				node.removeChild(child);
+		onRender(() => {
+			const draw = timestamp => {
+				if (!isActive) {
+					return;
+				}
+				
+				const { program, callbacks } = memo;
+				window.requestAnimationFrame(draw);
 
-			},
-			appendChild: child => {
+				if (program) {
+					gl.useProgram(program);
+				}
 
-				programs
-			},
-			insertBefore: (child, sibling) => {
+				for (const callback of callbacks) {
+					callback(gl, timestamp);
+				}
 
-			},
-		};
+			};
+
+			let isActive = true;
+			draw();
+			return () => isActive = false;
+		}, []);
+
+		const { '': memo, key, program, callbacks } = props;
+		Object.assign(memo, { program, callbacks });
+		return key;
 	});
 }
 
@@ -259,34 +254,30 @@ export default function compile (strings, ...values) {
 
 
 	// creates and stores parsed template
-	const sequence = get(sequenceMap, strings, () => parse(strings));
+	const sequence = getStored(sequenceMap, strings, () => parse(strings));
 	const [vertexInfo, ...fragmentInfos] = sequence;
 
-	return (context, parentMap = rootMap, allCallbackMap = new Map(), ...stack) => {
-		const { '': gl } = context;
+	return (context, parentMap = rootMap, ...stack) => {
+		const { '': convert } = context;
+		const gl = convert();
 		const vertexValues = values.splice(0, vertexInfo.length - 2);
-		const map = get(parentMap, strings, () => new WeakMap());
+		const map = getStored(parentMap, strings, () => new WeakMap());
+		const programs = [];
 		let vertexShader = map.get(vertexInfo);
-		let activeNames = [];
 
-		for (const fragmentInfo of fragmentInfos) {
+		for (const [i, fragmentInfo] of fragmentInfos.entries()) {
 			const [resolverNames] = fragmentInfo;
 			const resolvers = values.splice(0, resolverNames.length);
 			const fragmentValues = values.splice(0, fragmentInfo.length - 2);
-			const fullStack = [[vertexInfo, fragmentInfo], ...stack];
-			const callbackMap = new Map();
-			let callbacks;
+			const fullStack = [[vertexInfo, fragmentInfo, i], ...stack];
+			const subprograms = [];
 
-			for (const [i, resolver] of resolvers.entries()) {
-				const resolverName = resolverNames[i];
-
+			for (const resolver of resolvers) {
 				if (Array.isArray(resolver)) {
 					for (const prepare of resolver) {
-						const childNames = prepare(context, map, callbackMap, ...fullStack);
-
-						if (childNames) {
-							activeNames = `${resolverName} (${childNames})`;
-						}
+						const childPrograms = prepare(context, map, ...fullStack);
+						subprograms.push(...childPrograms);
+						// TODO: merge into existing programs if they exist
 					}
 
 					continue;
@@ -295,16 +286,20 @@ export default function compile (strings, ...values) {
 				}
 
 				// creates and stores a program for each unique subprogram chain
-				const program = get(map, fragmentInfo, () => {
+				const [program, key] = getStored(map, fragmentInfo, () => {
 					if (!vertexShader) {
 						vertexShader = createShader(gl, 0, fullStack);
 						map.set(vertexInfo, vertexShader);
 					}
 
 					const fragmentShader = createShader(gl, 1, fullStack);
+					
+					const key = fullStack.map(([vertexInfo,, fragmentIndex]) => {
+						return `${vertexInfo[0]}.${fragmentIndex}`;
+					}).join('-');
 
 					if (!vertexShader || !fragmentShader) {
-						return;
+						return [, key];
 					}
 
 					const program = gl.createProgram();
@@ -316,31 +311,33 @@ export default function compile (strings, ...values) {
 						console.error(gl.getProgramInfoLog(program));
 					}
 
-					return program;
+					return [program, key];
 				});
 
-				if (!callbacks) {
-					callbacks = [];
-					callbackMap.set(program, callbacks);
-				}
-
-				callbacks.push(resolver);
-				activeNames.push(resolverName);
+				subprograms.push([program, key, resolver]);
 			}
 
-			for (const [program, callbacks] of callbackMap.entries()) {
-				const values = [...vertexValues, ...fragmentValues];
-				const programCallbacks = get(allCallbackMap, program, () => []);
+			const programMap = new Map();
+
+			for (const [program, key, ...callbacks] of subprograms) {
+				if (programMap.has(program)) {
+					programMap.get(program).push(...callbacks);
+					continue;
+				}
 
 				// creates and stores setters for each layer in each unique subprogram chain
-				const setters = !program ? [] : get(map, program, () => {
+				const setters = !program ? [] : getStored(map, program, () => {
 					const [,, ...vertexVars] = vertexInfo;
 					const [,, ...fragmentVars] = fragmentInfo;
 
 					return [...vertexVars, ...fragmentVars].map(definition => {
-						const [subname, name, type, subtype] = definition;
+						if (definition.length < 3) {
+							return createOtherSetter(gl, ...definition);
+						}
+
+						const subtype = definition[3];
 						const setter = !subtype || subtype === 'TEXTURE' ? createUniformSetter : createAttributeSetter;
-						return setter(gl, program, subname, name, type, subtype);
+						return setter(gl, program, ...definition);
 					});
 				});
 
@@ -355,18 +352,23 @@ export default function compile (strings, ...values) {
 						}
 					});
 				}
-				
-				programCallbacks.push(...callbacks);
+
+				const values = [...vertexValues, ...fragmentValues];
+				const entry = [program, key, ...callbacks];
+				programMap.set(program, entry);
+				programs.push(entry)
 			}
 		}
 
-		if (parentMap === rootMap) {
-			animate(gl, allCallbackMap);
+		if (parentMap !== rootMap) {
+			return programs;
 		}
 
-		// return the names of the resolvers that are currently active (space delimited)
-		// - a text node is used as a proxy to reconcile the order as it changes (including impulse)
-		// - the text value of these nodes should help with debugging what is currently being rendered
-		return activeNames.join(', ');
+		// TODO: append iteration id to the end of all these ids to make them unique
+		// - need to differentiate between subprograms added by different stew`...` calls
+		// - this will allow impulse to update its own controlled nodes without processing full layout again
+		// - do we need the dot/dash ids anymore? each stew call takes care of merging things by program, and there is no sharing beyond that
+		const objects = programs.map(([program, key, ...callbacks]) => ({ key, program, callbacks }));
+		return ['', {}, ...objects];
 	};
 }

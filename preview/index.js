@@ -175,109 +175,18 @@ function VideoPlayer ({ '': memo }) {
 				onmouseenter: () => state.hoverActive = true,
 				onmouseleave: () => state.hoverActive = false,
 			},
-				gl => {
-					const vertexShader = gl.createShader(gl.VERTEX_SHADER);
-					const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
-					const program = gl.createProgram();
-
-					gl.shaderSource(vertexShader,
-`attribute vec2 aVertex;
-void main() {
-gl_Position = vec4(aVertex, 1.0, 1.0);
-}`
-					);
-					
-					gl.shaderSource(fragmentShader,
-`precision mediump float;
-uniform vec3 uColor;
-void main() {
-gl_FragColor = vec4(uColor, 1.0);
-}`
-					);
-
-					gl.compileShader(vertexShader);
-					gl.compileShader(fragmentShader);
-					gl.attachShader(program, vertexShader);
-					gl.attachShader(program, fragmentShader);
-					gl.linkProgram(program);
-
-					const aVertexLocation = gl.getAttribLocation(program, 'aVertex');
-					const uColorLocation = gl.getUniformLocation(program, 'uColor');
-
-					if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-						console.log(gl.getProgramInfoLog(program));
-					}
-
-					const elementsBuffer = gl.createBuffer();
-					const vertexBuffer = gl.createBuffer();
-					const indexes = new Uint16Array([0, 1, 2, 2, 3, 0]);
-					const vertexes = new Float32Array([-0.5, -0.5, -0.5, 0.5, 0.5, 0.5, 0.5, -0.5]);
-					const color = [1, 1, 1];
-
+				stew`${gl => {
 					gl.clearColor(0.0, 0.0, 0.0, 1.0);
 					gl.clear(gl.COLOR_BUFFER_BIT);
-					gl.useProgram(program);
-					gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, elementsBuffer);
-					gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indexes, gl.STATIC_DRAW);
-					gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-					gl.bufferData(gl.ARRAY_BUFFER, vertexes, gl.STATIC_DRAW);
-					gl.vertexAttribPointer(aVertexLocation, 2, gl.FLOAT, false, 0, 0);
-					gl.enableVertexAttribArray(aVertexLocation);
-					gl.uniform3fv(uColorLocation, color);
-					gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
-				},
-
-
-				// gl => {
-				// 	gl.clearColor(0.0, 0.0, 0.0, 1.0);
-				// 	gl.clear(gl.COLOR_BUFFER_BIT);
-				// },
-				// stew`
-				// 	elements ${indexes}
-				// 	FLOAT vec2 aVertex ${vertexes}
-				// 	gl_Position = vec4(aVertex, 1.0, 1.0)
-				// 	${() => {}}
-				// 	vec3 uColor ${colorArray}
-				// 	gl_FragColor = vec4(uColor, 1.0)
-				// `,
-				// gl => {
-				// 	let { program, backup } = window;
-				// 	gl.useProgram(program);
-
-				// 	if (!backup) {
-				// 		const elementsBuffer = gl.createBuffer();
-				// 		const vertexBuffer = gl.createBuffer();
-				// 		const aVertexLocation = gl.getAttribLocation(program, 'aVertex');
-				// 		const uColorLocation = gl.getUniformLocation(program, 'uColor');
-				// 		backup = window.backup = { elementsBuffer, vertexBuffer, aVertexLocation, uColorLocation };
-				// 	}
-
-				// 	const { elementsBuffer, vertexBuffer, aVertexLocation, uColorLocation } = backup;
-
-				// 	// there seems to be a timing issue when these are handled by the template above
-				// 	// - check the order the commands are running in
-				// 	// - the issue might just be that the order of the inline functions under canvas aren't running in the same order for each iteration
-				// 	// - structure the map into an ordered array instead keyed off gl (set to new empty array when canvas is updated)
-				// 	// - essentially allow stew`` register new callbacks to queue that call useProgram and set values before running the resolvers
-				// 	//   - also remove the outer fn call from queue, since it would have no effect
-				// 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, elementsBuffer);
-				// 	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indexes, gl.STATIC_DRAW);
-				// 	gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-				// 	gl.bufferData(gl.ARRAY_BUFFER, vertexes, gl.STATIC_DRAW);
-				// 	gl.vertexAttribPointer(aVertexLocation, 2, gl.FLOAT, false, 0, 0);
-				// 	gl.enableVertexAttribArray(aVertexLocation);
-				// 	gl.uniform3fv(uColorLocation, colorArray);
-				// 	gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
-				// },
-
-				// stew`
-				// 	elements ${indexes}
-				// 	FLOAT vec2 aVertex ${vertexes}
-				// 	gl_Position = vec4(aVertex, 1.0, 1.0)
-				// 	${gl => gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0)}
-				// 	vec3 uColor ${colorArray}
-				// 	gl_FragColor = vec4(uColor, 1.0)
-				// `,
+				}}`,
+				stew`
+					elements ${indexes}
+					FLOAT vec2 aVertex ${vertexes}
+					gl_Position = vec4(aVertex, 1.0, 1.0)
+					${gl => gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0)}
+					vec3 uColor ${colorArray}
+					gl_FragColor = vec4(uColor, 1.0)
+				`,
 			],
 			['h1', { className: 'video-title' }, title],
 			['strong', { className: 'video-owner' }, owner],
