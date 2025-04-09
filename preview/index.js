@@ -71,7 +71,7 @@ function generateRecommendations () {
 }
 // END: content generation functions to simulate data from server
 
-const { createState, onRender } = stew;
+const { createState, onUpdate, onRender } = stew;
 
 function loadRecommendation (index, globalState) {
 	const { recommendations } = globalState;
@@ -82,7 +82,7 @@ function loadRecommendation (index, globalState) {
 
 // TODO: rewrite video player to use basic 2d shapes, then switch to 3d
 // - this will test both webgl and hot swap features
-function AdvancedVideoPlayer ({ '': memo }) {
+function AdvancedVideoPlayer ({}) {
 	return ({ globalState }) => {
 		const { video } = globalState;
 		const { id, title, action, color, shape, ft, length, owner } = video;
@@ -129,29 +129,58 @@ function AdvancedVideoPlayer ({ '': memo }) {
 	};
 }
 
-const indexes = new Uint16Array([0, 1, 2, 2, 3, 0]);
-const vertexes = new Float32Array([-0.5, -0.5, -0.5, 0.5, 0.5, 0.5, 0.5, -0.5]);
-const colorArray = [1, 1, 1];
+const colorMap = {
+	jade: [0, 0.75, 0.5],
+	amber: [1, 0.75, 0],
+	teal: [0, 0.5, 0.5],
+};
 
-function VideoPlayer ({ '': memo }) {
+function VideoPlayer () {
 	return ({ globalState }) => {
 		const { video } = globalState;
-		const { id, title, action, color, shape, ft, length, owner } = video;
-		const iterationCount = length / 5000;
-		let { prevId, state } = memo;
-		
-		if (id !== prevId) {
-			memo.prevId = id;
+		const { id, title, length, owner } = video;
 
-			memo.state = state = createState({
-				playState: 'paused',
-				currentTime: 0,
-				playTimestamp: undefined,
-				completed: false,
-				hoverActive: false,
-			});
-		}
-		
+		// makes it easier to detect memo change inline wihtout waiting for onRender
+		// - no longer need to store both value and prevValue, prev values are stored similar to how onRender deps does
+		// - object dep values will be set to memo after impulse finishes processing, so all the checks will trigger, regardless of order
+		// - callback returns object to merge to memo to avoid having to Object assign them
+		// - onUpdate returns memo instead of having to read from '' prop (less weird this way)
+		const { state, primary } = onUpdate(memo => {
+			const { action, color, shape, ft } = video;
+			const primary = { color: colorMap[color] };
+
+			switch (shape) {
+				case 'square': {
+					Object.assign(primary, {
+						indexes: new Uint16Array([0, 1, 2, 2, 3, 0]),
+						vertexes: new Float32Array([-0.5, -0.5, -0.5, 0.5, 0.5, 0.5, 0.5, -0.5]),
+					});
+
+					break;
+				}
+				case 'circle':
+				case 'triangle': {
+					Object.assign(primary, {
+						indexes: new Uint16Array([0, 1, 2]),
+						vertexes: new Float32Array([-0.5, -0.5, 0, 0.5, 0.5, -0.5]),
+					});
+
+					break;
+				}
+			}
+
+			return {
+				state: createState({
+					playState: 'paused',
+					currentTime: 0,
+					playTimestamp: undefined,
+					completed: false,
+					hoverActive: false,
+				}),
+				primary,
+			};
+		}, { id });
+
 		const { playState, currentTime, playTimestamp, hoverActive, completed } = state;
 
 		onRender(() => {
@@ -180,12 +209,17 @@ function VideoPlayer ({ '': memo }) {
 					gl.clear(gl.COLOR_BUFFER_BIT);
 				}}`,
 				stew`
-					elements ${indexes}
-					FLOAT vec2 aVertex ${vertexes}
-					gl_Position = vec4(aVertex, 1.0, 1.0)
-					${gl => gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0)}
-					vec3 uColor ${colorArray}
-					gl_FragColor = vec4(uColor, 1.0)
+					${[primary].map(({ indexes, vertexes, color }) => stew`
+						elements ${indexes}
+						FLOAT vec2 aVertex ${vertexes}
+						gl_Position = vec4(aVertex.x * 0.5625, aVertex.y, 1.0, 1.0)
+						${(gl, timestamp) => {
+							// TODO: update matrix values here before rendering
+							gl.drawElements(gl.TRIANGLES, indexes.length, gl.UNSIGNED_SHORT, 0);
+						}}
+						vec3 uColor ${color}
+						gl_FragColor = vec4(uColor, 1.0)
+					`)}
 				`,
 			],
 			['h1', { className: 'video-title' }, title],
@@ -206,7 +240,8 @@ function renderComment ({ user, message, owner, ref, isRich }) {
 	];
 }
 
-function Comments ({ '': memo, isRich }) {
+function Comments ({ isRich }) {
+	const memo = onUpdate();
 	memo.initialized = true;
 
 	return ({ globalState }) => {
@@ -249,9 +284,9 @@ function Comments ({ '': memo, isRich }) {
 	};
 }
 
-function RichComments ({ '': memo }) {
+function RichComments () {
 	console.log('======', memo.initialized);
-	return Comments({ '': memo, isRich: true });
+	return Comments({ isRich: true });
 }
 
 function Recommendations () {

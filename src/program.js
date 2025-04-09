@@ -1,5 +1,5 @@
 import { isServer } from './document';
-import { onRender } from './impulse';
+import { onUpdate, onRender } from './impulse';
 
 const shaderTypes = ['VERTEX_SHADER', 'FRAGMENT_SHADER'];
 export const sequenceMap = new WeakMap();
@@ -234,8 +234,8 @@ export function setupCanvas (node, props) {
 			return () => isActive = false;
 		}, []);
 
-		const { '': memo, key, program, callbacks } = props;
-		Object.assign(memo, { program, callbacks });
+		const { key, program, callbacks } = props;
+		const memo = onUpdate(() => ({ program, callbacks }));
 		return key;
 	});
 }

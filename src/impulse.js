@@ -5,6 +5,7 @@ import { queue } from './state';
 
 export const impulses = [];
 const effects = [];
+const memos = [];
 let prevEffects;
 
 export function processEffects () {
@@ -16,6 +17,23 @@ export function processEffects () {
 			effect.splice(0, 2, execute(callback, param), undefined);
 		}
 	}
+}
+
+// change this to 'useMemo' and have callback update the stored value that useMemo returns if the deps have changed
+// - use same deps logic as onRender, and try to have both use common resolver (only difference is onRender store it in effects for later use and useMemo stores it in memos array ref[1])
+// - this will allow simulations of useState, by returning something from createState, and useCallback, by just returning a callback
+// - should it maybe just store these in effects, but with no followup function to have later processing skip them?
+// - if ref[1] no longer needs to store memo, can that maybe store the impulse, and elements store their node on '' prop of their map?
+export function onUpdate (callback, deps) {
+	const [memo, nextMemo] = memos[0];
+
+	if (callback && (!deps || Object.entries(deps).some(([name, value]) => value !== memo[name]))) {
+		const props = callback(memo);
+		Object.assign(memo, props || {});
+	}
+
+	Object.assign(nextMemo, deps || {});
+	return memo;
 }
 
 export function onRender (callback, deps) {
@@ -47,10 +65,12 @@ export default function renderImpulse (ref, props, children, context, document, 
 	const update = () => {
 		prevEffects = ref.splice(3);
 		impulses.unshift(impulse);
+		memos.unshift([memo, {}]);
 		const effectCount = effects.length;
 		const [callback] = ref;
-		const layout = execute(callback, { ...props, '': memo }, ...children) || '';
+		const layout = execute(callback, props, ...children) || '';
 		const proxy = render(layout, context, document, nodes, impulse, -1, {});
+		Object.assign(memo, memos.shift()[1]);
 		impulses.shift();
 
 		if (prevNodes) {
