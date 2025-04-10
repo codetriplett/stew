@@ -1,9 +1,11 @@
 import { isServer } from './document';
-import { onUpdate, onRender } from './impulse';
+import { onRender } from './impulse';
 
 const shaderTypes = ['VERTEX_SHADER', 'FRAGMENT_SHADER'];
 export const sequenceMap = new WeakMap();
 export const rootMap = new WeakMap();
+export const nodeMap = new WeakMap();
+const programMap = new WeakMap();
 const convertMap = new WeakMap();
 let id = 0;
 
@@ -202,6 +204,76 @@ export function createShader (gl, index, stack) {
 	return shader;
 }
 
+const animations = [];
+const queue = new Set();
+let prevTimestamp;
+
+function draw (timestamp) {
+	if (!animations.length) {
+		prevTimestamp = undefined;
+		return;
+	}
+
+	const duration = prevTimestamp === undefined ? 0 : timestamp - prevTimestamp;
+	prevTimestamp = timestamp;
+
+	for (const [gl, ...programs] of animations) {
+		for (const { program, callbacks } of programs) {
+			if (program) {
+				gl.useProgram(program);
+			}
+
+			for (const callback of callbacks) {
+				callback(gl, duration);
+			}
+		}
+	}
+
+	requestAnimationFrame(draw);
+}
+
+function schedule (node, child, props) {
+	if (props) {
+		programMap.set(child, props);
+	} else {
+		programMap.delete(child);
+	}
+
+	if (!queue.size) {
+		requestAnimationFrame(timestamp => {
+			const prevCount = animations.length;
+
+			for (const node of queue) {
+				const { childNodes } = node;
+				const programs = programMap.get(node);
+				const index = animations.indexOf(programs);
+				programs.splice(1);
+
+				for (const childNode of childNodes) {
+					const program = programMap.get(childNode);
+					programs.push(program);
+				}
+
+				if (programs.length && index === -1) {
+					animations.push(programs);
+				} else if (!programs.length && index !== -1) {
+					animations.splice(index, 1);
+				}
+			}
+			
+			queue.clear();
+
+			if (prevCount === 0 && animations.length > 0) {
+				draw(timestamp);	
+			}
+		});
+	}
+
+	queue.add(node);
+}
+
+// figure out how to set up animation loop at the parent level
+// - use a unique id each time convert runs
 export function setupCanvas (node, props) {
 	const gl = node.getContext('webgl');
 	const { width, height } = props;
@@ -216,36 +288,15 @@ export function setupCanvas (node, props) {
 		}
 
 		onRender(() => {
-			let prevTimestamp;
+			const [child] = ref;
+			getStored(programMap, node, () => [gl]);
+			schedule(node, child, props);
+			return () => schedule(node, child);
+		});
 
-			const draw = timestamp => {
-				if (!isActive) {
-					return;
-				}
-				
-				const duration = prevTimestamp === undefined ? 0 : timestamp - prevTimestamp;
-				const { program, callbacks } = memo;
-				window.requestAnimationFrame(draw);
-				prevTimestamp = timestamp;
-
-				if (program) {
-					gl.useProgram(program);
-				}
-
-				for (const callback of callbacks) {
-					callback(gl, duration);
-				}
-
-			};
-
-			let isActive = true;
-			draw();
-			return () => isActive = false;
-		}, []);
-
-		const { key, program, callbacks } = props;
-		const memo = onUpdate(() => ({ program, callbacks }));
-		return key;
+		const { labels, callbacks } = props;
+		const ref = [];
+		return callbacks.length > 0 && ['p', { ref }, ...labels];
 	});
 }
 
@@ -266,7 +317,7 @@ export default function compile (strings, ...values) {
 	const sequence = getStored(sequenceMap, strings, () => parse(strings));
 	const [vertexInfo, ...fragmentInfos] = sequence;
 
-	return (context, parentMap = rootMap, ...stack) => {
+	return (context, parentMap = rootMap, labels = [], ...stack) => {
 		const { '': convert } = context;
 		const gl = convert();
 		const vertexValues = values.splice(0, vertexInfo.length - 2);
@@ -274,17 +325,20 @@ export default function compile (strings, ...values) {
 		const programs = [];
 		let vertexShader = map.get(vertexInfo);
 
-		for (const [i, fragmentInfo] of fragmentInfos.entries()) {
+		for (const fragmentInfo of fragmentInfos) {
 			const [resolverNames] = fragmentInfo;
 			const resolvers = values.splice(0, resolverNames.length);
 			const fragmentValues = values.splice(0, fragmentInfo.length - 2);
-			const fullStack = [[vertexInfo, fragmentInfo, i], ...stack];
+			const fullStack = [[vertexInfo, fragmentInfo], ...stack];
 			const subprograms = [];
 
-			for (const resolver of resolvers) {
+			for (const [i, resolver] of resolvers.entries()) {
+				const label = resolverNames[i];
+				const fullLabels = label ? [label, ...labels] : labels;
+
 				if (Array.isArray(resolver)) {
 					for (const prepare of resolver) {
-						const childPrograms = prepare(context, map, ...fullStack);
+						const childPrograms = prepare(context, map, fullLabels, ...fullStack);
 						subprograms.push(...childPrograms);
 						// TODO: merge into existing programs if they exist
 					}
@@ -295,20 +349,16 @@ export default function compile (strings, ...values) {
 				}
 
 				// creates and stores a program for each unique subprogram chain
-				const [program, key] = getStored(map, fragmentInfo, () => {
+				const program = getStored(map, fragmentInfo, () => {
 					if (!vertexShader) {
 						vertexShader = createShader(gl, 0, fullStack);
 						map.set(vertexInfo, vertexShader);
 					}
 
 					const fragmentShader = createShader(gl, 1, fullStack);
-					
-					const key = fullStack.map(([vertexInfo,, fragmentIndex]) => {
-						return `${vertexInfo[0]}.${fragmentIndex}`;
-					}).join('-');
 
 					if (!vertexShader || !fragmentShader) {
-						return [, key];
+						return;
 					}
 
 					const program = gl.createProgram();
@@ -320,17 +370,24 @@ export default function compile (strings, ...values) {
 						console.error(gl.getProgramInfoLog(program));
 					}
 
-					return [program, key];
+					return program;
 				});
 
-				subprograms.push([program, key, resolver]);
+				const fullLabel = fullLabels.join(' < ');
+				subprograms.push([program, new Set(fullLabel ? [fullLabel] : []), resolver]);
 			}
 
 			const programMap = new Map();
 
-			for (const [program, key, ...callbacks] of subprograms) {
+			for (const [program, labels, ...callbacks] of subprograms) {
 				if (programMap.has(program)) {
-					programMap.get(program).push(...callbacks);
+					const entry = programMap.get(program);
+					entry.push(...callbacks);
+
+					for (const label of labels) {
+						entry[1].add(label);
+					}
+
 					continue;
 				}
 
@@ -363,7 +420,7 @@ export default function compile (strings, ...values) {
 				}
 
 				const values = [...vertexValues, ...fragmentValues];
-				const entry = [program, key, ...callbacks];
+				const entry = [program, labels, ...callbacks];
 				programMap.set(program, entry);
 				programs.push(entry)
 			}
@@ -377,7 +434,7 @@ export default function compile (strings, ...values) {
 		// - need to differentiate between subprograms added by different stew`...` calls
 		// - this will allow impulse to update its own controlled nodes without processing full layout again
 		// - do we need the dot/dash ids anymore? each stew call takes care of merging things by program, and there is no sharing beyond that
-		const objects = programs.map(([program, key, ...callbacks]) => ({ key, program, callbacks }));
+		const objects = programs.map(([program, labels, ...callbacks]) => ({ program, labels, callbacks }));
 		return ['', {}, ...objects];
 	};
 }

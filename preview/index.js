@@ -71,7 +71,7 @@ function generateRecommendations () {
 }
 // END: content generation functions to simulate data from server
 
-const { createState, onUpdate, onRender } = stew;
+const { createState, useMemo, onRender } = stew;
 
 function loadRecommendation (index, globalState) {
 	const { recommendations } = globalState;
@@ -135,88 +135,88 @@ const colorMap = {
 	teal: [0, 0.5, 0.5],
 };
 
+function prepareObject ({ action, color, shape }) {
+	const object = {
+		color: colorMap[color],
+		matrix: [1, 0, 0, 1],
+		translateStep: 0,
+		scaleStep: 0,
+		spinStep: 0,
+		spin: 0,
+	};
+
+	switch (shape) {
+		case 'square': {
+			Object.assign(object, {
+				indexes: new Uint16Array([0, 1, 2, 2, 3, 0]),
+				vertexes: new Float32Array([-0.5, -0.5, -0.5, 0.5, 0.5, 0.5, 0.5, -0.5]),
+			});
+
+			break;
+		}
+		case 'triangle': {
+			Object.assign(object, {
+				indexes: new Uint16Array([0, 1, 2]),
+				vertexes: new Float32Array([-0.5, -0.5, 0, 0.5, 0.5, -0.5]),
+			});
+
+			break;
+		}
+		case 'circle': {
+			const count = 24;
+			const indexes = [];
+			const vertexes = [0, 0, 0.5, 0];
+
+			for (let i = 1; i < count; i++) {
+				const angle = i * Math.PI * 2 / count;
+				vertexes.push(Math.cos(angle) * 0.5, Math.sin(angle) * 0.5);
+				indexes.push(0, i + 1, i);
+			}
+
+			indexes.push(0, 1, (vertexes.length >> 1) - 1);
+
+			Object.assign(object, {
+				indexes: new Uint16Array(indexes),
+				vertexes: new Float32Array(vertexes),
+			});
+
+			break;
+		}
+	}
+
+	switch (action) {
+		case 'bouncing':
+		case 'pulsing':
+		case 'spinning': {
+			object.spinStep = 0.001;
+			break;
+		}
+	}
+
+	return object;
+}
+
 function VideoPlayer () {
 	return ({ globalState }) => {
 		const { video } = globalState;
-		const { id, title, length, owner } = video;
+		const { id, title, length, owner, action, color, shape, ft } = video;
 
 		// makes it easier to detect memo change inline wihtout waiting for onRender
 		// - no longer need to store both value and prevValue, prev values are stored similar to how onRender deps does
 		// - object dep values will be set to memo after impulse finishes processing, so all the checks will trigger, regardless of order
 		// - callback returns object to merge to memo to avoid having to Object assign them
 		// - onUpdate returns memo instead of having to read from '' prop (less weird this way)
-		const { state, primary } = onUpdate(memo => {
-			const { action, color, shape, ft } = video;
 
-			const primary = {
-				color: colorMap[color],
-				matrix: [1, 0, 0, 1],
-				translateStep: 0,
-				scaleStep: 0,
-				spinStep: 0,
-				spin: 0,
-			};
+		const state = useMemo(() => createState({
+			playState: 'paused',
+			currentTime: 0,
+			playTimestamp: undefined,
+			completed: false,
+			hoverActive: false,
+		}), [id]);
 
-			switch (shape) {
-				case 'square': {
-					Object.assign(primary, {
-						indexes: new Uint16Array([0, 1, 2, 2, 3, 0]),
-						vertexes: new Float32Array([-0.5, -0.5, -0.5, 0.5, 0.5, 0.5, 0.5, -0.5]),
-					});
-
-					break;
-				}
-				case 'triangle': {
-					Object.assign(primary, {
-						indexes: new Uint16Array([0, 1, 2]),
-						vertexes: new Float32Array([-0.5, -0.5, 0, 0.5, 0.5, -0.5]),
-					});
-
-					break;
-				}
-				case 'circle': {
-					const count = 24;
-					const indexes = [];
-					const vertexes = [0, 0, 0.5, 0];
-
-					for (let i = 1; i < count; i++) {
-						const angle = i * Math.PI * 2 / count;
-						vertexes.push(Math.cos(angle) * 0.5, Math.sin(angle) * 0.5);
-						indexes.push(0, i + 1, i);
-					}
-
-					indexes.push(0, 1, (vertexes.length >> 1) - 1);
-
-					Object.assign(primary, {
-						indexes: new Uint16Array(indexes),
-						vertexes: new Float32Array(vertexes),
-					});
-
-					break;
-				}
-			}
-
-			switch (action) {
-				case 'bouncing':
-				case 'pulsing':
-				case 'spinning': {
-					primary.spinStep = 0.001;
-					break;
-				}
-			}
-
-			return {
-				state: createState({
-					playState: 'paused',
-					currentTime: 0,
-					playTimestamp: undefined,
-					completed: false,
-					hoverActive: false,
-				}),
-				primary,
-			};
-		}, { id });
-
+		const primary = useMemo(() => prepareObject(video), [action, color, shape]);
+		const secondary = useMemo(() => ft && prepareObject(ft), [ft]);
 		const { playState, currentTime, playTimestamp, hoverActive, completed } = state;
 
 		onRender(() => {
@@ -252,7 +252,7 @@ function VideoPlayer () {
 					matrix[1] = -Math.sin(spin);
 					matrix[2] = Math.sin(spin);
 					matrix[3] = Math.cos(spin);
-				}}`,
+				}} reset`,
 				stew`
 					${[primary].map(({ indexes, vertexes, color, matrix, spinStep }) => stew`
 						elements ${indexes}
@@ -262,10 +262,10 @@ function VideoPlayer () {
 						gl_Position = vec4(vertex.x * 0.5625, vertex.y, 1.0, 1.0)
 						${gl => {
 							gl.drawElements(gl.TRIANGLES, indexes.length, gl.UNSIGNED_SHORT, 0);
-						}}
+						}} shape
 						vec3 uColor ${color}
 						gl_FragColor = vec4(uColor, 1.0)
-					`)}
+					`)} pair
 				`,
 			],
 			['h1', { className: 'video-title' }, title],
@@ -287,7 +287,7 @@ function renderComment ({ user, message, owner, ref, isRich }) {
 }
 
 function Comments ({ isRich }) {
-	const memo = onUpdate();
+	const memo = useMemo();
 	memo.initialized = true;
 
 	return ({ globalState }) => {

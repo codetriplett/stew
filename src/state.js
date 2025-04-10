@@ -2,7 +2,6 @@ import { isServer } from './document';
 import { impulses, processEffects } from './impulse';
 
 export const queue = new Set();
-const scheduleQueue = typeof requestAnimationFrame !== 'undefined' ? requestAnimationFrame : setTimeout;
 
 export function unsubscribe (impulse) {
 	const subscriptions = impulse[1];
@@ -18,7 +17,7 @@ export function schedule (subscriptions) {
 	if (!subscriptions.size) {
 		return;
 	} else if (!queue.size) {
-		scheduleQueue(() => {
+		requestAnimationFrame(() => {
 			for (const impulse of queue) {
 				const [update,,, ...parentImpulses] = impulse;
 				unsubscribe(impulse);
@@ -30,7 +29,7 @@ export function schedule (subscriptions) {
 
 			queue.clear();
 			processEffects();
-		}, 0);
+		});
 	}
 
 	for (const impulse of subscriptions) {
