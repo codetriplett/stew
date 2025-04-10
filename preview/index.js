@@ -130,7 +130,7 @@ function AdvancedVideoPlayer ({}) {
 }
 
 const colorMap = {
-	jade: [0, 0.75, 0.5],
+	jade: [0, 0.625, 0.375],
 	amber: [1, 0.75, 0],
 	teal: [0, 0.5, 0.5],
 };
@@ -147,7 +147,15 @@ function VideoPlayer () {
 		// - onUpdate returns memo instead of having to read from '' prop (less weird this way)
 		const { state, primary } = onUpdate(memo => {
 			const { action, color, shape, ft } = video;
-			const primary = { color: colorMap[color] };
+
+			const primary = {
+				color: colorMap[color],
+				matrix: [1, 0, 0, 1],
+				translateStep: 0,
+				scaleStep: 0,
+				spinStep: 0,
+				spin: 0,
+			};
 
 			switch (shape) {
 				case 'square': {
@@ -158,13 +166,41 @@ function VideoPlayer () {
 
 					break;
 				}
-				case 'circle':
 				case 'triangle': {
 					Object.assign(primary, {
 						indexes: new Uint16Array([0, 1, 2]),
 						vertexes: new Float32Array([-0.5, -0.5, 0, 0.5, 0.5, -0.5]),
 					});
 
+					break;
+				}
+				case 'circle': {
+					const count = 24;
+					const indexes = [];
+					const vertexes = [0, 0, 0.5, 0];
+
+					for (let i = 1; i < count; i++) {
+						const angle = i * Math.PI * 2 / count;
+						vertexes.push(Math.cos(angle) * 0.5, Math.sin(angle) * 0.5);
+						indexes.push(0, i + 1, i);
+					}
+
+					indexes.push(0, 1, (vertexes.length >> 1) - 1);
+
+					Object.assign(primary, {
+						indexes: new Uint16Array(indexes),
+						vertexes: new Float32Array(vertexes),
+					});
+
+					break;
+				}
+			}
+
+			switch (action) {
+				case 'bouncing':
+				case 'pulsing':
+				case 'spinning': {
+					primary.spinStep = 0.001;
 					break;
 				}
 			}
@@ -204,17 +240,27 @@ function VideoPlayer () {
 				onmouseenter: () => state.hoverActive = true,
 				onmouseleave: () => state.hoverActive = false,
 			},
-				stew`${gl => {
+				stew`${(gl, duration) => {
 					gl.clearColor(0.0, 0.0, 0.0, 1.0);
 					gl.clear(gl.COLOR_BUFFER_BIT);
+
+					// TODO: change timestamp param to duration since last render so this math isn't needed
+					const { matrix, spinStep } = primary
+					const spin = primary.spin += duration * spinStep;
+
+					matrix[0] = Math.cos(spin);
+					matrix[1] = -Math.sin(spin);
+					matrix[2] = Math.sin(spin);
+					matrix[3] = Math.cos(spin);
 				}}`,
 				stew`
-					${[primary].map(({ indexes, vertexes, color }) => stew`
+					${[primary].map(({ indexes, vertexes, color, matrix, spinStep }) => stew`
 						elements ${indexes}
 						FLOAT vec2 aVertex ${vertexes}
-						gl_Position = vec4(aVertex.x * 0.5625, aVertex.y, 1.0, 1.0)
-						${(gl, timestamp) => {
-							// TODO: update matrix values here before rendering
+						mat2 uMatrix ${matrix}
+						vec2 vertex = uMatrix * aVertex
+						gl_Position = vec4(vertex.x * 0.5625, vertex.y, 1.0, 1.0)
+						${gl => {
 							gl.drawElements(gl.TRIANGLES, indexes.length, gl.UNSIGNED_SHORT, 0);
 						}}
 						vec3 uColor ${color}

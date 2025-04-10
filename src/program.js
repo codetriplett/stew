@@ -194,6 +194,11 @@ export function createShader (gl, index, stack) {
 	const shader = gl.createShader(gl[type]);
 	gl.shaderSource(shader, code);
 	gl.compileShader(shader);
+
+	if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+		console.error(gl.getShaderInfoLog(shader));
+	}
+
 	return shader;
 }
 
@@ -211,20 +216,24 @@ export function setupCanvas (node, props) {
 		}
 
 		onRender(() => {
+			let prevTimestamp;
+
 			const draw = timestamp => {
 				if (!isActive) {
 					return;
 				}
 				
+				const duration = prevTimestamp === undefined ? 0 : timestamp - prevTimestamp;
 				const { program, callbacks } = memo;
 				window.requestAnimationFrame(draw);
+				prevTimestamp = timestamp;
 
 				if (program) {
 					gl.useProgram(program);
 				}
 
 				for (const callback of callbacks) {
-					callback(gl, timestamp);
+					callback(gl, duration);
 				}
 
 			};
