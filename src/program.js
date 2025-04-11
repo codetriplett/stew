@@ -294,8 +294,6 @@ export function setupCanvas (node, props) {
 			return () => schedule(node, child);
 		});
 
-		// TODO: use label for key prop, and have prepare function keep the same key if it can
-		// - maybe allow resolver return a key
 		const { labels, callbacks } = props;
 		const ref = [];
 		return callbacks.length > 0 && ['p', { ref }, ...labels];

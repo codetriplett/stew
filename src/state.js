@@ -19,7 +19,7 @@ export function schedule (subscriptions) {
 	} else if (!queue.size) {
 		requestAnimationFrame(() => {
 			for (const impulse of queue) {
-				const [update,,, ...parentImpulses] = impulse;
+				const [update,, ...parentImpulses] = impulse;
 				unsubscribe(impulse);
 
 				if (!parentImpulses.some(parentImpulse => queue.has(parentImpulse))) {
