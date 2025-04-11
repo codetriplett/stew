@@ -10,7 +10,7 @@ if (typeof window === 'object') {
 }
 
 // BEGIN: content generation functions to simulate data from server
-const shapes = ['Circle', 'Square'];
+const shapes = ['Circle', 'Square', 'Triangle'];
 const actions = ['Spinning', 'Bouncing', 'Pulsing'];
 const colors = ['Jade', 'Amber', 'Teal'];
 const words = ['lorem', 'ipsum', 'dolor', 'sit', 'amet', 'consectetur', 'adipiscing', 'elit'];
@@ -145,31 +145,47 @@ function prepareObject ({ action, color, shape }) {
 		spin: 0,
 	};
 
+	const area = 1;
+
 	switch (shape) {
 		case 'square': {
+			const length = Math.sqrt(area) / 2;
+
 			Object.assign(object, {
 				indexes: new Uint16Array([0, 1, 2, 2, 3, 0]),
-				vertexes: new Float32Array([-0.5, -0.5, -0.5, 0.5, 0.5, 0.5, 0.5, -0.5]),
+				vertexes: new Float32Array([
+					-length, -length,
+					-length, length,
+					length, length,
+					length, -length,
+				]),
 			});
 
 			break;
 		}
 		case 'triangle': {
+			const factor = Math.sqrt(area / 0.4330127018922194);
+
 			Object.assign(object, {
 				indexes: new Uint16Array([0, 1, 2]),
-				vertexes: new Float32Array([-0.5, -0.5, 0, 0.5, 0.5, -0.5]),
+				vertexes: new Float32Array([
+					-0.5 * factor, -0.28867513459481287 * factor,
+					0, 0.5773502691896257 * factor,
+					0.5 * factor, -0.28867513459481287 * factor
+				]),
 			});
 
 			break;
 		}
 		case 'circle': {
+			const radius = Math.sqrt(area / Math.PI);
 			const count = 24;
 			const indexes = [];
-			const vertexes = [0, 0, 0.5, 0];
+			const vertexes = [0, 0, radius, 0];
 
 			for (let i = 1; i < count; i++) {
 				const angle = i * Math.PI * 2 / count;
-				vertexes.push(Math.cos(angle) * 0.5, Math.sin(angle) * 0.5);
+				vertexes.push(Math.cos(angle) * radius, Math.sin(angle) * radius);
 				indexes.push(0, i + 1, i);
 			}
 
@@ -252,7 +268,7 @@ function VideoPlayer () {
 					matrix[1] = -Math.sin(spin);
 					matrix[2] = Math.sin(spin);
 					matrix[3] = Math.cos(spin);
-				}} reset`,
+				}}`,
 				stew`
 					${[primary].map(({ indexes, vertexes, color, matrix, spinStep }) => stew`
 						elements ${indexes}
@@ -265,7 +281,7 @@ function VideoPlayer () {
 						}} shape
 						vec3 uColor ${color}
 						gl_FragColor = vec4(uColor, 1.0)
-					`)} pair
+					`)}
 				`,
 			],
 			['h1', { className: 'video-title' }, title],
@@ -366,7 +382,7 @@ function Recommendations () {
 }
 
 function App (initialProps) {
-	const globalState = createState(initialProps)
+	const globalState = createState(initialProps);
 
 	return ({ swap }) => ['', { globalState },
 		['div', { className: 'header' },

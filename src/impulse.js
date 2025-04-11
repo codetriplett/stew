@@ -3,13 +3,13 @@ import { isServer } from './document';
 import render, { remove, reconcile } from './view';
 import { queue } from './state';
 
+// TODO: just store refs on impulses and have state read the [2] item from that instead
 export const impulses = [];
-const effects = [];
-const memos = [];
+const refs = [[null, [], null]];
 let prevMemos, prevEffects;
 
 export function processEffects () {
-	for (const effect of effects.splice(0)) {
+	for (const effect of refs[0].splice(3)) {
 		const [teardown, callback] = effect;
 
 		if (callback) {
@@ -19,15 +19,15 @@ export function processEffects () {
 	}
 }
 
-function processHook (callback, deps, prevValues) {
-	let value = prevValues.shift();
-	
-	if (!value || !deps || deps.some((value, i) => value !== value[i + 2])) {
-		const teardown = value?.[0];
-		value = [teardown, callback, ...(deps || [])];
+function processMemo (callback, deps, prevMemos) {
+	let memo = prevMemos.shift();
+
+	if (!memo || !deps || deps.some((value, i) => value !== memo[i + 2])) {
+		const teardown = memo?.[0];
+		memo = [teardown, callback, ...(deps || [])];
 	}
 
-	return value;
+	return memo;
 }
 
 // change this to 'useMemo' and have callback update the stored value that useMemo returns if the deps have changed
@@ -36,11 +36,13 @@ function processHook (callback, deps, prevValues) {
 // - should it maybe just store these in effects, but with no followup function to have later processing skip them?
 // - if ref[1] no longer needs to store memo, can that maybe store the impulse, and elements store their node on '' prop of their map?
 export function useMemo (callback, deps) {
-	if (!callback) {
+	if (refs.length < 2) {
+		return;
+	} else if (!callback) {
 		callback = () => ({});
 	}
 
-	let memo = processHook(callback, deps, prevMemos);
+	let memo = processMemo(callback, deps, prevMemos);
 	let [value] = memo;
 
 	if (memo[1]) {
@@ -48,7 +50,7 @@ export function useMemo (callback, deps) {
 		memo.splice(0, 2, value, undefined);
 	}
 
-	memos.push(memo);
+	refs[0][1].push(memo);
 	return value;
 }
 
@@ -56,11 +58,11 @@ export function onRender (callback, deps) {
 	if (isServer) {
 		return;
 	} else if (!callback) {
-		return queue.size ? new Promise(resolve => effects.push([, resolve])) : Promise.resolve();
+		return queue.size ? new Promise(resolve => effects[0].push([, resolve])) : Promise.resolve();
 	}
 
-	const effect = processHook(callback, deps, prevEffects);
-	effects.push(effect);
+	const effect = processMemo(callback, deps, prevEffects);
+	refs[0].push(effect);
 }
 
 export default function renderImpulse (ref, props, children, context, document, nodes) {
@@ -73,14 +75,16 @@ export default function renderImpulse (ref, props, children, context, document, 
 	let prevProxy, prevNodes;
 
 	const update = () => {
-		prevMemos = ref[1];
+		prevMemos = ref[1].splice(0);
 		prevEffects = ref.splice(3);
+		refs.unshift(ref);
 		impulses.unshift(impulse);
-		const effectCount = effects.length;
 		const [callback] = ref;
 		const layout = execute(callback, props, ...children) || '';
 		const proxy = render(layout, context, document, nodes, impulse, -1, {});
 		impulses.shift();
+		refs.shift();
+		refs[refs.length - 1].push(...ref.slice(3));
 
 		if (prevNodes) {
 			const sibling = prevNodes[prevNodes.length - 1].nextSibling;
@@ -90,9 +94,7 @@ export default function renderImpulse (ref, props, children, context, document, 
 				remove(prevProxy, parentNode);
 			}
 		}
-		
-		ref[1] = memos.splice(0);
-		ref.push(...effects.slice(effectCount));
+
 		prevProxy = proxy;
 		prevNodes = nodes.slice(1);
 		nodes = [parentNode];
