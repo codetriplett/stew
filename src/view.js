@@ -1,5 +1,6 @@
 import renderElement from './element';
 import renderImpulse from './impulse';
+import renderProgram from './program';
 import { unsubscribe } from './state';
 
 export function remove (ref, parentNode) {
@@ -78,12 +79,12 @@ export default function render (layout, context, document, nodes, container, i, 
 				break;
 			}
 			case 'object': {
-				const { '': convert } = context;
-				layout = [convert, layout];
-				return render(layout, context, document, nodes, container, i, map);
+				// object is essentially a new temporary context. custom render fn can wrap in impulse if it needs to.
+				context = layout;
+				layout = nodes[0].tagName === 'CANVAS' ? renderProgram : context[''];
 			}
 			case 'function': {
-				layout = layout(context);
+				layout = layout(context, nodes[0]);
 				return render(layout, context, document, nodes, container, i, map);
 			}
 		}
@@ -100,12 +101,15 @@ export default function render (layout, context, document, nodes, container, i, 
 					// just handle portal, promise didn't really work well with multiple impulse renders
 					// - this should be all that's needed since new ref resembles an element that was already been set up, but not added to parent
 					node = tagName;
-					nodes = [];
+					nodes = [node];
 					break;
 				}
 			}
 			case 'undefined':
 			case 'boolean': {
+				// TODO: have [true, {}, ...] indicate static content
+				// - nodes will be shallow hydrated, only pick node without processing children
+				// - can also be used client side to memoize and keep previous content (boolean is result of memo check)
 				tagName = '';
 				break;
 			}

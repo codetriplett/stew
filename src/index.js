@@ -23,9 +23,9 @@
 
 import { virtualDocument, isServer } from './document';
 import { processEffects } from './impulse';
-import compile from './program';
-import render from './view';
 import { schedule } from './state';
+import { compile } from './program';
+import render from './view';
 
 const defaultDocument = isServer ? virtualDocument : globalThis.document;
 

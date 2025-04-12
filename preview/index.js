@@ -138,11 +138,12 @@ const colorMap = {
 function prepareObject ({ action, color, shape }) {
 	const object = {
 		color: colorMap[color],
+		position: [0, 0],
 		matrix: [1, 0, 0, 1],
-		translateStep: 0,
-		scaleStep: 0,
-		spinStep: 0,
-		spin: 0,
+		x: [0, 0, 0],
+		y: [0, 0, 0],
+		scale: [1, 0, 0, 1, 0, 0, 1],
+		spin: [0, 0, 0, 1, 0, 0, 1],
 	};
 
 	const area = 1;
@@ -204,12 +205,23 @@ function prepareObject ({ action, color, shape }) {
 		case 'bouncing':
 		case 'pulsing':
 		case 'spinning': {
-			object.spinStep = 0.001;
+			object.spin[1] = 0.001;
 			break;
 		}
 	}
 
 	return object;
+}
+
+function applyPhysics (array, duration, callback) {
+	array[1] += array[2] * duration;
+	array[0] += array[1] * duration;
+
+	if (callback) {
+		const matrix = callback(array[0]);
+		array.splice(3, matrix.length, ...matrix);
+		return matrix;
+	}
 }
 
 function VideoPlayer () {
@@ -256,32 +268,37 @@ function VideoPlayer () {
 				onmouseenter: () => state.hoverActive = true,
 				onmouseleave: () => state.hoverActive = false,
 			},
-				stew`${(gl, duration) => {
-					gl.clearColor(0.0, 0.0, 0.0, 1.0);
-					gl.clear(gl.COLOR_BUFFER_BIT);
-
-					// TODO: change timestamp param to duration since last render so this math isn't needed
-					const { matrix, spinStep } = primary
-					const spin = primary.spin += duration * spinStep;
-
-					matrix[0] = Math.cos(spin);
-					matrix[1] = -Math.sin(spin);
-					matrix[2] = Math.sin(spin);
-					matrix[3] = Math.cos(spin);
-				}}`,
+				// TODO: figure out how to pause canvas
+				// - should ideally be a property of canvas (processed before program animation loop)
 				stew`
-					${[primary].map(({ indexes, vertexes, color, matrix, spinStep }) => stew`
+					${gl => {
+						gl.clearColor(0.0, 0.0, 0.0, 1.0);
+						gl.clear(gl.COLOR_BUFFER_BIT);
+						return 0;
+						// return min delay to start animation loop
+					}}
+					vec2 vertex = uMatrix * aVertex
+					gl_Position = vec4(vertex.x * 0.5625, vertex.y, 1.0, 1.0)
+					${[primary].map(({ indexes, vertexes, color, matrix, spin }) => stew`
+						${(gl, duration) => {
+							// TODO: need to support setup function so values are updated before they are set
+							// - 
+
+							const spinMatrix = applyPhysics(spin, duration, spin => {
+								const cos = Math.cos(spin);
+								const sin = Math.sin(spin);
+								return [cos, -sin, sin, cos];
+							});
+
+							matrix.splice(0, 4, ...spinMatrix);
+						}}
 						elements ${indexes}
 						FLOAT vec2 aVertex ${vertexes}
 						mat2 uMatrix ${matrix}
-						vec2 vertex = uMatrix * aVertex
-						gl_Position = vec4(vertex.x * 0.5625, vertex.y, 1.0, 1.0)
-						${gl => {
-							gl.drawElements(gl.TRIANGLES, indexes.length, gl.UNSIGNED_SHORT, 0);
-						}} shape
+						${gl => gl.drawElements(gl.TRIANGLES, indexes.length, gl.UNSIGNED_SHORT, 0)} shape
 						vec3 uColor ${color}
-						gl_FragColor = vec4(uColor, 1.0)
 					`)}
+					gl_FragColor = vec4(uColor, 1.0)
 				`,
 			],
 			['h1', { className: 'video-title' }, title],

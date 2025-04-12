@@ -59,13 +59,17 @@ export function onRender (callback, deps) {
 	processMemo(callback, deps, prevMemos, effects);
 }
 
-export default function renderImpulse (ref, props, children, context, document, nodes) {
+export default function renderImpulse (ref, object, children, context, document, nodes) {
 	if (!ref[1]) {
 		ref[1] = [, new Set(),, ...impulses.slice(0, -1)];
 	}
 
+	// TODO: rename ref params throughout code base
+	const { ref: refProp, ...props } = object;
 	const [, impulse] = ref;
 	const [parentNode] = nodes;
+	const refIndex = refProp?.length;
+	let nodeIndex = nodes.length;
 	let prevNodes;
 
 	const update = () => {
@@ -87,8 +91,13 @@ export default function renderImpulse (ref, props, children, context, document, 
 			}
 		}
 
+		if (refProp) {
+			refProp[refIndex] = nodes[nodeIndex];
+		}
+
 		prevNodes = nodes.slice(1);
 		nodes = [parentNode];
+		nodeIndex = 1;
 	};
 
 	impulse[0] = update;

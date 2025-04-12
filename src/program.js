@@ -6,11 +6,15 @@ export const sequenceMap = new WeakMap();
 export const rootMap = new WeakMap();
 export const nodeMap = new WeakMap();
 const programMap = new WeakMap();
-const convertMap = new WeakMap();
-let id = 0;
 
-export function resetId (newId = 0) {
-	id = newId;
+function getStored (map, key, callback) {
+	if (map.has(key)) {
+		return map.get(key);
+	}
+
+	const value = callback();
+	map.set(key, value);
+	return value;
 }
 
 function createAttributeSetter (gl, program, subname, name, type, subtype) {
@@ -101,76 +105,11 @@ function createOtherSetter (gl, subname, name) {
 	}
 }
 
-export function parse (strings) {
-	const lastIndex = strings.length - 1;
-	const sequence = [];
-	let names = [];
-	let shader, variable;
-
-	for (const [i, string] of strings.entries()) {
-		const lines = string.split(/\n+/);
-		const comment = lines.shift().trim();
-
-		if (variable) {
-			const [subname] = comment.split(' ');
-			variable.unshift(subname);
-		} else {
-			if (names.length) {
-				names[names.length - 1] = comment;
-			}
-
-			if (/\S/.test(string)) {
-				shader = [names, []];
-				sequence.push(shader);
-				names = [];
-			}
-		}
-
-		if (i < lastIndex) {
-			const definition = lines.pop()?.trim?.();
-
-			if (definition) {
-				variable = definition.split(/\s+/).reverse();
-				shader.push(variable);
-			} else {
-				names.push('');
-				variable = undefined;
-			}
-		}
-
-		for (const line of lines) {
-			if (/\S/.test(line)) {
-				shader[1].push(line.trim().replace(/;?$/, ';'));
-			}
-		}
-	}
-
-	if (!sequence.length || sequence[0][0].length > 0) {
-		sequence.unshift([[], []]);
-	}
-
-	if (names.length) {
-		sequence.push([names, []]);
-	}
-
-	sequence[0][0] = id++;
-	return sequence;
-}
-
-function getStored (map, key, callback) {
-	if (map.has(key)) {
-		return map.get(key);
-	}
-
-	const value = callback();
-	map.set(key, value);
-	return value;
-}
-
 export function createShader (gl, index, stack) {
 	const type = shaderTypes[index];
 	const allCode = [];
 	const allVars = [];
+	let headerCode = [];
 
 	for (const pair of stack) {
 		const [, code, ...vars] = pair[index];
@@ -180,12 +119,14 @@ export function createShader (gl, index, stack) {
 
 	if (allCode.length === 0) {
 		return;
-	} else if (index === 1 && !allCode[0].startsWith('precision ')) {
-		allCode.unshift('precision mediump float;');
+	} else if (allCode[0].startsWith('precision ')) {
+		headerCode.unshift(allCode.shift());
+	} else if (index === 1) {
+		headerCode.unshift('precision mediump float;');
 	}
 
 	const code = [
-		...allCode.splice(0, allCode[0].startsWith('precision') ? 1 : 0),
+		...headerCode,
 		...allVars.map(([, name, type, subtype]) => {
 			const category = !subtype || type === 'sampler2D' ? 'uniform' : 'attribute';
 			return `${category} ${type} ${name};`;
@@ -204,122 +145,50 @@ export function createShader (gl, index, stack) {
 	return shader;
 }
 
-const animations = [];
-const queue = new Set();
-let prevTimestamp;
+export function parse (strings) {
+	const sequence = [];
+	let comment, definition, shader;
 
-function draw (timestamp) {
-	if (!animations.length) {
-		prevTimestamp = undefined;
-		return;
-	}
+	for (const string of strings) {
+		const lines = string.split(/\s*[\n\r]+\s*/);
+		comment = lines.shift().trim();
 
-	const duration = prevTimestamp === undefined ? 0 : timestamp - prevTimestamp;
-	prevTimestamp = timestamp;
+		if (definition) {
+			shader.push([comment, ...definition.trim().split(/\s+/).reverse()]);
+		} else if (!shader) {
+			shader = [[comment], []];
+			sequence.push(shader);
+		} else {
+			shader[0].push(comment);
+		}
 
-	for (const [gl, ...programs] of animations) {
-		for (const { program, callbacks } of programs) {
-			if (program) {
-				gl.useProgram(program);
-			}
+		definition = lines.pop();
+		shader[1].push(...lines.map(line => line.replace(/;?$/, ';')));
 
-			for (const callback of callbacks) {
-				callback(gl, duration);
-			}
+		if (!definition && (shader.length > 2 || shader[1].length)) {
+			shader = undefined;
 		}
 	}
 
-	requestAnimationFrame(draw);
-}
-
-function schedule (node, child, props) {
-	if (props) {
-		programMap.set(child, props);
-	} else {
-		programMap.delete(child);
-	}
-
-	if (!queue.size) {
-		requestAnimationFrame(timestamp => {
-			const prevCount = animations.length;
-
-			for (const node of queue) {
-				const { childNodes } = node;
-				const programs = programMap.get(node);
-				const index = animations.indexOf(programs);
-				programs.splice(1);
-
-				for (const childNode of childNodes) {
-					const program = programMap.get(childNode);
-					programs.push(program);
-				}
-
-				if (programs.length && index === -1) {
-					animations.push(programs);
-				} else if (!programs.length && index !== -1) {
-					animations.splice(index, 1);
-				}
-			}
-			
-			queue.clear();
-
-			if (prevCount === 0 && animations.length > 0) {
-				draw(timestamp);	
-			}
-		});
-	}
-
-	queue.add(node);
-}
-
-// figure out how to set up animation loop at the parent level
-// - use a unique id each time convert runs
-export function setupCanvas (node, props) {
-	const gl = node.getContext('webgl');
-	const { width, height } = props;
-	
-	if (width !== node.width || height !== node.height) {
-		gl.viewport(0, 0, width, height);
-	}
-	
-	return getStored(convertMap, node, () => props => {
-		if (!props) {
-			return gl;
-		}
-
-		onRender(() => {
-			const [child] = ref;
-			getStored(programMap, node, () => [gl]);
-			schedule(node, child, props);
-			return () => schedule(node, child);
-		});
-
-		const { labels, callbacks } = props;
-		const ref = [];
-		return callbacks.length > 0 && ['p', { ref }, ...labels];
-	});
+	sequence[0][0].shift();
+	return sequence;
 }
 
 // TODO: return empty function if isServer is true
 // - have this return an object and process them when they are about to be appended
 // - store in WeakSet to know that they aren't regular DOM nodes
-export default function compile (strings, ...values) {
+export function compile (strings, ...values) {
 	if (isServer) {
 		return;
 	}
 
-	// TODO: have this return function to pass gl to
-	// - have renderCanvas swap out context for 'webgl' (no type override or paused flag)
-	// - have it return its 
-
-
-	// creates and stores parsed template
 	const sequence = getStored(sequenceMap, strings, () => parse(strings));
 	const [vertexInfo, ...fragmentInfos] = sequence;
+	const [setupNames] = vertexInfo;
 
-	return (context, parentMap = rootMap, labels = [], ...stack) => {
-		const { '': convert } = context;
-		const gl = convert();
+	return (context, canvas, parentMap = rootMap, ...stack) => {
+		const gl = canvas.getContext('webgl');
+		const setups = values.splice(0, setupNames.length);
 		const vertexValues = values.splice(0, vertexInfo.length - 2);
 		const map = getStored(parentMap, strings, () => new WeakMap());
 		const programs = [];
@@ -329,16 +198,15 @@ export default function compile (strings, ...values) {
 			const [resolverNames] = fragmentInfo;
 			const resolvers = values.splice(0, resolverNames.length);
 			const fragmentValues = values.splice(0, fragmentInfo.length - 2);
+			// TODO: add fragmentIndex and resolverIndex to each layer in stack when iterating over fragments and resolvers
+			// - use these to read the labels to concatenate instead of passing them as a param
 			const fullStack = [[vertexInfo, fragmentInfo], ...stack];
 			const subprograms = [];
 
-			for (const [i, resolver] of resolvers.entries()) {
-				const label = resolverNames[i];
-				const fullLabels = label ? [label, ...labels] : labels;
-
+			for (const resolver of resolvers) {
 				if (Array.isArray(resolver)) {
 					for (const prepare of resolver) {
-						const childPrograms = prepare(context, map, fullLabels, ...fullStack);
+						const childPrograms = prepare(context, canvas, map, ...fullStack);
 						subprograms.push(...childPrograms);
 						// TODO: merge into existing programs if they exist
 					}
@@ -348,7 +216,6 @@ export default function compile (strings, ...values) {
 					continue;
 				}
 
-				// creates and stores a program for each unique subprogram chain
 				const program = getStored(map, fragmentInfo, () => {
 					if (!vertexShader) {
 						vertexShader = createShader(gl, 0, fullStack);
@@ -373,25 +240,18 @@ export default function compile (strings, ...values) {
 					return program;
 				});
 
-				const fullLabel = fullLabels.join(' < ');
-				subprograms.push([program, new Set(fullLabel ? [fullLabel] : []), resolver]);
+				subprograms.push([program, resolver]);
 			}
 
 			const programMap = new Map();
 
-			for (const [program, labels, ...callbacks] of subprograms) {
+			for (const [program, ...callbacks] of subprograms) {
 				if (programMap.has(program)) {
 					const entry = programMap.get(program);
 					entry.push(...callbacks);
-
-					for (const label of labels) {
-						entry[1].add(label);
-					}
-
 					continue;
 				}
 
-				// creates and stores setters for each layer in each unique subprogram chain
 				const setters = !program ? [] : getStored(map, program, () => {
 					const [,, ...vertexVars] = vertexInfo;
 					const [,, ...fragmentVars] = fragmentInfo;
@@ -407,20 +267,18 @@ export default function compile (strings, ...values) {
 					});
 				});
 
-				if (setters.length) {
-					callbacks.unshift(() => {
-						// TODO: see these only need to be set once before animation loop or if they are needed on each draw
-						// - what happesn when programs are switched and then switched back?
-						// - maybe only need to set the ones that have subnames on each draw
-						// - if not needed on every draw, they could be iterated over here and this callback could just process the subname setters
-						for (const [i, setter] of setters.entries()) {
-							setter(values[i]);
-						}
-					});
-				}
+				callbacks.unshift(() => {
+					// TODO: see these only need to be set once before animation loop or if they are needed on each draw
+					// - what happesn when programs are switched and then switched back?
+					// - maybe only need to set the ones that have subnames on each draw
+					// - if not needed on every draw, they could be iterated over here and this callback could just process the subname setters
+					for (const [i, setter] of setters.entries()) {
+						setter(setterValues[i]);
+					}
+				});
 
-				const values = [...vertexValues, ...fragmentValues];
-				const entry = [program, labels, ...callbacks];
+				const setterValues = [...vertexValues, ...fragmentValues];
+				const entry = [program, ...setups, ...callbacks, ...values];
 				programMap.set(program, entry);
 				programs.push(entry)
 			}
@@ -430,11 +288,94 @@ export default function compile (strings, ...values) {
 			return programs;
 		}
 
-		// TODO: append iteration id to the end of all these ids to make them unique
-		// - need to differentiate between subprograms added by different stew`...` calls
-		// - this will allow impulse to update its own controlled nodes without processing full layout again
-		// - do we need the dot/dash ids anymore? each stew call takes care of merging things by program, and there is no sharing beyond that
-		const objects = programs.map(([program, labels, ...callbacks]) => ({ program, labels, callbacks }));
+		const objects = programs.map(([program, ...callbacks]) => ({ program, callbacks }));
 		return ['', {}, ...objects];
 	};
+}
+
+const animations = new Map();
+const queue = new Set();
+let prevTimestamp;
+
+function draw (timestamp) {
+	if (!animations.size) {
+		prevTimestamp = undefined;
+		return;
+	}
+
+	const duration = prevTimestamp === undefined ? 0 : timestamp - prevTimestamp;
+	prevTimestamp = timestamp;
+
+	for (const [gl, programs] of animations) {
+		let param;
+
+		if (!programs.length) {
+			animations.delete(gl);
+		}
+
+		for (const { program, callbacks } of programs) {
+			if (program) {
+				gl.useProgram(program);
+			}
+
+			for (const callback of callbacks) {
+				param = callback(gl, duration, param);
+			}
+		}
+	}
+
+	requestAnimationFrame(draw);
+}
+
+function schedule (gl, child, props) {
+	if (props) {
+		programMap.set(child, props);
+	} else {
+		programMap.delete(child);
+	}
+
+	if (!queue.size) {
+		requestAnimationFrame(timestamp => {
+			for (const gl of queue) {
+				const programs = [];
+
+				for (const childNode of gl.canvas.childNodes) {
+					if (programMap.has(childNode)) {
+						const props = programMap.get(childNode);
+						programs.push(props);
+					}
+				}
+
+				if (programs.length) {
+					animations.set(gl, programs);
+				} else {
+					animations.delete(gl);
+				}
+			}
+			
+			queue.clear();
+
+			if (prevTimestamp === undefined) {
+				draw(timestamp);	
+			}
+		});
+	}
+
+	queue.add(gl);
+}
+
+export default function renderProgram (props, canvas) {
+	const { label = Math.random().toFixed(8).slice(2) } = props;
+	const gl = canvas.getContext('webgl');
+	const ref = [];
+
+	return [() => {
+		onRender(() => {
+			const [child] = ref;
+			schedule(gl, child, props);
+			return () => schedule(gl, child);
+		});
+
+		return label;
+	}, { ref }];
 }

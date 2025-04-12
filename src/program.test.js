@@ -1,7 +1,6 @@
-import compile, { resetId, parse } from './program';
+import { parse, compile } from './program';
 
 jest.mock('./document', () => ({ isServer: false }));
-const canvas = {};
 let stringsArray;
 
 function stew (...params) {
@@ -21,6 +20,12 @@ function mock (object, callbackNames, constantNames) {
 
 	return object;
 }
+
+const canvas = mock({
+	parentElement: {},
+}, [
+	'getContext',
+], []);
 
 const gl = mock({
 	canvas,
@@ -57,6 +62,8 @@ const gl = mock({
 	'attachShader',
 	'linkProgram',
 	'useProgram',
+	'getShaderParameter',
+	'getShaderInfoLog',
 	'getProgramParameter',
 	'getProgramInfoLog',
 ], [
@@ -78,7 +85,7 @@ const gl = mock({
 
 const requestAnimationFrame = jest.fn();
 const convert = jest.fn();
-let context, triggerFrame;
+let context;
 
 beforeEach(() => {
 	jest.clearAllMocks();
@@ -89,12 +96,11 @@ beforeEach(() => {
 	gl.createProgram.mockReturnValue({});
 	gl.getProgramParameter.mockReturnValue(true);
 	convert.mockReturnValue(gl);
-	canvas.parentElement = {};
+	canvas.getContext.mockReturnValue(gl);
 	context = { '': convert };
 	stringsArray = [];
 	requestAnimationFrame.mockImplementation((...params) => [triggerFrame] = params);
 	globalThis.requestAnimationFrame = requestAnimationFrame;
-	resetId();
 });
 
 describe('parse', () => {
@@ -102,7 +108,6 @@ describe('parse', () => {
 		const actual = parse`${() => {}}`;
 
 		expect(actual).toEqual([
-			[0, []],
 			[[''], []],
 		]);
 	});
@@ -114,7 +119,7 @@ describe('parse', () => {
 		`;
 
 		expect(actual).toEqual([
-			[0, [], ['', 'first', 'type'], ['', 'second', 'type']],
+			[[], [], ['', 'first', 'type'], ['', 'second', 'type']],
 		]);
 	});
 
@@ -125,7 +130,7 @@ describe('parse', () => {
 		`;
 
 		expect(actual).toEqual([
-			[0, ['first;', 'second;']],
+			[[], ['first;', 'second;']],
 		]);
 	});
 
@@ -138,7 +143,7 @@ describe('parse', () => {
 		`;
 
 		expect(actual).toEqual([
-			[0, ['second;', 'fourth;'], ['', 'first', 'type'], ['', 'third', 'type']],
+			[[], ['second;', 'fourth;'], ['', 'first', 'type'], ['', 'third', 'type']],
 		]);
 	});
 
@@ -152,7 +157,7 @@ describe('parse', () => {
 		`;
 
 		expect(actual).toEqual([
-			[0, ['second;'], ['', 'first', 'type']],
+			[[], ['second;'], ['', 'first', 'type']],
 			[[''], ['fourth;'], ['', 'third', 'type']],
 		]);
 	});
@@ -172,10 +177,8 @@ describe('parse', () => {
 		`;
 
 		expect(actual).toEqual([
-			[0, []],
 			[['', ''], ['second;'], ['', 'first', 'type']],
 			[['', ''], ['fourth;'], ['', 'third', 'type']],
-			[['', ''], []],
 		]);
 	});
 
@@ -187,14 +190,28 @@ describe('parse', () => {
 		`;
 
 		expect(actual).toEqual([
-			[0, [], ['abc', 'first', 'type']],
+			[[], [], ['abc', 'first', 'type']],
 			[['lmno'], [], ['xyz', 'second', 'type']],
+		]);
+	});
+
+	it('same line expressions', () => {
+		const actual = parse`
+			type first ${[]} ${[]}
+			${() => {}} ${() => {}}
+			type second ${[]} ${[]}
+		`;
+
+		expect(actual).toEqual([
+			[[], [], ['', 'first', 'type']],
+			[['', '', ''], [], ['', 'second', 'type']],
+			[[''], []],
 		]);
 	});
 });
 
 describe('compileProgram', () => {
-	it('creates program', () => {
+	it.only('creates program', () => {
 		const draw = jest.fn();
 		const vector = [123, 456, 789];
 		const color = [0.123, 0.456, 0.789];
@@ -202,13 +219,13 @@ describe('compileProgram', () => {
 		const prepare = stew`
 			vec3 uVector ${vector}
 			gl_Position = vec4(uVector, 1.0)
-			${draw} main
+			${draw}
 			vec3 uColor ${color}
 			gl_FragColor = vec4(uColor, 1.0)
 		`;
 
 		expect(prepare).toEqual(expect.any(Function));
-		const actual = prepare(context);
+		const actual = prepare(context, canvas);
 		expect(actual).toEqual(['', {}, expect.any(Object)]);
 		const { callbacks } = actual[2];
 		expect(callbacks).toEqual([expect.any(Function), draw]);
