@@ -106,10 +106,7 @@ beforeEach(() => {
 describe('parse', () => {
 	it('standalone callback', () => {
 		const actual = parse`${() => {}}`;
-
-		expect(actual).toEqual([
-			[[''], []],
-		]);
+		expect(actual).toEqual([]);
 	});
 
 	it('variables', () => {
@@ -205,7 +202,6 @@ describe('parse', () => {
 		expect(actual).toEqual([
 			[[], [], ['', 'first', 'type']],
 			[['', '', ''], [], ['', 'second', 'type']],
-			[[''], []],
 		]);
 	});
 });

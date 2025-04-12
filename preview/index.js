@@ -268,22 +268,15 @@ function VideoPlayer () {
 				onmouseenter: () => state.hoverActive = true,
 				onmouseleave: () => state.hoverActive = false,
 			},
-				// TODO: figure out how to pause canvas
-				// - should ideally be a property of canvas (processed before program animation loop)
 				stew`
 					${gl => {
 						gl.clearColor(0.0, 0.0, 0.0, 1.0);
 						gl.clear(gl.COLOR_BUFFER_BIT);
-						return 0;
-						// return min delay to start animation loop
 					}}
 					vec2 vertex = uMatrix * aVertex
 					gl_Position = vec4(vertex.x * 0.5625, vertex.y, 1.0, 1.0)
 					${[primary].map(({ indexes, vertexes, color, matrix, spin }) => stew`
 						${(gl, duration) => {
-							// TODO: need to support setup function so values are updated before they are set
-							// - 
-
 							const spinMatrix = applyPhysics(spin, duration, spin => {
 								const cos = Math.cos(spin);
 								const sin = Math.sin(spin);
@@ -299,7 +292,10 @@ function VideoPlayer () {
 						vec3 uColor ${color}
 					`)}
 					gl_FragColor = vec4(uColor, 1.0)
+					${() => 16}
 				`,
+				// the final followup function value gives the delay before the next render
+				// leaving it out, or returning something not > 0 will result in a single frame only
 			],
 			['h1', { className: 'video-title' }, title],
 			['strong', { className: 'video-owner' }, owner],

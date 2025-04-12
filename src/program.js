@@ -155,7 +155,7 @@ export function parse (strings) {
 
 		if (definition) {
 			shader.push([comment, ...definition.trim().split(/\s+/).reverse()]);
-		} else if (!shader) {
+		} else if (!shader || shader.length > 2 || shader[1].length) {
 			shader = [[comment], []];
 			sequence.push(shader);
 		} else {
@@ -164,13 +164,13 @@ export function parse (strings) {
 
 		definition = lines.pop();
 		shader[1].push(...lines.map(line => line.replace(/;?$/, ';')));
-
-		if (!definition && (shader.length > 2 || shader[1].length)) {
-			shader = undefined;
-		}
 	}
 
-	sequence[0][0].shift();
+	if (shader.length < 3 && !shader[1].length) {
+		sequence.pop();
+	}
+
+	sequence[0]?.[0]?.shift?.();
 	return sequence;
 }
 
@@ -183,15 +183,15 @@ export function compile (strings, ...values) {
 	}
 
 	const sequence = getStored(sequenceMap, strings, () => parse(strings));
-	const [vertexInfo, ...fragmentInfos] = sequence;
-	const [setupNames] = vertexInfo;
+	const [vertexInfo = [[], []], ...fragmentInfos] = sequence;
+	const [setupNames = []] = vertexInfo;
 
 	return (context, canvas, parentMap = rootMap, ...stack) => {
 		const gl = canvas.getContext('webgl');
 		const setups = values.splice(0, setupNames.length);
 		const vertexValues = values.splice(0, vertexInfo.length - 2);
 		const map = getStored(parentMap, strings, () => new WeakMap());
-		const programs = [];
+		const programMap = new Map();
 		let vertexShader = map.get(vertexInfo);
 
 		for (const fragmentInfo of fragmentInfos) {
@@ -203,16 +203,15 @@ export function compile (strings, ...values) {
 			const fullStack = [[vertexInfo, fragmentInfo], ...stack];
 			const subprograms = [];
 
-			for (const resolver of resolvers) {
+			for (const [i, resolver] of resolvers.entries()) {
+				fullStack[0][2] = i;
+
 				if (Array.isArray(resolver)) {
 					for (const prepare of resolver) {
 						const childPrograms = prepare(context, canvas, map, ...fullStack);
 						subprograms.push(...childPrograms);
-						// TODO: merge into existing programs if they exist
 					}
 
-					continue;
-				} else if (typeof resolver !== 'function') {
 					continue;
 				}
 
@@ -240,15 +239,14 @@ export function compile (strings, ...values) {
 					return program;
 				});
 
+
+
 				subprograms.push([program, resolver]);
 			}
 
-			const programMap = new Map();
-
 			for (const [program, ...callbacks] of subprograms) {
 				if (programMap.has(program)) {
-					const entry = programMap.get(program);
-					entry.push(...callbacks);
+					programMap.get(program).push(...callbacks);
 					continue;
 				}
 
@@ -267,21 +265,38 @@ export function compile (strings, ...values) {
 					});
 				});
 
-				callbacks.unshift(() => {
-					// TODO: see these only need to be set once before animation loop or if they are needed on each draw
-					// - what happesn when programs are switched and then switched back?
-					// - maybe only need to set the ones that have subnames on each draw
-					// - if not needed on every draw, they could be iterated over here and this callback could just process the subname setters
-					for (const [i, setter] of setters.entries()) {
-						setter(setterValues[i]);
-					}
-				});
+				if (setters.length) {
+					callbacks.unshift(() => {
+						// TODO: see these only need to be set once before animation loop or if they are needed on each draw
+						// - what happesn when programs are switched and then switched back?
+						// - maybe only need to set the ones that have subnames on each draw
+						// - if not needed on every draw, they could be iterated over here and this callback could just process the subname setters
+						for (const [i, setter] of setters.entries()) {
+							setter(values[i]);
+						}
 
-				const setterValues = [...vertexValues, ...fragmentValues];
-				const entry = [program, ...setups, ...callbacks, ...values];
+						// This is also where we can apply the fps overrides
+						// - return values of resolvers are passed as third param to the ones that follow
+						// - report back any value received here back to the previous sibling setter callback
+						// - use the value that was reported back to shortcircuit the callbacks that are grouped with this one
+						// - for now, just use the return value from the last followup function as the duration for all the program in the template
+					});
+				}
+
+				const values = [...vertexValues, ...fragmentValues];
+				const entry = [program, ...callbacks];
 				programMap.set(program, entry);
-				programs.push(entry)
 			}
+		}
+
+		const programs = [...programMap.values()];
+
+		if (setups.length) {
+			programs.unshift([, ...setups]);
+		}
+
+		if (values.length) {
+			programs.push([, ...values]);
 		}
 
 		if (parentMap !== rootMap) {
@@ -295,23 +310,18 @@ export function compile (strings, ...values) {
 
 const animations = new Map();
 const queue = new Set();
-let prevTimestamp;
 
 function draw (timestamp) {
-	if (!animations.size) {
-		prevTimestamp = undefined;
-		return;
-	}
-
-	const duration = prevTimestamp === undefined ? 0 : timestamp - prevTimestamp;
-	prevTimestamp = timestamp;
-
-	for (const [gl, programs] of animations) {
+	for (const [gl, array] of animations) {
+		const [prevTimestamp, nextTimestamp, ...programs] = array;
 		let param;
 
-		if (!programs.length) {
-			animations.delete(gl);
+		if (nextTimestamp > timestamp) {
+			continue;
 		}
+		
+		const duration = prevTimestamp === undefined ? 0 : timestamp - prevTimestamp;
+		array[0] = timestamp;
 
 		for (const { program, callbacks } of programs) {
 			if (program) {
@@ -322,9 +332,17 @@ function draw (timestamp) {
 				param = callback(gl, duration, param);
 			}
 		}
+
+		if (param > 0) {
+			array[1] += param;
+		} else {
+			animations.delete(gl);
+		}
 	}
 
-	requestAnimationFrame(draw);
+	if (animations.size) {
+		requestAnimationFrame(draw);
+	}
 }
 
 function schedule (gl, child, props) {
@@ -336,8 +354,11 @@ function schedule (gl, child, props) {
 
 	if (!queue.size) {
 		requestAnimationFrame(timestamp => {
+			const prevSize = animations.size;
+
 			for (const gl of queue) {
-				const programs = [];
+				const programs = getStored(animations, gl, () => [timestamp, 0]);
+				programs.splice(2);
 
 				for (const childNode of gl.canvas.childNodes) {
 					if (programMap.has(childNode)) {
@@ -346,16 +367,14 @@ function schedule (gl, child, props) {
 					}
 				}
 
-				if (programs.length) {
-					animations.set(gl, programs);
-				} else {
+				if (!programs.length) {
 					animations.delete(gl);
 				}
 			}
 			
 			queue.clear();
 
-			if (prevTimestamp === undefined) {
+			if (animations.size && !prevSize) {
 				draw(timestamp);	
 			}
 		});
