@@ -85,46 +85,84 @@ function loadRecommendation (index, globalState) {
 function AdvancedVideoPlayer ({}) {
 	return ({ globalState }) => {
 		const { video } = globalState;
-		const { id, title, action, color, shape, ft, length, owner } = video;
-		const iterationCount = length / 5000;
-		let { prevId, state, gl } = memo;
-		
-		if (id !== prevId) {
-			memo.prevId = id;
+		const { id, title, length, owner, action, color, shape, ft } = video;
 
-			memo.state = state = createState({
-				playState: 'paused',
-				currentTime: 0,
-				playTimestamp: undefined,
-				completed: false,
-				hoverActive: false,
-			});
-		}
+		// makes it easier to detect memo change inline wihtout waiting for onRender
+		// - no longer need to store both value and prevValue, prev values are stored similar to how onRender deps does
+		// - object dep values will be set to memo after impulse finishes processing, so all the checks will trigger, regardless of order
+		// - callback returns object to merge to memo to avoid having to Object assign them
+		// - onUpdate returns memo instead of having to read from '' prop (less weird this way)
+
+		const state = useMemo(() => createState({
+			playState: 'paused',
+			currentTime: 0,
+			playTimestamp: undefined,
+			completed: false,
+			hoverActive: false,
+		}), [id]);
+
+		const primary = useMemo(() => prepareAdvancedObject(video), [action, color, shape]);
+		const secondary = useMemo(() => ft && prepareAdvancedObject(ft), [ft]);
+		const { playState, currentTime, playTimestamp, hoverActive, completed } = state;
 
 		onRender(() => {
-			const [canvas] = ref;
-			// setup
+			console.log('===== set video', playState);
+			if (playState !== 'running') return;
 
-			return () => {};
-			// teardown
-		}, []);
+			const timeout = setTimeout(() => {
+				state.playState = 'paused';
+				state.currentTime = length;
+				state.completed = true;
+			}, length - currentTime);
 
-		return ['', { gl },
-			['canvas', { ref },
-				({ gl }) => {
-					// render
-				},
+			return () => clearTimeout(timeout);
+		}, [playState]);
+
+		return ['', null,
+			['canvas', {
+				width: 960,
+				height: 540,
+				style: { width: '100%' },
+				onmouseenter: () => state.hoverActive = true,
+				onmouseleave: () => state.hoverActive = false,
+			},
+				stew`
+					${gl => {
+						gl.clearColor(0.0, 0.0, 0.0, 1.0);
+						gl.clear(gl.COLOR_BUFFER_BIT);
+					}}
+					vec3 vertex = uMatrix * aVertex + uPosition
+					gl_Position = vec4(vertex.x * 0.5625, vertex.y, vertex.z, 1.0)
+					${[primary].map(({ indexes, vertexes, color, matrix, position, x, y, z, spin }) => stew`
+						${(gl, duration) => {
+							const spinMatrix = applyPhysics(spin, duration, spin => {
+								const cos = Math.cos(spin);
+								const sin = Math.sin(spin);
+								return [cos, 0, sin, 0, 1, 0, -sin, 0, cos];
+							});
+							
+							const xValue = applyPhysics(x, duration);
+							const yValue = applyPhysics(y, duration);
+							const zValue = applyPhysics(z, duration);
+
+							matrix.splice(0, 9, ...spinMatrix);
+							position.splice(0, 3, xValue, yValue, zValue);
+						}}
+						elements ${indexes}
+						FLOAT vec3 aVertex ${vertexes}
+						mat3 uMatrix ${matrix}
+						vec3 uPosition ${position}
+						${gl => gl.drawElements(gl.TRIANGLES, indexes.length, gl.UNSIGNED_SHORT, 0)} shape
+						vec3 uColor ${color}
+					`)}
+					gl_FragColor = vec4(uColor, 1.0)
+					${() => 16}
+				`,
+				// the final followup function value gives the delay before the next render
+				// leaving it out, or returning something not > 0 will result in a single frame only
 			],
-		];
-
-
-
-		// have stew set up webgl if there are children
-		// - allow onbeforedraw and onafterdraw events
-		return ['canvas', { context: 'webgl' },
-			gl => {
-				// render
-			}
+			['h1', { className: 'video-title' }, title],
+			['strong', { className: 'video-owner' }, owner],
 		];
 	};
 }
@@ -138,8 +176,8 @@ const colorMap = {
 function prepareObject ({ action, color, shape }) {
 	const object = {
 		color: colorMap[color],
-		position: [0, 0],
 		matrix: [1, 0, 0, 1],
+		position: [0, 0],
 		x: [0, 0, 0],
 		y: [0, 0, 0],
 		scale: [1, 0, 0, 1, 0, 0, 1],
@@ -190,7 +228,86 @@ function prepareObject ({ action, color, shape }) {
 				indexes.push(0, i + 1, i);
 			}
 
-			indexes.push(0, 1, (vertexes.length >> 1) - 1);
+			indexes.push(0, 1, vertexes.length / 2 - 1);
+
+			Object.assign(object, {
+				indexes: new Uint16Array(indexes),
+				vertexes: new Float32Array(vertexes),
+			});
+
+			break;
+		}
+	}
+
+	switch (action) {
+		case 'bouncing':
+		case 'pulsing':
+		case 'spinning': {
+			object.spin[1] = 0.001;
+			break;
+		}
+	}
+
+	return object;
+}
+
+function prepareAdvancedObject ({ action, color, shape }) {
+	const object = {
+		color: colorMap[color],
+		matrix: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+		position: [0, 0, 0],
+		x: [0, 0, 0],
+		y: [0, 0, 0],
+		z: [0, 0, 0],
+		scale: [1, 0, 0, 1, 0, 0, 1],
+		spin: [0, 0, 0, 1, 0, 0, 1],
+	};
+
+	const area = 1;
+
+	switch (shape) {
+		case 'square': {
+			const length = Math.sqrt(area) / 2;
+
+			Object.assign(object, {
+				indexes: new Uint16Array([0, 1, 2, 2, 3, 0]),
+				vertexes: new Float32Array([
+					-length, -length, 0,
+					-length, length, 0,
+					length, length, 0,
+					length, -length, 0,
+				]),
+			});
+
+			break;
+		}
+		case 'triangle': {
+			const factor = Math.sqrt(area / 0.4330127018922194);
+
+			Object.assign(object, {
+				indexes: new Uint16Array([0, 1, 2]),
+				vertexes: new Float32Array([
+					-0.5 * factor, -0.28867513459481287 * factor, 0,
+					0, 0.5773502691896257 * factor, 0,
+					0.5 * factor, -0.28867513459481287 * factor, 0,
+				]),
+			});
+
+			break;
+		}
+		case 'circle': {
+			const radius = Math.sqrt(area / Math.PI);
+			const count = 24;
+			const indexes = [];
+			const vertexes = [0, 0, 0, radius, 0, 0];
+
+			for (let i = 1; i < count; i++) {
+				const angle = i * Math.PI * 2 / count;
+				vertexes.push(Math.cos(angle) * radius, Math.sin(angle) * radius, 0);
+				indexes.push(0, i + 1, i);
+			}
+
+			indexes.push(0, 1, vertexes.length / 3 - 1);
 
 			Object.assign(object, {
 				indexes: new Uint16Array(indexes),
@@ -217,14 +334,16 @@ function applyPhysics (array, duration, callback) {
 	array[1] += array[2] * duration;
 	array[0] += array[1] * duration;
 
-	if (callback) {
-		const matrix = callback(array[0]);
-		array.splice(3, matrix.length, ...matrix);
-		return matrix;
+	if (!callback) {
+		return array[0];
 	}
+
+	const matrix = callback(array[0]);
+	array.splice(3, matrix.length, ...matrix);
+	return matrix;
 }
 
-function VideoPlayer () {
+function VideoPlayer ({ isRecommendation }) {
 	return ({ globalState }) => {
 		const { video } = globalState;
 		const { id, title, length, owner, action, color, shape, ft } = video;
@@ -273,9 +392,9 @@ function VideoPlayer () {
 						gl.clearColor(0.0, 0.0, 0.0, 1.0);
 						gl.clear(gl.COLOR_BUFFER_BIT);
 					}}
-					vec2 vertex = uMatrix * aVertex
+					vec2 vertex = uMatrix * aVertex + uPosition
 					gl_Position = vec4(vertex.x * 0.5625, vertex.y, 1.0, 1.0)
-					${[primary].map(({ indexes, vertexes, color, matrix, spin }) => stew`
+					${[primary].map(({ indexes, vertexes, color, matrix, position, x, y, spin }) => stew`
 						${(gl, duration) => {
 							const spinMatrix = applyPhysics(spin, duration, spin => {
 								const cos = Math.cos(spin);
@@ -283,22 +402,29 @@ function VideoPlayer () {
 								return [cos, -sin, sin, cos];
 							});
 
+							const xValue = applyPhysics(x, duration);
+							const yValue = applyPhysics(y, duration);
+
 							matrix.splice(0, 4, ...spinMatrix);
+							position.splice(0, 2, xValue, yValue);
 						}}
 						elements ${indexes}
 						FLOAT vec2 aVertex ${vertexes}
 						mat2 uMatrix ${matrix}
+						vec2 uPosition ${position}
 						${gl => gl.drawElements(gl.TRIANGLES, indexes.length, gl.UNSIGNED_SHORT, 0)} shape
 						vec3 uColor ${color}
 					`)}
 					gl_FragColor = vec4(uColor, 1.0)
-					${() => 16}
+					${() => !isRecommendation && 16}
 				`,
 				// the final followup function value gives the delay before the next render
 				// leaving it out, or returning something not > 0 will result in a single frame only
 			],
-			['h1', { className: 'video-title' }, title],
-			['strong', { className: 'video-owner' }, owner],
+			!isRecommendation && ['', null,
+				['h1', { className: 'video-title' }, title],
+				['strong', { className: 'video-owner' }, owner],
+			],
 		];
 	};
 }
@@ -316,9 +442,6 @@ function renderComment ({ user, message, owner, ref, isRich }) {
 }
 
 function Comments ({ isRich }) {
-	const memo = useMemo();
-	memo.initialized = true;
-
 	return ({ globalState }) => {
 		const { video, comments } = globalState;
 		const { id, owner } = video;
@@ -328,15 +451,9 @@ function Comments ({ isRich }) {
 			return;
 		}
 
-		let { prevId, state } = memo;
-		
-		if (id !== prevId) {
-			memo.prevId = id;
-
-			memo.state = state = createState({
-				expandedCount: 10,
-			});
-		}
+		const state = useMemo(() => createState({
+			expandedCount: 10,
+		}), [id]);
 
 		const { expandedCount } = state;
 		const ref = [];
@@ -359,37 +476,33 @@ function Comments ({ isRich }) {
 	};
 }
 
-function RichComments () {
-	console.log('======', memo.initialized);
-	return Comments({ isRich: true });
-}
-
 function Recommendations () {
 	return ({ globalState }) => {
 		const { recommendations } = globalState;
 
 		return ['', null,
-			...recommendations.map(({ title, color, shape, ft, length, owner }, i) => ['div', {
-				className: 'recommendation',
-				onclick: () => loadRecommendation(i, globalState),
-			},
-				['div', {
-					className: [
-						'video-player',
-						`video-${color}`,
-						`video-${shape}`,
-						!ft ? '' : [
-							'video-ft',
-							`video-ft-${ft.color}`,
-							`video-ft-${ft.shape}`,
-						].join(' '),
-					].join(' '),
-				},
-					['span', { className: 'primary' }],
-					['span', { className: 'secondary' }],
-				],
-				['strong', { className: 'title' }, title]
-			]),
+			[VideoPlayer, { isRecommendation: true }],
+			// ...recommendations.map(({ title, color, shape, ft, length, owner }, i) => ['div', {
+			// 	className: 'recommendation',
+			// 	onclick: () => loadRecommendation(i, globalState),
+			// },
+			// 	['div', {
+			// 		className: [
+			// 			'video-player',
+			// 			`video-${color}`,
+			// 			`video-${shape}`,
+			// 			!ft ? '' : [
+			// 				'video-ft',
+			// 				`video-ft-${ft.color}`,
+			// 				`video-ft-${ft.shape}`,
+			// 			].join(' '),
+			// 		].join(' '),
+			// 	},
+			// 		['span', { className: 'primary' }],
+			// 		['span', { className: 'secondary' }],
+			// 	],
+			// 	['strong', { className: 'title' }, title]
+			// ]),
 		];
 	};
 }
@@ -437,6 +550,6 @@ App.component = (container) => {
 	]);
 };
 
-App.Comments = Comments;
-App.RichComments = RichComments;
+App.VideoPlayer = VideoPlayer;
+App.AdvancedVideoPlayer = AdvancedVideoPlayer;
 })();

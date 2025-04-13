@@ -1,3 +1,4 @@
+import { execute } from '.';
 import renderElement from './element';
 import renderImpulse from './impulse';
 import renderProgram from './program';
@@ -12,11 +13,10 @@ export function remove (ref, parentNode) {
 		return;
 	}
 
-	const [,, node, ...children] = ref;
+	const [, impulse, proxy, ...children] = ref;
 
-	if (Array.isArray(node)) {
-		const [, subscriptions, proxy] = node;
-		unsubscribe(subscriptions);
+	if (Array.isArray(impulse)) {
+		unsubscribe(impulse);
 		remove(proxy, parentNode);
 
 		for (const [teardown] of children) {
@@ -25,8 +25,8 @@ export function remove (ref, parentNode) {
 	} else {
 		ref[1] = undefined;
 
-		if (node && parentNode) {
-			parentNode.removeChild(node);
+		if (proxy && parentNode) {
+			parentNode.removeChild(proxy);
 			parentNode = undefined;
 		}
 

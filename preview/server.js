@@ -75,7 +75,7 @@ createServer(async ({ url }, res) => {
 						'const context = { \'\': render, swap: () => swap(manifest) };',
 						`const swap = stew(\'#app\', context, App(${JSON.stringify(initialProps)}));`,
 						'const manifest = new Map();',
-						'manifest.set(App.Comments, App.RichComments);',
+						'manifest.set(App.VideoPlayer, App.AdvancedVideoPlayer);',
 					'</script>',
 				'</body>',
 			'</html>',

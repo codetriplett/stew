@@ -42,7 +42,7 @@ function hotSwapStep (ref, manifest, subscriptions) {
 		return;
 	}
 
-	const [callback,, impulse, ...children] = ref;
+	const [callback, impulse, proxy, ...children] = ref;
 
 	if (!Array.isArray(impulse)) {
 		children.map(childRef => hotSwapStep(childRef, manifest, subscriptions))
@@ -53,10 +53,10 @@ function hotSwapStep (ref, manifest, subscriptions) {
 
 	if (replacement) {
 		ref[0] = replacement;
+		ref.splice(3);
 		subscriptions.add(impulse);
 	}
 
-	const proxy = impulse[2];
 	hotSwapStep(proxy, manifest, subscriptions);
 }
 

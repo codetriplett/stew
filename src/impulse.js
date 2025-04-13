@@ -61,7 +61,7 @@ export function onRender (callback, deps) {
 
 export default function renderImpulse (ref, object, children, context, document, nodes) {
 	if (!ref[1]) {
-		ref[1] = [, new Set(),, ...impulses.slice(0, -1)];
+		ref[1] = [, new Set(), ...impulses.slice(0, -1)];
 	}
 
 	// TODO: rename ref params throughout code base

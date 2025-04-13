@@ -5,7 +5,7 @@ const shaderTypes = ['VERTEX_SHADER', 'FRAGMENT_SHADER'];
 export const sequenceMap = new WeakMap();
 export const rootMap = new WeakMap();
 export const nodeMap = new WeakMap();
-const programMap = new WeakMap();
+const instanceMap = new WeakMap();
 
 function getStored (map, key, callback) {
 	if (map.has(key)) {
@@ -174,9 +174,6 @@ export function parse (strings) {
 	return sequence;
 }
 
-// TODO: return empty function if isServer is true
-// - have this return an object and process them when they are about to be appended
-// - store in WeakSet to know that they aren't regular DOM nodes
 export function compile (strings, ...values) {
 	if (isServer) {
 		return;
@@ -186,29 +183,36 @@ export function compile (strings, ...values) {
 	const [vertexInfo = [[], []], ...fragmentInfos] = sequence;
 	const [setupNames = []] = vertexInfo;
 
-	return (context, canvas, parentMap = rootMap, ...stack) => {
+	return (context, canvas, parentMap, ...stack) => {
 		const gl = canvas.getContext('webgl');
+		const isRoot = !parentMap;
+
+		if (isRoot) {
+			parentMap = getStored(rootMap, gl, () => new WeakMap());
+		}
+
 		const setups = values.splice(0, setupNames.length);
 		const vertexValues = values.splice(0, vertexInfo.length - 2);
+		const labels = stack.length ? stack[0].slice(2) : [];
+		const stackEntry = [vertexInfo,,, ...labels];
 		const map = getStored(parentMap, strings, () => new WeakMap());
 		const programMap = new Map();
 		let vertexShader = map.get(vertexInfo);
+		stack = [stackEntry, ...stack];
 
 		for (const fragmentInfo of fragmentInfos) {
 			const [resolverNames] = fragmentInfo;
 			const resolvers = values.splice(0, resolverNames.length);
 			const fragmentValues = values.splice(0, fragmentInfo.length - 2);
-			// TODO: add fragmentIndex and resolverIndex to each layer in stack when iterating over fragments and resolvers
-			// - use these to read the labels to concatenate instead of passing them as a param
-			const fullStack = [[vertexInfo, fragmentInfo], ...stack];
 			const subprograms = [];
+			stackEntry[1] = fragmentInfo;
 
 			for (const [i, resolver] of resolvers.entries()) {
-				fullStack[0][2] = i;
+				stackEntry[2] = resolverNames[i];
 
 				if (Array.isArray(resolver)) {
 					for (const prepare of resolver) {
-						const childPrograms = prepare(context, canvas, map, ...fullStack);
+						const childPrograms = prepare(context, canvas, map, ...stack);
 						subprograms.push(...childPrograms);
 					}
 
@@ -217,11 +221,11 @@ export function compile (strings, ...values) {
 
 				const program = getStored(map, fragmentInfo, () => {
 					if (!vertexShader) {
-						vertexShader = createShader(gl, 0, fullStack);
+						vertexShader = createShader(gl, 0, stack);
 						map.set(vertexInfo, vertexShader);
 					}
 
-					const fragmentShader = createShader(gl, 1, fullStack);
+					const fragmentShader = createShader(gl, 1, stack);
 
 					if (!vertexShader || !fragmentShader) {
 						return;
@@ -239,14 +243,21 @@ export function compile (strings, ...values) {
 					return program;
 				});
 
-
-
-				subprograms.push([program, resolver]);
+				const label = stackEntry.slice(2).filter(name => name).join(' < ');
+				subprograms.push([program, new Set([label]), resolver]);
 			}
 
-			for (const [program, ...callbacks] of subprograms) {
+			for (const entry of subprograms) {
+				const [program, labels, ...callbacks] = entry;
+
 				if (programMap.has(program)) {
-					programMap.get(program).push(...callbacks);
+					const entry = programMap.get(program);
+					entry.push(...callbacks);
+
+					for (const label of labels) {
+						entry[1].add(label);
+					}
+
 					continue;
 				}
 
@@ -266,25 +277,15 @@ export function compile (strings, ...values) {
 				});
 
 				if (setters.length) {
-					callbacks.unshift(() => {
-						// TODO: see these only need to be set once before animation loop or if they are needed on each draw
-						// - what happesn when programs are switched and then switched back?
-						// - maybe only need to set the ones that have subnames on each draw
-						// - if not needed on every draw, they could be iterated over here and this callback could just process the subname setters
+					const values = [...vertexValues, ...fragmentValues];
+
+					entry.splice(2, 0, () => {
 						for (const [i, setter] of setters.entries()) {
 							setter(values[i]);
 						}
-
-						// This is also where we can apply the fps overrides
-						// - return values of resolvers are passed as third param to the ones that follow
-						// - report back any value received here back to the previous sibling setter callback
-						// - use the value that was reported back to shortcircuit the callbacks that are grouped with this one
-						// - for now, just use the return value from the last followup function as the duration for all the program in the template
 					});
 				}
 
-				const values = [...vertexValues, ...fragmentValues];
-				const entry = [program, ...callbacks];
 				programMap.set(program, entry);
 			}
 		}
@@ -292,18 +293,21 @@ export function compile (strings, ...values) {
 		const programs = [...programMap.values()];
 
 		if (setups.length) {
-			programs.unshift([, ...setups]);
+			programs.unshift([, [], ...setups]);
 		}
 
 		if (values.length) {
-			programs.push([, ...values]);
+			programs.push([, [], ...values]);
 		}
 
-		if (parentMap !== rootMap) {
+		if (!isRoot) {
 			return programs;
 		}
 
-		const objects = programs.map(([program, ...callbacks]) => ({ program, callbacks }));
+		const objects = programs.map(([program, labels, ...callbacks]) => {
+			return { program, callbacks, label: [...labels].join(', ') };
+		});
+
 		return ['', {}, ...objects];
 	};
 }
@@ -347,9 +351,9 @@ function draw (timestamp) {
 
 function schedule (gl, child, props) {
 	if (props) {
-		programMap.set(child, props);
+		instanceMap.set(child, props);
 	} else {
-		programMap.delete(child);
+		instanceMap.delete(child);
 	}
 
 	if (!queue.size) {
@@ -361,8 +365,8 @@ function schedule (gl, child, props) {
 				programs.splice(2);
 
 				for (const childNode of gl.canvas.childNodes) {
-					if (programMap.has(childNode)) {
-						const props = programMap.get(childNode);
+					if (instanceMap.has(childNode)) {
+						const props = instanceMap.get(childNode);
 						programs.push(props);
 					}
 				}
@@ -384,7 +388,7 @@ function schedule (gl, child, props) {
 }
 
 export default function renderProgram (props, canvas) {
-	const { label = Math.random().toFixed(8).slice(2) } = props;
+	const { label } = props;
 	const gl = canvas.getContext('webgl');
 	const ref = [];
 
