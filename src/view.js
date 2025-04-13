@@ -20,7 +20,9 @@ export function remove (ref, parentNode) {
 		remove(proxy, parentNode);
 
 		for (const [teardown] of children) {
-			execute(teardown);
+			if (typeof teardown === 'function') {
+				execute(teardown);
+			}
 		}
 	} else {
 		ref[1] = undefined;

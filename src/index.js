@@ -53,7 +53,6 @@ function hotSwapStep (ref, manifest, subscriptions) {
 
 	if (replacement) {
 		ref[0] = replacement;
-		ref.splice(3);
 		subscriptions.add(impulse);
 	}
 

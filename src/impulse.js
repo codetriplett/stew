@@ -1,7 +1,7 @@
 import { execute } from '.';
 import { isServer } from './document';
 import render, { remove, reconcile } from './view';
-import { queue } from './state';
+import { queue, schedule } from './state';
 
 export const impulses = [];
 const effects = [];
@@ -16,12 +16,22 @@ export function processEffects () {
 	}
 }
 
+/*
+
+// if promise, wait and repalce value in memo when it resolves
+const data = useMemo(() => {
+	return fetch(...);
+}, [...]);
+
+*/
+
 function processMemo (callback, deps, prevMemos, effects) {
 	let memo = prevMemos.shift();
+	let prevValue;
 
 	if (!memo || !deps || deps.some((value, i) => value !== memo[i + 2])) {
-		const teardown = memo?.[0];
-		memo = [teardown, callback, ...(deps || [])];
+		prevValue = memo?.[0];
+		memo = [prevValue, callback, ...(deps || [])];
 	}
 	
 	let [value] = memo;
@@ -32,6 +42,17 @@ function processMemo (callback, deps, prevMemos, effects) {
 			effects.push(memo);
 		} else {
 			value = callback(value);
+
+			if (value instanceof Promise) {
+				value.then(value => {
+					memo[0] = value;
+					schedule(new Set([impulse]));
+				});
+
+				const [impulse] = impulses;
+				value = prevValue;
+			}
+
 			memo.splice(0, 2, value, undefined);
 		}
 	}
@@ -77,13 +98,13 @@ export default function renderImpulse (ref, object, children, context, document,
 		prevMemos = ref.splice(3);
 		refs.unshift(ref);
 		impulses.unshift(impulse);
+		const sibling = prevNodes?.[prevNodes?.length - 1]?.nextSibling;
 		const layout = execute(callback, props, ...children) || '';
 		const proxy = render(layout, context, document, nodes, ref, -1, {});
 		impulses.shift();
 		refs.shift();
 
 		if (prevNodes) {
-			const sibling = prevNodes[prevNodes.length - 1].nextSibling;
 			reconcile(parentNode, nodes.slice(1), prevNodes, sibling);
 
 			if (proxy !== prevProxy) {
