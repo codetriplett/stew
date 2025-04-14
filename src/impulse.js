@@ -5,8 +5,8 @@ import { queue, schedule } from './state';
 
 export const impulses = [];
 const effects = [];
-const refs = [];
-let prevMemos;
+let prevMemos = [];
+let activeInfo;
 
 export function processEffects () {
 	for (const effect of effects.splice(0)) {
@@ -25,84 +25,85 @@ const data = useMemo(() => {
 
 */
 
-function processMemo (callback, deps, prevMemos, effects) {
+function processMemo (callback, deps) {
 	let memo = prevMemos.shift();
-	let prevValue;
 
 	if (!memo || !deps || deps.some((value, i) => value !== memo[i + 2])) {
-		prevValue = memo?.[0];
-		memo = [prevValue, callback, ...(deps || [])];
+		const value = memo?.[0];
+		memo = [value, callback, ...(deps || [])];
 	}
-	
+
+	activeInfo?.push?.(memo);
+	return memo;
+}
+
+// used by server and client, but must be inside impulse, and async is only allow on client
+export function useMemo (callback, deps, ...rest) {
+	if (!activeInfo || !callback || !deps || rest.length && isServer) {
+		return;
+	}
+
+	const memo = processMemo(callback, deps);
 	let [value] = memo;
-	refs[0].push(memo);
-
+	
 	if (memo[1]) {
-		if (effects) {
-			effects.push(memo);
-		} else {
-			value = callback(value);
+		value = callback(value);
+		const [prevValue] = memo.splice(0, 2, value, undefined);
 
-			if (value instanceof Promise) {
-				value.then(value => {
-					memo[0] = value;
-					schedule(new Set([impulse]));
-				});
-
-				const [impulse] = impulses;
-				value = prevValue;
-			}
-
-			memo.splice(0, 2, value, undefined);
+		if (rest.length && value instanceof Promise) {
+			value.then(value => {
+				memo[0] = value;
+				schedule(new Set([impulse]));
+			});
+	
+			const [impulse] = impulses;
+			value = prevValue;
 		}
 	}
 
-	return value;
+	const [fallbackValue] = rest;
+	return value || fallbackValue;
 }
 
-export function useMemo (callback, deps) {
-	if (refs.length === 0) {
-		return;
-	} else if (!callback) {
-		callback = () => ({});
-	}
-
-	return processMemo(callback, deps, prevMemos);
-}
-
-export function onRender (callback, deps) {
+// used only on client, and only after any pending updates have been completed 
+export function useEffect (callback, deps) {
 	if (isServer) {
 		return;
-	} else if (!callback) {
-		return queue.size ? new Promise(resolve => effects.push([, resolve])) : Promise.resolve();
-	}
+	} else if (callback) {
+		const memo = processMemo(callback, deps);
 
-	processMemo(callback, deps, prevMemos, effects);
+		if (memo[1]) {
+			effects.push(memo);
+		}
+	} else if (impulses.length || queue.size) {
+		return new Promise(resolve => effects.push([, resolve]));
+	}
 }
 
-export default function renderImpulse (ref, object, children, context, document, nodes) {
-	if (!ref[1]) {
-		ref[1] = [, new Set(), ...impulses.slice(0, -1)];
+export default function renderImpulse (info, object, children, context, document, nodes) {
+	if (!info[1]) {
+		info[1] = [, new Set(), ...impulses.slice(0, -1)];
 	}
 
 	// TODO: rename ref params throughout code base
-	const { ref: refProp, ...props } = object;
-	const [, impulse] = ref;
+	const { ref, ...props } = object;
+	const [, impulse] = info;
 	const [parentNode] = nodes;
-	const refIndex = refProp?.length;
-	let nodeIndex = nodes.length;
+	const refIndex = ref?.length;
+	const nodeIndex = nodes.length;
 	let prevNodes;
 
 	const update = () => {
-		const [callback,, prevProxy] = ref;
-		prevMemos = ref.splice(3);
-		refs.unshift(ref);
-		impulses.unshift(impulse);
+		const [callback,, prevProxy] = info;
+		const activeRefBackup = activeInfo;
 		const sibling = prevNodes?.[prevNodes?.length - 1]?.nextSibling;
+		prevMemos = info.splice(3);
+		activeInfo = info;
+		impulses.unshift(impulse);
 		const layout = execute(callback, props, ...children) || '';
-		const proxy = render(layout, context, document, nodes, ref, -1, {});
+		const proxy = render(layout, context, document, nodes, info, -1, {});
 		impulses.shift();
-		refs.shift();
+		activeInfo = activeRefBackup;
 
 		if (prevNodes) {
 			reconcile(parentNode, nodes.slice(1), prevNodes, sibling);
@@ -110,15 +111,16 @@ export default function renderImpulse (ref, object, children, context, document,
 			if (proxy !== prevProxy) {
 				remove(prevProxy, parentNode);
 			}
+
+			prevNodes = nodes.splice(1);
+		} else {
+			prevNodes = nodes.slice(nodeIndex);
+			nodes = [parentNode];
 		}
 
-		if (refProp) {
-			refProp[refIndex] = nodes[nodeIndex];
+		if (ref) {
+			ref[refIndex] = prevNodes[0];
 		}
-
-		prevNodes = nodes.slice(1);
-		nodes = [parentNode];
-		nodeIndex = 1;
 	};
 
 	impulse[0] = update;

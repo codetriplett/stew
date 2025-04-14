@@ -1,6 +1,6 @@
 import stew, { hotSwap } from '.';
 import { virtualDocument } from './document';
-import { processEffects, onRender } from './impulse';
+import { processEffects, useEffect } from './impulse';
 import render from './view';
 import * as stateModule from './state';
 
@@ -50,7 +50,7 @@ describe('hotSwap', () => {
 		];
 
 		const actual = hotSwap(ref, manifest);
-		await onRender();
+		await useEffect();
 		
 		expect(actual).toEqual(new Set([impulse, childImpulse]));
 		expect(impulseRef[0]).toEqual(nextCallback);

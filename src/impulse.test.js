@@ -1,6 +1,6 @@
 import { track, check, text, fragment, element } from './test';
 import { virtualDocument } from './document';
-import renderImpulse, { impulses, processFollowups, onRender } from './impulse';
+import renderImpulse, { impulses, processFollowups, useEffect } from './impulse';
 
 let context, node, nodes, callback, layout, impulse, unsubscribe;
 

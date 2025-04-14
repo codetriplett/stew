@@ -1,5 +1,5 @@
 import { isServer } from './document';
-import { onRender } from './impulse';
+import { useEffect } from './impulse';
 
 const shaderTypes = ['VERTEX_SHADER', 'FRAGMENT_SHADER'];
 export const sequenceMap = new WeakMap();
@@ -393,7 +393,7 @@ export default function renderProgram (props, canvas) {
 	const ref = [];
 
 	return [() => {
-		onRender(() => {
+		useEffect(() => {
 			const [child] = ref;
 			schedule(gl, child, props);
 			return () => schedule(gl, child);

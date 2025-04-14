@@ -4,16 +4,16 @@ import renderImpulse from './impulse';
 import renderProgram from './program';
 import { unsubscribe } from './state';
 
-export function remove (ref, parentNode) {
-	if (!Array.isArray(ref)) {
-		if (ref && parentNode) {
-			parentNode.removeChild(ref);
+export function remove (info, parentNode) {
+	if (!Array.isArray(info)) {
+		if (info && parentNode) {
+			parentNode.removeChild(info);
 		}
 
 		return;
 	}
 
-	const [, impulse, proxy, ...children] = ref;
+	const [, impulse, proxy, ...children] = info;
 
 	if (Array.isArray(impulse)) {
 		unsubscribe(impulse);
@@ -25,15 +25,15 @@ export function remove (ref, parentNode) {
 			}
 		}
 	} else {
-		ref[1] = undefined;
+		info[1] = undefined;
 
 		if (proxy && parentNode) {
 			parentNode.removeChild(proxy);
 			parentNode = undefined;
 		}
 
-		for (const childRef of children) {
-			remove(childRef, parentNode)
+		for (const childInfo of children) {
+			remove(childInfo, parentNode)
 		}
 	}
 }
@@ -59,25 +59,25 @@ export function reconcile (node, nextNodes, prevNodes, sibling) {
 }
 
 export default function render (layout, context, document, nodes, container, i, map) {
-	let ref = container[i + 3] || [];
+	let info = container[i + 3] || [];
 
 	if (!Array.isArray(layout)) {
 		switch (typeof layout) {
 			default: {
-				ref = undefined;
+				info = undefined;
 				break
 			}
 			case 'number': {
 				layout = String(layout);
 			}
 			case 'string': {
-				if (ref.nodeValue === undefined) {
-					ref = document.createTextNode(layout);
-				} else if (layout !== ref.nodeValue) {
-					ref.nodeValue = layout;
+				if (info.nodeValue === undefined) {
+					info = document.createTextNode(layout);
+				} else if (layout !== info.nodeValue) {
+					info.nodeValue = layout;
 				}
 
-				nodes.push(ref);
+				nodes.push(info);
 				break;
 			}
 			case 'object': {
@@ -95,7 +95,7 @@ export default function render (layout, context, document, nodes, container, i, 
 		const { '': key, ...props } = object || {};
 		let callback = renderElement;
 		let node;
-		ref = container[1]?.[key] || ref;
+		info = container[1]?.[key] || info;
 	
 		switch (typeof tagName) {
 			case 'object': {
@@ -121,22 +121,22 @@ export default function render (layout, context, document, nodes, container, i, 
 			}
 		}
 		
-		if (tagName !== ref[0]) {
-			if (!node && ref.tagName && tagName.toUpperCase() === ref.tagName) {
-				ref = [tagName,, ref, ...ref.childNodes];
+		if (tagName !== info[0]) {
+			if (!node && info.tagName && tagName.toUpperCase() === info.tagName) {
+				info = [tagName,, info, ...info.childNodes];
 			} else {
-				ref = [tagName,, node];
+				info = [tagName,, node];
 			}
 		}
 	
 		if (key) {
-			map[key] = ref;
+			map[key] = info;
 		}
 
-		callback(ref, props, children, context, document, nodes);
+		callback(info, props, children, context, document, nodes);
 	}
 
-	return container[i + 3] = ref;
+	return container[i + 3] = info;
 }
 
 	// the direct ref holds layout info for quicker validation, e.g. [tagName, domRef, ...previousRefs]

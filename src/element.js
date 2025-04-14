@@ -1,8 +1,8 @@
 import { isServer } from './document';
 import render, { remove, reconcile } from './view';
 
-export default function renderElement (ref, props, children, context, document, nodes) {
-	let [tagName, map, node] = ref;
+export default function renderElement (info, props, children, context, document, nodes) {
+	let [tagName, map, node] = info;
 
 	if (!node && tagName !== '') {
 		const { shadowrootmode } = props;
@@ -13,7 +13,7 @@ export default function renderElement (ref, props, children, context, document, 
 			node = document.createElement(typeof tagName === 'number' ? `h${tagName}` : tagName);
 		}
 
-		ref[2] = node;
+		info[2] = node;
 	}
 
 	if (node) {
@@ -83,25 +83,25 @@ export default function renderElement (ref, props, children, context, document, 
 	}
 
 	const [parentNode] = nodes;
-	const removeRefs = new Set(ref.slice(3));
+	const removeInfos = new Set(info.slice(3));
 
 	for (const [i, childLayout] of children.entries()) {
-		const childRef = render(childLayout, context, document, nodes, ref, i, map);
+		const childInfo = render(childLayout, context, document, nodes, info, i, map);
 
-		if (childRef) {
-			removeRefs.delete(childRef);
+		if (childInfo) {
+			removeInfos.delete(childInfo);
 		} else if (map === undefined) {
 			// shift items in hydration mode for next child to process
-			ref.splice(i + 3, 0, undefined);
+			info.splice(i + 3, 0, undefined);
 		}
 	}
 
-	for (const childRef of removeRefs) {
-		remove(childRef, parentNode);
+	for (const childInfo of removeInfos) {
+		remove(childInfo, parentNode);
 	}
 
-	ref[1] = map;
-	ref.splice(children.length + 3);
+	info[1] = map;
+	info.splice(children.length + 3);
 
 	if (node) {
 		reconcile(parentNode, nodes.slice(1), [...parentNode.childNodes]);

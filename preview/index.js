@@ -71,7 +71,7 @@ function generateRecommendations () {
 }
 // END: content generation functions to simulate data from server
 
-const { createState, useMemo, onRender } = stew;
+const { createState, useMemo, useEffect } = stew;
 
 function loadRecommendation (index, globalState) {
 	const { recommendations } = globalState;
@@ -87,8 +87,8 @@ function AdvancedVideoPlayer ({}) {
 		const { video } = globalState;
 		const { id, length, action, color, shape, ft } = video;
 
-		// makes it easier to detect memo change inline wihtout waiting for onRender
-		// - no longer need to store both value and prevValue, prev values are stored similar to how onRender deps does
+		// makes it easier to detect memo change inline wihtout waiting for useEffect
+		// - no longer need to store both value and prevValue, prev values are stored similar to how useEffect deps does
 		// - object dep values will be set to memo after impulse finishes processing, so all the checks will trigger, regardless of order
 		// - callback returns object to merge to memo to avoid having to Object assign them
 		// - onUpdate returns memo instead of having to read from '' prop (less weird this way)
@@ -105,7 +105,7 @@ function AdvancedVideoPlayer ({}) {
 		const secondary = useMemo(() => ft && prepareObject(ft), [ft]);
 		const { playState, currentTime, playTimestamp, hoverActive, completed } = state;
 
-		onRender(() => {
+		useEffect(() => {
 			console.log('===== set video', playState);
 			if (playState !== 'running') return;
 
@@ -268,8 +268,8 @@ function VideoPlayer ({ isRecommendation }) {
 		const { video } = globalState;
 		const { id, length, action, color, shape, ft } = video;
 
-		// makes it easier to detect memo change inline wihtout waiting for onRender
-		// - no longer need to store both value and prevValue, prev values are stored similar to how onRender deps does
+		// makes it easier to detect memo change inline wihtout waiting for useEffect
+		// - no longer need to store both value and prevValue, prev values are stored similar to how useEffect deps does
 		// - object dep values will be set to memo after impulse finishes processing, so all the checks will trigger, regardless of order
 		// - callback returns object to merge to memo to avoid having to Object assign them
 		// - onUpdate returns memo instead of having to read from '' prop (less weird this way)
@@ -286,7 +286,7 @@ function VideoPlayer ({ isRecommendation }) {
 		const secondary = useMemo(() => ft && prepareObject(ft), [ft]);
 		const { playState, currentTime, playTimestamp, hoverActive, completed } = state;
 
-		onRender(() => {
+		useEffect(() => {
 			console.log('===== set video', playState);
 			if (playState !== 'running') return;
 
@@ -352,7 +352,7 @@ function VideoPlayerSection () {
 			return new Promise(resolve => {
 				setTimeout(() => resolve({ text: `loaded ${Math.random().toFixed(8).slice(2)}` }), 1000);
 			});
-		}, []) || { text: 'loading...' };
+		}, [], { text: 'loading...' });
 
 		return ['', null,
 			[VideoPlayer],
@@ -392,7 +392,7 @@ function Comments ({ isRich }) {
 		const { expandedCount } = state;
 		const ref = [];
 
-		onRender(() => {
+		useEffect(() => {
 			console.log('===== set focus on', ref[0]);
 			if (ref.length) ref[0].focus();
 		}, [expandedCount]);

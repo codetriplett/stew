@@ -1,10 +1,10 @@
-import stew, { createState, useMemo, onRender, virtualDocument } from './module';
+import stew, { createState, useMemo, useEffect, virtualDocument } from './module';
 import { isServer } from './document';
 
 Object.assign(stew, {
 	createState,
 	useMemo,
-	onRender,
+	useEffect,
 	virtualDocument,
 });
 
