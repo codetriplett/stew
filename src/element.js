@@ -1,7 +1,8 @@
 import { isServer } from './document';
 import render, { remove, reconcile } from './view';
 
-export default function renderElement (info, props, children, context, document, nodes) {
+export default function renderElement (info, object, children, context, document, nodes) {
+	const { ref, ...props } = object;
 	let [tagName, map, node] = info;
 
 	if (!node && tagName !== '') {
@@ -30,30 +31,19 @@ export default function renderElement (info, props, children, context, document,
 			prevNames.delete(name);
 			nextNames.add(name);
 
-			switch (name) {
-				case 'style':
-				case 'dataset': {
-					const object = node[name];
+			if (name === 'style' || name === 'dataset') {
+				const object = node[name];
 
-					for (const [valueName, string] of Object.entries(value)) {
-						const fullName = `${name}.${valueName}`;
-						prevNames.delete(fullName);
-						nextNames.add(fullName);
+				for (const [valueName, string] of Object.entries(value)) {
+					const fullName = `${name}.${valueName}`;
+					prevNames.delete(fullName);
+					nextNames.add(fullName);
 
-						if (string !== object[valueName]) {
-							object[valueName] = string;
-						}
+					if (string !== object[valueName]) {
+						object[valueName] = string;
 					}
-
-					continue;
 				}
-				case 'ref': {
-					value?.push?.(node);
-					continue;
-				}
-			}
-
-			if (value !== node[name]) {
+			} else if (value !== node[name]) {
 				node[name] = value;
 			}
 		}
@@ -83,6 +73,7 @@ export default function renderElement (info, props, children, context, document,
 	}
 
 	const [parentNode] = nodes;
+	const refIndex = nodes.length;
 	const removeInfos = new Set(info.slice(3));
 
 	for (const [i, childLayout] of children.entries()) {
@@ -105,5 +96,11 @@ export default function renderElement (info, props, children, context, document,
 
 	if (node) {
 		reconcile(parentNode, nodes.slice(1), [...parentNode.childNodes]);
+	} else {
+		node = nodes.slice(refIndex);
+	}
+
+	if (Array.isArray(ref)) {
+		ref.push(node);
 	}
 }

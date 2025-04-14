@@ -1,6 +1,5 @@
-import { execute } from '.';
 import renderElement from './element';
-import renderImpulse from './impulse';
+import renderImpulse, { execute } from './impulse';
 import renderProgram from './program';
 import { unsubscribe } from './state';
 
@@ -19,7 +18,7 @@ export function remove (info, parentNode) {
 		unsubscribe(impulse);
 		remove(proxy, parentNode);
 
-		for (const [teardown] of children) {
+		for (const [, teardown] of children) {
 			if (typeof teardown === 'function') {
 				execute(teardown);
 			}

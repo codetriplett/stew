@@ -37,7 +37,7 @@ export function schedule (subscriptions) {
 	}
 }
 
-export function createState (state) {
+export default function createState (state) {
 	if (isServer) {
 		return state;
 	}

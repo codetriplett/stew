@@ -1,3 +1,5 @@
+import stew from '.';
+
 // tags that shouldn't wrap content when server rendered
 const selfClosingTags = new Set([
 	'wbr', 'track', 'source', 'param', 'meta', 'link', 'keygen', 'input',
@@ -75,7 +77,7 @@ function writeChildNodes (childNodes, tagName) {
 	return allChildNodes.join('');
 }
 
-export const virtualDocument = {
+Object.assign(stew, {
 	createTextNode (nodeValue) {
 		return {
 			nodeValue,
@@ -199,6 +201,6 @@ export const virtualDocument = {
 
 		return element;
 	},
-};
+});
 
 export const isServer = typeof window !== 'object';

@@ -7,11 +7,10 @@ import * as stateModule from './state';
 const schedule = jest.spyOn(stateModule, 'schedule');
 
 jest.mock('./document', () => ({
-	virtualDocument: {},
 	isServer: false,
 }));
 
-// jest.mock('./impulse');
+jest.mock('./impulse');
 jest.mock('./view');
 
 const createDocumentFragment = jest.fn();
@@ -22,12 +21,12 @@ beforeEach(() => {
 	jest.clearAllMocks();
 	createDocumentFragment.mockReturnValue({});
 	querySelector.mockImplementation(tagName => ({ tagName }));
-	Object.assign(virtualDocument, { createDocumentFragment, querySelector });
+	// Object.assign(stew, { createDocumentFragment, querySelector });
 	render.mockReturnValue(ref);
 });
 
 describe('hotSwap', () => {
-	it.only('swaps callback', async () => {
+	it('swaps callback', async () => {
 		const prevChildCallback = () => {};
 		const nextChildCallback = () => {};
 		const prevCallback = () => {};
@@ -66,7 +65,7 @@ describe('stew', () => {
 		const node = { tagName: 'div' };
 		const context = { lmno: 456 };
 		const actual = stew(node, context, 'first', 'last');
-		expect(actual).toBe(ref);
+		expect(actual).toEqual(expect.any(Function));
 		expect(processEffects).toHaveBeenCalled();
 
 		expect(render).toHaveBeenCalledWith(
@@ -109,6 +108,28 @@ describe('stew', () => {
 			[node, {}, 'first', 'last'],
 			context,
 			virtualDocument,
+			[node],
+			['', {}],
+			0,
+			{},
+		);
+	});
+
+	// this is a way of testing client side functionality on the server
+	// - isServer checks should still rely soley on if window is present
+	it.only('allows virtual document', () => {
+		const node = stew.body;
+		const context = { lmno: 456 };
+		const actual = stew(stew, context, ['p', {}, 'first', 'last']);
+		expect(actual).toEqual(expect.any(Function));
+		// expect(processEffects).toHaveBeenCalled();
+		expect(String(node))
+
+
+		expect(render).toHaveBeenCalledWith(
+			[node, {}, 'first', 'last'],
+			context,
+			stew,
 			[node],
 			['', {}],
 			0,

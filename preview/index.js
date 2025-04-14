@@ -71,8 +71,6 @@ function generateRecommendations () {
 }
 // END: content generation functions to simulate data from server
 
-const { createState, useMemo, useEffect } = stew;
-
 function loadRecommendation (index, globalState) {
 	const { recommendations } = globalState;
 	globalState.video = recommendations[index];
@@ -93,7 +91,7 @@ function AdvancedVideoPlayer ({}) {
 		// - callback returns object to merge to memo to avoid having to Object assign them
 		// - onUpdate returns memo instead of having to read from '' prop (less weird this way)
 
-		const state = useMemo(() => createState({
+		const state = stew(() => stew({
 			playState: 'paused',
 			currentTime: 0,
 			playTimestamp: undefined,
@@ -101,11 +99,11 @@ function AdvancedVideoPlayer ({}) {
 			hoverActive: false,
 		}), [id]);
 
-		const primary = useMemo(() => prepareObject(video), [action, color, shape]);
-		const secondary = useMemo(() => ft && prepareObject(ft), [ft]);
+		const primary = stew(() => prepareObject(video), [action, color, shape]);
+		const secondary = stew(() => ft && prepareObject(ft), [ft]);
 		const { playState, currentTime, playTimestamp, hoverActive, completed } = state;
 
-		useEffect(() => {
+		stew(stew(() => {
 			console.log('===== set video', playState);
 			if (playState !== 'running') return;
 
@@ -116,7 +114,7 @@ function AdvancedVideoPlayer ({}) {
 			}, length - currentTime);
 
 			return () => clearTimeout(timeout);
-		}, [playState]);
+		}), [playState]);
 
 		return ['canvas', {
 			width: 960,
@@ -274,7 +272,7 @@ function VideoPlayer ({ isRecommendation }) {
 		// - callback returns object to merge to memo to avoid having to Object assign them
 		// - onUpdate returns memo instead of having to read from '' prop (less weird this way)
 
-		const state = useMemo(() => createState({
+		const state = stew(() => stew({
 			playState: 'paused',
 			currentTime: 0,
 			playTimestamp: undefined,
@@ -282,11 +280,11 @@ function VideoPlayer ({ isRecommendation }) {
 			hoverActive: false,
 		}), [id]);
 
-		const primary = useMemo(() => prepareObject(video), [action, color, shape]);
-		const secondary = useMemo(() => ft && prepareObject(ft), [ft]);
+		const primary = stew(() => prepareObject(video), [action, color, shape]);
+		const secondary = stew(() => ft && prepareObject(ft), [ft]);
 		const { playState, currentTime, playTimestamp, hoverActive, completed } = state;
 
-		useEffect(() => {
+		stew(stew(() => {
 			console.log('===== set video', playState);
 			if (playState !== 'running') return;
 
@@ -297,7 +295,7 @@ function VideoPlayer ({ isRecommendation }) {
 			}, length - currentTime);
 
 			return () => clearTimeout(timeout);
-		}, [playState]);
+		}), [playState]);
 
 		return ['canvas', {
 			width: 960,
@@ -348,7 +346,7 @@ function VideoPlayerSection () {
 		const { video } = globalState;
 		const { title, owner } = video;
 
-		const { text } = useMemo(() => {
+		const { text } = stew(() => {
 			return new Promise(resolve => {
 				setTimeout(() => resolve({ text: `loaded ${Math.random().toFixed(8).slice(2)}` }), 1000);
 			});
@@ -385,17 +383,17 @@ function Comments ({ isRich }) {
 			return;
 		}
 
-		const state = useMemo(() => createState({
+		const state = stew(() => stew({
 			expandedCount: 10,
 		}), [id]);
 
 		const { expandedCount } = state;
 		const ref = [];
 
-		useEffect(() => {
+		stew(stew(() => {
 			console.log('===== set focus on', ref[0]);
 			if (ref.length) ref[0].focus();
-		}, [expandedCount]);
+		}), [expandedCount]);
 
 		return ['', null,
 			...comments.slice(0, expandedCount).map((props, i) => {
@@ -442,7 +440,7 @@ function Recommendations () {
 }
 
 function App (initialProps) {
-	const globalState = createState(initialProps);
+	const globalState = stew(initialProps);
 
 	return ({ swap }) => ['', { globalState },
 		['div', { className: 'header' },
@@ -473,7 +471,7 @@ App.generateInitialState = () => {
 };
 
 App.component = (container) => {
-	const state = createState({ expanded: false })
+	const state = stew({ expanded: false })
 
 	stew(container, () => ['', null,
 		['button', {

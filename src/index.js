@@ -21,21 +21,13 @@
  * SOFTWARE.
  */
 
-import { virtualDocument, isServer } from './document';
-import { processEffects } from './impulse';
-import { schedule } from './state';
+import { isServer } from './document';
+import { effects, processEffects, processMemo } from './impulse';
+import createState, { schedule } from './state';
 import { compile } from './program';
 import render from './view';
 
-const defaultDocument = isServer ? virtualDocument : globalThis.document;
-
-export function execute (callback, ...params) {
-	try {
-		return callback?.(...params);
-	} catch (err) {
-		console.error(err);
-	}
-}
+const defaultDocument = isServer ? stew : globalThis.document;
 
 function hotSwapStep (ref, manifest, subscriptions) {
 	if (!Array.isArray(ref)) {
@@ -59,18 +51,48 @@ function hotSwapStep (ref, manifest, subscriptions) {
 	hotSwapStep(proxy, manifest, subscriptions);
 }
 
-export default function stew (node, ...children) {
-	if (Array.isArray(node)) {
+
+/*
+
+use stew function for hooks as well
+
+stew() // onRender
+// promise that resolves after current impulses and queue has been resolved (mostly for testing)
+
+stew(() => {}, deps) // useMemo
+
+stew(() => {}) // useEffect (but not useFetch)
+stew(() => {}, deps, fallback) // useFetch/useEffect
+// 
+
+*/
+
+// TODO: have the stew function also serve as the virtual document
+// - move the properties that existed on virtualDocument on stew function
+// - maybe change isServer checks to check wiether document is stew or not
+// - might need to set an activeDocument like impulse does for activeRef
+// - with this change, all functionality will use the stew library, and that can be the only export
+export default function stew (...children) {
+	if (!children.length) {
+		// stew() // await render (don't add to effects)
+		return new Promise(resolve => effects.push([, resolve]));
+	}
+
+	let node = children.shift();
+	let document = defaultDocument;
+
+	if (node === stew) {
+		document = stew;
+		node = undefined;
+	} else if (typeof node === 'function') {
+		return processMemo(node, ...children);
+	} else if (Array.isArray(node)) {
 		return compile(node, ...children);
+	} else if (typeof node === 'object' && !children.length) {
+		return createState(node);
 	}
 
 	const context = children.shift() || {};
-	let document = defaultDocument;
-
-	if (node?.createDocumentFragment) {
-		document = node;
-		node = document.body;
-	}
 
 	if (!node) {
 		node = document.createDocumentFragment();
@@ -86,7 +108,7 @@ export default function stew (node, ...children) {
 	const ref = render(layout, context, document, [node], ['', {}], 0, {});
 	processEffects();
 
-	return Object.assign(manifest => {
+	return isServer ? node : manifest => {
 		if (!manifest) {
 			return node;
 		}
@@ -94,7 +116,14 @@ export default function stew (node, ...children) {
 		const subscriptions = new Set();
 		hotSwapStep(ref, manifest, subscriptions);
 		schedule(subscriptions);
-	}, {
-		toString: () => String(node),
-	});
+	};
 };
+
+// TODO: can esbuild take care of this boilerplate?
+if (!isServer) {
+	window.stew = stew;
+}
+
+if (typeof module === 'object') {
+	module.exports = stew;
+}
