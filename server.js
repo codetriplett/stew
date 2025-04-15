@@ -1,7 +1,7 @@
 const { createServer } = require('http');
 const { readFile } = require('fs');
-const stew = require('./stew.min.js');
-const App = require('.');
+const stew = require('./dist/stew.min.js');
+const App = require('./preview/index.js');
 
 const port = process.env.PORT || 8080;
 
@@ -23,7 +23,6 @@ const types = {
 
 const resources = [
 	'favicon.ico',
-	'index.html',
 	'index.css',
 	'index.js',
 	'stew.min.js',
@@ -48,7 +47,7 @@ function send (res, content, type = types.txt) {
 
 function convertComponent ({ name }, vars, container) {
 	console.log('======');
-	// return App[name](container);
+	// return App[name](container);s
 }
 
 createServer(async ({ url }, res) => {
@@ -95,7 +94,9 @@ createServer(async ({ url }, res) => {
 		return send(res);
 	}
 
-	readFile(`${__dirname}/${path}`, ...options, (err, content) => {
+	const folder = path === 'stew.min.js' ? 'dist' : 'preview';
+
+	readFile(`${__dirname}/${folder}/${path}`, ...options, (err, content) => {
 		send(res, content, type);
 	});
 }).listen(port, err => console.log(`server is listening on ${port}`));

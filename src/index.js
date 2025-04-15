@@ -100,30 +100,21 @@ export default function stew (...children) {
 		node = document.querySelector(node);
 
 		if (!node) {
-			return;
+			throw new Error(`Element not found: ${node}`);
 		}
 	}
 
 	const layout = [node, {}, ...children];
-	const ref = render(layout, context, document, [node], ['', {}], 0, {});
+	const ref = render(layout, context, document, [], ['', {}], 0, {});
 	processEffects();
 
 	return isServer ? node : manifest => {
-		if (!manifest) {
-			return node;
+		if (manifest) {
+			const subscriptions = new Set();
+			hotSwapStep(ref, manifest, subscriptions);
+			schedule(subscriptions);
 		}
 
-		const subscriptions = new Set();
-		hotSwapStep(ref, manifest, subscriptions);
-		schedule(subscriptions);
+		return node;
 	};
 };
-
-// TODO: can esbuild take care of this boilerplate?
-if (!isServer) {
-	window.stew = stew;
-}
-
-if (typeof module === 'object') {
-	module.exports = stew;
-}

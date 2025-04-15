@@ -4,8 +4,8 @@ let stew;
 if (typeof window === 'object') {
 	stew = window.stew;
 	window.App = App;
-} else if (typeof module === 'object') {
-	stew = require('./stew.min.js');
+} else {
+	stew = require('../dist/stew.min.js');
 	module.exports = App;
 }
 
