@@ -29,26 +29,34 @@ import render from './view';
 
 const defaultDocument = isServer ? stew : globalThis.document;
 
-function hotSwapStep (ref, manifest, subscriptions) {
-	if (!Array.isArray(ref)) {
+function hotSwapStep (info, manifest, subscriptions) {
+	if (!Array.isArray(info)) {
 		return;
 	}
 
-	const [callback, impulse, proxy, ...children] = ref;
+	const [callback, impulse, proxy, ...children] = info;
 
 	if (!Array.isArray(impulse)) {
 		children.map(childRef => hotSwapStep(childRef, manifest, subscriptions))
 		return;
 	}
 
-	const replacement = manifest.get(callback);
+	const override = manifest.get(callback);
 
-	if (replacement) {
-		ref[0] = replacement;
+	if (override) {
+		info[0] = override;
 		subscriptions.add(impulse);
 	}
 
 	hotSwapStep(proxy, manifest, subscriptions);
+}
+
+function suspend (info) {
+
+}
+
+function resume (info) {
+
 }
 
 
@@ -81,7 +89,7 @@ export default function stew (...children) {
 	let node = children.shift();
 	let document = defaultDocument;
 
-	if (node === stew) {
+	if (node === stew && !Array.isArray(children[0])) {
 		document = stew;
 		node = undefined;
 	} else if (typeof node === 'function') {
@@ -105,16 +113,34 @@ export default function stew (...children) {
 	}
 
 	const layout = [node, {}, ...children];
-	const ref = render(layout, context, document, [], ['', {}], 0, {});
+	const info = render(layout, context, document, [], ['', {}], 0, {});
 	processEffects();
 
 	return isServer ? node : manifest => {
-		if (manifest) {
-			const subscriptions = new Set();
-			hotSwapStep(ref, manifest, subscriptions);
-			schedule(subscriptions);
-		}
+		switch (manifest) {
+			case undefined: {
+				return node;
+			}
+			case true: {
+				// TOOD: write this
+				// - it is essentially like remove(), but just the teardown part
+				// - needs to deep seek for all impulses
+				resume(info);
+				return;
+			}
+			case false: {
+				// TODO: write this
+				// - it is essentially like hostSwap, but keeps callbacks intact and just triggers them
+				// - doesn't need to seek inside of the children of the root impulses it finds
+				suspend(info);
+				return;
+			}
 
-		return node;
+			// need to suspend and resume webgl animations as well
+		}
+		
+		const subscriptions = new Set();
+		hotSwapStep(info, manifest, subscriptions);
+		schedule(subscriptions);
 	};
 };

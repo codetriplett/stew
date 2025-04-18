@@ -103,7 +103,7 @@ function AdvancedVideoPlayer ({}) {
 		const secondary = stew(() => ft && prepareObject(ft), [ft]);
 		const { playState, currentTime, playTimestamp, hoverActive, completed } = state;
 
-		stew(stew(() => {
+		stew(stew, [playState], () => {
 			console.log('===== set video', playState);
 			if (playState !== 'running') return;
 
@@ -114,7 +114,7 @@ function AdvancedVideoPlayer ({}) {
 			}, length - currentTime);
 
 			return () => clearTimeout(timeout);
-		}), [playState]);
+		});
 
 		return ['canvas', {
 			width: 960,
@@ -284,7 +284,7 @@ function VideoPlayer ({ isRecommendation }) {
 		const secondary = stew(() => ft && prepareObject(ft), [ft]);
 		const { playState, currentTime, playTimestamp, hoverActive, completed } = state;
 
-		stew(stew(() => {
+		stew(stew, [playState], () => {
 			console.log('===== set video', playState);
 			if (playState !== 'running') return;
 
@@ -295,7 +295,7 @@ function VideoPlayer ({ isRecommendation }) {
 			}, length - currentTime);
 
 			return () => clearTimeout(timeout);
-		}), [playState]);
+		});
 
 		return ['canvas', {
 			width: 960,
@@ -390,10 +390,10 @@ function Comments ({ isRich }) {
 		const { expandedCount } = state;
 		const ref = [];
 
-		stew(stew(() => {
+		stew(stew, [expandedCount], () => {
 			console.log('===== set focus on', ref[0]);
 			if (ref.length) ref[0].focus();
-		}), [expandedCount]);
+		});
 
 		return ['', null,
 			...comments.slice(0, expandedCount).map((props, i) => {
