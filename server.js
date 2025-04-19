@@ -52,7 +52,7 @@ function convertComponent ({ name }, vars, container) {
 
 createServer(async ({ url }, res) => {
 	if (url === '/') {
-		const initialProps = App.generateInitialState();
+		const initialProps = App.generateInitialState?.() || {};
 
 		const html = [
 			'<!DOCTYPE html>',
@@ -71,10 +71,8 @@ createServer(async ({ url }, res) => {
 					'<script src="/index.js"></script>',
 					'<script>',
 						'const render = ({ name }, vars, container) => App[name](container);',
-						'const context = { \'\': render, swap: () => swap(manifest) };',
-						`const swap = stew(\'#app\', context, App(${JSON.stringify(initialProps)}));`,
-						'const manifest = new Map();',
-						'manifest.set(App.VideoPlayer, App.AdvancedVideoPlayer);',
+						'const context = { \'\': render, swap: () => swap(window.manifest) };',
+						`const swap = stew(\'#app\', context, [App, ${JSON.stringify(initialProps)}]);`,
 					'</script>',
 				'</body>',
 			'</html>',

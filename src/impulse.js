@@ -1,7 +1,7 @@
 import stew from '.';
 import { isServer } from './document';
 import render, { remove, reconcile } from './view';
-import { unsubscribe, schedule } from './state';
+import createState, { schedule } from './state';
 
 export const impulses = [];
 export const effects = [];
@@ -39,43 +39,37 @@ export function processEffects () {
 //   - pass in nothing to suspend or resume
 //   - in both cases clearing the variable that holds the suspend/resume/swap will allow it to garbage collect the tree
 export function processMemo (callback, ...rest) {
-	if (!rest.length) {
-		// if it is a detached impulse
-		const info = [callback];
-		const impulse = renderImpulse (info, {}, [], {}, null, []);
-		let isSuspended = false;
-
-		return isServer ? node : override => {
-			if (override) {
-				info[0] = override;
-				schedule(new Set([impulse]));
-			} else if (isSuspended) {
-				impulse[0]();
-			} else {
-				unsubscribe(impulse);
-			}
-		};
-	} else if (!activeInfo) {
+	if (!activeInfo) {
 		return;
 	}
 
 	const [deps = [], fallback] = rest;
 	const memo = prevMemos.shift() || [undefined];
+	let value = memo[1];
 	activeInfo.push(memo);
 
+	// TODO: can there be a way to omit mount from effect, and just process updates?
 	if (memo.length > 1 && deps.every((value, i) => value === memo[i + 2])) {
 		// if memo should remain the same
 		memo.splice(deps.length + 2);
-		return memo[1];
+		return value;
 	} else if (callback === stew) {
-		// if effect should be scheduled
-		memo[0] = fallback;
-		effects.push(memo);
+		if (fallback && !isServer) {
+			// if effect should be scheduled
+			memo[0] = fallback;
+			effects.push(memo);
+		}
+
 		return;
 	}
 
 	// if memo should be updated
-	let value = callback(memo[1]);
+	if (typeof callback === 'function') {
+		value = callback(value);
+	} else {
+		value = createState(callback);
+	}
+
 	const [, prevValue] = memo.splice(0, 2, undefined, value);
 
 	if (rest.length > 1 && value instanceof Promise) {

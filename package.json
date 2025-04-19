@@ -9,7 +9,7 @@
 	"scripts": {
 		"test": "jest --watch",
 		"build": "rimraf dist && node build.mjs",
-		"start": "npm run build && node server.js"
+		"start": "node server.js"
 	},
 	"keywords": [
 		"state",

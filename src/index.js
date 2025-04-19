@@ -22,7 +22,7 @@
  */
 
 import { isServer } from './document';
-import { effects, processEffects, processMemo } from './impulse';
+import renderImpulse, { effects, processEffects, processMemo } from './impulse';
 import createState, { schedule } from './state';
 import { compile } from './program';
 import render from './view';
@@ -87,20 +87,49 @@ export default function stew (...children) {
 	}
 
 	let node = children.shift();
-	let document = defaultDocument;
 
-	if (node === stew && !Array.isArray(children[0])) {
-		document = stew;
-		node = undefined;
-	} else if (typeof node === 'function') {
-		return processMemo(node, ...children);
-	} else if (Array.isArray(node)) {
+	if (Array.isArray(node)) {
 		return compile(node, ...children);
-	} else if (typeof node === 'object' && !children.length) {
-		return createState(node);
+	} else if (!children.length) {
+		if (typeof node === 'function') {
+			// TODO: have this be handled by the normal stew code
+			// - info can be become [info] // maybe read impulses stack and put parent as container to store child impulses to. 
+			// - it can use the same return function. There just might not be any children to search.
+
+			// if it is a detached impulse
+			const info = [callback];
+			const impulse = renderImpulse (info, {}, [], {}, null, []);
+			let isSuspended = false;
+
+			return isServer ? node : override => {
+				if (override) {
+					info[0] = override;
+					schedule(new Set([impulse]));
+				} else if (isSuspended) {
+					impulse[0]();
+				} else {
+					unsubscribe(impulse);
+				}
+			};
+		} else {
+			console.log('==== create state');
+			return createState(node);
+		}
+	}
+	
+	const context = children.shift() || {};
+	
+	if (Array.isArray(context)) {
+		// allow stew({ ... }, []) to be a shortcut to create state with initial values
+		return processMemo(node, context, ...children);
 	}
 
-	const context = children.shift() || {};
+	let document = defaultDocument;
+
+	if (node === stew) {
+		document = stew;
+		node = undefined;
+	}
 
 	if (!node) {
 		node = document.createDocumentFragment();
