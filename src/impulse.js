@@ -107,10 +107,10 @@ export default function renderImpulse (info, object, children, context, document
 		impulses.unshift(impulse);
 		prevMemos = info.splice(3);
 		activeInfo = info;
-		const layout = execute(callback, props, ...children) || '';
+		const layout = execute(callback, props, ...children);
 
 		if (document) {
-			const proxy = render(layout, context, document, nodes, info, -1, {});
+			const proxy = render(layout || '', context, document, nodes, info, -1, {});
 
 			if (prevNodes) {
 				reconcile(parentNode, nodes.slice(1), prevNodes, sibling);
@@ -128,6 +128,8 @@ export default function renderImpulse (info, object, children, context, document
 			if (Array.isArray(ref)) {
 				ref[refIndex] = [...prevNodes];
 			}
+		} else {
+			info[2] = layout;
 		}
 
 		activeInfo = activeInfoBackup;
@@ -136,5 +138,4 @@ export default function renderImpulse (info, object, children, context, document
 
 	impulse[0] = update;
 	update();
-	return impulse;
 }

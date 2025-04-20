@@ -22,8 +22,8 @@
  */
 
 import { isServer } from './document';
-import renderImpulse, { effects, processEffects, processMemo } from './impulse';
-import createState, { schedule } from './state';
+import { effects, processEffects, processMemo } from './impulse';
+import createState, { schedule, unsubscribe } from './state';
 import { compile } from './program';
 import render from './view';
 
@@ -51,14 +51,30 @@ function hotSwapStep (info, manifest, subscriptions) {
 	hotSwapStep(proxy, manifest, subscriptions);
 }
 
-function suspend (info) {
+export function suspend (info) {
+	const [, impulse,, ...children] = info;
 
+	if (Array.isArray(impulse)) {
+		unsubscribe(info);
+	}
+
+	for (const child of children) {
+		suspend(child);
+	}
 }
 
-function resume (info) {
+export function resume (info, subscriptions) {
+	const [, impulse,, ...children] = info;
 
+	if (Array.isArray(impulse)) {
+		subscriptions.add(impulse);
+		return;
+	}
+
+	for (const child of children) {
+		resume(child);
+	}
 }
-
 
 /*
 
@@ -87,89 +103,87 @@ export default function stew (...children) {
 	}
 
 	let node = children.shift();
+	let layout, context, document;
 
 	if (Array.isArray(node)) {
 		return compile(node, ...children);
 	} else if (!children.length) {
-		if (typeof node === 'function') {
-			// TODO: have this be handled by the normal stew code
-			// - info can be become [info] // maybe read impulses stack and put parent as container to store child impulses to. 
-			// - it can use the same return function. There just might not be any children to search.
-
-			// if it is a detached impulse
-			const info = [callback];
-			const impulse = renderImpulse (info, {}, [], {}, null, []);
-			let isSuspended = false;
-
-			return isServer ? node : override => {
-				if (override) {
-					info[0] = override;
-					schedule(new Set([impulse]));
-				} else if (isSuspended) {
-					impulse[0]();
-				} else {
-					unsubscribe(impulse);
-				}
-			};
-		} else {
-			console.log('==== create state');
+		if (typeof node === 'object') {
+			// maybe move this into memo code, since create state is done there if deps check passes and first param is an object
 			return createState(node);
 		}
-	}
-	
-	const context = children.shift() || {};
-	
-	if (Array.isArray(context)) {
-		// allow stew({ ... }, []) to be a shortcut to create state with initial values
-		return processMemo(node, context, ...children);
-	}
 
-	let document = defaultDocument;
-
-	if (node === stew) {
-		document = stew;
+		// if it is a detached impulse
+		// TODO: maybe allow passing params -> stew(callback, { ...props }, ...children)
+		// - have it treat any function that isn't stew itself and isn't followed by an array as a deteched impulse
+		layout = [node];
 		node = undefined;
-	}
-
-	if (!node) {
-		node = document.createDocumentFragment();
-	} else if (typeof node === 'string') {
-		node = document.querySelector(node);
-
-		if (!node) {
-			throw new Error(`Element not found: ${node}`);
+	} else {
+		const context = children.shift() || {};
+		
+		if (Array.isArray(context)) {
+			return processMemo(node, context, ...children);
 		}
+
+		document = defaultDocument;
+
+		if (node === stew) {
+			document = stew;
+			node = undefined;
+		} else if (!node) {
+			node = document.createDocumentFragment();
+		}
+
+		if (typeof node === 'string') {
+			node = document.querySelector(node);
+
+			if (!node) {
+				throw new Error(`Element not found: ${node}`);
+			}
+		}
+
+		layout = [node, {}, ...children];
 	}
 
-	const layout = [node, {}, ...children];
-	const info = render(layout, context, document, [], ['', {}], 0, {});
+	info = render(layout, context, document, [], ['', {}], 0, {});
 	processEffects();
 
-	return isServer ? node : manifest => {
-		switch (manifest) {
-			case undefined: {
-				return node;
+	return Object.assign(manifest => {
+		switch (typeof manifest) {
+			case 'boolean': {
+				if (manifest) {
+					const subscriptions = new Set();
+					resume(info, subscriptions);
+					schedule(subscriptions);
+				} else {
+					suspend(info);
+				}
+
+				break;
 			}
-			case true: {
-				// TOOD: write this
-				// - it is essentially like remove(), but just the teardown part
-				// - needs to deep seek for all impulses
-				resume(info);
-				return;
+			case 'function': {
+				const override = manifest;
+				manifest = new Map();
+				manifest.set(info[0], override);
 			}
-			case false: {
-				// TODO: write this
-				// - it is essentially like hostSwap, but keeps callbacks intact and just triggers them
-				// - doesn't need to seek inside of the children of the root impulses it finds
-				suspend(info);
-				return;
+			case 'object': {
+				if (!manifest) {
+					remove(info);
+				} else {
+					const subscriptions = new Set();
+					hotSwapStep(info, manifest, subscriptions);
+					schedule(subscriptions);
+				}
+
+				break;
 			}
 
-			// need to suspend and resume webgl animations as well
+			// TODO: need to suspend and resume webgl animations as well
+			// - could just make the duration 0 when returning from pause
 		}
-		
-		const subscriptions = new Set();
-		hotSwapStep(info, manifest, subscriptions);
-		schedule(subscriptions);
-	};
+
+		return info[2];
+	}, {
+		toString: () => String(info[2]),
+	});
 };
