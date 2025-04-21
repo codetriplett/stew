@@ -18,6 +18,15 @@ beforeEach(() => {
 	};
 });
 
+// TODO: test memo calls
+// const value = stew(() => {}, []): useMemo
+// const state = stew({ ...props }, []): useMemoState
+// const data = stew(() => {}, [], { ...props }): useFetch (props serve as fallback values before promise finishes)
+// const Component = stew(() => import('/component'), [], null): useAsyncComponent (null will be the initial value until code is loaded)
+// stew(null, [], () => {}): useEffect (no return value) null means no immediate effect
+
+// await stew(): onRender (has moved to stew code instead of memo code)
+
 describe('processFollowups', () => {
 
 });

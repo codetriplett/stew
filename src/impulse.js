@@ -54,6 +54,10 @@ export function processMemo (callback, ...rest) {
 		memo.splice(deps.length + 2);
 		return value;
 	} else if (callback === stew) {
+		// TODO: don't use stew to denote effect, it wouldn't be well received
+		// - just use null instead stew(null, [], ...children)
+		// - should the same be done for virtual document stew(null, {}, ...children)
+		// - array as second param differentiates between effect and virtual render
 		if (fallback && !isServer) {
 			// if effect should be scheduled
 			memo[0] = fallback;

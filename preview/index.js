@@ -11,10 +11,12 @@
 
 	const state = stew({
 		isInitialized: false,
-		showNotes: false,
 		dayCount: 0,
 		activeDay: 0,
-		activeName: '',
+		activeRoom: 0,
+		activeRoomName: '',
+		activePropName: '',
+		report: '',
 	});
 
 	function parseLabel (value) {
@@ -22,30 +24,147 @@
 		return [name, flags];
 	}
 
+	function renderIndicators (min, max) {
+		return ['div', { className: 'indicators' },
+			...Array(min - 1).fill(0).map(() => ['div', { className: 'indicator' }]),
+			...Array(max - min + 1).fill(0).map(() => ['div', { className: 'indicator filled' }]),
+			...Array(9 - max).fill(0).map(() => ['div', { className: 'indicator' }]),
+		];
+	}
+
+	function generateReport (days) {
+		// 1) check that rooms show the same orientations of doors through the day, and build list of which have fixed rotations
+		// - 1: dead end, 2: through, 0: corner, 3: t intersection, 4: cross intersection
+		// 2) check that rooms show the same colors, and update any that are missing any (update with the flags of the most recent occurance)
+
+		const doorTypes = {};
+		const doors = {};
+		const colors = {};
+		const notes = {}; // use keys from room notes (parse for label:)
+
+		const names = new Set();
+		const counts = {};
+		const ranges = {}; // [minColumn, minTier, maxColumn, maxTier]
+		const adjacentRooms = {};
+		const connectedRooms = {};
+
+		for (let i = days.length - 1; i >= 0; i--) {
+			const day = days[i];
+
+			for (const [j, label] of day.entries()) {
+				const [name, flags] = parseLabel(label);
+
+				if (!name) {
+					continue;
+				}
+
+				if (!(name in counts)) {
+					counts[name] = 1;
+				} else {
+					counts[name] += 1;
+				}
+
+				const range = ranges[name];
+				const column = (j % 5) + 1;
+				const tier = Math.floor(j / 5) + 1;
+				names.add(name);
+
+				if (!range) {
+					ranges[name] = [column, tier, column, tier];
+				} else {
+					if (column < range[[0]]) {
+						range[0] = column;
+					} else if (column > range[2]) {
+						range[2] = column;
+					}
+
+					if (tier < range[1]) {
+						range[1] = tier;
+					} else if (tier > range[3]) {
+						range[3] = tier;
+					}
+				}
+
+
+				const set = [...new Set(flags.split(''))];
+				const doorFlags = set.filter(flag => /[NSEW]/.test(flag)).sort();
+				const colorFlags = set.filter(flag => /[ROYGBV]/.test(flag)).sort();
+				const doorString = doorFlags.join('');
+				const doorType = `${doorFlags.length}${doorString.length !== 2 ? '' : doorString === 'NS' || doorString === 'EW' ? 'l' : 'c'}`;
+				
+				if (!doorTypes[name]) {
+					doorTypes[name] = doorType;
+				} else if (doorTypes[name] !== doorType) {
+					console.error(`Mismatched door configuration: Day ${days.length - i}, Tile ${j}, ${name}, ${doorTypes[name]} -> ${doorType}`);
+				}
+
+				if (!colorFlags.length) {
+					if (!colors[name]) {
+						console.error(`Unknown room color: Day ${days.length - i}, Tile ${j}, ${name}`);
+					} else {
+						colorFlags.push(...colors[name]);
+					}
+				}
+
+				if (colorFlags.length) {
+					colors[name] = colorFlags;
+				}
+
+				doors[name] = doorFlags;
+				day[j] = `${name} ${doorString}${colorFlags.join('')}`;
+			}
+		}
+
+		return ['', {},
+			...[...names].sort().map(name => {
+				const range = ranges[name];
+
+				return ['', {},
+					['h3', {},
+						name,
+						['div', {},
+							renderIndicators(range[0], range[2]),
+							renderIndicators(range[1], range[3]),
+						],
+						counts[name],
+					],
+				];
+			}),
+		];
+	}
+
 	function App () {
-		const { isInitialized, showNotes, dayCount, activeDay, activeRoom, activeName } = state;
+		const { isInitialized, dayCount, activeDay, activeRoom, activeRoomName, activePropName, report } = state;
 
 		stew(stew, [], () => {
 			state.isInitialized = true;
 		});
 
 		// array of days with tiers, then rooms
-		const [days, rooms] = stew(() => {
+		const [days, tiles, rooms] = stew(() => {
 			if (!isInitialized) {
-				return [[[]], {}];
+				return [[[]], [], {}];
 			}
 
 			const days = JSON.parse(window.localStorage.getItem('days') || '[[]]');
+			const tiles = JSON.parse(window.localStorage.getItem('tiles') || '[]');
 			const rooms = JSON.parse(window.localStorage.getItem('rooms') || '{}');
-			return [days, rooms];
+			return [days, tiles, rooms];
+		}, [isInitialized]);
+
+		const tilePropNames = stew(() => {
+			if (!isInitialized) {
+				return [];
+			}
+
+			return [...new Set(tiles.map(tile => tile ? Object.keys(tile) : []).flat())];
 		}, [isInitialized]);
 
 		const grid = days[activeDay];
 		const tiers = [];
 		const roomRef = [];
 		const textareaRef = [];
-		const name = grid[activeRoom] || '';
-		const text = rooms[name] || '';
+		const text = rooms[activeRoomName] || '';
 
 		// TODO: figure out why text isn't being switched out properly with text as child in layout
 		// - is it just textarea, or is it all elements?
@@ -58,16 +177,18 @@
 		});
 
 		function updateNotes () {
-			if (!showNotes) {
+			const [textarea] = textareaRef;
+
+			if (activePropName || !textarea) {
 				return;
 			}
 
-			const text = textareaRef[0].value.trim();
+			const roomText = textarea.value.trim();
 
-			if (text) {
-				rooms[activeName] = text;
+			if (roomText) {
+				rooms[activeRoomName] = roomText;
 			} else {
-				delete rooms[activeName];
+				delete rooms[activeRoomName];
 			}
 		}
 
@@ -75,9 +196,13 @@
 			const rooms = [];
 
 			for (let j = i; j < i + 5; j++) {
-				const value = (grid[j] || '').trim();
-				const [name, flags] = parseLabel(value);
-				const className = name ? [...new Set(flags.split(''))].join(' ').toLowerCase() : 'empty';
+				const value = ((activePropName ? tiles[j]?.[activePropName] : grid[j]) || '').trim();
+				let className = value ? '' : 'empty';
+
+				if (value && !activePropName) {
+					const [, flags] = parseLabel(value);
+					className = [...new Set(flags.split(''))].join(' ').toLowerCase();
+				}
 
 				rooms.push(['td', { className },
 					['input', {
@@ -88,12 +213,20 @@
 							const { value } = roomRef[j];
 							updateNotes();
 							state.activeRoom = j;
-							state.activeName = parseLabel(value)[0];
-							state.showNotes = true;
+							state.activeRoomName = activePropName ? value : parseLabel(value)[0];
 						},
 						onblur: () => {
 							const { value } = roomRef[j];
-							grid[j] = value;
+
+							if (!activePropName) {
+								grid[j] = value;
+							} else {
+								if (!tiles[activeRoom]) {
+									tiles[activeRoom] = {};
+								}
+
+								tiles[activeRoom][activePropName] = value;
+							}
 						},
 					}],
 				]);
@@ -111,27 +244,32 @@
 				}, 'Previous Day'],
 				['button', {
 					type: 'button',
+					className: report ? 'active' : '',
 					onclick: () => {
-						days.splice(activeDay, 1);
-						state.dayCount = days.count;
-						state.activeDay = Math.max(0, state.activeDay - 1);
+						if (report) {
+							state.report = '';
+						} else {
+							state.report = generateReport(days);
+						}
 					},
-				}, `Delete Day ${days.length - activeDay}`],
+				}, 'View Report'],
+				['div', {},
+					`Day ${days.length - activeDay}`,
+					['button', {
+						type: 'button',
+						onclick: () => {
+							days.splice(activeDay, 1);
+							state.dayCount = days.count;
+							state.activeDay = Math.max(0, state.activeDay - 1);
+						},
+					}, '✕'],
+				],
 				['button', {
 					type: 'button',
 					onclick: () => {
-						const grid = roomRef.map(inputRef => inputRef.value);
-						days[activeDay] = grid;
-						const validRooms = {};
-						updateNotes();
-
-						for (const value of grid) {
-							const [name] = parseLabel(value);
-							validRooms[name] = rooms[name];
-						}
-
 						window.localStorage.setItem('days', JSON.stringify(days));
-						window.localStorage.setItem('rooms', JSON.stringify(validRooms));
+						window.localStorage.setItem('tiles', JSON.stringify(tiles));
+						window.localStorage.setItem('rooms', JSON.stringify(rooms));
 					},
 				}, 'Save Changes'],
 				activeDay === 0
@@ -148,17 +286,39 @@
 					}, 'Next Day'],
 			],
 			['table', {}, ...tiers],
-			['textarea', {
+			report || ['h2', {}, activeRoomName],
+			!report && !activePropName && activeRoomName && ['textarea', {
 				ref: textareaRef,
 				onfocus: () => {
+					if (activeRoom === undefined) {
+						return;
+					}
+
 					const { value } = roomRef[activeRoom];
 					state.activeName = parseLabel(value)[0];
-					state.showNotes = true;
 				},
 				onblur: () => {
 					updateNotes();
 				},
-			}, showNotes ? rooms[activeName] : ''],
+			}, rooms[activeRoomName] || ''],
+			['div', {},
+				...tilePropNames.map(name => ['button', {
+					type: 'button',
+					className: name === activePropName ? 'active' : '',
+					onclick: () => state.activePropName = name === activePropName ? '' : name,
+				}, name]),
+				['input', {
+					placeholder: 'New tile prop',
+					onblur: ({ target }) => {
+						const name = target.value.trim();
+
+						if (tilePropNames.indexOf(name) === -1) {
+							tilePropNames.push(name);
+							state.activePropName = name;
+						}
+					},
+				}],
+			],
 		];
 	}
 })();
