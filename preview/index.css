@@ -142,18 +142,23 @@ ul {
 
 h3 {
 	margin: 0;
-}
-h3 div {
-	display: inline-block;
-    vertical-align: baseline;
-    padding: 0 8px;
+
+	div {
+		display: inline-block;
+		vertical-align: baseline;
+		padding: 0 8px;
+	}
+	span {
+		font-size: 17px;
+    	font-weight: normal;
+	}
 }
 .indicators {
 	display: flex;
 	justify-content: space-between;
 	gap: 2px;
 	height: 6px;
-	width: 202px;
+	width: 204px;
 
 	&:before {
 		content: 'wing';

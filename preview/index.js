@@ -24,11 +24,9 @@
 		return [name, flags];
 	}
 
-	function renderIndicators (min, max) {
+	function renderIndicators (array) {
 		return ['div', { className: 'indicators' },
-			...Array(min - 1).fill(0).map(() => ['div', { className: 'indicator' }]),
-			...Array(max - min + 1).fill(0).map(() => ['div', { className: 'indicator filled' }]),
-			...Array(9 - max).fill(0).map(() => ['div', { className: 'indicator' }]),
+			...array.map(filled => ['div', { className: `indicator ${filled ? 'filled' : ''}` }]),
 		];
 	}
 
@@ -43,15 +41,25 @@
 		const notes = {}; // use keys from room notes (parse for label:)
 
 		const names = new Set();
+		const firstSeen = {};
 		const counts = {};
-		const ranges = {}; // [minColumn, minTier, maxColumn, maxTier]
-		const adjacentRooms = {};
-		const connectedRooms = {};
+		const wings = {};
+		const tiers = {};
+		const adjacentRooms = {}; // rooms that share an adjacent wall, whether or not they share a door
+		const connectedRooms = {}; // rooms that share a door on an adjacent side
+		const lowerRooms = {}; // rooms that exist in the tiers below the lowest instance of a room
+		const allRooms = {}; // rooms that exist in the same floorplan as another
+		// TODO: find patterns in the above data by taking the number of times two rooms have a relationship vs the total number of times they exist on a day together
 
 		for (let i = days.length - 1; i >= 0; i--) {
 			const day = days[i];
+			const roomsThisDay = new Set();
 
 			for (const [j, label] of day.entries()) {
+				if (!label) {
+					continue;
+				}
+
 				const [name, flags] = parseLabel(label);
 
 				if (!name) {
@@ -64,27 +72,29 @@
 					counts[name] += 1;
 				}
 
-				const range = ranges[name];
-				const column = (j % 5) + 1;
-				const tier = Math.floor(j / 5) + 1;
-				names.add(name);
-
-				if (!range) {
-					ranges[name] = [column, tier, column, tier];
-				} else {
-					if (column < range[[0]]) {
-						range[0] = column;
-					} else if (column > range[2]) {
-						range[2] = column;
-					}
-
-					if (tier < range[1]) {
-						range[1] = tier;
-					} else if (tier > range[3]) {
-						range[3] = tier;
-					}
+				if (!(name in firstSeen)) {
+					firstSeen[name] = days.length - i;
 				}
 
+				if (!(name in wings)) {
+					wings[name] = Array(5).fill(false);
+				}
+
+				if (!(name in tiers)) {
+					tiers[name] = Array(9).fill(false);
+				}
+
+				if (!(name in roomsThisDay)) {
+					roomsThisDay[name] = new Set();
+				}
+
+				const wing = j % 5;
+				const tier = Math.floor(j / 5);
+				roomsThisDay.add(name);
+				allRooms[name] = roomsThisDay;
+				names.add(name);
+				wings[name][wing] = true;
+				tiers[name][tier] = true;
 
 				const set = [...new Set(flags.split(''))];
 				const doorFlags = set.filter(flag => /[NSEW]/.test(flag)).sort();
@@ -117,16 +127,18 @@
 
 		return ['', {},
 			...[...names].sort().map(name => {
-				const range = ranges[name];
+				const tiersArray = tiers[name];
+				const wingsArray = wings[name];
+				const count = counts[name];
 
 				return ['', {},
 					['h3', {},
 						name,
 						['div', {},
-							renderIndicators(range[0], range[2]),
-							renderIndicators(range[1], range[3]),
+							renderIndicators(wingsArray),
+							renderIndicators(tiersArray),
 						],
-						counts[name],
+						['span', {}, `Drafted ${count} time${count > 1 ? 's' : ''} since Day ${firstSeen[name]}`],
 					],
 				];
 			}),
