@@ -19,7 +19,7 @@ export function execute (callback, ...params) {
 export function processEffects () {
 	for (const effect of effects.splice(0)) {
 		const [followup, teardown] = effect;
-		const param = typeof teardown === 'function' && execute(teardown);
+		const param = typeof teardown === 'function' ? execute(teardown) : undefined;
 		effect.splice(0, 2, undefined, execute(followup, param));
 	}
 }

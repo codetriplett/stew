@@ -27,9 +27,7 @@ import createState, { schedule, unsubscribe } from './state';
 import { compile } from './program';
 import render from './view';
 
-const defaultDocument = isServer ? stew : globalThis.document;
-
-function hotSwapStep (info, manifest, subscriptions) {
+export function hotSwapStep (info, manifest, subscriptions) {
 	if (!Array.isArray(info)) {
 		return;
 	}
@@ -96,56 +94,45 @@ stew(() => {}, deps, fallback) // useFetch/useEffect
 // - maybe change isServer checks to check wiether document is stew or not
 // - might need to set an activeDocument like impulse does for activeRef
 // - with this change, all functionality will use the stew library, and that can be the only export
-export default function stew (...children) {
-	if (!children.length) {
+export default function stew (...params) {
+	if (!params.length) {
 		// stew() // await render (don't add to effects)
 		return new Promise(resolve => effects.push([, resolve]));
 	}
 
-	let node = children.shift();
-	let layout, context, document;
+	let [node, context, ...children] = params;
+	let document, layout;
 
 	if (Array.isArray(node)) {
-		return compile(node, ...children);
-	} else if (!children.length) {
-		if (typeof node === 'object') {
-			// maybe move this into memo code, since create state is done there if deps check passes and first param is an object
-			return createState(node);
-		}
-
-		// if it is a detached impulse
-		// TODO: maybe allow passing params -> stew(callback, { ...props }, ...children)
-		// - have it treat any function that isn't stew itself and isn't followed by an array as a deteched impulse
-		layout = [node];
-		node = undefined;
+		return compile(...params);
+	} else if (Array.isArray(context)) {
+		return processMemo(node, context, ...children);
+	} else if (node === stew) {
+		document = stew;
+		node = '';
+	} else if (typeof node === 'function') {
+		layout = params;
+		context = undefined;
+	} else if (params.length === 1) {
+		return createState(node);
 	} else {
-		const context = children.shift() || {};
-		
-		if (Array.isArray(context)) {
-			return processMemo(node, context, ...children);
-		}
+		document = isServer ? stew : globalThis.document;
+	}
 
-		document = defaultDocument;
-
-		if (node === stew) {
-			document = stew;
-			node = undefined;
-		} else if (!node) {
-			node = document.createDocumentFragment();
-		}
-
+	if (!layout) {
 		if (typeof node === 'string') {
-			node = document.querySelector(node);
+			node = node ? document.querySelector(node) : document.createDocumentFragment();
+		}
 
-			if (!node) {
-				throw new Error(`Element not found: ${node}`);
-			}
+		if (!node) {
+			console.error(`Element not found: ${node}`);
+			return;
 		}
 
 		layout = [node, {}, ...children];
 	}
 
-	info = render(layout, context, document, [], ['', {}], 0, {});
+	const info = render(layout, context, document, [], ['', {}], 0, {});
 	processEffects();
 
 	return Object.assign(manifest => {

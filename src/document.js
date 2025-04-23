@@ -24,7 +24,7 @@ function findMatches (nodes, selectors, matches) {
 			const [tagName, id, ...classes] = query;
 			let childSelectors = selectors;
 
-			const isMatch = (!tagName || tagName === node.tagName)
+			const isMatch = (!tagName || tagName.toUpperCase() === node.tagName)
 				&& (!id || id === node.id)
 				&& classes.every(item => nodeClasses.has(item));
 
@@ -201,6 +201,16 @@ Object.assign(stew, {
 
 		return element;
 	},
+	querySelector (selector) {
+		return html.querySelector(selector);
+	},
+	querySelectorAll (selector) {
+		return html.querySelectorAll(selector);
+	},
 });
 
+const [html, head, body] = ['html', 'head', 'body'].map(tagName => stew.createElement(tagName));
+html.appendChild(head);
+html.appendChild(body);
+stew.body = body;
 export const isServer = typeof window !== 'object';

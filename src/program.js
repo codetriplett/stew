@@ -22,7 +22,7 @@ function createAttributeSetter (gl, program, subname, name, type, subtype) {
 	const buffer = gl.createBuffer();
 	
 	if (!/^vec[2-4]$/.test(type)) {
-		throw new Error('Invalid attribute type: ', type);
+		console.error('Invalid attribute type: ', type);
 	}
 
 	return value => {
@@ -89,7 +89,7 @@ function createUniformSetter (gl, program, subname, name, type, subtype) {
 		return value => gl[setterName](location, subname ? value[subname] : value);
 	}
 
-	throw new Error('Invalid uniform type: ', type);
+	console.error('Invalid uniform type: ', type);
 }
 
 function createOtherSetter (gl, subname, name) {

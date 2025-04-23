@@ -1,177 +1,151 @@
-import stew, { hotSwap } from '.';
-import { virtualDocument } from './document';
-import { processEffects, useEffect } from './impulse';
+import stew, { hotSwapStep } from '.';
+import { compile } from './program';
+import { effects, processMemo } from './impulse';
+import createState from './state';
 import render from './view';
-import * as stateModule from './state';
-
-const schedule = jest.spyOn(stateModule, 'schedule');
-
-jest.mock('./document', () => ({
-	isServer: false,
-}));
 
 jest.mock('./impulse');
+jest.mock('./program');
+jest.mock('./state');
 jest.mock('./view');
 
-const createDocumentFragment = jest.fn();
-const querySelector = jest.fn();
-const ref = [];
+const renderPrograms = () => {};
+const data = {};
+const state = {};
+const info = {};
 
 beforeEach(() => {
 	jest.clearAllMocks();
-	createDocumentFragment.mockReturnValue({});
-	querySelector.mockImplementation(tagName => ({ tagName }));
-	// Object.assign(stew, { createDocumentFragment, querySelector });
-	render.mockReturnValue(ref);
+	compile.mockReturnValue(renderPrograms);
+	processMemo.mockReturnValue(data);
+	createState.mockReturnValue(state);
+	render.mockReturnValue(info);
 });
 
-describe('hotSwap', () => {
+describe('hotSwapStep', () => {
 	it('swaps callback', async () => {
 		const prevChildCallback = () => {};
 		const nextChildCallback = () => {};
 		const prevCallback = () => {};
 		const nextCallback = () => {};
-		const childUpdate = jest.fn();
-		const update = jest.fn();
-		const childImpulse = [childUpdate, new Set(), undefined];
-		const childImpulseRef = [prevChildCallback, {}, childImpulse];
-		const impulse = [update, new Set(), childImpulseRef];
-		const impulseRef = [prevCallback, {}, impulse];
+		const impulse = [() => {}, new Set()];
+		const impulseInfo = [prevCallback, impulse];
+		const childImpulse = [() => {}, new Set(), impulse];
+		const childImpulseInfo = [prevChildCallback, childImpulse];
+		impulseInfo.push(childImpulseInfo);
 		const manifest = new Map();
-		childImpulse.push(impulse);
 		manifest.set(prevChildCallback, nextChildCallback);
 		manifest.set(prevCallback, nextCallback);
 
-		const ref = ['div', {}, {},
+		const info = ['div', {}, {},
 			['span', {}],
-			impulseRef,
+			impulseInfo,
 			{ nodeValue: 'text' },
 		];
 
-		const actual = hotSwap(ref, manifest);
-		await useEffect();
-		
-		expect(actual).toEqual(new Set([impulse, childImpulse]));
-		expect(impulseRef[0]).toEqual(nextCallback);
-		expect(childImpulseRef[0]).toEqual(nextChildCallback);
-		expect(schedule).toHaveBeenCalledWith(actual);
-		expect(childUpdate).not.toHaveBeenCalled();
-		expect(update).toHaveBeenCalled();
+		const subscriptions = new Set();
+		hotSwapStep(info, manifest, subscriptions);
+		expect(subscriptions).toEqual(new Set([impulse, childImpulse]));
 	});
 });
 
 describe('stew', () => {
-	it('renders layout', () => {
-		const node = { tagName: 'div' };
-		const context = { lmno: 456 };
-		const actual = stew(node, context, 'first', 'last');
+	it('creates render promise', async () => {
+		const actual = stew();
+		expect(effects).toEqual([[, expect.any(Function)]]);
+		expect(actual).toEqual(expect.any(Promise));
+	});
+
+	it('creates webgl renderer', () => {
+		const actual = stew`abc${456}xyz`;
+		expect(compile).toHaveBeenCalledWith(['abc', 'xyz'], 456);
+		expect(actual).toBe(renderPrograms);
+	});
+
+	it('creates state', () => {
+		const props = { lmno: 456 };
+		const actual = stew(props);
+		expect(createState).toHaveBeenCalledWith(props);
+		expect(actual).toBe(state);
+	});
+
+	it('creates impulse', () => {
+		const callback = () => {};
+		const actual = stew(callback);
+		expect(render).toHaveBeenCalledWith([callback], undefined, undefined, [], ['', {}], 0, {});
 		expect(actual).toEqual(expect.any(Function));
-		expect(processEffects).toHaveBeenCalled();
-
-		expect(render).toHaveBeenCalledWith(
-			[node, {}, 'first', 'last'],
-			context,
-			virtualDocument,
-			[node],
-			['', {}],
-			0,
-			{},
-		);
 	});
 
-	it('queries for node', () => {
-		const node = { tagName: 'div' };
-		const context = { lmno: 456 };
-		const actual = stew('div', context, 'first', 'last');
-		expect(actual).toBe(ref);
-		expect(processEffects).toHaveBeenCalled();
-
-		expect(render).toHaveBeenCalledWith(
-			[node, {}, 'first', 'last'],
-			context,
-			virtualDocument,
-			[node],
-			['', {}],
-			0,
-			{},
-		);
-	});
-
-	it('uses fragment', () => {
-		const node = {};
-		const context = { lmno: 456 };
-		const actual = stew('', context, 'first', 'last');
-		expect(actual).toBe(ref);
-		expect(processEffects).toHaveBeenCalled();
-
-		expect(render).toHaveBeenCalledWith(
-			[node, {}, 'first', 'last'],
-			context,
-			virtualDocument,
-			[node],
-			['', {}],
-			0,
-			{},
-		);
-	});
-
-	// this is a way of testing client side functionality on the server
-	// - isServer checks should still rely soley on if window is present
-	it.only('allows virtual document', () => {
-		const node = stew.body;
-		const context = { lmno: 456 };
-		const actual = stew(stew, context, ['p', {}, 'first', 'last']);
+	it('creates impulse with params', () => {
+		const callback = () => {};
+		const props = { lmno: 456 };
+		const actual = stew(callback, props, 'lmno');
+		expect(render).toHaveBeenCalledWith([callback, props, 'lmno'], undefined, undefined, [], ['', {}], 0, {});
 		expect(actual).toEqual(expect.any(Function));
-		// expect(processEffects).toHaveBeenCalled();
-		expect(String(node))
-
-
-		expect(render).toHaveBeenCalledWith(
-			[node, {}, 'first', 'last'],
-			context,
-			stew,
-			[node],
-			['', {}],
-			0,
-			{},
-		);
 	});
 
-	it('allows custom document', () => {
-		const node = { tagName: 'body' };
-		const customDocument = { createDocumentFragment, querySelector, body: node };
-		const context = { lmno: 456 };
-		const actual = stew(customDocument, context, 'first', 'last');
-		expect(actual).toBe(ref);
-		expect(processEffects).toHaveBeenCalled();
-
-		expect(render).toHaveBeenCalledWith(
-			[node, {}, 'first', 'last'],
-			context,
-			customDocument,
-			[node],
-			['', {}],
-			0,
-			{},
-		);
+	it('creates state memo', () => {
+		const props = { lmno: 456 };
+		const actual = stew(props, []);
+		expect(processMemo).toHaveBeenCalledWith(props, []);
+		expect(actual).toBe(data);
 	});
 
-	it('allows custom document fragment', () => {
+	it('creates custom memo', () => {
+		const callback = () => {};
+		const actual = stew(callback, []);
+		expect(processMemo).toHaveBeenCalledWith(callback, []);
+		expect(actual).toBe(data);
+	});
+
+	it('creates fetch memo', () => {
+		const callback = () => {};
+		const fallback = { lmno: 456 };
+		const actual = stew(callback, [], fallback);
+		expect(processMemo).toHaveBeenCalledWith(callback, [], fallback);
+		expect(actual).toBe(data);
+	});
+
+	it('creates effect', () => {
+		const callback = () => {};
+		const actual = stew(null, [], callback);
+		expect(processMemo).toHaveBeenCalledWith(null, [], callback);
+		expect(actual).toBe(data);
+	});
+
+	it('renders within node', () => {
 		const node = {};
-		const customDocument = { createDocumentFragment, querySelector };
-		const context = { lmno: 456 };
-		const actual = stew(customDocument, context, 'first', 'last');
-		expect(actual).toBe(ref);
-		expect(processEffects).toHaveBeenCalled();
+		const context = {};
+		const actual = stew(node, context, 'lmno');
+		expect(render).toHaveBeenCalledWith([node, {}, 'lmno'], context, stew, [], ['', {}], 0, {});
+		expect(actual).toEqual(expect.any(Function));
+	});
 
-		expect(render).toHaveBeenCalledWith(
-			[node, {}, 'first', 'last'],
-			context,
-			customDocument,
-			[node],
-			['', {}],
-			0,
-			{},
-		);
+	it('renders fragment', () => {
+		const context = {};
+		const actual = stew('', context, 'lmno');
+		expect(render).toHaveBeenCalledWith([expect.any(Object), {}, 'lmno'], context, stew, [], ['', {}], 0, {});
+		expect(actual).toEqual(expect.any(Function));
+	});
+
+	it('renders within queried node', () => {
+		const context = {};
+		const actual = stew('body', context, 'lmno');
+		expect(render).toHaveBeenCalledWith([expect.any(Object), {}, 'lmno'], context, stew, [], ['', {}], 0, {});
+		expect(actual).toEqual(expect.any(Function));
+	});
+
+	it('renders virtual fragment', () => {
+		const context = {};
+		const actual = stew(stew, context, 'lmno');
+		expect(render).toHaveBeenCalledWith([expect.any(Object), {}, 'lmno'], context, stew, [], ['', {}], 0, {});
+		expect(actual).toEqual(expect.any(Function));
+	});
+
+	it('rejects missing node', () => {
+		const context = {};
+		const actual = stew(null, context, 'lmno');
+		expect(render).not.toHaveBeenCalled();
+		expect(actual).toEqual(undefined);
 	});
 });
