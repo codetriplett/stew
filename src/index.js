@@ -94,32 +94,29 @@ stew(() => {}, deps, fallback) // useFetch/useEffect
 // - maybe change isServer checks to check wiether document is stew or not
 // - might need to set an activeDocument like impulse does for activeRef
 // - with this change, all functionality will use the stew library, and that can be the only export
-export default function stew (...params) {
-	if (!params.length) {
+export default function stew (...layout) {
+	if (!layout.length) {
 		// stew() // await render (don't add to effects)
 		return new Promise(resolve => effects.push([, resolve]));
 	}
 
-	let [node, context, ...children] = params;
-	let document, layout;
+	let [node, object] = layout;
+	let document;
 
 	if (Array.isArray(node)) {
-		return compile(...params);
-	} else if (Array.isArray(context)) {
-		return processMemo(node, context, ...children);
+		return compile(...layout);
+	} else if (Array.isArray(object)) {
+		return processMemo(...layout);
 	} else if (node === stew) {
 		document = stew;
-		node = '';
-	} else if (typeof node === 'function') {
-		layout = params;
-		context = undefined;
-	} else if (params.length === 1) {
-		return createState(node);
-	} else {
-		document = isServer ? stew : globalThis.document;
-	}
+		layout[0] = document.createDocumentFragment();
+	} else if (typeof node !== 'function') {
+		if (layout.length === 1) {
+			return createState(node);
+		}
 
-	if (!layout) {
+		document = isServer ? stew : globalThis.document;
+		
 		if (typeof node === 'string') {
 			node = node ? document.querySelector(node) : document.createDocumentFragment();
 		}
@@ -129,9 +126,12 @@ export default function stew (...params) {
 			return;
 		}
 
-		layout = [node, {}, ...children];
+		layout[0] = node;
 	}
-
+	
+	const { '': callback = () => {}, ...props } = object || {};
+	const context = { '': callback };
+	layout[1] = props;
 	const info = render(layout, context, document, [], ['', {}], 0, {});
 	processEffects();
 

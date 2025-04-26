@@ -26,6 +26,8 @@ const resources = [
 	'index.css',
 	'index.js',
 	'stew.min.js',
+	'index.alt.css',
+	'index.alt.js',
 ];
 
 function send (res, content, type = types.txt) {
@@ -51,20 +53,24 @@ function convertComponent ({ name }, vars, container) {
 }
 
 createServer(async ({ url }, res) => {
-	if (url === '/') {
+	const regex = /^(?:\/+)?(.*?)(?:\.([^/.?#]*)|\/*)?(?:\?(.*?))?$/;
+	let [, path = '', extension] = url.match(regex);
+
+	if (!extension) {
 		const initialProps = App.generateInitialState?.() || {};
+		const variation = path ? `.${path}` : '';
 
 		const html = [
 			'<!DOCTYPE html>',
 			'<html lang="en">',
 				'<head>',
 					'<title>StewTube</title>',
-					'<link href="/index.css" rel="stylesheet">',
+					`<link href="/index${variation}.css" rel="stylesheet">`,
 					'<script src="/stew.min.js"></script>',
 				'</head>',
 				'<body>',
 					stew('', {}, ['div', { id: 'app' }]),
-					'<script src="/index.js"></script>',
+					`<script src="/index${variation}.js"></script>`,
 					'<script>',
 						'const render = ({ name }, container) => App[name](container);',
 						'const context = { \'\': render, swap: () => swap(window.manifest) };',
@@ -78,8 +84,6 @@ createServer(async ({ url }, res) => {
 		return;
 	}
 
-	const regex = /^(?:\/+)?(.*?)(?:\.([^/.?#]*)|\/*)?(?:\?(.*?))?$/;
-	let [, path = '', extension] = url.match(regex);
 	const type = types[extension];
 	const options = !/^image\/(?!svg)/.test(type) ? ['utf8'] : [];
 	path += `.${extension}`;

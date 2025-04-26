@@ -8,7 +8,8 @@ export default function renderElement (info, object, children, context, document
 	if (!node && tagName !== '') {
 		const { shadowrootmode } = props;
 
-		if (!isServer && typeof shadowrootmode === 'boolean' && tagName?.toUpperCase?.() === 'TEMPLATE') {
+		if (!isServer && shadowrootmode && tagName?.toUpperCase?.() === 'TEMPLATE') {
+			const [parentNode] = nodes;
 			node = parentNode.shadowRoot || parentNode.attachShadow({ mode: shadowrootmode });
 		} else {
 			node = document.createElement(typeof tagName === 'number' ? `h${tagName}` : tagName);
@@ -18,7 +19,7 @@ export default function renderElement (info, object, children, context, document
 	}
 
 	if (node) {
-		if (node !== tagName) {
+		if ('tagName' in node) {
 			nodes.push(node);
 		}
 

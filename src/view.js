@@ -80,6 +80,11 @@ export default function render (layout, context, document, nodes, container, i, 
 				break;
 			}
 			case 'object': {
+				if (!layout) {
+					info = undefined;
+					break;
+				}
+
 				// object is essentially a new temporary context. custom render fn can wrap in impulse if it needs to.
 				context = layout;
 				layout = nodes[0].tagName === 'CANVAS' ? renderProgram : context[''];

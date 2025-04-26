@@ -53,7 +53,7 @@ export function processMemo (callback, ...rest) {
 		// if memo should remain the same
 		memo.splice(deps.length + 2);
 		return value;
-	} else if (callback === stew) {
+	} else if (!callback) {
 		// TODO: don't use stew to denote effect, it wouldn't be well received
 		// - just use null instead stew(null, [], ...children)
 		// - should the same be done for virtual document stew(null, {}, ...children)
@@ -74,8 +74,6 @@ export function processMemo (callback, ...rest) {
 		value = createState(callback);
 	}
 
-	const [, prevValue] = memo.splice(0, 2, undefined, value);
-
 	if (rest.length > 1 && value instanceof Promise) {
 		// if it is async
 		value.then(value => {
@@ -84,11 +82,11 @@ export function processMemo (callback, ...rest) {
 		});
 
 		const [impulse] = impulses;
-		value = prevValue;
+		value = memo.length === 1 ? fallback : memo[1];
 	}
 
-	memo.splice(1, memo.length, value, ...deps);
-	return value || fallback;
+	memo.splice(0, memo.length, undefined, value, ...deps);
+	return value;
 }
 
 export default function renderImpulse (info, object, children, context, document, nodes) {
