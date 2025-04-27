@@ -393,7 +393,7 @@ export default function renderProgram (props, canvas) {
 	const ref = [];
 
 	return [() => {
-		processMemo(stew, [props], () => {
+		processMemo(null, [props], () => {
 			const [child] = ref[0];
 			schedule(gl, child, props);
 			return () => schedule(gl, child);
