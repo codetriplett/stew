@@ -8,6 +8,11 @@ export default function renderElement (info, object, children, context, document
 	if (!node && tagName !== '') {
 		const { shadowrootmode } = props;
 
+		// TODO: don't require shadowroot to be in template (followup feature)
+		// - have server side include it in HTML
+		// - have client side attach and use shadowRoot in its place to reconcile children
+		// - the actual DOM element that wraps the shadowRoot should be added to nodes for parent's reconciliation
+		// - how to we store both wrapper element and shadow node in info array? try not to add extra checks. 
 		if (!isServer && shadowrootmode && tagName?.toUpperCase?.() === 'TEMPLATE') {
 			const [parentNode] = nodes;
 			node = parentNode.shadowRoot || parentNode.attachShadow({ mode: shadowrootmode });
@@ -27,6 +32,10 @@ export default function renderElement (info, object, children, context, document
 		let nextNames = new Set();
 		map = { '': nextNames };
 		nodes = [node];
+
+		if (Array.isArray(ref)) {
+			ref.push(node);
+		}
 
 		for (const [name, value] of Object.entries(props)) {
 			prevNames.delete(name);
@@ -97,11 +106,7 @@ export default function renderElement (info, object, children, context, document
 
 	if (node) {
 		reconcile(parentNode, nodes.slice(1), [...parentNode.childNodes]);
-	} else {
-		node = nodes.slice(refIndex);
-	}
-
-	if (Array.isArray(ref)) {
-		ref.push(node);
+	} else if (Array.isArray(ref)) {
+		ref.push(nodes.slice(refIndex));
 	}
 }

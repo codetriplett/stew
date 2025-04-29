@@ -115,16 +115,16 @@ export default function renderImpulse (info, object, children, context, document
 			const proxy = render(layout || '', context, document, nodes, info, -1, {});
 
 			if (prevNodes) {
-				reconcile(parentNode, nodes.slice(1), prevNodes, sibling);
-
-				if (proxy !== prevProxy) {
-					remove(prevProxy, parentNode);
-				}
-
-				prevNodes = nodes.splice(1);
+				const nextNodes = nodes.splice(1);
+				reconcile(parentNode, nextNodes, prevNodes, sibling);
+				prevNodes = nextNodes;
 			} else {
 				prevNodes = nodes.slice(nodeIndex);
 				nodes = [parentNode];
+			}
+			
+			if (proxy !== prevProxy) {
+				remove(prevProxy, parentNode);
 			}
 
 			if (Array.isArray(ref)) {
