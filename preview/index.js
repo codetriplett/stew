@@ -368,7 +368,24 @@ function renderComment ({ user, message, owner, ref, isRich }) {
 		tabIndex: '-1',
 	},
 		['strong', { className: `comment-user ${user === owner ? 'comment-user-owner' : ''}` }, user],
-		['p', { className: 'comment-message' }, message],
+		['p', { className: 'comment-message' },
+			message.slice(0, 50),
+			['span', {
+				style: {
+					color: 'transparent',
+				},
+				onhover: {
+					className: 'spoiler-hover',
+					style: {
+						color: 'transparent',
+					},
+				},
+				onclick: {
+					style: {},
+				},
+			}, message.slice(50, 100)],
+			message.slice(100),
+		],
 		isRich && ['button', { type: 'button' }, 'Like'],
 	];
 }

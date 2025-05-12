@@ -1,30 +1,55 @@
+import stew from '.';
 import { track, check } from './test';
-import { virtualDocument } from './document';
 import renderElement from './element';
 
-let context, nodes;
+let context, container, nodes;
 
 beforeEach(() => {
 	context = { '': () => {}, abc: 123 };
-	nodes = [{}];
+	container = stew.createElement('div');
+	nodes = [container];
 });
 
 describe('renderElement', () => {
 	describe('create', () => {
 		it('element', () => {
 			const ref = track(['div']);
-			renderElement(ref, { lmno: 456 }, ['content'], context, virtualDocument, nodes);
+			renderElement(ref, { lmno: 456 }, ['content'], context, stew, nodes);
 			expect(ref).toEqual(['div', { '': new Set(['lmno']) }, expect.any(Object), expect.any(Object)]);
-			expect(nodes).toEqual([{}, ref[2]]);
+			expect(nodes).toEqual([container, ref[2]]);
 			check('<div lmno="456">content</div>');
 		});
 		
 		it('fragment', () => {
 			const ref = track(['']);
-			renderElement(ref, { lmno: 456 }, ['content'], context, virtualDocument, nodes);
+			renderElement(ref, { lmno: 456 }, ['content'], context, stew, nodes);
 			expect(ref).toEqual(['', {}, undefined, expect.any(Object)]);
-			expect(nodes).toEqual([{}, ref[3]]);
+			expect(nodes).toEqual([container, ref[3]]);
 			check('content');
+		});
+
+		it('boolean attribute', () => {
+			const ref = track(['div']);
+			renderElement(ref, { lmno: true }, ['content'], context, stew, nodes);
+			expect(ref).toEqual(['div', { '': new Set(['lmno']) }, expect.any(Object), expect.any(Object)]);
+			expect(nodes).toEqual([container, ref[2]]);
+			check('<div lmno>content</div>');
+		});
+
+		it('empty string attribute', () => {
+			const ref = track(['div']);
+			renderElement(ref, { lmno: '' }, ['content'], context, stew, nodes);
+			expect(ref).toEqual(['div', { '': new Set(['lmno']) }, expect.any(Object), expect.any(Object)]);
+			expect(nodes).toEqual([container, ref[2]]);
+			check('<div lmno="">content</div>');
+		});
+
+		it('style attribute', () => {
+			const ref = track(['div']);
+			renderElement(ref, { style: { lmno: 456 } }, ['content'], context, stew, nodes);
+			expect(ref).toEqual(['div', { '': new Set(['style', 'style.lmno']) }, expect.any(Object), expect.any(Object)]);
+			expect(nodes).toEqual([container, ref[2]]);
+			check('<div style="lmno:456;">content</div>');
 		});
 	});
 
@@ -36,7 +61,7 @@ describe('renderElement', () => {
 				abc: 456, lmno: 123,
 				style: { abc: 456, lmno: 123 },
 				dataset: { abc: 456, lmno: 123 },
-			}, ['abc'], context, virtualDocument, nodes);
+			}, ['abc'], context, stew, nodes);
 
 			track(ref);
 
@@ -44,7 +69,7 @@ describe('renderElement', () => {
 				lmno: 789, xyz: 456,
 				style: { lmno: 789, xyz: 456 },
 				dataset: { lmno: 789, xyz: 456 },
-			}, ['xyz'], context, virtualDocument, nodes);
+			}, ['xyz'], context, stew, nodes);
 
 			check(
 				'<div lmno="789" xyz="456" style="lmno:789;xyz:456;" data-lmno="789" data-xyz="456">xyz</div>',
@@ -54,9 +79,9 @@ describe('renderElement', () => {
 		
 		it('fragment', () => {
 			const ref = [''];
-			renderElement(ref, { abc: 456, lmno: 123 }, ['abc'], context, virtualDocument, nodes);
+			renderElement(ref, { abc: 456, lmno: 123 }, ['abc'], context, stew, nodes);
 			track(ref);
-			renderElement(ref, { lmno: 789, xyz: 456 }, ['xyz'], context, virtualDocument, nodes);
+			renderElement(ref, { lmno: 789, xyz: 456 }, ['xyz'], context, stew, nodes);
 			check('xyz', ['', {}, undefined, true]);
 		});
 	});
@@ -64,17 +89,17 @@ describe('renderElement', () => {
 	describe('replace nodes', () => {
 		it('element', () => {
 			const ref = ['div'];
-			renderElement(ref, {}, ['lmno'], context, virtualDocument, nodes);
+			renderElement(ref, {}, ['lmno'], context, stew, nodes);
 			track(ref);
-			renderElement(ref, {}, [['span', {}, 'lmno']], context, virtualDocument, nodes);
+			renderElement(ref, {}, [['span', {}, 'lmno']], context, stew, nodes);
 			check('<div><span>lmno</span></div>', ['div', { '': new Set() }, true, false]);
 		});
 		
 		it('fragment', () => {
 			const ref = [''];
-			renderElement(ref, {}, ['lmno'], context, virtualDocument, nodes);
+			renderElement(ref, {}, ['lmno'], context, stew, nodes);
 			track(ref);
-			renderElement(ref, {}, [['span', {}, 'lmno']], context, virtualDocument, nodes);
+			renderElement(ref, {}, [['span', {}, 'lmno']], context, stew, nodes);
 			check('<span>lmno</span>', ['', {}, undefined, false]);
 		});
 	});

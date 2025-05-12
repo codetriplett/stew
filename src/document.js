@@ -7,7 +7,7 @@ const selfClosingTags = new Set([
 ]);
 
 // attributes that are different when server rendered, beyond hyphenation
-const nameMap = {
+export const nameMap = {
 	className: 'class',
 	tabIndex: 'tabindex',
 };
@@ -153,7 +153,7 @@ Object.assign(stew, {
 				}
 
 				for (let [name, value] of attributeEntries) {
-					if (!value && value !== 0 || typeof value === 'function' || /['"&<>]/.test(name)) {
+					if (value === false || value === null || value === undefined || typeof value === 'function' || /['"&<>]/.test(name)) {
 						continue;
 					}
 

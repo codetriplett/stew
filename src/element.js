@@ -1,5 +1,62 @@
-import { isServer } from './document';
+import { isServer, nameMap } from './document';
 import render, { remove, reconcile } from './view';
+
+function updateAttributes (node, attributes, prevNames, nextNames = new Set()) {
+	for (const [name, value] of Object.entries(attributes)) {
+		prevNames.delete(name);
+		nextNames.add(name);
+
+		if (name === 'style' || name === 'dataset') {
+			const object = node[name];
+
+			for (const [valueName, string] of Object.entries(value)) {
+				const fullName = `${name}.${valueName}`;
+				prevNames.delete(fullName);
+				nextNames.add(fullName);
+
+				if (string !== object[valueName]) {
+					object[valueName] = string;
+				}
+			}
+		} else if (value !== node[name]) {
+			node[name] = value;
+		}
+	}
+
+	for (const name of prevNames) {
+		const [objectName, valueName] = name.split('.');
+
+		if (valueName === undefined) {
+			node.removeAttribute(nameMap[objectName] || objectName);
+			continue;
+		}
+
+		switch (objectName) {
+			case 'style': {
+				node.style.removeProperty(valueName);
+				break;
+			}
+			case 'dataset': {
+				delete node.dataset[valueName];
+				break;
+			}
+		}
+	}
+
+	return nextNames;
+}
+
+function overrideAttributes (node, map, attributes, overrides) {
+	const { '': prevNames } = map;
+
+	if (prevNames.has('ref')) {
+		return;
+	}
+
+	const nextNames = updateAttributes(node, { ...attributes, ...overrides }, prevNames);
+	map[''] = nextNames;
+	return nextNames;
+}
 
 export default function renderElement (info, object, children, context, document, nodes) {
 	const { ref, ...props } = object;
@@ -28,55 +85,49 @@ export default function renderElement (info, object, children, context, document
 			nodes.push(node);
 		}
 
+		let { onhover, ...attributes } = props;
+		const { onclick } = attributes;
 		const { '': prevNames = new Set() } = map || {};
-		let nextNames = new Set();
+		const nextNames = new Set();
 		map = { '': nextNames };
 		nodes = [node];
+
+		if (prevNames.has('')) {
+			nextNames.add('');
+
+			if (prevNames.has('ref')) {
+				nextNames.add('ref');
+				attributes = { ...attributes, ...onclick };
+			} else {
+				attributes = { ...attributes, ...onhover };
+			}
+		} else if (onclick || onhover) {
+			if (typeof onclick === 'object') {
+				attributes.onclick = () => {
+					const nextNames = overrideAttributes(node, map, { ...attributes, ...onclick });
+					nextNames?.add?.('')?.add?.('ref');
+				};
+			}
+			
+			if (typeof onhover === 'object') {
+				Object.assign(attributes, {
+					onmouseenter: () => {
+						const nextNames = overrideAttributes(node, map, { ...attributes, ...onhover });
+						nextNames?.add?.('');
+					},
+					onmouseleave: () => {
+						const nextNames = overrideAttributes(node, map, attributes);
+						nextNames?.delete?.('');
+					},
+				});
+			}
+		}
 
 		if (Array.isArray(ref)) {
 			ref.push(node);
 		}
 
-		for (const [name, value] of Object.entries(props)) {
-			prevNames.delete(name);
-			nextNames.add(name);
-
-			if (name === 'style' || name === 'dataset') {
-				const object = node[name];
-
-				for (const [valueName, string] of Object.entries(value)) {
-					const fullName = `${name}.${valueName}`;
-					prevNames.delete(fullName);
-					nextNames.add(fullName);
-
-					if (string !== object[valueName]) {
-						object[valueName] = string;
-					}
-				}
-			} else if (value !== node[name]) {
-				node[name] = value;
-			}
-		}
-
-		for (const name of prevNames) {
-			const [objectName, valueName] = name.split('.');
-
-			if (valueName === undefined) {
-				node.removeAttribute(objectName);
-				continue;
-			}
-
-			switch (objectName) {
-				case 'style': {
-					node.style.removeProperty(valueName);
-					break;
-				}
-				case 'dataset': {
-					delete node.dataset[valueName];
-					break;
-				}
-			}
-		}
+		updateAttributes(node, attributes, prevNames, nextNames);
 	} else {
 		context = { ...context, ...props };
 		map = {};

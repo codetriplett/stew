@@ -190,3 +190,14 @@ body, html { margin: 0; padding: 0; }
 .recommendation + .recommendation {
 	margin-top: 15px;
 }
+
+span[style="color:transparent"],
+span[style="color:transparent;"],
+span[style="color: transparent"],
+span[style="color: transparent;"] {
+	background: black;
+	user-select: none;
+}
+.spoiler-hover {
+	box-shadow: 0 0 4px 4px gray;
+}
