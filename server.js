@@ -21,15 +21,6 @@ const types = {
 	ico: 'image/x-icon'
 };
 
-const resources = [
-	'favicon.ico',
-	'index.css',
-	'index.js',
-	'stew.min.js',
-	'index.alt.css',
-	'index.alt.js',
-];
-
 function send (res, content, type = types.txt) {
 	const utf8 = !/^image\/(?!svg)/.test(type);
 	let status = 200;
@@ -58,19 +49,18 @@ createServer(async ({ url }, res) => {
 
 	if (!extension) {
 		const initialProps = App.generateInitialState?.() || {};
-		const variation = path ? `.${path}` : '';
 
 		const html = [
 			'<!DOCTYPE html>',
 			'<html lang="en">',
 				'<head>',
 					'<title>StewTube</title>',
-					`<link href="/index${variation}.css" rel="stylesheet">`,
+					`<link href="/index.css" rel="stylesheet">`,
 					'<script src="/stew.min.js"></script>',
 				'</head>',
 				'<body>',
 					stew('', {}, ['div', { id: 'app' }]),
-					`<script src="/index${variation}.js"></script>`,
+					`<script src="/index.js"></script>`,
 					'<script>',
 						'const render = ({ name }, container) => App[name](container);',
 						'const context = { swap: () => swap(window.manifest) };',
@@ -84,15 +74,10 @@ createServer(async ({ url }, res) => {
 		return;
 	}
 
+	path += `.${extension}`;
+	const folder = path === 'stew.min.js' ? 'dist' : 'preview';
 	const type = types[extension];
 	const options = !/^image\/(?!svg)/.test(type) ? ['utf8'] : [];
-	path += `.${extension}`;
-
-	if (!resources.includes(path) && !path.startsWith('static/')) {
-		return send(res);
-	}
-
-	const folder = path === 'stew.min.js' ? 'dist' : 'preview';
 
 	readFile(`${__dirname}/${folder}/${path}`, ...options, (err, content) => {
 		send(res, content, type);

@@ -1,5 +1,37 @@
 import parse, { parseInline } from './markdown';
 
+/*
+// I think it was providing the previous memo value as a param before
+// - that doesn't work well, since memos should be deterministic based only on the deps
+// - effects are the ones that need to know about the previous value
+// - it also looks a little cleaner this way, with fetches inline in the code instead of needing to be coordinated in advance
+
+function Block ({ names, data }, content) {
+	const path = names.join('/');
+
+	if (data) {
+		const Component = stew(import, [`/${path}.mjs`], {}).default;
+		content = Component(data, content);
+	}
+
+	if (names.length === 1) {
+		return content; // once root is reached
+	}
+
+	data = stew(fetchJson, [`/${path}.json`], {});
+	return Block({ names: names.slice(0, -1), data }, content);
+}
+
+function Main () {
+	const path = pathname.replace(/\/$/, '');
+	const names = path.slice(1).split('/');
+	const markdown = stew(fetchText, [`${path}.md`], null);
+	const content = parse(markdown, `${path}#`);
+	return Block({ names }, content);
+}
+
+*/
+
 describe('parseInline', () => {
 	it('spoiler tag', () => {
 		const actual = parseInline('||Item||');

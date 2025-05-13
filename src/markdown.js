@@ -76,12 +76,16 @@ export function parseInline (string, rootNames, links) {
 // - only include content in the layout that exists within that range
 // - also include all link references
 export default function parse (content, rootPath = '', ...range) {
+	if (!content) {
+		return;
+	}
+
 	const [start = 0, finish = content.length] = range;
 	const [, trimmedPath, hash] = rootPath.match(/^\/?(.*?)\/?(?:#(.*))?$/);
 	const headingPath = range.length ? `/${trimmedPath}` : '';
 	const rootNames = trimmedPath ? trimmedPath.split('/') : [];
 	const lines = content.split('\n');
-	const stack = [[0, ['', {}]]];
+	const stack = [[0, ['main', {}]]];
 	const inlines = new Set();
 	const references = {};
 	const links = [];

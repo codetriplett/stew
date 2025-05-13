@@ -1,4 +1,3 @@
-import stew from '.';
 import { isServer } from './document';
 import render, { remove, reconcile } from './view';
 import createState, { schedule } from './state';
@@ -47,7 +46,7 @@ export function processMemo (callback, ...rest) {
 
 	if (typeof callback === 'string') {
 		deps = [callback, ...deps];
-		callback = () => parse(...deps);
+		callback = parse;
 	}
 
 	// TODO: can there be a way to omit mount from effect, and just process updates?
@@ -56,10 +55,6 @@ export function processMemo (callback, ...rest) {
 		memo.splice(deps.length + 2);
 		return value;
 	} else if (!callback) {
-		// TODO: don't use stew to denote effect, it wouldn't be well received
-		// - just use null instead stew(null, [], ...children)
-		// - should the same be done for virtual document stew(null, {}, ...children)
-		// - array as second param differentiates between effect and virtual render
 		if (fallback && !isServer) {
 			// if effect should be scheduled
 			memo[0] = fallback;
@@ -71,7 +66,7 @@ export function processMemo (callback, ...rest) {
 
 	// if memo should be updated
 	if (typeof callback === 'function') {
-		value = callback(value);
+		value = callback(...deps);
 	} else {
 		value = createState(callback);
 	}
