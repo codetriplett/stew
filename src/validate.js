@@ -61,6 +61,7 @@ export function track (ref) {
 }
 
 export const text = {
+	nextSibling: null,
 	toString: expect.any(Function),
 };
 
@@ -75,7 +76,7 @@ export const fragment = {
 
 export const element = {
 	...fragment,
+	nextSibling: null,
 	style: expect.any(Object),
 	dataset: expect.any(Object),
-	mode: null,
 };

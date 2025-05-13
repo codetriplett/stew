@@ -1,5 +1,5 @@
 import stew from '.';
-import { track, check } from './test';
+import { track, check } from './validate';
 import renderElement from './element';
 
 let context, container, nodes;

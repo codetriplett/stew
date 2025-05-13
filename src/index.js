@@ -106,6 +106,12 @@ export default function stew (...layout) {
 	if (Array.isArray(node)) {
 		return compile(...layout);
 	} else if (Array.isArray(object)) {
+		// TODO: move markdown parser here and parse/store the result as a memo if first param is a string
+		// - add that string to deps array when doing check to see if it shoudl be recalculated
+		// - first item in deps array will be for the path and hash value
+		// - have hash be # when you want to include jump links to all headings that have ids
+		// - provide an id with the hash value to scope the layout to the content between that heading and the next
+		// - include the path in the jump link when scoped hash is provided
 		return processMemo(...layout);
 	} else if (node === stew) {
 		document = stew;

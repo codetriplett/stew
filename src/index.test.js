@@ -100,6 +100,13 @@ describe('stew', () => {
 		expect(actual).toBe(data);
 	});
 
+	it('creates markdown memo', () => {
+		const markdown = '# lmno';
+		const actual = stew(markdown, []);
+		expect(processMemo).toHaveBeenCalledWith(markdown, []);
+		expect(actual).toBe(data);
+	});
+
 	it('creates fetch memo', () => {
 		const callback = () => {};
 		const fallback = { lmno: 456 };

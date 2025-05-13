@@ -1,7 +1,11 @@
 import { impulses } from './impulse';
-import { createState } from './state';
+import createState from './state';
 
 jest.mock('./document', () => ({ isServer: false }));
+
+beforeEach(() => {
+	globalThis.requestAnimationFrame = setTimeout;
+});
 
 describe('createState', () => {
 	it('creates state', () => {

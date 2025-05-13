@@ -81,6 +81,7 @@ Object.assign(stew, {
 	createTextNode (nodeValue) {
 		return {
 			nodeValue,
+			nextSibling: null,
 			toString () {
 				return this.nodeValue.replace(/\&/, '&amp;').replace(/</, '&lt;').replace(/>/g, '&gt;');
 			}

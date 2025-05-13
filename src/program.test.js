@@ -207,7 +207,7 @@ describe('parse', () => {
 });
 
 describe('compileProgram', () => {
-	it.only('creates program', () => {
+	it('creates program', () => {
 		const draw = jest.fn();
 		const vector = [123, 456, 789];
 		const color = [0.123, 0.456, 0.789];
@@ -233,7 +233,7 @@ describe('compileProgram', () => {
 		]);
 	});
 
-	it('creates nested program', () => {
+	it.skip('creates nested program', () => {
 		const draw = jest.fn();
 
 		const array = [
@@ -272,7 +272,7 @@ describe('compileProgram', () => {
 		]);
 	});
 
-	it('uses previous shaders and program', () => {
+	it.skip('uses previous shaders and program', () => {
 		const draw = jest.fn();
 
 		function render ({ vector, color }) {

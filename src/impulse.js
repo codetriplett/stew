@@ -2,6 +2,7 @@ import stew from '.';
 import { isServer } from './document';
 import render, { remove, reconcile } from './view';
 import createState, { schedule } from './state';
+import parse from './markdown';
 
 export const impulses = [];
 export const effects = [];
@@ -39,14 +40,15 @@ export function processEffects () {
 //   - pass in nothing to suspend or resume
 //   - in both cases clearing the variable that holds the suspend/resume/swap will allow it to garbage collect the tree
 export function processMemo (callback, ...rest) {
-	if (!activeInfo) {
-		return;
-	}
-
-	const [deps = [], fallback] = rest;
+	let [deps = [], fallback] = rest;
 	const memo = prevMemos.shift() || [undefined];
 	let value = memo[1];
-	activeInfo.push(memo);
+	activeInfo?.push?.(memo);
+
+	if (typeof callback === 'string') {
+		deps = [callback, ...deps];
+		callback = () => parse(...deps);
+	}
 
 	// TODO: can there be a way to omit mount from effect, and just process updates?
 	if (memo.length > 1 && deps.every((value, i) => value === memo[i + 2])) {
@@ -135,6 +137,7 @@ export default function renderImpulse (info, object, children, context, document
 		}
 
 		activeInfo = activeInfoBackup;
+		prevMemos.splice(0);
 		impulses.shift();
 	};
 
