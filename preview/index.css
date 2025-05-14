@@ -1,15 +1,18 @@
-header {
-	height: 60px;
-	color: white;
-	background: dimgray;
+body {
+	margin: 0;
 }
-.container {
+
+.composite-row {
 	display: flex;
+	gap: 15px;
 }
-nav {
-	width: 240px;
-	background: lightgray;
-}
-main {
+.composite-row > * {
 	flex-grow: 1;
+}
+.composite-heading {
+	text-align: center;
+}
+div.composite-heading {
+	font-size: 2em;
+	font-weight: bold;
 }
