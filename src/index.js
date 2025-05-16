@@ -123,6 +123,10 @@ export default function stew (...layout) {
 
 		document = isServer ? stew : globalThis.document;
 		
+		// TODO: do createElement if string doesn't start with #, ., *, or [
+		// - have stew just return node instead of swap function
+		// - store wrappers in weakmap and have stew(node, map) trigger the swap
+		// - remove ref attribute
 		if (typeof node === 'string') {
 			node = node ? document.querySelector(node) : document.createDocumentFragment();
 		}

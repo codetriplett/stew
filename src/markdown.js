@@ -1,6 +1,3 @@
-// headings: \n\s{0,3}#{1,6} or \n\s={1,} or \n\s-{1,}
-// list items: \n\s
-
 function buildPath (rootNames, href = '') {
 	if (!href.startsWith('.')) {
 		return href;
@@ -72,38 +69,36 @@ export function parseInline (string, rootNames, links) {
 	return content;
 }
 
-// TODO: pass in a start and finish index as third and fourth params to render scoped mode
-// - only include content in the layout that exists within that range
-// - also include all link references
-export default function parse (content, rootPath = '', ...range) {
+export default function parse (content, rootPath = '') {
 	if (!content) {
 		return;
 	}
 
-	const [start = 0, finish = content.length] = range;
-	const [, trimmedPath, hash] = rootPath.match(/^\/?(.*?)\/?(?:#(.*))?$/);
-	const headingPath = range.length ? `/${trimmedPath}` : '';
+	const [, trimmedPath, hash] = rootPath.match(/^\/?(.*?)\/?(?:#+(.*))?$/);
+	const scopes = new Set(hash?.split?.(/#+/) || []); // check if hash units are used, e.g. #123abc is really the #abc hash but with a variation value of 123
+	const headingPath = scopes.size ? `/${trimmedPath}` : '';
 	const rootNames = trimmedPath ? trimmedPath.split('/') : [];
-	const lines = content.split('\n');
+	const lines = content.split(/\r\n|\r|\n/);
 	const stack = [[0, ['main', {}]]];
 	const inlines = new Set();
 	const references = {};
 	const links = [];
-	const headings = [];
-	let remainingLength = 0;
-	let index = -1;
 	let newlines = 0;
 	let ticks = 0;
 	let spaced = false;
-	let alignments, containerId;
+	let locked = scopes.size && !scopes.has('');
+	let alignments;
 
-	for (const line of lines) {
-		index += remainingLength;
-		let [, padding, key, href, title, string, id] = line.match(/^(\s*)(?:\[\s*(.+?)\s*\]:\s*(.+?)\s*(?:['"](.*?)['"])?\s*$)?(.*?)\s*(?:\{\s*#(.*?)\s*\})?\s*$/);
-		index += padding.length + 1;
-		remainingLength = line.length - padding.length;
-		
-		if (key && !references[key]) {
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i];
+		const [, key, href, title, hashes, heading, id, padding, remainder] = line.match(/^(?:(?:\s{0,3}(?:\[\s*(.*?)\s*\]:\s+(\S+?)\s*(?:\s('.*?'|".*?"|\(.*?\)))?|(#{1,6})\s+(.*?)(?:\s+#+(\S*))?))|(\s*)(.*?)\s*)$/);
+		const oldlines = newlines;
+		const nodes = [];
+		let [, container] = stack[0];
+		let whitespace = 0;
+		let bullet, structure, string;
+
+		if (key !== undefined && !references[key]) {
 			const props = { href: buildPath(rootNames, href) };
 			references[key] = props;
 			
@@ -112,23 +107,36 @@ export default function parse (content, rootPath = '', ...range) {
 			}
 
 			continue;
-		} else if (!key && !string) {
-			newlines += 1;
-			containerId = id;
-			continue;
-		} else if (index < start || index >= finish) {
-			continue;
-		}
+		} else if (hashes) {
+			locked = scopes.size && !scopes.has(id);
 
-		const oldlines = newlines;
-		let whitespace = padding.replace('\t', '    ').length;
-		let container;
-		newlines = 0;
+			if (locked) {
+				continue;
+			}
+			
+			const node = [hashes.length, {}];
+			
+			if (id) {
+				node[1].id = id;
+				nodes.unshift(['a', { href: encodeURI(`${headingPath}#${id}`) }]);
+			}
 
-		if (oldlines > 1) {
+			nodes.unshift(node);
+			string = heading;
 			stack.splice(1);
-			[, container] = stack[0];
+		} else if (!remainder) {
+			if (newlines) {
+				stack.splice(1);
+			}
+
+			newlines += 1;
+			continue;
+		} else if (locked) {
+			continue;
 		} else {
+			whitespace = `${padding}`.replace('\t', '    ').length;
+			newlines = 0;
+
 			for (const [i, [indentation, node]] of stack.entries()) {
 				if (whitespace < indentation) {
 					stack.splice(i);
@@ -136,7 +144,7 @@ export default function parse (content, rootPath = '', ...range) {
 				}
 
 				whitespace -= indentation;
-				container = node;	
+				container = node;
 			}
 		}
 
@@ -154,76 +162,54 @@ export default function parse (content, rootPath = '', ...range) {
 			}
 
 			const indentation = ticks ? 0 : line[0] === '\t' ? 1 : 4;
-			string = line.slice(indentation);
-			index -= indentation;
+			const text = line.slice(indentation);
 
 			if (previous?.[0] === 'pre') {
-				const text = previous[2][2];
-				previous[2][2] += `${text ? Array(oldlines + 1).fill('\n').join('') : ''}${string}`;
-			} else {
-				container.push(['pre', { '': index },
-					['code', {}, string],
-				]);
+				const newlines = oldlines + (previous[2][2] ? 1 : 0);
+				previous[2][2] += `${Array(newlines).fill('\n').join('')}${text}`;
+				continue;
 			}
 
-			continue;
+			nodes.unshift(['pre', {}], ['code', {}, text]);
 		} else if (/^ {0,3}(`{3,})/.test(line)) {
-			container.push(['pre', { '': index },
-				['code', {}, ''],
-			]);
-
 			ticks = line.match(/^ {0,3}(`+)/)?.[1]?.length;
-			continue;
+			nodes.unshift(['pre', {}], ['code', {}, '']);
+		} else if (!nodes.length) {
+			[, bullet, structure, string] = remainder.match(/^(?:([-+*:]|\d+[.)]) {1,4}(?![\s-]+$))?(>|\|(?!\|.*?\|\|))?\s*(.*?)\s*$/);
+
+			if (!bullet && !structure) {
+				const [, dashes] = lines[i + 1]?.match?.(/^ {0,3}(=+|-+)\s*$/) || [];
+
+				if (dashes) {
+					nodes.unshift([dashes[0] === '=' ? 1 : 2, {}]);
+					i++;
+				} else if (locked) {
+					continue;
+				} else if (previous?.[0] === 'p' && !oldlines) {
+					previous.push(['br']);
+					container = previous;
+				} else {
+					nodes.unshift(['p', {}]);
+				}
+			}
 		}
 
-		const match = string.match(/^(?:([-+*:]|\d+[.)]) {1,4}(?![\s-]+$))?(#{1,6}(?= )|(?:=+|-[\s-]*|[+*])(?=\s*$)|\|(?!\|.*?\|\|))?\s*(.*?)\s*$/);
-		const [, bullet = '', command = '', text] = match;
-		const content = parseInline(text, rootNames, links);
-		const nodes = [];
-
-		switch (command[0]) {
-			case '#': {
-				const heading = [command.length, {}];
-				nodes.unshift(heading);
-
-				if (hash === undefined || !hash && !id) {
-					heading.push(...content);
-				} else {
-					heading.push(['a', { href: `${headingPath}#${id || ''}` }, ...content]);
-
-					if (!id) {
-						headings.push(heading);
-					}
-				}
-
-				break;
-			}
-			case '=': {
-				if (previous?.[0] === 'p' && oldlines === 0) {
-					previous[0] = 1;
-					continue;
-				}
-
-				content.push(command);
-				break;
-			}
-			case '-': {
-				if (previous?.[0] === 'p' && oldlines === 0 && !/\s/.test(command)) {
-					previous[0] = 2;
-					continue;
-				}
-
-				nodes.unshift(['hr']);
+		switch (structure?.[0]) {
+			case '>': {
+				// handle blockquote here
+				// - add to previous blockquote if oldlines is 0
+				// - otherwise create new one
 				break;
 			}
 			case '|': {
-				const string = text.endsWith('|') ? text : `${text}|`;
+				const remainder = string.endsWith('|') ? string : `${string}|`;
+				string = '';
 
-				if (/^(\s*:?-+:?\s*\|)+$/.test(string)) {
+				if (/^(\s*:?-+:?\s*\|)+$/.test(remainder)) {
 					const isFirst = !alignments;
 					container = previous?.[2];
 
-					alignments = string.slice(0, -1).split(/\s*\|\s*/).map(string => {
+					alignments = remainder.slice(0, -1).split(/\s*\|\s*/).map(string => {
 						return string.endsWith(':') ? string.startsWith(':') ? 'center' : 'right' : '';
 					});
 
@@ -245,10 +231,11 @@ export default function parse (content, rootPath = '', ...range) {
 
 					continue;
 				}
-		
-				nodes.unshift(['tr', {}, ...string.slice(0, -1).split('|').map((text, i) => {
+
+				nodes.unshift(['tr', {}, ...remainder.slice(0, -1).split('|').map((text, i) => {
 					const textAlign = alignments?.[i];
-					return ['td', textAlign ? { style: { textAlign } } : {}, text.trim()];
+					const content = parseInline(text, rootNames, links);
+					return ['td', textAlign ? { style: { textAlign } } : {}, ...content];
 				})]);
 
 				if (previous?.[0] !== 'table' || oldlines > 0) {
@@ -262,8 +249,9 @@ export default function parse (content, rootPath = '', ...range) {
 		}
 
 		if (bullet) {
+			const item = ['li', {}];
 			let type = 'ol';
-			let subtype = 'li';
+			let index = 0;
 
 			switch (bullet) {
 				case '-':
@@ -274,27 +262,18 @@ export default function parse (content, rootPath = '', ...range) {
 				}
 				case ':': {
 					type = 'dl';
-					subtype = 'dd';
+					item[0] = 'dd';
 					break;
 				}
-			}
-
-			if (nodes.length) {
-				nodes.unshift([subtype, {}]);
-			} else if (spaced) {
-				nodes.unshift([subtype, {}, ['p', {}, ...content]]);
-			} else {
-				nodes.unshift([subtype, { '': index }, ...content]);
-				inlines.add(index);
 			}
 
 			if (oldlines > 1 || previous?.[0] !== type) {
 				const start = type === 'ol' ? bullet.slice(0, -1) : '1';
 				const list = [type, start === '1' ? {} : { start }];
 				nodes.unshift(list);
+				stack.push([padding.length + bullet.length + 1, list]);
 				spaced = false;
-				padding += `${bullet} `;
-				stack.push([padding.length, list]);
+				index = 1;
 
 				if (type === 'dl' && previous?.[0] === 'p') {
 					const term = container.pop();
@@ -306,58 +285,40 @@ export default function parse (content, rootPath = '', ...range) {
 
 				if (oldlines && !spaced) {
 					const children = container.slice(2);
-					children.push(nodes[0]);
 					spaced = true;
 
 					for (const item of children) {
-						if (inlines.has(item[1][''])) {
+						if (inlines.has(item)) {
 							const content = item.splice(2);
 							item.push(['p', {}, ...content]);
 						}
 					}
 				}
 			}
-		}
 
-		if (!nodes.length && content.length) {
-			if (previous?.[0] === 'p' && !oldlines) {
-				previous.push(['br'], ...content);
-				continue;
-			}
+			nodes.splice(index, 0, item);
+			index += 1;
 
-			nodes.unshift(['p', {}, ...content]);
-		}
-
-
-		if (nodes.length) {
-			if (oldlines && containerId) {
-				nodes[0][1].id = containerId;
-			}
-
-			for (const node of nodes) {
-				container.push(node);
-				container = node;
-			}
-
-			container[1][''] = index;
-
-			if (id) {
-				container[1].id = id;
-			}
-
-			if (container[0] !== 'tr') {
-				alignments = undefined;
+			if (spaced) {
+				nodes.splice(index, 0, ['p', {}]);
+			} else if (nodes.length === index) {
+				inlines.add(item);
 			}
 		}
-	}
 
-	// TODO: test that this only happens for headings that don't provide their own id, and if a custom hash prefix was provided
-	// - it should add links for headings that don't provide their own id, unless opting in with the custom hash prefix
-	// - adding deafult links to headings would complicate how snips work
-	for (const [i, heading] of headings.entries()) {
-		const id = `${hash || 'heading'}${i + 1}`;
-		heading[1].id = id;
-		heading[2][1].href += id;
+		for (const node of nodes) {
+			container.push(node);
+			container = node;
+		}
+
+		if (container[0] !== 'tr') {
+			alignments = undefined;
+		}
+
+		if (string) {
+			const content = parseInline(string, rootNames, links);
+			container.push(...content);
+		}
 	}
 
 	for (const link of links) {

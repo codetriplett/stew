@@ -156,8 +156,13 @@ function App () {
 		const [dots, ...rest] = path.split('/');
 		const { length } = dots;
 		stack.splice(-length, length, ...rest);
-		const markdown = stew(fetchText, [`/${stack.join('/')}.md`], undefined);
-		return stew(markdown, [`${path}#`]);
+		path = `/${stack.join('/')}`;
+		const markdown = stew(fetchText, [`${path}.md`], undefined);
+		return stew(markdown, [path]);
+		// snippets can just parse markdown like above, but with their scoped headings set as a hash
+		// - can include any number of hashes on one path, including empty one if summary (before h1) should be included
+		// - e.g. #abc#xyz, #abc#xyz#
+		// - this tracks with how code blocks are referenced in MD (when summary section has preformatted block)
 	});
 
 	const content = columns.every(column => column) && Composite({ columns });
