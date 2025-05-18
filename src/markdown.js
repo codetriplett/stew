@@ -42,12 +42,11 @@ export function parseInline (string, rootNames, links) {
 
 		if (linkMatch) {
 			const [, text, href, title, key, remainder] = linkMatch;
-			const node = ['a',, text];
+			const node = ['a', key, text];
 			content.push(node);
 			string = remainder;
 
 			if (key) {
-				node[1] = key;
 				links.push(node);
 				continue;
 			}
@@ -79,13 +78,12 @@ export default function parse (content, rootPath = '') {
 	const headingPath = scopes.size ? `/${trimmedPath}` : '';
 	const rootNames = trimmedPath ? trimmedPath.split('/') : [];
 	const lines = content.split(/\r\n|\r|\n/);
-	const stack = [[0, ['main', {}]]];
-	const inlines = new Set();
+	const stack = [[0, ['main', null]]];
+	const spaceable = new Set();
 	const references = {};
 	const links = [];
 	let newlines = 0;
 	let ticks = 0;
-	let spaced = false;
 	let locked = scopes.size && !scopes.has('');
 	let alignments;
 
@@ -96,7 +94,8 @@ export default function parse (content, rootPath = '') {
 		const nodes = [];
 		let [, container] = stack[0];
 		let whitespace = 0;
-		let bullet, structure, string;
+		let entry, dashes, empty, bullet, structure, string;
+		newlines = 0;
 
 		if (key !== undefined && !references[key]) {
 			const props = { href: buildPath(rootNames, href) };
@@ -114,10 +113,10 @@ export default function parse (content, rootPath = '') {
 				continue;
 			}
 			
-			const node = [hashes.length, {}];
+			const node = [hashes.length, null];
 			
 			if (id) {
-				node[1].id = id;
+				node[1] = { id };
 				nodes.unshift(['a', { href: encodeURI(`${headingPath}#${id}`) }]);
 			}
 
@@ -125,19 +124,21 @@ export default function parse (content, rootPath = '') {
 			string = heading;
 			stack.splice(1);
 		} else if (!remainder) {
-			if (newlines) {
+			if (oldlines) {
 				stack.splice(1);
 			}
 
-			newlines += 1;
+			newlines = oldlines + 1;
 			continue;
 		} else if (locked) {
 			continue;
 		} else {
 			whitespace = `${padding}`.replace('\t', '    ').length;
-			newlines = 0;
 
-			for (const [i, [indentation, node]] of stack.entries()) {
+			for (const [i, candidate] of stack.entries()) {
+				const [indentation, node] = candidate;
+				entry = candidate;
+
 				if (whitespace < indentation) {
 					stack.splice(i);
 					break;
@@ -148,12 +149,7 @@ export default function parse (content, rootPath = '') {
 			}
 		}
 
-		let previous = container[container.length - 1];
-
-		if (previous?.[0] === 'li') {
-			container = previous;
-			previous = container[container.length - 1];
-		}
+		const previous = container[container.length - 1];
 
 		if (whitespace > 3 || ticks) {
 			if (ticks && line.match(/^ {0,3}(`+)[ \t]*$/)?.[1]?.length >= ticks) {
@@ -170,26 +166,35 @@ export default function parse (content, rootPath = '') {
 				continue;
 			}
 
-			nodes.unshift(['pre', {}], ['code', {}, text]);
+			nodes.unshift(['pre', null], ['code', null, text]);
 		} else if (/^ {0,3}(`{3,})/.test(line)) {
 			ticks = line.match(/^ {0,3}(`+)/)?.[1]?.length;
-			nodes.unshift(['pre', {}], ['code', {}, '']);
+			nodes.unshift(['pre', null], ['code', null, '']);
 		} else if (!nodes.length) {
-			[, bullet, structure, string] = remainder.match(/^(?:([-+*:]|\d+[.)]) {1,4}(?![\s-]+$))?(>|\|(?!\|.*?\|\|))?\s*(.*?)\s*$/);
+			[, dashes, empty, bullet, structure, string] = remainder.match(/^(?:((?:\*\s+){3,}|(?:-\s+)|(?:_\s+))\s*$|((?:[-+*]|\d+[.)]) {1,4})?(?:([-+*:]|\d+[.)])(?: {1,4}|\s*$)(?![\s-]+$))?(>|\|(?!\|.*?\|\|))?\s*(.*?)\s*)$/);
 
-			if (!bullet && !structure) {
-				const [, dashes] = lines[i + 1]?.match?.(/^ {0,3}(=+|-+)\s*$/) || [];
+			if (empty && !bullet) {
+				bullet = empty.trim();
+				empty = undefined;
+			}
 
-				if (dashes) {
-					nodes.unshift([dashes[0] === '=' ? 1 : 2, {}]);
+			if (dashes) {
+				nodes.unshift(['hr']);
+			} else if (!bullet && !structure) {
+				const [, underline] = lines[i + 1]?.match?.(/^ {0,3}(=+|-+)\s*$/) || [];
+
+				if (underline) {
+					nodes.unshift([underline[0] === '=' ? 1 : 2, null]);
 					i++;
 				} else if (locked) {
 					continue;
-				} else if (previous?.[0] === 'p' && !oldlines) {
+				} else if (!oldlines && previous?.[0] === 'p') {
 					previous.push(['br']);
 					container = previous;
+				} else if (!oldlines && container?.[0] === 'li') {
+					container.push(['br']);
 				} else {
-					nodes.unshift(['p', {}]);
+					nodes.unshift(['p', null]);
 				}
 			}
 		}
@@ -215,7 +220,7 @@ export default function parse (content, rootPath = '') {
 
 					if (isFirst && container?.[0] === 'tbody' && oldlines === 0) {
 						container[0] = 'thead';
-						previous.push(['tbody', {}]);
+						previous.push(['tbody', null]);
 
 						for (const row of container.slice(2)) {
 							for (const [i, cell] of row.slice(2).entries()) {
@@ -223,7 +228,7 @@ export default function parse (content, rootPath = '') {
 								cell[0] = 'th';
 
 								if (textAlign) {
-									cell[1].style = { textAlign };
+									cell[1] = { style: { textAlign } };
 								}
 							}
 						}
@@ -232,14 +237,14 @@ export default function parse (content, rootPath = '') {
 					continue;
 				}
 
-				nodes.unshift(['tr', {}, ...remainder.slice(0, -1).split('|').map((text, i) => {
+				nodes.unshift(['tr', null, ...remainder.slice(0, -1).split('|').map((text, i) => {
 					const textAlign = alignments?.[i];
 					const content = parseInline(text, rootNames, links);
-					return ['td', textAlign ? { style: { textAlign } } : {}, ...content];
+					return ['td', textAlign ? { style: { textAlign } } : null, ...content];
 				})]);
 
 				if (previous?.[0] !== 'table' || oldlines > 0) {
-					nodes.unshift(['table', {}], ['tbody', {}]);
+					nodes.unshift(['table', null], ['tbody', null]);
 				} else {
 					container = previous[previous.length - 1];
 				}
@@ -249,14 +254,14 @@ export default function parse (content, rootPath = '') {
 		}
 
 		if (bullet) {
-			const item = ['li', {}];
+			const item = ['li', null];
 			let type = 'ol';
-			let index = 0;
+			const nextEntry = [padding.length + bullet.length + 1, item];
+			stack.push(nextEntry);
+			nodes.unshift(item);
 
 			switch (bullet) {
-				case '-':
-				case '+':
-				case '*': {
+				case '-': case '+': case '*': {
 					type = 'ul';
 					break;
 				}
@@ -267,13 +272,20 @@ export default function parse (content, rootPath = '') {
 				}
 			}
 
+			if (nodes.length === 1) {
+				spaceable.add(item);
+			}
+
 			if (oldlines > 1 || previous?.[0] !== type) {
 				const start = type === 'ol' ? bullet.slice(0, -1) : '1';
-				const list = [type, start === '1' ? {} : { start }];
+				const list = [type, start === '1' ? null : { start }];
 				nodes.unshift(list);
-				stack.push([padding.length + bullet.length + 1, list]);
-				spaced = false;
-				index = 1;
+				nextEntry.push(list, false);
+				spaceable.add(list);
+
+				if (spaceable.has(previous)) {
+					entry[3] = undefined;
+				}
 
 				if (type === 'dl' && previous?.[0] === 'p') {
 					const term = container.pop();
@@ -282,27 +294,33 @@ export default function parse (content, rootPath = '') {
 				}
 			} else {
 				container = previous;
+				nextEntry.push(container, oldlines > 0);
 
-				if (oldlines && !spaced) {
-					const children = container.slice(2);
-					spaced = true;
-
-					for (const item of children) {
-						if (inlines.has(item)) {
-							const content = item.splice(2);
-							item.push(['p', {}, ...content]);
-						}
-					}
+				if ((oldlines || entry[3]) && spaceable.has(item)) {
+					nodes.push(['p', null]);
 				}
 			}
 
-			nodes.splice(index, 0, item);
-			index += 1;
+			if (empty) {
+				const type = empty[1] === ' ' ? 'ul' : 'ol';
+				const list = [type, null];
+				const start = type === 'ol' ? empty.trim().slice(0, -1) : '1';
+				const item = ['li', start === '1' ? null : { start }];
+				stack.splice(-1, 0, [nextEntry[0], item, list]);
+				nodes.unshift(list, item);
+				nextEntry[0] += empty.length;
+			}
+		}
 
-			if (spaced) {
-				nodes.splice(index, 0, ['p', {}]);
-			} else if (nodes.length === index) {
-				inlines.add(item);
+		if (oldlines === 1 && entry[3] === false) {
+			const wrapper = entry[2];
+			entry[3] = true;
+
+			for (const item of wrapper.slice(2)) {
+				if (spaceable.has(item)) {
+					const content = item.splice(2);
+					item.push(['p', null, ...content]);
+				}
 			}
 		}
 
