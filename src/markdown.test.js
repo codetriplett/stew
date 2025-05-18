@@ -109,7 +109,7 @@ describe('parse', () => {
 	});
 
 	describe('heading', () => {
-		it('heading primary', () => {
+		it.only('heading primary', () => {
 			const actual = parse('Heading\n===');
 
 			expect(actual).toEqual(['main', null,
@@ -314,7 +314,7 @@ describe('parse', () => {
 			]);
 		});
 
-		it('spaced paragraph', () => {
+		it.only('spaced paragraph', () => {
 			const actual = parse(`
 - Item
 
@@ -457,7 +457,7 @@ describe('parse', () => {
 			]);
 		});
 		
-		it.only('definition spaced', () => {
+		it('definition spaced', () => {
 			const actual = parse('Item\n\n: Child\n\n: Adjacent');
 
 			expect(actual).toEqual(['main', null,

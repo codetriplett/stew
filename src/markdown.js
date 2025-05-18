@@ -87,9 +87,8 @@ export default function parse (content, rootPath = '') {
 	let locked = scopes.size && !scopes.has('');
 	let alignments;
 
-	for (let i = 0; i < lines.length; i++) {
-		const line = lines[i];
-		const [, key, href, title, hashes, heading, id, padding, remainder] = line.match(/^(?:(?:\s{0,3}(?:\[\s*(.*?)\s*\]:\s+(\S+?)\s*(?:\s('.*?'|".*?"|\(.*?\)))?|(#{1,6})\s+(.*?)(?:\s+#+(\S*))?))|(\s*)(.*?)\s*)$/);
+	for (const line of lines) {
+		const [, key, href, title, hashes, heading, id, underline, padding, remainder] = line.match(/^(?:(?:\s{0,3}(?:\[\s*(.*?)\s*\]:\s+(\S+?)\s*(?:\s('.*?'|".*?"|\(.*?\)))?|(#{1,6})\s+(.*?)(?:\s+#+(\S*))?|(=+|-+)))|(\s*)(.*?))\s*$/);
 		const oldlines = newlines;
 		const nodes = [];
 		let [, container] = stack[0];
@@ -106,7 +105,7 @@ export default function parse (content, rootPath = '') {
 			}
 
 			continue;
-		} else if (hashes) {
+		} if (hashes) {
 			locked = scopes.size && !scopes.has(id);
 
 			if (locked) {
@@ -132,6 +131,22 @@ export default function parse (content, rootPath = '') {
 			continue;
 		} else if (locked) {
 			continue;
+		} else if (underline) {
+			const previous = container[container.length - 1];
+
+			if (previous?.[0] === 'p') {
+				const type = underline[0] === '=' ? 1 : 2;
+				const index = previous.findIndex(node => node[0] === 'br');
+				locked = scoped.size > 0;
+
+				if (index === -1) {
+					previous[0] = type;
+					continue;
+				}
+
+				const content = previous.splice(index);
+				nodes.push([type, null, ...content.slice(1)]);
+			}
 		} else {
 			whitespace = `${padding}`.replace('\t', '    ').length;
 
@@ -176,17 +191,14 @@ export default function parse (content, rootPath = '') {
 			if (dashes) {
 				nodes.push(['hr']);
 			} else if (!symbols && !structure) {
-				const [, underline] = lines[i + 1]?.match?.(/^ {0,3}(=+|-+)\s*$/) || [];
+				if (/^[uod]l$/.test(previous?.[0])) {
+					container = previous[previous.length - 1];
 
-				if (underline) {
-					nodes.push([underline[0] === '=' ? 1 : 2, null]);
-					i++;
-				} else if (locked) {
-					continue;
+					if (!oldlines) {
+						container.push(['br']);
+					}
 				} else if (!oldlines && previous?.[0] === 'p') {
-					previous.push(['br']);
 					container = previous;
-				} else if (!oldlines && container?.[0] === 'li') {
 					container.push(['br']);
 				} else {
 					nodes.push(['p', null]);
@@ -275,7 +287,7 @@ export default function parse (content, rootPath = '') {
 				}
 			}
 
-			if (nodes.length === 1) {
+			if (!nodes.length) {
 				spaceable.add(item);
 			}
 
@@ -292,22 +304,19 @@ export default function parse (content, rootPath = '') {
 					term[0] = 'dt';
 					list.push(term);
 				}
-				
-				entry = [indentation, item, list, false];
-				stack.push(entry);
-				nodes.push(list);
-				nextEntry.push(list, false);
+
+				stack.push([indentation, item, list, false]);
+				nodes.push(list, item);
 				spaceable.add(list);
 				previous = undefined;
 			} else {
 				container = previous;
-				nextEntry.push(container, entry[3] || oldlines > 0);
-			}
-
-			nodes.push(item);
-			
-			if (entry[3] && spaceable.has(item)) {
-				nodes.push(['p', null]);
+				entry.splice(0, 2, indentation, item);
+				nodes.push(item);
+				
+				if ((oldlines || entry[3]) && spaceable.has(item)) {
+					nodes.push(['p', null]);
+				}
 			}
 		}
 
