@@ -94,7 +94,7 @@ export default function parse (content, rootPath = '') {
 		const nodes = [];
 		let [, container] = stack[0];
 		let whitespace = 0;
-		let entry, dashes, empty, bullet, structure, string;
+		let entry, dashes, symbols, structure, string;
 		newlines = 0;
 
 		if (key !== undefined && !references[key]) {
@@ -114,13 +114,13 @@ export default function parse (content, rootPath = '') {
 			}
 			
 			const node = [hashes.length, null];
+			nodes.push(node);
 			
 			if (id) {
 				node[1] = { id };
-				nodes.unshift(['a', { href: encodeURI(`${headingPath}#${id}`) }]);
+				nodes.push(['a', { href: encodeURI(`${headingPath}#${id}`) }]);
 			}
 
-			nodes.unshift(node);
 			string = heading;
 			stack.splice(1);
 		} else if (!remainder) {
@@ -149,7 +149,7 @@ export default function parse (content, rootPath = '') {
 			}
 		}
 
-		const previous = container[container.length - 1];
+		let previous = container[container.length - 1];
 
 		if (whitespace > 3 || ticks) {
 			if (ticks && line.match(/^ {0,3}(`+)[ \t]*$/)?.[1]?.length >= ticks) {
@@ -166,25 +166,20 @@ export default function parse (content, rootPath = '') {
 				continue;
 			}
 
-			nodes.unshift(['pre', null], ['code', null, text]);
+			nodes.push(['pre', null], ['code', null, text]);
 		} else if (/^ {0,3}(`{3,})/.test(line)) {
 			ticks = line.match(/^ {0,3}(`+)/)?.[1]?.length;
-			nodes.unshift(['pre', null], ['code', null, '']);
+			nodes.push(['pre', null], ['code', null, '']);
 		} else if (!nodes.length) {
-			[, dashes, empty, bullet, structure, string] = remainder.match(/^(?:((?:\*\s+){3,}|(?:-\s+)|(?:_\s+))\s*$|((?:[-+*]|\d+[.)]) {1,4})?(?:([-+*:]|\d+[.)])(?: {1,4}|\s*$)(?![\s-]+$))?(>|\|(?!\|.*?\|\|))?\s*(.*?)\s*)$/);
-
-			if (empty && !bullet) {
-				bullet = empty.trim();
-				empty = undefined;
-			}
+			[, dashes, symbols, structure, string] = remainder.match(/^(?:((?:\*\s+){3,}|(?:-\s+)|(?:_\s+))\s*$|((?:(?:(?:[-+*:>]|\d+[.)])(?: {1,4}|\s*$))*)(?![\s-]+$))?(\[[ xX-_]\](?=\s)|\|(?!\|.*?\|\|))?\s*(.*?)\s*)$/);
 
 			if (dashes) {
-				nodes.unshift(['hr']);
-			} else if (!bullet && !structure) {
+				nodes.push(['hr']);
+			} else if (!symbols && !structure) {
 				const [, underline] = lines[i + 1]?.match?.(/^ {0,3}(=+|-+)\s*$/) || [];
 
 				if (underline) {
-					nodes.unshift([underline[0] === '=' ? 1 : 2, null]);
+					nodes.push([underline[0] === '=' ? 1 : 2, null]);
 					i++;
 				} else if (locked) {
 					continue;
@@ -194,16 +189,15 @@ export default function parse (content, rootPath = '') {
 				} else if (!oldlines && container?.[0] === 'li') {
 					container.push(['br']);
 				} else {
-					nodes.unshift(['p', null]);
+					nodes.push(['p', null]);
 				}
 			}
 		}
 
 		switch (structure?.[0]) {
-			case '>': {
-				// handle blockquote here
-				// - add to previous blockquote if oldlines is 0
-				// - otherwise create new one
+			case '[': {
+				// TOOD: handlel checkbox here
+				// - xX are checked, all rest are unchecked
 				break;
 			}
 			case '|': {
@@ -237,30 +231,39 @@ export default function parse (content, rootPath = '') {
 					continue;
 				}
 
-				nodes.unshift(['tr', null, ...remainder.slice(0, -1).split('|').map((text, i) => {
+				if (previous?.[0] !== 'table' || oldlines > 0) {
+					nodes.push(['table', null], ['tbody', null]);
+				} else {
+					container = previous[previous.length - 1];
+				}
+
+				nodes.push(['tr', null, ...remainder.slice(0, -1).split('|').map((text, i) => {
 					const textAlign = alignments?.[i];
 					const content = parseInline(text, rootNames, links);
 					return ['td', textAlign ? { style: { textAlign } } : null, ...content];
 				})]);
 
-				if (previous?.[0] !== 'table' || oldlines > 0) {
-					nodes.unshift(['table', null], ['tbody', null]);
-				} else {
-					container = previous[previous.length - 1];
-				}
-
 				break;
 			}
 		}
 
-		if (bullet) {
+		let indentation = padding?.length || 0;
+		symbols = symbols ? symbols.split(/\s(?=\S)/) : [];
+		// TODO: fix nesting
+		// - reverse makes sense since things that contain other unshift
+		// - maybe the issue is how stack pushes, maybe split to currentn index
+
+		for (const symbol of symbols) {
+			if (symbol[0] === '>') {
+				// TODO: process blockquote
+				continue;
+			}
+
 			const item = ['li', null];
 			let type = 'ol';
-			const nextEntry = [padding.length + bullet.length + 1, item];
-			stack.push(nextEntry);
-			nodes.unshift(item);
+			indentation += symbol.length + 1;
 
-			switch (bullet) {
+			switch (symbol[0]) {
 				case '-': case '+': case '*': {
 					type = 'ul';
 					break;
@@ -277,14 +280,11 @@ export default function parse (content, rootPath = '') {
 			}
 
 			if (oldlines > 1 || previous?.[0] !== type) {
-				const start = type === 'ol' ? bullet.slice(0, -1) : '1';
+				const start = type === 'ol' ? symbol.trim().slice(0, -1) : '1';
 				const list = [type, start === '1' ? null : { start }];
-				nodes.unshift(list);
-				nextEntry.push(list, false);
-				spaceable.add(list);
 
 				if (spaceable.has(previous)) {
-					entry[3] = undefined;
+					entry.splice(3);
 				}
 
 				if (type === 'dl' && previous?.[0] === 'p') {
@@ -292,26 +292,26 @@ export default function parse (content, rootPath = '') {
 					term[0] = 'dt';
 					list.push(term);
 				}
+				
+				entry = [indentation, item, list, false];
+				stack.push(entry);
+				nodes.push(list);
+				nextEntry.push(list, false);
+				spaceable.add(list);
+				previous = undefined;
 			} else {
 				container = previous;
-				nextEntry.push(container, oldlines > 0);
-
-				if ((oldlines || entry[3]) && spaceable.has(item)) {
-					nodes.push(['p', null]);
-				}
+				nextEntry.push(container, entry[3] || oldlines > 0);
 			}
 
-			if (empty) {
-				const type = empty[1] === ' ' ? 'ul' : 'ol';
-				const list = [type, null];
-				const start = type === 'ol' ? empty.trim().slice(0, -1) : '1';
-				const item = ['li', start === '1' ? null : { start }];
-				stack.splice(-1, 0, [nextEntry[0], item, list]);
-				nodes.unshift(list, item);
-				nextEntry[0] += empty.length;
+			nodes.push(item);
+			
+			if (entry[3] && spaceable.has(item)) {
+				nodes.push(['p', null]);
 			}
 		}
 
+		// this should act on prev entry if new list is created, or current one
 		if (oldlines === 1 && entry[3] === false) {
 			const wrapper = entry[2];
 			entry[3] = true;

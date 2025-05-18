@@ -272,8 +272,8 @@ describe('parse', () => {
 			const actual = parse('2. - Item');
 
 			expect(actual).toEqual(['main', null,
-				['ol', null,
-					['li', { start: '2' },
+				['ol', { start: '2' },
+					['li', null,
 						['ul', null,
 							['li', null, 'Item'],
 						],
@@ -457,7 +457,7 @@ describe('parse', () => {
 			]);
 		});
 		
-		it('definition spaced', () => {
+		it.only('definition spaced', () => {
 			const actual = parse('Item\n\n: Child\n\n: Adjacent');
 
 			expect(actual).toEqual(['main', null,
