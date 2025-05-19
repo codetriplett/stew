@@ -84,17 +84,40 @@ export default function parse (content, rootPath = '') {
 	const links = [];
 	let newlines = 0;
 	let ticks = 0;
-	let locked = scopes.size && !scopes.has('');
+	let locked = scopes.size > 0 && !scopes.has('');
 	let alignments;
 
+	const regex = new RegExp(['^',
+		'(?:',
+			'(?:\\s{0,3}(?:',
+				'\\[\\s*(.*?)\\s*\\]:\\s+(\\S+?)\\s*(?:\\s(\'.*?\'|".*?"|\\(.*?\\)))?',
+				'|(#{1,6})\\s+(.*?)(?:\\s+#+(\\S*))?',
+				'|(=+|-+)',
+			'))',
+			'|(\\s*)(?:',
+				'((?:\\*\\s+){3,}|(?:-\\s+){3,}|(?:_\\s+){3,})',
+				'|((?:(?:(?:[-+*:>]|\\d+[.)])(?: {1,4}|\\s*$))*))?',
+					'(\\[[ xX-_]\\](?=\\s)|\\|(?!\\|.*?\\|\\|))?',
+						'\\s*(.*?)\\s*',
+			')',
+		')',
+	'\s*$'].join(''));
+
 	for (const line of lines) {
-		const [, key, href, title, hashes, heading, id, underline, padding, remainder] = line.match(/^(?:(?:\s{0,3}(?:\[\s*(.*?)\s*\]:\s+(\S+?)\s*(?:\s('.*?'|".*?"|\(.*?\)))?|(#{1,6})\s+(.*?)(?:\s+#+(\S*))?|(=+|-+)))|(\s*)(.*?))\s*$/);
 		const oldlines = newlines;
 		const nodes = [];
 		let [, container] = stack[0];
+		let previous = container[container.length - 1];
 		let whitespace = 0;
-		let entry, dashes, symbols, structure, string;
+		let entry;
 		newlines = 0;
+		
+		let [, 
+			key, href, title,
+			hashes, heading, id,
+			underline, padding, dashes,
+			symbols, structure, string,
+		] = line.match(regex);
 
 		if (key !== undefined && !references[key]) {
 			const props = { href: buildPath(rootNames, href) };
@@ -122,33 +145,34 @@ export default function parse (content, rootPath = '') {
 
 			string = heading;
 			stack.splice(1);
-		} else if (!remainder) {
+		} else if (locked) {
+			continue;
+		} else if (underline && !oldlines && previous?.[0] === 'p') {
+			const type = underline[0] === '=' ? 1 : 2;
+			const index = previous.findIndex(node => node?.[0] === 'br');
+			locked = scopes.size > 0;
+
+			if (index === -1) {
+				previous[0] = type;
+				continue;
+			}
+
+			const content = previous.splice(index);
+			nodes.push([type, null, ...content.slice(1)]);
+		} else if (line === padding) {
 			if (oldlines) {
 				stack.splice(1);
 			}
 
 			newlines = oldlines + 1;
 			continue;
-		} else if (locked) {
-			continue;
-		} else if (underline) {
-			const previous = container[container.length - 1];
-
-			if (previous?.[0] === 'p') {
-				const type = underline[0] === '=' ? 1 : 2;
-				const index = previous.findIndex(node => node[0] === 'br');
-				locked = scoped.size > 0;
-
-				if (index === -1) {
-					previous[0] = type;
-					continue;
-				}
-
-				const content = previous.splice(index);
-				nodes.push([type, null, ...content.slice(1)]);
-			}
+		} else if (!oldlines && !symbols && /^(p|[uod]l)$/.test(previous?.[0])) {
+			[, container] = stack[stack.length - 1];
+			string = line.slice(padding.length);
+			symbols = undefined;
+			structure = undefined;
 		} else {
-			whitespace = `${padding}`.replace('\t', '    ').length;
+			whitespace = `${padding || ''}`.replace('\t', '    ').length;
 
 			for (const [i, candidate] of stack.entries()) {
 				const [indentation, node] = candidate;
@@ -164,7 +188,15 @@ export default function parse (content, rootPath = '') {
 			}
 		}
 
-		let previous = container[container.length - 1];
+		previous = container[container.length - 1];
+
+		if (underline?.length === 1) {
+			symbols = underline;
+			underline = undefined;
+		} else if (underline?.length === 2) {
+			string = underline;
+			underline = undefined;
+		}
 
 		if (whitespace > 3 || ticks) {
 			if (ticks && line.match(/^ {0,3}(`+)[ \t]*$/)?.[1]?.length >= ticks) {
@@ -182,27 +214,21 @@ export default function parse (content, rootPath = '') {
 			}
 
 			nodes.push(['pre', null], ['code', null, text]);
-		} else if (/^ {0,3}(`{3,})/.test(line)) {
-			ticks = line.match(/^ {0,3}(`+)/)?.[1]?.length;
+			string = '';
+		} else if (/^`{3,}/.test(string)) {
+			ticks = string.search(/[^`]|$/);
 			nodes.push(['pre', null], ['code', null, '']);
-		} else if (!nodes.length) {
-			[, dashes, symbols, structure, string] = remainder.match(/^(?:((?:\*\s+){3,}|(?:-\s+)|(?:_\s+))\s*$|((?:(?:(?:[-+*:>]|\d+[.)])(?: {1,4}|\s*$))*)(?![\s-]+$))?(\[[ xX-_]\](?=\s)|\|(?!\|.*?\|\|))?\s*(.*?)\s*)$/);
-
-			if (dashes) {
-				nodes.push(['hr']);
-			} else if (!symbols && !structure) {
-				if (/^[uod]l$/.test(previous?.[0])) {
-					container = previous[previous.length - 1];
-
-					if (!oldlines) {
-						container.push(['br']);
-					}
-				} else if (!oldlines && previous?.[0] === 'p') {
-					container = previous;
-					container.push(['br']);
-				} else {
-					nodes.push(['p', null]);
-				}
+			string = '';
+		} else if (underline || dashes) {
+			nodes.push(['hr']);
+		} else if (!nodes.length && !symbols) {
+			if (!oldlines && /^(li|dd)$/.test(container[0])) {
+				container.push(['br']);
+			} else if (!oldlines && previous?.[0] === 'p' && !structure?.[0] !== '|') {
+				container = previous;
+				container.push(['br']);
+			} else if (!structure) {
+				nodes.push(['p', null]);
 			}
 		}
 
@@ -261,9 +287,6 @@ export default function parse (content, rootPath = '') {
 
 		let indentation = padding?.length || 0;
 		symbols = symbols ? symbols.split(/\s(?=\S)/) : [];
-		// TODO: fix nesting
-		// - reverse makes sense since things that contain other unshift
-		// - maybe the issue is how stack pushes, maybe split to currentn index
 
 		for (const symbol of symbols) {
 			if (symbol[0] === '>') {
@@ -273,7 +296,7 @@ export default function parse (content, rootPath = '') {
 
 			const item = ['li', null];
 			let type = 'ol';
-			indentation += symbol.length + 1;
+			indentation += symbol.length;
 
 			switch (symbol[0]) {
 				case '-': case '+': case '*': {
@@ -321,7 +344,7 @@ export default function parse (content, rootPath = '') {
 		}
 
 		// this should act on prev entry if new list is created, or current one
-		if (oldlines === 1 && entry[3] === false) {
+		if (oldlines === 1 && entry?.[3] === false) {
 			const wrapper = entry[2];
 			entry[3] = true;
 

@@ -109,7 +109,7 @@ describe('parse', () => {
 	});
 
 	describe('heading', () => {
-		it.only('heading primary', () => {
+		it('heading primary', () => {
 			const actual = parse('Heading\n===');
 
 			expect(actual).toEqual(['main', null,
@@ -314,7 +314,7 @@ describe('parse', () => {
 			]);
 		});
 
-		it.only('spaced paragraph', () => {
+		it('spaced paragraph', () => {
 			const actual = parse(`
 - Item
 
