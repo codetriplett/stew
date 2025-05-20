@@ -474,6 +474,32 @@ describe('parse', () => {
 		});
 	});
 
+	describe('blockquote', () => {
+		it('single line', () => {
+			const actual = parse('> Item');
+
+			expect(actual).toEqual(['main', null,
+				['blockquote', null,
+					['p', null, 'Item'],
+				],
+			]);
+		});
+
+		it.only('multiple line', () => {
+			const actual = parse('> Item\n> Adjacent');
+
+			expect(actual).toEqual(['main', null,
+				['blockquote', null,
+					['p', null,
+						'Item',
+						['br'],
+						'Adjacent',
+					],
+				],
+			]);
+		});
+	});
+
 	describe('table', () => {
 		it('cell', () => {
 			const actual = parse('|Item|');
