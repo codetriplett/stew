@@ -68,6 +68,93 @@ export function parseInline (string, rootNames, links) {
 	return content;
 }
 
+export function parseNesting (string, stack, spaced) {
+	const nodes = [];
+	let depth = 0;
+	let fillCount = 0;
+	let indentation = 0;
+	let symbol, padding, root;
+
+	string = string.replace(/\S$/, m => `${m} `).replace(/>\s+(?=>)/g, '>').replace(/\t/g, (m, index) => {
+		index += fillCount;
+		const count = 4 - (index % 4);
+		fillCount += count - 1;
+		return Array(count).fill(' ').join('');
+	});
+
+	while (string) {
+		[, padding, symbol, string] = string.match(/^(\s*)(>+|\S*\s*)(.*)$/);
+		const { length } = symbol;
+		let type = 'ol';
+		let subtype = 'li';
+
+		if (!symbol) {
+			break;
+		}
+
+		switch (symbol[0]) {
+			case '-': case '+': case '*': {
+				type = 'ul';
+				break;
+			}
+			case ':': {
+				type = 'dl';
+				subtype = 'dd';
+				break;
+			}
+			case '>': {
+				type = 'blockquote';
+				subtype = '';
+				depth += length;
+				indentation = 0;
+
+				if (spaced) {
+					depth = 1;
+					stack.splice(1);
+					spaced = undefined;
+				}
+
+				break;
+			}
+		}
+
+		if (subtype) {
+			indentation += padding.length;
+			depth = stack.findIndex((entry, i) => i > depth && indentation < entry?.[1]);
+
+			if (depth === -1) {
+				depth = stack.length;
+			}
+		}
+
+		if (stack[depth]?.[0]?.[0] !== type) {
+			root ??= depth - 1;
+			const start = type === 'ol' ? symbol.trim().slice(0, -1) : '1';
+			const wrapper = [type, start === '1' ? null : { start }];
+			stack.splice(depth, stack.length, [wrapper]);
+			nodes.push(wrapper);
+		}
+
+		if (subtype) {
+			const entry = stack[depth];
+			const item = [subtype, null];
+			nodes.push(item);
+			indentation += length;
+			entry[1] = indentation;
+			
+			if (spaced) {
+				spaced.add(entry[0]);
+				spaced = undefined;
+			}
+		}
+		
+		root ??= depth;
+	}
+
+	const container = stack[root ?? (spaced ? 0 : stack.length - 1)][0];
+	return [container, ...nodes];
+}
+
 export default function parse (content, rootPath = '') {
 	if (!content) {
 		return;
@@ -78,8 +165,9 @@ export default function parse (content, rootPath = '') {
 	const headingPath = scopes.size ? `/${trimmedPath}` : '';
 	const rootNames = trimmedPath ? trimmedPath.split('/') : [];
 	const lines = content.split(/\r\n|\r|\n/);
-	const stack = [[0, ['main', null]]];
+	const stack = [[['main', null]]];
 	const spaceable = new Set();
+	const spaced = new Set();
 	const references = {};
 	const links = [];
 	let newlines = 0;
@@ -94,8 +182,13 @@ export default function parse (content, rootPath = '') {
 				'|(#{1,6})\\s+(.*?)(?:\\s+#+(\\S*))?',
 				'|(=+|-+)',
 			'))',
-			'|(\\s*(?:(?:[-+*:>]|\\d+[.)])(?:\\s|^))*\\s*)(?:',
-				'((?:\\*\\s+){3,}|(?:-\\s+){3,}|(?:_\\s+){3,})',
+			// TODO: test that - - - at end of symbol string is used as hr if at end of line
+			// TODO: test that only up to 4 spaces are allowed after list symbols
+			// TODO: include spaces in string so they can be added back if it needs to be preformatted
+			// - need to know the index of the string capture group within line to know how many spaces a tab adds
+			// - maybe add a capture group for padding before string, then add back the extra after the 4 leading spaces have been found
+			'|(\\s*(?::\\s{1,4})?(?:[>\s]+|(?:[-+*]|\\d+[.)])(?:\\s{1,4}(?=\\S|^)|^))*)(?:',
+				'((?:\\*\\s+){3,}|(?:-\\s+){3,}|(?:_\\s+){3,})', // these are only allowed at end of line (maybe add lookahead to make sure)
 				'|(\\[[ xX-_]\\](?=\\s)|\\|(?!\\|.*?\\|\\|))?\\s*(.*?)\\s*',
 			')',
 		')',
@@ -104,10 +197,8 @@ export default function parse (content, rootPath = '') {
 	for (const line of lines) {
 		const oldlines = newlines;
 		const nodes = [];
-		let [entry] = stack;
-		let [, container] = entry;
+		let [container] = stack[0];
 		let previous = container[container.length - 1];
-		let whitespace = 0;
 		newlines = 0;
 
 		let [,
@@ -169,32 +260,6 @@ export default function parse (content, rootPath = '') {
 			continue;
 		}
 		
-		// this will move into the symbols loop since the rules work the same in blockquote block as they do at the main level
-		// else if (!oldlines && !symbols && /^(p|[uod]l)$/.test(previous?.[0])) {
-		// 	// markdowns lazy method of setting br content for last item, regardless of indentation
-		// 	[, container] = stack[stack.length - 1];
-		// 	string = line.slice(padding.length);
-		// 	symbols = undefined;
-		// 	structure = undefined;
-		// } else {
-		// 	whitespace = `${padding || ''}`.replace('\t', '    ').length;
-
-		// 	for (const [i, candidate] of stack.entries()) {
-		// 		const [indentation, node] = candidate;
-		// 		entry = candidate;
-
-		// 		if (whitespace < indentation) {
-		// 			stack.splice(i);
-		// 			break;
-		// 		}
-
-		// 		whitespace -= indentation;
-		// 		container = node;
-		// 	}
-		// }
-
-		previous = container[container.length - 1];
-
 		if (underline?.length === 1) {
 			symbols = underline;
 			underline = undefined;
@@ -203,110 +268,13 @@ export default function parse (content, rootPath = '') {
 			underline = undefined;
 		}
 
-		let indentation = 0;
-		let fillCount = 0;
-		let stackIndex;
+		const wrappers = parseNesting(symbols, stack, oldlines && spaced);
+		container = wrappers.shift();
+		previous = container[container.length - 1];
+		nodes.unshift(...wrappers);
 		
-		if (symbols) {
-			symbols = symbols.replace(/\S$/, m => `${m} `).replace(/\t/g, (m, index) => {
-				index += fillCount;
-				const count = 4 - (index % 4);
-				fillCount += count - 1;
-				return Array(count).fill(' ').join('');
-			}).split(/\s(?=\S|$)/).slice(0, -1);
-
-			stackIndex = 1;
-			entry = stack[1];
-		}
-		
-		let prevEntry = entry;
-
-		for (let symbol of symbols) {
-			const item = ['li', null];
-			let type = 'ol';
-			indentation += symbol.length + 1;
-			symbol = symbol.trim();
-
-			switch (symbol) {
-				case '': case '>': {
-					while (stackIndex < stack.length) {
-						stackIndex++;
-
-						if (entry[0] < indentation) {
-							stack.splice(stackIndex);
-							break;
-						}
-						
-						container = entry[1];
-						entry = stack[stackIndex];
-					}
-
-					type = 'blockquote';
-					item[0] = 'p';
-					break;
-				}
-				case '-': case '+': case '*': {
-					type = 'ul';
-					break;
-				}
-				case ':': {
-					type = 'dl';
-					item[0] = 'dd';
-					break;
-				}
-			}
-
-			if (!symbol) {
-				continue;
-			}
-
-			if (!nodes.length) {
-				spaceable.add(item);
-			}
-			
-			const list = entry?.[2];
-			nodes.push(item);
-
-			// TODO: handle blockquote properly
-			// - it doesn't seem to be recognizing adjacent lines as part of same set (maybe indentation processing?)
-			if (oldlines > 1 || list?.[0] !== type) {
-				const start = type === 'ol' ? symbol.slice(0, -1) : '1';
-				const list = [type, start === '1' ? null : { start }];
-
-				if (spaceable.has(previous) && prevEntry && entry === prevEntry) {
-					prevEntry.splice(3);
-				}
-
-				if (type === 'dl' && previous?.[0] === 'p') {
-					const term = container.pop();
-					term[0] = 'dt';
-					list.push(term);
-				}
-
-				stack.push([indentation, item, list, false]);
-				nodes.splice(-1, 0, list);
-				spaceable.add(list);
-			} else if (type !== 'blockquote') {
-				container = previous;
-				entry.splice(0, 2, indentation, item);
-				
-				if ((oldlines || entry[3]) && spaceable.has(item)) {
-					nodes.push(['p', null]);
-				}
-			}
-		}
-
-		// this should act on prev entry if new list is created, or current one
-		if (oldlines === 1 && prevEntry?.[3] === false) {
-			const wrapper = prevEntry[2];
-			prevEntry[3] = true;
-
-			for (const item of wrapper.slice(2)) {
-				if (spaceable.has(item)) {
-					const content = item.splice(2);
-					item.push(['p', null, ...content]);
-				}
-			}
+		if (nodes.length === wrappers.length) {
+			spaceable.add(wrappers[wrappers.length - 1]);
 		}
 
 		// TODO: can dashes be part of structure capture group
@@ -367,28 +335,28 @@ export default function parse (content, rootPath = '') {
 			}
 		}
 
-		if ((indentation - stack[stack.length - 1][0]) > 3 || ticks) {
-			if (ticks && line.match(/^ {0,3}(`+)[ \t]*$/)?.[1]?.length >= ticks) {
-				ticks = 0;
-				continue;
-			}
+		// if ((indentation - stack[stack.length - 1][0]) > 3 || ticks) {
+		// 	if (ticks && line.match(/^ {0,3}(`+)[ \t]*$/)?.[1]?.length >= ticks) {
+		// 		ticks = 0;
+		// 		continue;
+		// 	}
 
-			const indentation = ticks ? 0 : line[0] === '\t' ? 1 : 4;
-			const text = line.slice(indentation);
+		// 	const indentation = ticks ? 0 : line[0] === '\t' ? 1 : 4;
+		// 	const text = line.slice(indentation);
 
-			if (previous?.[0] === 'pre') {
-				const newlines = oldlines + (previous[2][2] ? 1 : 0);
-				previous[2][2] += `${Array(newlines).fill('\n').join('')}${text}`;
-				continue;
-			}
+		// 	if (previous?.[0] === 'pre') {
+		// 		const newlines = oldlines + (previous[2][2] ? 1 : 0);
+		// 		previous[2][2] += `${Array(newlines).fill('\n').join('')}${text}`;
+		// 		continue;
+		// 	}
 
-			nodes.push(['pre', null], ['code', null, text]);
-			string = '';
-		} else if (/^`{3,}/.test(string)) {
-			ticks = string.search(/[^`]|$/);
-			nodes.push(['pre', null], ['code', null, '']);
-			string = '';
-		}
+		// 	nodes.push(['pre', null], ['code', null, text]);
+		// 	string = '';
+		// } else if (/^`{3,}/.test(string)) {
+		// 	ticks = string.search(/[^`]|$/);
+		// 	nodes.push(['pre', null], ['code', null, '']);
+		// 	string = '';
+		// }
 
 		for (const node of nodes) {
 			container.push(node);
@@ -423,5 +391,12 @@ export default function parse (content, rootPath = '') {
 		link[1] = { ...references[key] };
 	}
 
-	return stack[0][1];
+	for (const list of spaced) {
+		for (const item of list.slice(2)) {
+			const content = item.splice(2);
+			item.push(['p', null, ...content]);
+		}
+	}
+
+	return stack[0][0];
 }
