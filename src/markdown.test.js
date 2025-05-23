@@ -1,5 +1,20 @@
 import parse, { parseInline, parseNesting } from './markdown';
 
+// TODO: consider simplified syntax after all features are finished to see if it can save on size and complexity
+// - only one list symbol per line and blockquotes must also have a space after them to avoid edge case handling (also looks neater)
+// - tables must have at least one space in empty cell to set them apart from spoiler tags
+// - headlines allowed in list items, but don't lock/unlock scope like ones at root
+
+// TODO: also change the way the layout is build (switching to spaceable, and borrowing previous line is getting complicated)
+// - keep [tagName, {}, ...children], but use props to store the spaceable flag, and store each line of inline content in a fragment
+// - on final pass, extract children from fragments, and put a br between them, also wrap each chain of fragments in p if spaceable flag is present
+// - stack can just hold the container, and indentation can be stored on props as well
+// - final pass will recursively process children and replace props with null, except for spoilers and ol with offset start
+// - do this after current method is checked so we can compare the diff to see how much lighter the code is
+// - also set types so we can avoid doing regex on tagNames: container (main, blockquote, p), list (li, ol, dl)
+// - lists process fragments of their children content instead of the lists direct content (maybe this can just be a boolean prop isList)
+// - no longer need to store links and lists in Sets to process later, recursion will pick up on these (e.g. does link have href or key)
+
 let spaced;
 
 beforeEach(() => {
@@ -81,75 +96,119 @@ describe('parseInline', () => {
 });
 
 describe('parseNesting', () => {
+	it('none', () => {
+		const stack = [[['main', null]]];
+		const actual = parseNesting('', stack);
+		expect(actual).toEqual([['main', null]]);
+		expect(stack).toEqual([[['main', null], false]]);
+	});
+	
+	it('extra whitespace', () => {
+		const stack = [[['main', null]]];
+		const actual = parseNesting('    ', stack);
+		expect(actual).toEqual([['main', null]]);
+		expect(stack).toEqual([[['main', null], true]]);
+	});
+
+	describe('definition list', () => {
+		it('created', () => {
+			const stack = [[['main', null, ['p', null, 'Item']]]];
+			const actual = parseNesting(': ', stack);
+			expect(actual).toEqual([['main', null], ['dl', null, ['dt', null, 'Item']], ['dd', null]]);
+			expect(stack).toEqual([[['main', null], false], [['dl', null, ['dt', null, 'Item']], 2]]);
+		});
+
+		it('extended', () => {
+			const stack = [[['main', null]], [['dl', null], 2]];
+			const actual = parseNesting(': ', stack);
+			expect(actual).toEqual([['dl', null], ['dd', null]]);
+			expect(stack).toEqual([[['main', null], false], [['dl', null], 2]]);
+		});
+		
+		it('nested', () => {
+			const stack = [[['main', null]], [['dl', null, ['dd', null, 'Item']], 2]];
+			const actual = parseNesting('  : ', stack);
+			expect(actual).toEqual([['dd', null], ['dl', null, ['dt', null, 'Item']], ['dd', null]]);
+			expect(stack).toEqual([[['main', null], false], [['dl', null, ['dd', null]], 2], [['dl', null, ['dt', null, 'Item']], 4]]);
+		});
+
+		it('extra whitespace', () => {
+			const stack = [[['main', null, ['p', null, 'Item']]]];
+			const actual = parseNesting(':     ', stack);
+			expect(actual).toEqual([['main', null], ['dl', null, ['dt', null, 'Item']], ['dd', null]]);
+			expect(stack).toEqual([[['main', null], true], [['dl', null, ['dt', null, 'Item']], 2]]);
+		});
+	});
+
 	describe('unordered list', () => {
 		it('created', () => {
 			const stack = [[['main', null]]];
 			const actual = parseNesting('- ', stack);
 			expect(actual).toEqual([['main', null], ['ul', null], ['li', null]]);
-			expect(stack).toEqual([[['main', null]], [['ul', null], 2]]);
+			expect(stack).toEqual([[['main', null], false], [['ul', null], 2]]);
 		});
 
 		it('extended', () => {
 			const stack = [[['main', null]], [['ul', null], 2]];
 			const actual = parseNesting('- ', stack);
 			expect(actual).toEqual([['ul', null], ['li', null]]);
-			expect(stack).toEqual([[['main', null]], [['ul', null], 2]]);
+			expect(stack).toEqual([[['main', null], false], [['ul', null], 2]]);
 		});
 		
 		it('nested', () => {
-			const stack = [[['main', null]], [['ul', null], 2]];
+			const stack = [[['main', null]], [['ul', null, ['li', null]], 2]];
 			const actual = parseNesting('  - ', stack);
-			expect(actual).toEqual([['ul', null], ['ul', null], ['li', null]]);
-			expect(stack).toEqual([[['main', null]], [['ul', null], 2], [['ul', null], 4]]);
+			expect(actual).toEqual([['li', null], ['ul', null], ['li', null]]);
+			expect(stack).toEqual([[['main', null], false], [['ul', null, ['li', null]], 2], [['ul', null], 4]]);
 		});
 		
 		it('inline', () => {
 			const stack = [[['main', null]]];
 			const actual = parseNesting('- - ', stack);
 			expect(actual).toEqual([['main', null], ['ul', null], ['li', null], ['ul', null], ['li', null]]);
-			expect(stack).toEqual([[['main', null]], [['ul', null], 2], [['ul', null], 4]]);
+			expect(stack).toEqual([[['main', null], false], [['ul', null], 2], [['ul', null], 4]]);
 		});
 		
 		it('extended inline', () => {
 			const stack = [[['main', null]], [['ul', null], 2], [['ul', null], 4]];
 			const actual = parseNesting('  - ', stack);
 			expect(actual).toEqual([['ul', null], ['li', null]]);
-			expect(stack).toEqual([[['main', null]], [['ul', null], 2], [['ul', null], 4]]);
+			expect(stack).toEqual([[['main', null], false], [['ul', null], 2], [['ul', null], 4]]);
 		});
 
 		it('end previous', () => {
 			const stack = [[['main', null]], [['ol', null], 2], [['ul', null], 4]];
 			const actual = parseNesting('- ', stack);
 			expect(actual).toEqual([['main', null], ['ul', null], ['li', null]]);
-			expect(stack).toEqual([[['main', null]], [['ul', null], 2]]);
+			expect(stack).toEqual([[['main', null], false], [['ul', null], 2]]);
 		});
 
 		it('extended nested', () => {
 			const stack = [[['main', null]], [['ol', null], 2], [['ul', null], 4]];
 			const actual = parseNesting('  - ', stack);
 			expect(actual).toEqual([['ul', null], ['li', null]]);
-			expect(stack).toEqual([[['main', null]], [['ol', null], 2], [['ul', null], 4]]);
+			expect(stack).toEqual([[['main', null], false], [['ol', null], 2], [['ul', null], 4]]);
 		});
 
 		it('extended lazy', () => {
 			const stack = [[['main', null]], [['ul', null], 2]];
 			const actual = parseNesting('', stack);
 			expect(actual).toEqual([['ul', null]]);
-			expect(stack).toEqual([[['main', null]], [['ul', null], 2]]);
+			expect(stack).toEqual([[['main', null], false], [['ul', null], 2]]);
 		});
 
 		it('terminal', () => {
 			const stack = [[['main', null]]];
 			const actual = parseNesting('-', stack);
 			expect(actual).toEqual([['main', null], ['ul', null], ['li', null]]);
-			expect(stack).toEqual([[['main', null]], [['ul', null], 2]]);
+			expect(stack).toEqual([[['main', null], false], [['ul', null], 2]]);
 		});
 
 		it('spaced', () => {
 			const stack = [[['main', null]], [['ul', null], 2]];
 			const actual = parseNesting('- ', stack, spaced);
 			expect(actual).toEqual([['ul', null], ['li', null]]);
-			expect(stack).toEqual([[['main', null]], [['ul', null], 2]]);
+			expect(stack).toEqual([[['main', null], false], [['ul', null], 2]]);
 			expect(spaced).toEqual(new Set([stack[1][0]]));
 		});
 		
@@ -157,8 +216,15 @@ describe('parseNesting', () => {
 			const stack = [[['main', null]], [['ul', null], 2], [['ul', null], 4]];
 			const actual = parseNesting('  - - ', stack, spaced);
 			expect(actual).toEqual([['ul', null], ['li', null], ['ul', null], ['li', null]]);
-			expect(stack).toEqual([[['main', null]], [['ul', null], 2], [['ul', null], 4], [['ul', null], 6]]);
+			expect(stack).toEqual([[['main', null], false], [['ul', null], 2], [['ul', null], 4], [['ul', null], 6]]);
 			expect(spaced).toEqual(new Set([stack[2][0]]));
+		});
+
+		it('extra whitespace', () => {
+			const stack = [[['main', null]]];
+			const actual = parseNesting('-     ', stack);
+			expect(actual).toEqual([['main', null], ['ul', null], ['li', null]]);
+			expect(stack).toEqual([[['main', null], true], [['ul', null], 2]]);
 		});
 	});
 
@@ -167,42 +233,42 @@ describe('parseNesting', () => {
 			const stack = [[['main', null]]];
 			const actual = parseNesting('1. ', stack);
 			expect(actual).toEqual([['main', null], ['ol', null], ['li', null]]);
-			expect(stack).toEqual([[['main', null]], [['ol', null], 3]]);
+			expect(stack).toEqual([[['main', null], false], [['ol', null], 3]]);
 		});
 
 		it('extended', () => {
 			const stack = [[['main', null]], [['ol', null], 3]];
 			const actual = parseNesting('1. ', stack);
 			expect(actual).toEqual([['ol', null], ['li', null]]);
-			expect(stack).toEqual([[['main', null]], [['ol', null], 3]]);
+			expect(stack).toEqual([[['main', null], false], [['ol', null], 3]]);
 		});
 
 		it('offset', () => {
 			const stack = [[['main', null]]];
 			const actual = parseNesting('10. ', stack);
 			expect(actual).toEqual([['main', null], ['ol', { start: '10' }], ['li', null]]);
-			expect(stack).toEqual([[['main', null]], [['ol', { start: '10' }], 4]]);
+			expect(stack).toEqual([[['main', null], false], [['ol', { start: '10' }], 4]]);
 		});
 
 		it('long', () => {
 			const stack = [[['main', null]], [['ol', null], 3]];
 			const actual = parseNesting('10. ', stack);
 			expect(actual).toEqual([['ol', null], ['li', null]]);
-			expect(stack).toEqual([[['main', null]], [['ol', null], 4]]);
+			expect(stack).toEqual([[['main', null], false], [['ol', null], 4]]);
 		});
 
 		it('terminal', () => {
 			const stack = [[['main', null]]];
 			const actual = parseNesting('1.', stack);
 			expect(actual).toEqual([['main', null], ['ol', null], ['li', null]]);
-			expect(stack).toEqual([[['main', null]], [['ol', null], 3]]);
+			expect(stack).toEqual([[['main', null], false], [['ol', null], 3]]);
 		});
 
 		it('spaced', () => {
 			const stack = [[['main', null]], [['ol', null], 3]];
 			const actual = parseNesting('1. ', stack, spaced);
 			expect(actual).toEqual([['ol', null], ['li', null]]);
-			expect(stack).toEqual([[['main', null]], [['ol', null], 3]]);
+			expect(stack).toEqual([[['main', null], false], [['ol', null], 3]]);
 			expect(spaced).toEqual(new Set([stack[1][0]]));
 		});
 		
@@ -210,8 +276,15 @@ describe('parseNesting', () => {
 			const stack = [[['main', null]], [['ol', null], 3], [['ol', null], 6]];
 			const actual = parseNesting('   1. 1. ', stack, spaced);
 			expect(actual).toEqual([['ol', null], ['li', null], ['ol', null], ['li', null]]);
-			expect(stack).toEqual([[['main', null]], [['ol', null], 3], [['ol', null], 6], [['ol', null], 9]]);
+			expect(stack).toEqual([[['main', null], false], [['ol', null], 3], [['ol', null], 6], [['ol', null], 9]]);
 			expect(spaced).toEqual(new Set([stack[2][0]]));
+		});
+
+		it('extra whitespace', () => {
+			const stack = [[['main', null]]];
+			const actual = parseNesting('1.     ', stack);
+			expect(actual).toEqual([['main', null], ['ol', null], ['li', null]]);
+			expect(stack).toEqual([[['main', null], true], [['ol', null], 3]]);
 		});
 	});
 
@@ -220,56 +293,63 @@ describe('parseNesting', () => {
 			const stack = [[['main', null]]];
 			const actual = parseNesting('> ', stack);
 			expect(actual).toEqual([['main', null], ['blockquote', null]]);
-			expect(stack).toEqual([[['main', null]], [['blockquote', null]]]);
+			expect(stack).toEqual([[['main', null], false], [['blockquote', null]]]);
 		});
 
 		it('extended', () => {
 			const stack = [[['main', null]], [['blockquote', null]]];
 			const actual = parseNesting('> ', stack);
 			expect(actual).toEqual([['blockquote', null]]);
-			expect(stack).toEqual([[['main', null]], [['blockquote', null]]]);
+			expect(stack).toEqual([[['main', null], false], [['blockquote', null]]]);
 		});
 
 		it('nested', () => {
 			const stack = [[['main', null]], [['blockquote', null]]];
 			const actual = parseNesting('>> ', stack);
 			expect(actual).toEqual([['blockquote', null], ['blockquote', null]]);
-			expect(stack).toEqual([[['main', null]], [['blockquote', null]], [['blockquote', null]]]);
+			expect(stack).toEqual([[['main', null], false], [['blockquote', null]], [['blockquote', null]]]);
 		});
 
 		it('nested wide', () => {
 			const stack = [[['main', null]], [['blockquote', null]]];
 			const actual = parseNesting('> > ', stack);
 			expect(actual).toEqual([['blockquote', null], ['blockquote', null]]);
-			expect(stack).toEqual([[['main', null]], [['blockquote', null]], [['blockquote', null]]]);
+			expect(stack).toEqual([[['main', null], false], [['blockquote', null]], [['blockquote', null]]]);
 		});
 
 		it('lazy', () => {
 			const stack = [[['main', null]], [['blockquote', null]], [['blockquote', null]]];
 			const actual = parseNesting('> ', stack);
 			expect(actual).toEqual([['blockquote', null]]);
-			expect(stack).toEqual([[['main', null]], [['blockquote', null]], [['blockquote', null]]]);
+			expect(stack).toEqual([[['main', null], false], [['blockquote', null]], [['blockquote', null]]]);
 		});
 
 		it('extra lazy', () => {
 			const stack = [[['main', null]], [['blockquote', null]], [['blockquote', null]]];
 			const actual = parseNesting('', stack);
 			expect(actual).toEqual([['blockquote', null]]);
-			expect(stack).toEqual([[['main', null]], [['blockquote', null]], [['blockquote', null]]]);
+			expect(stack).toEqual([[['main', null], false], [['blockquote', null]], [['blockquote', null]]]);
 		});
 		
 		it('terminal', () => {
 			const stack = [[['main', null]]];
 			const actual = parseNesting('>', stack);
 			expect(actual).toEqual([['main', null], ['blockquote', null]]);
-			expect(stack).toEqual([[['main', null]], [['blockquote', null]]]);
+			expect(stack).toEqual([[['main', null], false], [['blockquote', null]]]);
 		});
 
 		it('spaced', () => {
 			const stack = [[['main', null]], [['blockquote', null]], [['blockquote', null]]];
 			const actual = parseNesting('> ', stack, spaced);
 			expect(actual).toEqual([['main', null], ['blockquote', null]]);
-			expect(stack).toEqual([[['main', null]], [['blockquote', null]]]);
+			expect(stack).toEqual([[['main', null], false], [['blockquote', null]]]);
+		});
+
+		it('created', () => {
+			const stack = [[['main', null]]];
+			const actual = parseNesting('>     ', stack);
+			expect(actual).toEqual([['main', null], ['blockquote', null]]);
+			expect(stack).toEqual([[['main', null], true], [['blockquote', null]]]);
 		});
 	});
 });
@@ -360,7 +440,7 @@ describe('parse', () => {
 		});
 	});
 
-	describe.skip('preformatted', () => {
+	describe('preformatted', () => {
 		it('tab indentation', () => {
 			const actual = parse('\tabc');
 
@@ -417,6 +497,16 @@ describe('parse', () => {
 			expect(actual).toEqual(['main', null,
 				['pre', null,
 					['code', null, '```\nabc\n```'],
+				],
+			]);
+		});
+
+		it.skip('interrupts nesting', () => {
+			const actual = parse('-     - abc');
+
+			expect(actual).toEqual(['main', null,
+				['pre', null,
+					['code', null, '- abc'],
 				],
 			]);
 		});
@@ -679,9 +769,7 @@ describe('parse', () => {
 			const actual = parse('> Item');
 
 			expect(actual).toEqual(['main', null,
-				['blockquote', null,
-					['p', null, 'Item'],
-				],
+				['blockquote', null, 'Item'],
 			]);
 		});
 
@@ -690,11 +778,9 @@ describe('parse', () => {
 
 			expect(actual).toEqual(['main', null,
 				['blockquote', null,
-					['p', null,
-						'Item',
-						['br'],
-						'Adjacent',
-					],
+					'Item',
+					['br'],
+					'Adjacent',
 				],
 			]);
 		});

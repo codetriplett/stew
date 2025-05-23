@@ -73,14 +73,14 @@ export function parseNesting (string, stack, spaced) {
 	let depth = 0;
 	let fillCount = 0;
 	let indentation = 0;
-	let symbol, padding, root;
+	let padding, symbol, root;
 
-	string = string.replace(/\S$/, m => `${m} `).replace(/>\s+(?=>)/g, '>').replace(/\t/g, (m, index) => {
+	string = string.replace(/\t/g, (m, index) => {
 		index += fillCount;
 		const count = 4 - (index % 4);
 		fillCount += count - 1;
 		return Array(count).fill(' ').join('');
-	});
+	}).replace(/\S$/, m => `${m} `).replace(/>\s+(?=>)/g, '>');
 
 	while (string) {
 		[, padding, symbol, string] = string.match(/^(\s*)(>+|\S*\s*)(.*)$/);
@@ -133,6 +133,27 @@ export function parseNesting (string, stack, spaced) {
 			const wrapper = [type, start === '1' ? null : { start }];
 			stack.splice(depth, stack.length, [wrapper]);
 			nodes.push(wrapper);
+
+			if (subtype === 'dd') {
+				const container = stack[depth - 1][0];
+				const previous = container[container.length - 1];
+				const term = ['dt', null];
+				wrapper.push(term);
+
+				if (previous?.[0] === 'p' || /^[duo]l$/.test(container[0])) {
+					const index = Math.max(1, previous.findIndex(node => node?.[0] === 'br'));
+					const content = previous.splice(index + 1);
+					term.push(...content);
+
+					if (index === 1) {
+						if (previous?.[0] === 'p') {
+							container.pop();
+						} else {
+							previous.splice(2, 1);
+						}
+					}
+				}
+			}
 		}
 
 		if (subtype) {
@@ -142,7 +163,7 @@ export function parseNesting (string, stack, spaced) {
 			indentation += length;
 			entry[1] = indentation;
 			
-			if (spaced) {
+			if (spaced && nodes[nodes.length - 2] === entry[0]) {
 				spaced.add(entry[0]);
 				spaced = undefined;
 			}
@@ -151,7 +172,21 @@ export function parseNesting (string, stack, spaced) {
 		root ??= depth;
 	}
 
-	const container = stack[root ?? (spaced ? 0 : stack.length - 1)][0];
+	if (!symbol) {
+		symbol = `> ${padding || ''}`;
+	}
+
+	const whitespace = symbol.length - symbol.trim().length;
+	let container = stack[root ?? (spaced ? 0 : stack.length - 1)][0];
+	
+	if ((stack[0][1] = whitespace > 4) && symbol[0] !== '>') {
+		stack[stack.length - 1][1] -= whitespace - 1;
+	}
+
+	if (container.length > 2 && /^[duo]l$/.test(container[0])) {
+		container = container[container.length - 1];
+	}
+
 	return [container, ...nodes];
 }
 
@@ -187,7 +222,7 @@ export default function parse (content, rootPath = '') {
 			// TODO: include spaces in string so they can be added back if it needs to be preformatted
 			// - need to know the index of the string capture group within line to know how many spaces a tab adds
 			// - maybe add a capture group for padding before string, then add back the extra after the 4 leading spaces have been found
-			'|(\\s*(?::\\s{1,4})?(?:[>\s]+|(?:[-+*]|\\d+[.)])(?:\\s{1,4}(?=\\S|^)|^))*)(?:',
+			'|(\\s*(?::\\s{1,4})?(?:[>\s]+|(?:[-+*]|\\d+[.)])(?:\\s{1,4}(?=\\S|^)|^))*\\s*)(?:',
 				'((?:\\*\\s+){3,}|(?:-\\s+){3,}|(?:_\\s+){3,})', // these are only allowed at end of line (maybe add lookahead to make sure)
 				'|(\\[[ xX-_]\\](?=\\s)|\\|(?!\\|.*?\\|\\|))?\\s*(.*?)\\s*',
 			')',
@@ -268,10 +303,11 @@ export default function parse (content, rootPath = '') {
 			underline = undefined;
 		}
 
-		const wrappers = parseNesting(symbols, stack, oldlines && spaced);
+		const wrappers = parseNesting(symbols, stack, oldlines === 1 && spaced);
 		container = wrappers.shift();
 		previous = container[container.length - 1];
 		nodes.unshift(...wrappers);
+		// console.log(stack[stack.length - 1][1]);
 		
 		if (nodes.length === wrappers.length) {
 			spaceable.add(wrappers[wrappers.length - 1]);
@@ -335,28 +371,28 @@ export default function parse (content, rootPath = '') {
 			}
 		}
 
-		// if ((indentation - stack[stack.length - 1][0]) > 3 || ticks) {
-		// 	if (ticks && line.match(/^ {0,3}(`+)[ \t]*$/)?.[1]?.length >= ticks) {
-		// 		ticks = 0;
-		// 		continue;
-		// 	}
+		if (stack[0][1] || ticks) {
+			if (ticks && line.match(/^ {0,3}(`+)[ \t]*$/)?.[1]?.length >= ticks) {
+				ticks = 0;
+				continue;
+			}
 
-		// 	const indentation = ticks ? 0 : line[0] === '\t' ? 1 : 4;
-		// 	const text = line.slice(indentation);
+			const indentation = ticks ? 0 : line[0] === '\t' ? 1 : 4;
+			const text = line.slice(indentation);
 
-		// 	if (previous?.[0] === 'pre') {
-		// 		const newlines = oldlines + (previous[2][2] ? 1 : 0);
-		// 		previous[2][2] += `${Array(newlines).fill('\n').join('')}${text}`;
-		// 		continue;
-		// 	}
+			if (previous?.[0] === 'pre') {
+				const newlines = oldlines + (previous[2][2] ? 1 : 0);
+				previous[2][2] += `${Array(newlines).fill('\n').join('')}${text}`;
+				continue;
+			}
 
-		// 	nodes.push(['pre', null], ['code', null, text]);
-		// 	string = '';
-		// } else if (/^`{3,}/.test(string)) {
-		// 	ticks = string.search(/[^`]|$/);
-		// 	nodes.push(['pre', null], ['code', null, '']);
-		// 	string = '';
-		// }
+			nodes.push(['pre', null], ['code', null, text]);
+			string = '';
+		} else if (/^`{3,}/.test(string)) {
+			ticks = string.search(/[^`]|$/);
+			nodes.push(['pre', null], ['code', null, '']);
+			string = '';
+		}
 
 		for (const node of nodes) {
 			container.push(node);
