@@ -68,12 +68,23 @@ export function parseInline (string, rootNames, links) {
 	return content;
 }
 
-export function parseNesting (string, stack, spaced) {
+// most of the code can remain the same, key changes...
+// - only store containers in stack (main, li, dd, blockquote, etc)
+// - store indentation and spaced props on containter props object (main defaults to spaced)
+// - have li and dd also store a list prop that points to that node so we can check its tagName and add children to it
+// - fragments will be used as child of containers if other type isn't detected (ul, ol, dl, blockquote, table, etc)
+// - include br to existing fragment if new line is also a fragment before adding the content
+// - on final pass, if container has been marked as spaced, change '' in fragments to 'p'
+// - things that borrow (underlined headlines, definition term, etc) will take the whole previous fragment if there is no newline
+//   - not only is this easier to manage, since we don't need to extract according to 'br', it also allows these elements to have br's themselves
+// - this should clean up quite a bit of code
+export function parseNesting (string, stack, isSpaceable) {
 	const nodes = [];
+	let [container] = stack;
 	let depth = 0;
 	let fillCount = 0;
 	let indentation = 0;
-	let padding, symbol, root;
+	let padding, symbol;
 
 	string = string.replace(/\t/g, (m, index) => {
 		index += fillCount;
@@ -83,8 +94,7 @@ export function parseNesting (string, stack, spaced) {
 	}).replace(/\S$/, m => `${m} `).replace(/>\s+(?=>)/g, '>');
 
 	while (string) {
-		[, padding, symbol, string] = string.match(/^(\s*)(>+|\S*\s*)(.*)$/);
-		const { length } = symbol;
+		[, padding, symbol, string] = string.match(/^(\s*)((?:>+|\S*)\s*)(.*)$/);
 		let type = 'ol';
 		let subtype = 'li';
 
@@ -105,13 +115,12 @@ export function parseNesting (string, stack, spaced) {
 			case '>': {
 				type = 'blockquote';
 				subtype = '';
-				depth += length;
+				depth += symbol.trim().length;
 				indentation = 0;
 
-				if (spaced) {
+				if (isSpaceable) {
 					depth = 1;
 					stack.splice(1);
-					spaced = undefined;
 				}
 
 				break;
@@ -120,74 +129,106 @@ export function parseNesting (string, stack, spaced) {
 
 		if (subtype) {
 			indentation += padding.length;
-			depth = stack.findIndex((entry, i) => i > depth && indentation < entry?.[1]);
+			depth = stack.findIndex((entry, i) => i > depth && indentation < entry?.[1]?.indentation);
 
 			if (depth === -1) {
 				depth = stack.length;
 			}
 		}
 
-		if (stack[depth]?.[0]?.[0] !== type) {
-			root ??= depth - 1;
-			const start = type === 'ol' ? symbol.trim().slice(0, -1) : '1';
-			const wrapper = [type, start === '1' ? null : { start }];
-			stack.splice(depth, stack.length, [wrapper]);
-			nodes.push(wrapper);
+		const { length } = symbol;
+		container = stack[depth];
 
-			if (subtype === 'dd') {
-				const container = stack[depth - 1][0];
-				const previous = container[container.length - 1];
-				const term = ['dt', null];
-				wrapper.push(term);
-
-				if (previous?.[0] === 'p' || /^[duo]l$/.test(container[0])) {
-					const index = Math.max(1, previous.findIndex(node => node?.[0] === 'br'));
-					const content = previous.splice(index + 1);
-					term.push(...content);
-
-					if (index === 1) {
-						if (previous?.[0] === 'p') {
-							container.pop();
-						} else {
-							previous.splice(2, 1);
-						}
-					}
-				}
-			}
-		}
-
-		if (subtype) {
-			const entry = stack[depth];
-			const item = [subtype, null];
-			nodes.push(item);
+		if (type !== container?.[0]) {
 			indentation += length;
-			entry[1] = indentation;
-			
-			if (spaced && nodes[nodes.length - 2] === entry[0]) {
-				spaced.add(entry[0]);
-				spaced = undefined;
+			container = [type, { spaced: false, indentation, subtype, items: [] }];
+			stack.splice(depth);
+			nodes.push(container);
+
+			if (type === 'ol') {
+				const start = symbol.trim().slice(0, -1);
+
+				if (start !== '1') {
+					container[1].start = start;
+				}
+			} else if (subtype === 'dd') {
+				const previous = stack[depth - 1];
+				let term;
+
+				if (previous[previous.length - 1]?.[0] === '') {
+					term = previous.pop();
+					term[0] = 'dt';
+				} else {
+					term = ['dt', null];
+				}
+
+				container.push(term);
+			}
+		} else if (subtype) {
+			const content = container.splice(2);
+			const props = container[1];
+			indentation += length;
+			props.indentation = indentation;
+			props.items.push(content);
+
+			if (isSpaceable) {
+				props.spaced = true;
 			}
 		}
+	}
+
+	const props = container[1];
+	padding = symbol ? symbol.replace(/\S+\s/, '') : padding || '';
+
+	if (padding.length > 3) {
+		props.padding = padding.slice(4);
 		
-		root ??= depth;
+		if (depth) {
+			props.indentation -= 4;
+		}
+	} else {
+		props.padding = undefined;
 	}
 
-	if (!symbol) {
-		symbol = `> ${padding || ''}`;
+	return nodes;
+}
+
+export function finalize (node, references, listProps) {
+	if (!Array.isArray(node)) {
+		return;
 	}
 
-	const whitespace = symbol.length - symbol.trim().length;
-	let container = stack[root ?? (spaced ? 0 : stack.length - 1)][0];
+	let [, props, ...children] = node;
+	const { spaced, start, subtype, items } = listProps || props || {};
+	const inList = !!listProps;
+
+	if (typeof props === 'string') {
+		node[1] = { ...references[props] };
+	} else if (props) {
+		node[1] = start ? { start } : null;
+	}
 	
-	if ((stack[0][1] = whitespace > 4) && symbol[0] !== '>') {
-		stack[stack.length - 1][1] -= whitespace - 1;
+	if (items) {
+		items.push(node.splice(2));
+		children = items.map(content => [subtype, null, ...content]);
+		node.push(...children);
+		listProps = { spaced };
+	} else {
+		listProps = undefined;
 	}
 
-	if (container.length > 2 && /^[duo]l$/.test(container[0])) {
-		container = container[container.length - 1];
-	}
+	for (let i = children.length - 1; i >= 0; i--) {
+		const child = children[i];
+		finalize(child, references, listProps);
 
-	return [container, ...nodes];
+		if (child[0] === '') {
+			if (spaced) {
+				child[0] = 'p';
+			} else if (inList) {
+				node.splice(i + 2, 1, ...child.slice(2));
+			}
+		}
+	}
 }
 
 export default function parse (content, rootPath = '') {
@@ -200,8 +241,9 @@ export default function parse (content, rootPath = '') {
 	const headingPath = scopes.size ? `/${trimmedPath}` : '';
 	const rootNames = trimmedPath ? trimmedPath.split('/') : [];
 	const lines = content.split(/\r\n|\r|\n/);
-	const stack = [[['main', null]]];
-	const spaceable = new Set();
+	const main = ['main', { spaced: true }];
+	const stack = [main];
+	// const spaceable = new Set();
 	const spaced = new Set();
 	const references = {};
 	const links = [];
@@ -212,6 +254,9 @@ export default function parse (content, rootPath = '') {
 
 	const regex = new RegExp(['^',
 		'(?:',
+			// move these to after nesting
+			// - have scope lock based only on headings at the root (when symbols is empty, and newlines are present)
+			// - checkboxes can exist in headings and tables
 			'(?:\\s{0,3}(?:',
 				'\\[\\s*(.*?)\\s*\\]:\\s+(\\S+?)\\s*(?:\\s(\'.*?\'|".*?"|\\(.*?\\)))?',
 				'|(#{1,6})\\s+(.*?)(?:\\s+#+(\\S*))?',
@@ -304,14 +349,43 @@ export default function parse (content, rootPath = '') {
 		}
 
 		const wrappers = parseNesting(symbols, stack, oldlines === 1 && spaced);
-		container = wrappers.shift();
+		[container] = stack;
 		previous = container[container.length - 1];
 		nodes.unshift(...wrappers);
+		stack.push(...wrappers);
+		let { padding } = stack[stack.length - 1][1];
+
+		if (padding !== undefined || ticks) {
+			string = `${padding || ''}${dashes || ''}${structure || ''}${string}`;
+
+			if (ticks && line.match(/^ {0,3}(`+)[ \t]*$/)?.[1]?.length >= ticks) {
+				ticks = 0;
+				continue;
+			}
+
+			const indentation = ticks ? 0 : line[0] === '\t' ? 1 : 4;
+			const text = line.slice(indentation);
+
+			if (previous?.[0] === 'pre') {
+				const newlines = oldlines + (previous[2][2] ? 1 : 0);
+				previous[2][2] += `${Array(newlines).fill('\n').join('')}${text}`;
+				continue;
+			}
+
+			nodes.push(['pre', null], ['code', null, text]);
+			string = '';
+		} else if (/^`{3,}/.test(string)) {
+			ticks = string.search(/[^`]|$/);
+			nodes.push(['pre', null], ['code', null, '']);
+			string = '';
+		}
+
 		// console.log(stack[stack.length - 1][1]);
 		
-		if (nodes.length === wrappers.length) {
-			spaceable.add(wrappers[wrappers.length - 1]);
-		}
+		// second pass will use tagName '' to know if they can be wrapped in 'p'
+		// if (nodes.length === wrappers.length) {
+		// 	spaceable.add(wrappers[wrappers.length - 1]);
+		// }
 
 		// TODO: can dashes be part of structure capture group
 		if (underline || dashes) {
@@ -371,31 +445,9 @@ export default function parse (content, rootPath = '') {
 			}
 		}
 
-		if (stack[0][1] || ticks) {
-			if (ticks && line.match(/^ {0,3}(`+)[ \t]*$/)?.[1]?.length >= ticks) {
-				ticks = 0;
-				continue;
-			}
-
-			const indentation = ticks ? 0 : line[0] === '\t' ? 1 : 4;
-			const text = line.slice(indentation);
-
-			if (previous?.[0] === 'pre') {
-				const newlines = oldlines + (previous[2][2] ? 1 : 0);
-				previous[2][2] += `${Array(newlines).fill('\n').join('')}${text}`;
-				continue;
-			}
-
-			nodes.push(['pre', null], ['code', null, text]);
-			string = '';
-		} else if (/^`{3,}/.test(string)) {
-			ticks = string.search(/[^`]|$/);
-			nodes.push(['pre', null], ['code', null, '']);
-			string = '';
-		}
-
 		for (const node of nodes) {
 			container.push(node);
+			container[1].previous = node; // how many things use this, is it better to just have those find the last child themselves?
 			container = node;
 		}
 
@@ -422,17 +474,18 @@ export default function parse (content, rootPath = '') {
 		}
 	}
 
-	for (const link of links) {
-		const key = link[1];
-		link[1] = { ...references[key] };
-	}
+	// for (const link of links) {
+	// 	const key = link[1];
+	// 	link[1] = { ...references[key] };
+	// }
 
-	for (const list of spaced) {
-		for (const item of list.slice(2)) {
-			const content = item.splice(2);
-			item.push(['p', null, ...content]);
-		}
-	}
+	// for (const list of spaced) {
+	// 	for (const item of list.slice(2)) {
+	// 		const content = item.splice(2);
+	// 		item.push(['p', null, ...content]);
+	// 	}
+	// }
 
-	return stack[0][0];
+	finalize(main);
+	return main;
 }

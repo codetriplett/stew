@@ -123,13 +123,14 @@ export default function stew (...layout) {
 
 		document = isServer ? stew : globalThis.document;
 		
-		// TODO: do createElement if string doesn't start with #, ., *, or [
-		// - have stew just return node instead of swap function
-		// - store wrappers in weakmap and have stew(node, map) trigger the swap
-		// - remove ref attribute
+		// TODO: use selector string to create node for isServer, and query for it on client
+		// - this allows better code reuse between server and client
+		// - both will return node that matches the selector
+		// - keep it simple, just tagName, id, classes, and attributes before first > + or , (default to div if no tagName is provided)
 		if (typeof node === 'string') {
 			node = node ? document.querySelector(node) : document.createDocumentFragment();
 		}
+		// have stew return swap function only if node object was already provided (not a string)
 
 		if (!node) {
 			console.error(`Element not found: ${node}`);
