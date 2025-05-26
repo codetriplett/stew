@@ -47,7 +47,7 @@ export function parseInline (string, rootNames, links) {
 			string = remainder;
 
 			if (key) {
-				links.push(node);
+				links.add(node);
 				continue;
 			}
 
@@ -143,11 +143,18 @@ function parseNesting (string, stack, isSpaceable) {
 		({ wrapper } = props || {});
 
 		if (type !== wrapper?.[0]) {
-			wrapper = subtype && [type, null];
+			wrapper = [type, null];
 			indentation += length;
 			props = { spaced: false, indentation, wrapper };
 			container = [subtype || type, props];
-			nodes.push(wrapper, container);
+
+			if (subtype) {
+				nodes.push(wrapper);
+			} else {
+				wrapper.push(container);
+			}
+
+			nodes.push(container);
 			stack.splice(depth);
 
 			if (type === 'ol') {
@@ -194,34 +201,6 @@ function parseNesting (string, stack, isSpaceable) {
 	return nodes;
 }
 
-export function finalize (node, references) {
-	if (!Array.isArray(node)) {
-		return;
-	}
-
-	let [, props, ...children] = node;
-	const { start, spaced, wrapper } = props || {};
-
-	if (typeof props === 'string') {
-		node[1] = { ...references[props] };
-	} else if (props && !start) {
-		node[1] = null;
-	}
-
-	for (let i = children.length - 1; i >= 0; i--) {
-		const child = children[i];
-		finalize(child, references);
-
-		if (child[0] === '') {
-			if (spaced) {
-				child[0] = 'p';
-			} else if (wrapper) {
-				node.splice(i + 2, 1, ...child.slice(2));
-			}
-		}
-	}
-}
-
 export default function parse (content, rootPath = '') {
 	if (!content) {
 		return;
@@ -234,65 +213,67 @@ export default function parse (content, rootPath = '') {
 	const lines = content.split(/\r\n|\r|\n/);
 	const main = ['main', { spaced: true }];
 	const stack = [main];
-	// const spaceable = new Set();
-	// const spaced = new Set();
+	const containers = new Set(stack);
+	const links = new Set();
 	const references = {};
-	const links = [];
 	let newlines = 0;
 	let ticks = 0;
 	let locked = scopes.size > 0 && !scopes.has('');
-	let alignments;
+	let alignments, reference;
+	main[1].wrapper = ['', null, main];
 
 	const regex = new RegExp(['^',
-		'(?:',
-			// move these to after nesting
-			// - have scope lock based only on headings at the root (when symbols is empty, and newlines are present)
-			// - checkboxes can exist in headings and tables
-			'(?:\\s{0,3}(?:',
-				'\\[\\s*(.*?)\\s*\\]:\\s+(\\S+?)\\s*(?:\\s(\'.*?\'|".*?"|\\(.*?\\)))?',
-				'|(#{1,6})\\s+(.*?)(?:\\s+#+(\\S*))?',
-				'|(=+|-+)',
-			'))',
-			// TODO: test that - - - at end of symbol string is used as hr if at end of line
-			// TODO: test that only up to 4 spaces are allowed after list symbols
-			// TODO: include spaces in string so they can be added back if it needs to be preformatted
-			// - need to know the index of the string capture group within line to know how many spaces a tab adds
-			// - maybe add a capture group for padding before string, then add back the extra after the 4 leading spaces have been found
-			'|(\\s*(?::\\s{1,4})?(?:[>\s]+|(?:[-+*]|\\d+[.)])(?:\\s{1,4}(?=\\S|^)|^))*\\s*)(?:',
-				'((?:\\*\\s+){3,}|(?:-\\s+){3,}|(?:_\\s+){3,})', // these are only allowed at end of line (maybe add lookahead to make sure)
-				'|(\\[[ xX-_]\\](?=\\s)|\\|(?!\\|.*?\\|\\|))?\\s*(.*?)\\s*',
-			')',
+		'(\\s*(?::\\s{1,4})?(?:[>\s]+|(?:[-+*]|\\d+[.)])(?:\\s{1,4}|$))*\\s*)(?:',
+			'(?:\\[\\s*(.*?)\\s*\\]:\\s+(<.*?>|[^<>]|[^<].*?[^>])(?:\\s+|$))?(\'.*?\'|".*?"|\\(.*?\\))?',
+			'|(#{1,6})\\s+(.*?)(?:\\s+#+(\\S*))?',
+			'|(=+|-+)',
+			'|((?:\\*\\s+){3,}|(?:-\\s+){3,}|(?:_\\s+){3,})',
+			'|(\\[[ xX-_]\\](?!\\S)|\\|(?!\\|.*?\\|\\|))?\\s*(.*?)',
 		')',
-	'\s*$'].join(''));
+	'\\s*$'].join(''));
+	// eventually add HTML structure (starts with </?\w+>)
+	// - should probably be handled inline with an HTML stack to open and close tags (empty space)
+	// - only wrap in p tag if there is text that isn't wrapped in a tag
 
 	for (const line of lines) {
-		const oldlines = newlines;
-		const nodes = [];
-		let [container] = stack[0];
-		let previous = container[container.length - 1];
-		newlines = 0;
-
-		let [,
-			key, href, title,
-			hashes, heading, id, underline,
-			symbols = '', dashes, structure, string,
-		] = line.match(regex);
-
-// 		console.log(`|${key}|${href}|${title}|
-// |${hashes}|${heading}|${id}|${underline}|
-// |${symbols}|${dashes}|${structure}|${string}|`);
-
-		if (key !== undefined && !references[key]) {
-			const props = { href: buildPath(rootNames, href) };
-			references[key] = props;
-			
-			if (title) {
-				props.title = title;
+		if (!/\S/.test(line)) {
+			if (newlines) {
+				stack.splice(1);
 			}
 
+			newlines += 1;
 			continue;
-		} if (hashes) {
-			locked = scopes.size && !scopes.has(id);
+		}
+
+		let [,
+			symbols, key, href, title,
+			hashes, heading, id, underline,
+			dashes, structure = '', string,
+		] = line.match(regex);
+
+		if (/^-{3,}|\*{3,}$/.test(symbols.trim())) {
+			dashes = symbols;
+			symbols = '';
+		}
+
+// 		console.log(`|${symbols}|${key}|${href}|${title}|
+// |${hashes}|${heading}|${id}|${underline}|
+// |${dashes}|${structure}|${string}|`);
+
+		const oldlines = newlines;
+		const nodes = parseNesting(symbols, stack, oldlines === 1);
+		let container = stack[stack.length - 1];
+		let previous = container[container.length - 1];
+		let { padding } = stack[stack.length - 1][1];
+		newlines = 0;
+
+		if (key !== undefined) {
+			if (!references[key]) {
+				reference = { href: buildPath(rootNames, href) };
+				references[key] = reference;
+			}
+		} else if (hashes) {
+			locked = stack.length === 1 && scopes.size && !scopes.has(id);
 
 			if (locked) {
 				continue;
@@ -300,53 +281,26 @@ export default function parse (content, rootPath = '') {
 			
 			const node = [hashes.length, null];
 			nodes.push(node);
+			string = heading;
 			
 			if (id) {
 				node[1] = { id };
 				nodes.push(['a', { href: encodeURI(`${headingPath}#${id}`) }]);
 			}
-
-			string = heading;
-			stack.splice(1);
 		} else if (locked) {
 			continue;
-		} else if (underline && !oldlines && previous?.[0] === 'p') {
+		} else if (underline) {
 			const type = underline[0] === '=' ? 1 : 2;
-			const index = previous.findIndex(node => node?.[0] === 'br');
-			locked = scopes.size > 0;
 
-			if (index === -1) {
+			if (!oldlines && previous?.[0] === '') {
 				previous[0] = type;
 				continue;
+			} else if (type === 1) {
+				string = underline;
+			} else {
+				dashes = underline;
 			}
-
-			const content = previous.splice(index);
-			nodes.push([type, null, ...content.slice(1)]);
-		} else if (line === symbols && !/\S/.test(symbols)) {
-			if (oldlines) {
-				stack.splice(1);
-			}
-
-			newlines = oldlines + 1;
-			continue;
-		}
-		
-		if (underline?.length === 1) {
-			symbols = underline;
-			underline = undefined;
-		} else if (underline?.length === 2) {
-			string = underline;
-			underline = undefined;
-		}
-
-		const wrappers = parseNesting(symbols, stack, oldlines === 1);
-		container = stack[stack.length - 1];
-		previous = container[container.length - 1];
-		nodes.unshift(...wrappers);
-		stack.push(...wrappers.filter(node => node[1]?.spaced === false));
-		let { padding } = stack[stack.length - 1][1];
-
-		if (padding !== undefined || ticks) {
+		} else if (padding !== undefined || ticks) {
 			string = `${padding || ''}${dashes || ''}${structure || ''}${string}`;
 
 			if (ticks && line.match(/^ {0,3}(`+)[ \t]*$/)?.[1]?.length >= ticks) {
@@ -369,76 +323,67 @@ export default function parse (content, rootPath = '') {
 			ticks = string.search(/[^`]|$/);
 			nodes.push(['pre', null], ['code', null, '']);
 			string = '';
-		}
+		} else if (structure[0] === '[') {
+			// TOOD: handlel checkbox here
+			// - xX are checked, all rest are unchecked
+		} else if (structure[0] === '|') {
+			const remainder = string.endsWith('|') ? string : `${string}|`;
+			string = '';
 
-		// console.log(stack[stack.length - 1][1]);
-		
-		// second pass will use tagName '' to know if they can be wrapped in 'p'
-		// if (nodes.length === wrappers.length) {
-		// 	spaceable.add(wrappers[wrappers.length - 1]);
-		// }
+			if (/^(\s*:?-+:?\s*\|)+$/.test(remainder)) {
+				const isFirst = !alignments;
+				container = previous?.[2];
 
-		// TODO: can dashes be part of structure capture group
-		if (underline || dashes) {
-			nodes.push(['hr']);
-		}
+				alignments = remainder.slice(0, -1).split(/\s*\|\s*/).map(string => {
+					return string.endsWith(':') ? string.startsWith(':') ? 'center' : 'right' : '';
+				});
 
-		switch (structure?.[0]) {
-			case '[': {
-				// TOOD: handlel checkbox here
-				// - xX are checked, all rest are unchecked
-				break;
-			}
-			case '|': {
-				const remainder = string.endsWith('|') ? string : `${string}|`;
-				string = '';
+				if (isFirst && container?.[0] === 'tbody' && oldlines === 0) {
+					container[0] = 'thead';
+					previous.push(['tbody', null]);
 
-				if (/^(\s*:?-+:?\s*\|)+$/.test(remainder)) {
-					const isFirst = !alignments;
-					container = previous?.[2];
+					for (const row of container.slice(2)) {
+						for (const [i, cell] of row.slice(2).entries()) {
+							const textAlign = alignments[i];
+							cell[0] = 'th';
 
-					alignments = remainder.slice(0, -1).split(/\s*\|\s*/).map(string => {
-						return string.endsWith(':') ? string.startsWith(':') ? 'center' : 'right' : '';
-					});
-
-					if (isFirst && container?.[0] === 'tbody' && oldlines === 0) {
-						container[0] = 'thead';
-						previous.push(['tbody', null]);
-
-						for (const row of container.slice(2)) {
-							for (const [i, cell] of row.slice(2).entries()) {
-								const textAlign = alignments[i];
-								cell[0] = 'th';
-
-								if (textAlign) {
-									cell[1] = { style: { textAlign } };
-								}
+							if (textAlign) {
+								cell[1] = { style: { textAlign } };
 							}
 						}
 					}
-
-					continue;
 				}
 
-				if (previous?.[0] !== 'table' || oldlines > 0) {
-					nodes.push(['table', null], ['tbody', null]);
-				} else {
-					container = previous[previous.length - 1];
-				}
-
-				nodes.push(['tr', null, ...remainder.slice(0, -1).split('|').map((text, i) => {
-					const textAlign = alignments?.[i];
-					const content = parseInline(text, rootNames, links);
-					return ['td', textAlign ? { style: { textAlign } } : null, ...content];
-				})]);
-
-				break;
+				continue;
 			}
+
+			if (previous?.[0] !== 'table' || oldlines > 0) {
+				nodes.push(['table', null], ['tbody', null]);
+			} else {
+				container = previous[previous.length - 1];
+			}
+
+			nodes.push(['tr', null, ...remainder.slice(0, -1).split('|').map((text, i) => {
+				const textAlign = alignments?.[i];
+				const content = parseInline(text, rootNames, links);
+				return ['td', textAlign ? { style: { textAlign } } : null, ...content];
+			})]);
+		}
+
+		if (title) {
+			reference.title = title;
+		} else if (underline || dashes) {
+			nodes.push(['hr']);
 		}
 
 		for (const node of nodes) {
 			container.push(node);
 			container = node;
+
+			if (node[1]?.spaced !== undefined) {
+				containers.add(node);
+				stack.push(node);
+			}
 		}
 
 		if (container[0] !== 'tr') {
@@ -449,12 +394,12 @@ export default function parse (content, rootPath = '') {
 			const content = parseInline(string, rootNames, links);
 			previous = container[container.length - 1];
 
-			if (nodes.length <= wrappers.length) {
-				if (!oldlines && previous[0] === '') {
-					content.unshift(['br']);
-				} else {
+			if (containers.has(container)) {
+				if (oldlines || previous[0] !== '') {
 					previous = ['', null];
 					container.push(previous);
+				} else {
+					content.unshift(['br']); // TODO: only if previous line ended with two spaces
 				}
 				
 				container = previous;
@@ -464,18 +409,30 @@ export default function parse (content, rootPath = '') {
 		}
 	}
 
-	// for (const link of links) {
-	// 	const key = link[1];
-	// 	link[1] = { ...references[key] };
-	// }
+	for (const link of links) {
+		const key = link[1];
+		link[1] = { ...references[key] };
+	}
 
-	// for (const list of spaced) {
-	// 	for (const item of list.slice(2)) {
-	// 		const content = item.splice(2);
-	// 		item.push(['p', null, ...content]);
-	// 	}
-	// }
+	for (const container of containers) {
+		const { spaced, wrapper } = container[1];
 
-	finalize(main);
+		for (const item of wrapper.slice(2)) {
+			item[1] = null;
+
+			for (let i = item.length - 1; i > 1; i--) {
+				const child = item[i];
+
+				if (child[0] !== '') {
+					continue;
+				} else if (spaced) {
+					child[0] = 'p';
+				} else {
+					item.splice(i, 1, ...child.slice(2));
+				}
+			}
+		}
+	}
+
 	return main;
 }

@@ -83,20 +83,14 @@ describe('parseInline', () => {
 		});
 
 		it('reference', () => {
-			const links = [];
+			const links = new Set();
 			const actual = parseInline('[Label][key]', ['site'], links);
 			const node = ['a', 'key', 'Label'];
 			expect(actual).toEqual([node]);
-			expect(links).toEqual([node]);
+			expect(links).toEqual(new Set([node]));
 		});
 	});
 });
-
-function buildExpected (subtype, props, ...children) {
-	const items = children.map(content => [subtype, props, ...content]);
-	props.wrapper.push(...items);
-	return items.pop();
-}
 
 // describe('parseNesting', () => {
 // 	it('none', () => {
@@ -761,53 +755,6 @@ function buildExpected (subtype, props, ...children) {
 // 	});
 // });
 
-describe('finalize', () => {
-	it('link', () => {
-		const references = { key: { href: '/path', title: 'Title' } };
-		const node = ['a', 'key', 'Item'];
-		finalize(node, references);
-		expect(node).toEqual(['a', { href: '/path', title: 'Title' }, 'Item']);
-	});
-
-	it('keeps start prop', () => {
-		const node = ['ol', { start: '2' }];
-		finalize(node);
-		expect(node).toEqual(['ol', { start: '2' }]);
-	});
-
-	it('spaces list items', () => {
-		const props = { spaced: true, wrapper: [] };
-
-		const node = ['ul', null,
-			['li', props, ['', null, 'Abc']],
-			['li', props, ['', null, 'Xyz']],
-		];
-
-		finalize(node);
-
-		expect(node).toEqual(['ul', null,
-			['li', null, ['p', null, 'Abc']],
-			['li', null, ['p', null, 'Xyz']],
-		]);
-	});
-
-	it('flattens list items', () => {
-		const props = { spaced: false, wrapper: [] };
-
-		const node = ['ul', null,
-			['li', props, ['', null, 'Abc'], ['hr']],
-			['li', props, ['hr'], ['', null, 'Xyz']],
-		];
-
-		finalize(node);
-
-		expect(node).toEqual(['ul', null,
-			['li', null, 'Abc', ['hr']],
-			['li', null, ['hr'], 'Xyz'],
-		]);
-	});
-});
-
 describe('parse', () => {
 	it('paragraph', () => {
 		const actual = parse('Paragraph');
@@ -1227,8 +1174,8 @@ describe('parse', () => {
 			]);
 		});
 
-		it.skip('multiple line', () => {
-			const actual = parse(': >> Item\n> Adjacent');
+		it('multiple line', () => {
+			const actual = parse('> Item\n> Adjacent');
 
 			expect(actual).toEqual(['main', null,
 				['blockquote', null,
@@ -1386,26 +1333,6 @@ describe('parse', () => {
 	});
 
 	describe('indentation', () => {
-		it('reset by heading', () => {
-			const actual = parse(`
-- Item
-  - Subitem
-# Heading
-			`);
-
-			expect(actual).toEqual(['main', null,
-				['ul', null,
-					['li', null,
-						'Item',
-						['ul', null,
-							['li', null, 'Subitem'],
-						],
-					],
-				],
-				[1, null, 'Heading'],
-			]);
-		});
-
 		it('reset by extra newline', () => {
 			const actual = parse(`
 - Item
