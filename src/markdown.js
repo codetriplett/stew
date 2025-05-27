@@ -78,7 +78,7 @@ export function parseInline (string, rootNames, links) {
 // - things that borrow (underlined headlines, definition term, etc) will take the whole previous fragment if there is no newline
 //   - not only is this easier to manage, since we don't need to extract according to 'br', it also allows these elements to have br's themselves
 // - this should clean up quite a bit of code
-function parseNesting (string, stack, isSpaceable) {
+function parseNesting (string, stack, oldlines) {
 	const nodes = [];
 	let [container] = stack;
 	let props = container[1];
@@ -119,7 +119,7 @@ function parseNesting (string, stack, isSpaceable) {
 				depth += symbol.trim().length;
 				indentation = 0;
 
-				if (isSpaceable) {
+				if (oldlines > 0) {
 					depth = 1;
 					stack.splice(1);
 				}
@@ -130,11 +130,29 @@ function parseNesting (string, stack, isSpaceable) {
 
 		if (subtype) {
 			indentation += padding.length;
-			depth = stack.findIndex((entry, i) => i > depth && indentation < entry?.[1]?.indentation);
 
-			if (depth === -1) {
-				depth = stack.length;
+			while (depth < stack.length) {
+				if (depth && indentation < stack[depth]?.[1]?.indentation) {
+					break;
+				}
+
+				depth++;
 			}
+
+			// if (depth >= stack.length && oldlines > 0) {
+			// 	symbol = '';
+			// }
+			// depth = stack.findLastIndex((entry, i) => i > depth && indentation >= entry?.[1]?.indentation);
+
+			// if (depth === -1) {
+			// 	console.log(depth, indentation, stack);
+			// 	if (oldlines > 0 && stack.length > 1) {
+			// 		symbol = '';
+			// 		break;
+			// 	}
+				
+			// 	depth = stack.length;
+			// }
 		}
 
 		const { length } = symbol;
@@ -182,7 +200,7 @@ function parseNesting (string, stack, isSpaceable) {
 		}
 	}
 
-	if (isSpaceable) {
+	if (oldlines === 1) {
 		stack[stack.length - 1][1].spaced = true;
 	}
 
@@ -216,7 +234,7 @@ export default function parse (content, rootPath = '') {
 	const containers = new Set(stack);
 	const links = new Set();
 	const references = {};
-	let newlines = 0;
+	let newlines = 2;
 	let ticks = 0;
 	let locked = scopes.size > 0 && !scopes.has('');
 	let alignments, reference;
@@ -230,14 +248,16 @@ export default function parse (content, rootPath = '') {
 			'|((?:\\*\\s+){3,}|(?:-\\s+){3,}|(?:_\\s+){3,})',
 			'|(\\[[ xX-_]\\](?!\\S)|\\|(?!\\|.*?\\|\\|))?\\s*(.*?)',
 		')',
-	'\\s*$'].join(''));
+	'(\\s*)$'].join(''));
 	// eventually add HTML structure (starts with </?\w+>)
 	// - should probably be handled inline with an HTML stack to open and close tags (empty space)
 	// - only wrap in p tag if there is text that isn't wrapped in a tag
 
 	for (const line of lines) {
 		if (!/\S/.test(line)) {
-			if (newlines) {
+			if (newlines < 0) {
+				newlines = 0;
+			} else if (newlines) {
 				stack.splice(1);
 			}
 
@@ -248,10 +268,12 @@ export default function parse (content, rootPath = '') {
 		let [,
 			symbols, key, href, title,
 			hashes, heading, id, underline,
-			dashes, structure = '', string,
+			dashes, structure = '', string, whitespace,
 		] = line.match(regex);
 
-		if (/^-{3,}|\*{3,}$/.test(symbols.trim())) {
+		if (locked && !/^\s{0,3}$/.test(symbols)) {
+			continue;
+		} else if (/^-{3,}|\*{3,}$/.test(symbols.trim())) {
 			dashes = symbols;
 			symbols = '';
 		}
@@ -261,13 +283,33 @@ export default function parse (content, rootPath = '') {
 // |${dashes}|${structure}|${string}|`);
 
 		const oldlines = newlines;
-		const nodes = parseNesting(symbols, stack, oldlines === 1);
+		const nodes = parseNesting(symbols, stack, oldlines);
 		let container = stack[stack.length - 1];
 		let previous = container[container.length - 1];
 		let { padding } = stack[stack.length - 1][1];
-		newlines = 0;
+		newlines = string && !structure && whitespace.length < 2 ? -1 : 0;
 
-		if (key !== undefined) {
+		if (padding !== undefined || ticks) {
+			// TODO: test that this works event when indentation didn't place under any container
+			string = `${padding || ''}${dashes || ''}${structure || ''}${string}`;
+
+			if (ticks && line.match(/^ {0,3}(`+)[ \t]*$/)?.[1]?.length >= ticks) {
+				ticks = 0;
+				continue;
+			}
+
+			const indentation = ticks ? 0 : line[0] === '\t' ? 1 : 4;
+			const text = line.slice(indentation);
+
+			if (previous?.[0] === 'pre') {
+				const newlines = Math.max(0, oldlines) + (previous[2][2] ? 1 : 0);
+				previous[2][2] += `${Array(newlines).fill('\n').join('')}${text}`;
+				continue;
+			}
+
+			nodes.push(['pre', null], ['code', null, text]);
+			string = '';
+		} else if (key !== undefined) {
 			if (!references[key]) {
 				reference = { href: buildPath(rootNames, href) };
 				references[key] = reference;
@@ -292,7 +334,7 @@ export default function parse (content, rootPath = '') {
 		} else if (underline) {
 			const type = underline[0] === '=' ? 1 : 2;
 
-			if (!oldlines && previous?.[0] === '') {
+			if (oldlines < 1 && previous?.[0] === '') {
 				previous[0] = type;
 				continue;
 			} else if (type === 1) {
@@ -300,25 +342,6 @@ export default function parse (content, rootPath = '') {
 			} else {
 				dashes = underline;
 			}
-		} else if (padding !== undefined || ticks) {
-			string = `${padding || ''}${dashes || ''}${structure || ''}${string}`;
-
-			if (ticks && line.match(/^ {0,3}(`+)[ \t]*$/)?.[1]?.length >= ticks) {
-				ticks = 0;
-				continue;
-			}
-
-			const indentation = ticks ? 0 : line[0] === '\t' ? 1 : 4;
-			const text = line.slice(indentation);
-
-			if (previous?.[0] === 'pre') {
-				const newlines = oldlines + (previous[2][2] ? 1 : 0);
-				previous[2][2] += `${Array(newlines).fill('\n').join('')}${text}`;
-				continue;
-			}
-
-			nodes.push(['pre', null], ['code', null, text]);
-			string = '';
 		} else if (/^`{3,}/.test(string)) {
 			ticks = string.search(/[^`]|$/);
 			nodes.push(['pre', null], ['code', null, '']);
@@ -395,11 +418,11 @@ export default function parse (content, rootPath = '') {
 			previous = container[container.length - 1];
 
 			if (containers.has(container)) {
-				if (oldlines || previous[0] !== '') {
+				if (oldlines > 0 || previous[0] !== '') {
 					previous = ['', null];
 					container.push(previous);
-				} else {
-					content.unshift(['br']); // TODO: only if previous line ended with two spaces
+				} else if (!oldlines) {
+					content.unshift(['br']);
 				}
 				
 				container = previous;

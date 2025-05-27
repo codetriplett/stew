@@ -755,7 +755,7 @@ describe('parseInline', () => {
 // 	});
 // });
 
-describe('parse', () => {
+describe.only('parse', () => {
 	it('paragraph', () => {
 		const actual = parse('Paragraph');
 
@@ -765,7 +765,7 @@ describe('parse', () => {
 	});
 
 	it('paragraph with br', () => {
-		const actual = parse('Paragraph\nAdjacent');
+		const actual = parse('Paragraph  \nAdjacent');
 
 		expect(actual).toEqual(['main', null,
 			['p', null, 'Paragraph', ['br'], 'Adjacent'],
@@ -903,7 +903,7 @@ describe('parse', () => {
 		});
 
 		it.skip('interrupts nesting', () => {
-			const actual = parse('-     - abc');
+			const actual = parse('    - abc');
 
 			expect(actual).toEqual(['main', null,
 				['pre', null,
@@ -988,9 +988,24 @@ describe('parse', () => {
 			]);
 		});
 
-		it('line break', () => {
+		it('wrapped line', () => {
 			const actual = parse(`
 - Item
+  Adjacent
+			`);
+
+			expect(actual).toEqual(['main', null,
+				['ul', null,
+					['li', null,
+						'Item', 'Adjacent',
+					],
+				],
+			]);
+		});
+
+		it('line break', () => {
+			const actual = parse(`
+- Item  
   Adjacent
 			`);
 
@@ -1174,8 +1189,18 @@ describe('parse', () => {
 			]);
 		});
 
-		it('multiple line', () => {
+		it('wrapped lines', () => {
 			const actual = parse('> Item\n> Adjacent');
+
+			expect(actual).toEqual(['main', null,
+				['blockquote', null,
+					'Item', 'Adjacent',
+				],
+			]);
+		});
+
+		it('multiple lines', () => {
+			const actual = parse('> Item  \n> Adjacent');
 
 			expect(actual).toEqual(['main', null,
 				['blockquote', null,
