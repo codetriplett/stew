@@ -755,7 +755,7 @@ describe('parseInline', () => {
 // 	});
 // });
 
-describe.only('parse', () => {
+describe('parse', () => {
 	it('paragraph', () => {
 		const actual = parse('Paragraph');
 
@@ -913,9 +913,9 @@ describe.only('parse', () => {
 		});
 	});
 
-	describe('list', () => {
+	describe.only('list', () => {
 		it('unordered', () => {
-			const actual = parse('- Item');
+			const actual = parse('-  Item');
 
 			expect(actual).toEqual(['main', null,
 				['ul', null,

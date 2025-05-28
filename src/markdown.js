@@ -78,30 +78,35 @@ export function parseInline (string, rootNames, links) {
 // - things that borrow (underlined headlines, definition term, etc) will take the whole previous fragment if there is no newline
 //   - not only is this easier to manage, since we don't need to extract according to 'br', it also allows these elements to have br's themselves
 // - this should clean up quite a bit of code
-function parseNesting (string, stack, oldlines) {
-	const nodes = [];
-	let [container] = stack;
-	let props = container[1];
-	let depth = 0;
+function parseNesting (string, stack, containers, oldlines) {
 	let fillCount = 0;
-	let indentation = 0;
-	let padding, symbol, wrapper;
 
-	string = string.replace(/\t/g, (m, index) => {
+	const symbols = string.replace(/\t/g, (m, index) => {
 		index += fillCount;
 		const count = 4 - (index % 4);
 		fillCount += count - 1;
 		return Array(count).fill(' ').join('');
-	}).replace(/\S$/, m => `${m} `).replace(/>\s+(?=>)/g, '>');
+	}).replace(/>(?=>)/g, '> ').replace(/\s$/, '').split(/\s(?=>|\S+)/);
 
-	while (string) {
-		[, padding, symbol, string] = string.match(/^(\s*)((?:>+|\S*)\s*)(.*)$/);
-		let type = 'ol';
-		let subtype = 'li';
+	let indentation = symbols[0][0] === ' ' ? symbols.shift().length : 0;
+	let overage = 0;
+	let depth = 1;
 
-		if (!symbol) {
+	for (let i = 1; i < stack.length; i++) {
+		overage = indentation - stack[i][1].indentation;
+
+		if (overage < 0) {
+			depth = i;
 			break;
 		}
+	}
+
+	const nodes = [];
+	let [container] = stack.splice(depth);
+
+	for (const symbol of symbols) {
+		let type = 'ol';
+		let subtype = 'li';
 
 		switch (symbol[0]) {
 			case '-': case '+': case '*': {
@@ -115,105 +120,45 @@ function parseNesting (string, stack, oldlines) {
 			}
 			case '>': {
 				type = 'blockquote';
-				subtype = '';
-				depth += symbol.trim().length;
-				indentation = 0;
-
-				if (oldlines > 0) {
-					depth = 1;
-					stack.splice(1);
-				}
-
+				subtype = undefined;
 				break;
 			}
 		}
 
-		if (subtype) {
-			indentation += padding.length;
+		let props = container?.[1] || {};
+		let { wrapper } = props;
 
-			while (depth < stack.length) {
-				if (depth && indentation < stack[depth]?.[1]?.indentation) {
-					break;
-				}
-
-				depth++;
-			}
-
-			// if (depth >= stack.length && oldlines > 0) {
-			// 	symbol = '';
-			// }
-			// depth = stack.findLastIndex((entry, i) => i > depth && indentation >= entry?.[1]?.indentation);
-
-			// if (depth === -1) {
-			// 	console.log(depth, indentation, stack);
-			// 	if (oldlines > 0 && stack.length > 1) {
-			// 		symbol = '';
-			// 		break;
-			// 	}
-				
-			// 	depth = stack.length;
-			// }
-		}
-
-		const { length } = symbol;
-		container = stack[depth];
-		props = container?.[1];
-		({ wrapper } = props || {});
-
-		if (type !== wrapper?.[0]) {
-			wrapper = [type, null];
-			indentation += length;
-			props = { spaced: false, indentation, wrapper };
-			container = [subtype || type, props];
-
-			if (subtype) {
-				nodes.push(wrapper);
-			} else {
-				wrapper.push(container);
-			}
-
-			nodes.push(container);
-			stack.splice(depth);
-
-			if (type === 'ol') {
-				const start = symbol.trim().slice(0, -1);
-
-				if (start !== '1') {
-					wrapper[1] = { start };
-				}
-			} else if (subtype === 'dd') {
-				const previous = stack[depth - 1];
-				let term;
-
-				if (previous[previous.length - 1]?.[0] === '') {
-					term = previous.pop();
-					term[0] = 'dt';
-				} else {
-					term = ['dt', null];
-				}
-
-				wrapper.push(term);
-			}
+		if (type !== container?.[1]?.wrapper?.[0]) {
+			const start = symbol.trim().slice(0, -1);
+			wrapper = subtype && [type, start && start !== '1' ? { start } : null];
+			props = { spaced: false, wrapper };
+			const node = [subtype || type, props];
+			containers.add(node);
+			nodes.push(node);
 		} else if (subtype) {
 			wrapper.splice(-1, 0, [...container.slice(0, 2), ...container.splice(2)]);
-			props.indentation += length;
+			stack.push(container);
+		} else if (oldlines < 1) {
+			stack.push(container);
 		}
+		
+		indentation += symbol.length;
+		props.indentation = indentation;
+		overage = symbol.replace(/^\S+/, '').length;
+		container = undefined;
 	}
 
 	if (oldlines === 1) {
 		stack[stack.length - 1][1].spaced = true;
 	}
 
-	padding = symbol ? symbol.replace(/\S+\s/, '') : padding || '';
-
-	if (padding.length > 3) {
-		props.padding = padding.slice(4);
-		
-		if (depth) {
-			props.indentation -= 4;
-		}
-	} else {
-		props.padding = undefined;
+	// TODO: test this, also see if it would be cleaner with wrapper as container with code already pushed as child
+	// - this way parse would see 'code' as the previous child of the container to check if preformatting is currently active
+	// - list containers would set 'items' to be processed at the end
+	if (overage > 3) {
+		const node = ['code', { spaced: true, wrapper: ['pre', null] }];
+		containers.add(node);
+		nodes.push(node);
 	}
 
 	return nodes;
@@ -229,7 +174,7 @@ export default function parse (content, rootPath = '') {
 	const headingPath = scopes.size ? `/${trimmedPath}` : '';
 	const rootNames = trimmedPath ? trimmedPath.split('/') : [];
 	const lines = content.split(/\r\n|\r|\n/);
-	const main = ['main', { spaced: true }];
+	const main = ['blockquote', { spaced: true, indentation: 0 }];
 	const stack = [main];
 	const containers = new Set(stack);
 	const links = new Set();
@@ -269,11 +214,9 @@ export default function parse (content, rootPath = '') {
 			symbols, key, href, title,
 			hashes, heading, id, underline,
 			dashes, structure = '', string, whitespace,
-		] = line.match(regex);
+		] = ticks ? ['\t'] : line.match(regex);
 
-		if (locked && !/^\s{0,3}$/.test(symbols)) {
-			continue;
-		} else if (/^-{3,}|\*{3,}$/.test(symbols.trim())) {
+		if (/^-{3,}|\*{3,}$/.test(symbols.trim())) {
 			dashes = symbols;
 			symbols = '';
 		}
@@ -283,31 +226,32 @@ export default function parse (content, rootPath = '') {
 // |${dashes}|${structure}|${string}|`);
 
 		const oldlines = newlines;
-		const nodes = parseNesting(symbols, stack, oldlines);
+		const nodes = parseNesting(symbols, stack, containers, oldlines);
 		let container = stack[stack.length - 1];
-		let previous = container[container.length - 1];
-		let { padding } = stack[stack.length - 1][1];
+		stack.push(...nodes);
+		let previous = stack[stack.length - 1].slice(-1)[0];
 		newlines = string && !structure && whitespace.length < 2 ? -1 : 0;
 
-		if (padding !== undefined || ticks) {
-			// TODO: test that this works event when indentation didn't place under any container
-			string = `${padding || ''}${dashes || ''}${structure || ''}${string}`;
+		// this will work after stack is revised to store wrapper (dl, ul, ol, blockquote, pre)
+		// - only dl, ul, ol, will have items as [subtype], followed by arrays of spliced content
+		// - items will be appended in the final step when spacing is processed
+		if (previous[0] === 'code') {
+			string = line;
 
-			if (ticks && line.match(/^ {0,3}(`+)[ \t]*$/)?.[1]?.length >= ticks) {
+			if (!ticks) {
+				string = line.replace(/^(\t| {4})/, '');
+			} else if (line.match(/^ {0,3}(`+)\s*$/)?.[1]?.length >= ticks) {
 				ticks = 0;
 				continue;
 			}
 
-			const indentation = ticks ? 0 : line[0] === '\t' ? 1 : 4;
-			const text = line.slice(indentation);
-
-			if (previous?.[0] === 'pre') {
+			if (!nodes.length) {
 				const newlines = Math.max(0, oldlines) + (previous[2][2] ? 1 : 0);
-				previous[2][2] += `${Array(newlines).fill('\n').join('')}${text}`;
+				previous[2][2] += `${Array(newlines).fill('\n').join('')}${string}`;
 				continue;
 			}
 
-			nodes.push(['pre', null], ['code', null, text]);
+			previous.push(string);
 			string = '';
 		} else if (key !== undefined) {
 			if (!references[key]) {
@@ -400,13 +344,18 @@ export default function parse (content, rootPath = '') {
 		}
 
 		for (const node of nodes) {
+			// TODO: consider using wrapper as container and storing its items instead of wrappers
+			// - wouldn't need to do this extra step here
+			// - instead it would do one final splice to get its final item and then push those items onto the container
+			// - it already has to do the extra processing to set spacing anyway as a final step
+			if (containers.has(node) && node[1].wrapper) {
+				const { wrapper } = node[1];
+				container.push(wrapper);
+				container = wrapper;
+			}
+
 			container.push(node);
 			container = node;
-
-			if (node[1]?.spaced !== undefined) {
-				containers.add(node);
-				stack.push(node);
-			}
 		}
 
 		if (container[0] !== 'tr') {
@@ -415,7 +364,6 @@ export default function parse (content, rootPath = '') {
 
 		if (string) {
 			const content = parseInline(string, rootNames, links);
-			previous = container[container.length - 1];
 
 			if (containers.has(container)) {
 				if (oldlines > 0 || previous[0] !== '') {
@@ -438,7 +386,7 @@ export default function parse (content, rootPath = '') {
 	}
 
 	for (const container of containers) {
-		const { spaced, wrapper } = container[1];
+		const { spaced, wrapper = [] } = container[1];
 
 		for (const item of wrapper.slice(2)) {
 			item[1] = null;
@@ -457,5 +405,6 @@ export default function parse (content, rootPath = '') {
 		}
 	}
 
+	main[0] = 'main';
 	return main;
 }
