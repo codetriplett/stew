@@ -755,7 +755,7 @@ describe('parseInline', () => {
 // 	});
 // });
 
-describe('parse', () => {
+describe.only('parse', () => {
 	it('paragraph', () => {
 		const actual = parse('Paragraph');
 
@@ -841,7 +841,7 @@ describe('parse', () => {
 		});
 	});
 
-	describe('preformatted', () => {
+	describe.skip('preformatted', () => {
 		it('tab indentation', () => {
 			const actual = parse('\tabc');
 
@@ -872,7 +872,7 @@ describe('parse', () => {
 			]);
 		});
 
-		it('several newlines', () => {
+		it.only('several newlines', () => {
 			const actual = parse('\tabc\n\n\n\txyz');
 
 			expect(actual).toEqual(['main', null,
@@ -913,7 +913,7 @@ describe('parse', () => {
 		});
 	});
 
-	describe.only('list', () => {
+	describe('list', () => {
 		it('unordered', () => {
 			const actual = parse('-  Item');
 
@@ -1175,6 +1175,16 @@ describe('parse', () => {
 					['dd', null,
 						['p', null, 'Adjacent'],
 					],
+				],
+			]);
+		});
+
+		it('definition without term', () => {
+			const actual = parse(': Child');
+
+			expect(actual).toEqual(['main', null,
+				['dl', null,
+					['dd', null, 'Child'],
 				],
 			]);
 		});

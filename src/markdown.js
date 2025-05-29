@@ -68,6 +68,16 @@ export function parseInline (string, rootNames, links) {
 	return content;
 }
 
+// TODO: figure out why esbuild doesn't support findLastIndex
+// - something about setting a target browser
+function findLastIndex(array, callback) {
+	for (const [i, item] of array.entries()) {
+		if (!callback(item, i, array)) {
+			return i - 1;
+		}
+	}
+}
+
 // most of the code can remain the same, key changes...
 // - only store containers in stack (main, li, dd, blockquote, etc)
 // - store indentation and spaced props on containter props object (main defaults to spaced)
@@ -79,29 +89,30 @@ export function parseInline (string, rootNames, links) {
 //   - not only is this easier to manage, since we don't need to extract according to 'br', it also allows these elements to have br's themselves
 // - this should clean up quite a bit of code
 function parseNesting (string, stack, containers, oldlines) {
+	const nodes = [];
 	let fillCount = 0;
 
-	const symbols = string.replace(/\t/g, (m, index) => {
+	let symbols = !string ? [''] : string.replace(/\t/g, (m, index) => {
 		index += fillCount;
 		const count = 4 - (index % 4);
 		fillCount += count - 1;
 		return Array(count).fill(' ').join('');
-	}).replace(/>(?=>)/g, '> ').replace(/\s$/, '').split(/\s(?=>|\S+)/);
+	}).match(/(\s+|(?:>|\S+)\s{0,4})+?/g);
 
-	let indentation = symbols[0][0] === ' ' ? symbols.shift().length : 0;
-	let overage = 0;
-	let depth = 1;
+	let indentation = /\S/.test(symbols[0]) ? 0 : symbols.shift().length;
+	let depth;
 
-	for (let i = 1; i < stack.length; i++) {
-		overage = indentation - stack[i][1].indentation;
-
-		if (overage < 0) {
-			depth = i;
+	for (depth = 0; depth < stack.length; depth++) {
+		if (indentation < stack[depth][1].indentation) {
 			break;
 		}
 	}
+	
+	if (depth >= stack.length && oldlines > 0 && indentation > 3) {
+		symbols = ['    '];
+		indentation = 0;
+	}
 
-	const nodes = [];
 	let [container] = stack.splice(depth);
 
 	for (const symbol of symbols) {
@@ -109,8 +120,9 @@ function parseNesting (string, stack, containers, oldlines) {
 		let subtype = 'li';
 
 		switch (symbol[0]) {
-			case '-': case '+': case '*': {
-				type = 'ul';
+			case '>': {
+				type = 'blockquote';
+				subtype = undefined;
 				break;
 			}
 			case ':': {
@@ -118,9 +130,13 @@ function parseNesting (string, stack, containers, oldlines) {
 				subtype = 'dd';
 				break;
 			}
-			case '>': {
-				type = 'blockquote';
-				subtype = undefined;
+			case '-': case '+': case '*': {
+				type = 'ul';
+				break;
+			}
+			case ' ': {
+				type = 'pre';
+				subtype = 'code';
 				break;
 			}
 		}
@@ -128,37 +144,38 @@ function parseNesting (string, stack, containers, oldlines) {
 		let props = container?.[1] || {};
 		let { wrapper } = props;
 
-		if (type !== container?.[1]?.wrapper?.[0]) {
+		if (type !== wrapper?.[0] && (subtype || oldlines > 0)) {
 			const start = symbol.trim().slice(0, -1);
 			wrapper = subtype && [type, start && start !== '1' ? { start } : null];
 			props = { spaced: false, wrapper };
 			const node = [subtype || type, props];
 			containers.add(node);
 			nodes.push(node);
-		} else if (subtype) {
+
+			if (type === 'dl') {
+				const container = stack[depth - 1];
+				const term = container[container.length - 1];
+
+				if (term?.[0] === '') {
+					container.pop();
+					term[0] = 'dt';
+					wrapper.push(term);
+				}
+			}
+		} else if (subtype && subtype !== 'code') {
 			wrapper.splice(-1, 0, [...container.slice(0, 2), ...container.splice(2)]);
 			stack.push(container);
-		} else if (oldlines < 1) {
+		} else if (container) {
 			stack.push(container);
 		}
-		
+
 		indentation += symbol.length;
 		props.indentation = indentation;
-		overage = symbol.replace(/^\S+/, '').length;
 		container = undefined;
 	}
-
+	
 	if (oldlines === 1) {
 		stack[stack.length - 1][1].spaced = true;
-	}
-
-	// TODO: test this, also see if it would be cleaner with wrapper as container with code already pushed as child
-	// - this way parse would see 'code' as the previous child of the container to check if preformatting is currently active
-	// - list containers would set 'items' to be processed at the end
-	if (overage > 3) {
-		const node = ['code', { spaced: true, wrapper: ['pre', null] }];
-		containers.add(node);
-		nodes.push(node);
 	}
 
 	return nodes;
@@ -229,13 +246,14 @@ export default function parse (content, rootPath = '') {
 		const nodes = parseNesting(symbols, stack, containers, oldlines);
 		let container = stack[stack.length - 1];
 		stack.push(...nodes);
-		let previous = stack[stack.length - 1].slice(-1)[0];
+		const node = stack[stack.length - 1];
+		let previous = node[node.length - 1];
 		newlines = string && !structure && whitespace.length < 2 ? -1 : 0;
 
 		// this will work after stack is revised to store wrapper (dl, ul, ol, blockquote, pre)
 		// - only dl, ul, ol, will have items as [subtype], followed by arrays of spliced content
 		// - items will be appended in the final step when spacing is processed
-		if (previous[0] === 'code') {
+		if (node[0] === 'code') {
 			string = line;
 
 			if (!ticks) {
@@ -246,12 +264,12 @@ export default function parse (content, rootPath = '') {
 			}
 
 			if (!nodes.length) {
-				const newlines = Math.max(0, oldlines) + (previous[2][2] ? 1 : 0);
-				previous[2][2] += `${Array(newlines).fill('\n').join('')}${string}`;
+				const newlines = Math.max(0, oldlines) + (node[2] ? 1 : 0);
+				node[2] += `${Array(newlines).fill('\n').join('')}${string}`;
 				continue;
 			}
 
-			previous.push(string);
+			node.push(string);
 			string = '';
 		} else if (key !== undefined) {
 			if (!references[key]) {
@@ -386,7 +404,7 @@ export default function parse (content, rootPath = '') {
 	}
 
 	for (const container of containers) {
-		const { spaced, wrapper = [] } = container[1];
+		const { spaced, wrapper = ['', null, container] } = container[1];
 
 		for (const item of wrapper.slice(2)) {
 			item[1] = null;
