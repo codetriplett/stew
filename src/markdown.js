@@ -1,3 +1,5 @@
+import { selfClosingTags } from './document';
+
 function buildPath (rootNames, href = '') {
 	if (!href.startsWith('.')) {
 		return href;
@@ -17,52 +19,81 @@ function buildPath (rootNames, href = '') {
 	return `/${sourcePath.join('/')}`;
 }
 
+const blockRegex = new RegExp(['^',
+	'(\\s*(?::\\s{1,4})?(?:[>\s]+|(?:[-+*]|\\d+[.)])(?:\\s{1,4}|$))*\\s*)(?:',
+		'(?:\\[\\s*(.*?)\\s*\\]:\\s+(<.*?>|[^<>]|[^<].*?[^>])(?:\\s+|$))?(\'.*?\'|".*?"|\\(.*?\\))?',
+		'|(#{1,6})\\s+(.*?)(?:\\s+#+(\\S*))?',
+		'|(=+|-+)',
+		'|((?:\\*\\s+){3,}|(?:-\\s+){3,}|(?:_\\s+){3,})',
+		'|(\\[[ xX-_]\\](?!\\S)|\\|(?!\\|.*?\\|\\|))?\\s*(.*?)',
+	')',
+'(\\s*)$'].join(''));
+
+const inlineRegex = new RegExp(['^(.*?)(?:',
+	'([*_]+)(\\S+?(?:.+?\\S+?)?)[*_]+',
+	'|\\[\\s*(.*?)\\s*\\]\\s*(?:\\(\\s*(.*?)\\s*(\'.*?\'|".*?")?\\s*\\)|\\[\\s*(.*?)\\s*\\])',
+	'|\\|\\|(.+?)\\|\\|',
+'|$)(.*)$'].join(''));
+
 export function parseInline (string, rootNames, links) {
 	// TODO: process expressions in text (e.g. bold, strikethrough, ndash, etc)
 	// - return array of children to spread onto parent element
 	const content = [];
 
 	while (string) {
-		const spoilerMatch = string.match(/^\|\|(.*?)\|\|(.*)$/);
+		const [,
+			before, formatting, formatted,
+			text, href, title, key,
+			spoiler, remainder,
+		] = string.match(inlineRegex);
 
-		if (spoilerMatch) {
-			const [, spoiler, remainder] = spoilerMatch;
+		// to do this right, it would need to do a lot of work to match the appropriate parts of open and close
+		// just use the open sequence as the source of truth and allow the close to be whatever
+		// this is easier to write as well since you can control the wrapping but can just put one symbol to close
+		// this is so much cleaner and doesn't compromize anything. The user should escape symbols they want as text, and can choose to care about the formatting
+		if (formatting) {
+			let embedded = parseInline(formatted);
 
+			for (let i = formatting.length - 1; i >= 0; i--) {
+				if (formatting[i - 1] === formatting[i]) {
+					embedded = [['strong', null, ...embedded]];
+					i--;
+				} else {
+					embedded = [['em', null, ...embedded]];
+				}
+			}
+
+			content.push(embedded[0]);
+		}
+
+		if (/\S/.test(before)) {
+			content.push(before);
+		}
+
+		if (text !== undefined) {
+			const node = ['a', null, text];
+			content.push(node);
+
+			if (key !== undefined) {
+				node[1] = (key || text).toLowerCase();
+				links.add(node);
+			} else {
+				const props = { href: buildPath(rootNames, href) };
+				node[1] = props;
+
+				if (title) {
+					props.title = title.slice(1, -1);
+				}
+			}
+		} else if (spoiler) {
 			content.push(['span', {
 				onclick: {
 					style: { color: 'transparent' },
 				},
 			}, spoiler]);
-
-			string = remainder;
-			continue;
 		}
-
-		const linkMatch = string.match(/^\[\s*(.*?)\s*\]\s*(?:\(\s*(.*?)\s*(?:['"](.*?)['"])?\s*\)|\[\s*(.*?)\s*\])(.*)$/);
-
-		if (linkMatch) {
-			const [, text, href, title, key, remainder] = linkMatch;
-			const node = ['a', key, text];
-			content.push(node);
-			string = remainder;
-
-			if (key) {
-				links.add(node);
-				continue;
-			}
-
-			const props = { href: buildPath(rootNames, href) };
-			node[1] = props;
-
-			if (title) {
-				props.title = title;
-			}
-
-			continue;
-		}
-
-		content.push(string);
-		break;
+		
+		string = remainder;
 	}
 
 	return content;
@@ -202,16 +233,6 @@ export default function parse (content, rootPath = '') {
 	let ticks = 0;
 	let alignments, reference;
 
-	const regex = new RegExp(['^',
-		'(\\s*(?::\\s{1,4})?(?:[>\s]+|(?:[-+*]|\\d+[.)])(?:\\s{1,4}|$))*\\s*)(?:',
-			'(?:\\[\\s*(.*?)\\s*\\]:\\s+(<.*?>|[^<>]|[^<].*?[^>])(?:\\s+|$))?(\'.*?\'|".*?"|\\(.*?\\))?',
-			'|(#{1,6})\\s+(.*?)(?:\\s+#+(\\S*))?',
-			'|(=+|-+)',
-			'|((?:\\*\\s+){3,}|(?:-\\s+){3,}|(?:_\\s+){3,})',
-			'|(\\[[ xX-_]\\](?!\\S)|\\|(?!\\|.*?\\|\\|))?\\s*(.*?)',
-		')',
-	'(\\s*)$'].join(''));
-
 	// eventually add HTML structure (starts with </?\w+>)
 	// - should probably be handled inline with an HTML stack to open and close tags (empty space)
 	// - only wrap in p tag if there is text that isn't wrapped in a tag
@@ -228,7 +249,7 @@ export default function parse (content, rootPath = '') {
 			symbols, key, href, title,
 			hashes, heading, id, underline,
 			dashes, structure = '', string, whitespace,
-		] = line.match(regex);
+		] = line.match(blockRegex);
 
 		if (/^ {0,3}((-\s+){3,}|(\*\s+){3,})\s*$/.test(symbols)) {
 			dashes = symbols.trim();
@@ -240,13 +261,20 @@ export default function parse (content, rootPath = '') {
 // |${dashes}|${structure}|${string}|`);
 
 		const oldlines = newlines;
+		// TODO: space/tab preformatted blocks should also ignore newlines
+		// - maybe skip the oldlines override for ticks here
+		// - have parseNesting skip its oldline > 0 check if it already sees the final item on stack is preformatted
 		const nodes = parseNesting(symbols, stack, containers, ticks ? 1 : oldlines);
 		let container = stack[stack.length - 1];
 		stack.push(...nodes);
 		
-		if (key !== undefined && !references[key]) {
-			reference = { href: buildPath(rootNames, href) };
-			references[key] = reference;
+		if (key !== undefined) {
+			key = key.toLowerCase();
+
+			if (!references[key]) {
+				reference = { href: buildPath(rootNames, href) };
+				references[key] = reference;
+			}
 		} else if (hashes && stack.length < 2) {
 			locked = stack.length === 1 && scopes.size && !scopes.has(id);
 		}
@@ -260,6 +288,10 @@ export default function parse (content, rootPath = '') {
 		newlines = string && !structure && whitespace.length < 2 ? -1 : 0;
 		
 		if (node[0] === 'code') {
+			// parseNesting needs to inform how to trim the line properly
+			// - maybe put a prop on node[1] with the whitespace overage (in space characters only)
+			// - then trim the beginning of line and apply the whitespace to the begginning
+			// - don't have it maintain tabs in the whitespace since those can be broken up if indentation isn't a multiple of 4
 			string = line.replace(/^(\t| {4})/, '');
 
 			if (ticks && string.match(/^ {0,3}(`+)\s*$/)?.[1]?.length >= ticks) {

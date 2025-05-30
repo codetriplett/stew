@@ -19,18 +19,41 @@ import parse, { parseInline, finalize } from './markdown';
 // try to keep markdown to 25% of total bundle size, webgl to 25%, and the rest to the core functionality
 
 describe('parseInline', () => {
-	it('spoiler tag', () => {
-		const actual = parseInline('||Item||');
+	describe('formatting', () => {
+		it('em', () => {
+			const actual = parseInline('*text*');
+			expect(actual).toEqual([['em', null, 'text']]);
+		});
 
-		expect(actual).toEqual([
-			['span', {
-				onclick: {
-					style: {
-						color: 'transparent',
-					},
-				},
-			}, 'Item']
-		]);
+		it('strong', () => {
+			const actual = parseInline('**text**');
+			expect(actual).toEqual([['strong', null, 'text']]);
+		});
+		
+		it('lazy', () => {
+			const actual = parseInline('**text*');
+			expect(actual).toEqual([['strong', null, 'text']]);
+		});
+		
+		it('extra', () => {
+			const actual = parseInline('**text***');
+			expect(actual).toEqual([['strong', null, 'text']]);
+		});
+
+		it('emstrong', () => {
+			const actual = parseInline('***text***');
+			expect(actual).toEqual([['em', null, ['strong', null, 'text']]]);
+		});
+
+		it('strongem', () => {
+			const actual = parseInline('**_text_**');
+			expect(actual).toEqual([['strong', null, ['em', null, 'text']]]);
+		});
+		
+		it('embedded', () => {
+			const actual = parseInline('*[Label](/path)*');
+			expect(actual).toEqual([['em', null, ['a', { href: '/path' }, 'Label']]]);
+		});
 	});
 
 	describe('links', () => {
@@ -90,670 +113,21 @@ describe('parseInline', () => {
 			expect(links).toEqual(new Set([node]));
 		});
 	});
+
+	it('spoiler tag', () => {
+		const actual = parseInline('||Item||');
+
+		expect(actual).toEqual([
+			['span', {
+				onclick: {
+					style: {
+						color: 'transparent',
+					},
+				},
+			}, 'Item']
+		]);
+	});
 });
-
-// describe('parseNesting', () => {
-// 	it('none', () => {
-// 		const stack = [
-// 			['main', {}],
-// 		];
-
-// 		const actual = parseNesting('', stack);
-// 		expect(stack).toHaveLength(1);
-// 		expect(actual).toEqual([]);
-// 	});
-	
-// 	it('extra whitespace', () => {
-// 		const stack = [
-// 			['main', {}],
-// 		];
-
-// 		const actual = parseNesting('    ', stack);
-// 		expect(stack[0][1].padding).toEqual('');
-// 		expect(stack).toHaveLength(1);
-// 		expect(actual).toEqual([]);
-// 	});
-
-// 	describe('definition list', () => {
-// 		it.only('created', () => {
-// 			// symbols, list, stackLength, initialStack
-// 			const actual = testNesting(': ', 1, ['dl', null,
-// 				['dt', null, 'Item'],
-// 			],
-// 				['main', null, ['', null, 'Item']],
-// 			);
-			
-// 			expect(actual).toEqual([
-// 				['dl', null, ['dt', null, 'Item']],
-// 				['dd', props],
-// 			]);
-
-
-
-
-// 			const stack = [
-// 				['main', {}, ['', null, 'Item']],
-// 			];
-
-// 			const actual = parseNesting(': ', stack);
-// 			const props = { spaced: false, indentation: 2, wrapper: actual[0] };
-// 			expect(stack[0]).toEqual(['main', {}]);
-// 			expect(stack).toHaveLength(1);
-
-// 			expect(actual).toEqual([
-// 				['dl', null, ['dt', null, 'Item']],
-// 				['dd', props],
-// 			]);
-// 		});
-
-// 		// TODO: consider adding wrappers to stack instead
-// 		// - its content will be stored in a final item in the finalization step
-// 		// - include a prop to store any of its children that have been completed
-// 		// - store a subtype and items array
-// 		it('extended', () => {
-
-
-// 			const wrapper = ['ul', null,
-// 				['dt', null],
-// 			];
-
-// 			const stack = [
-// 				['main', {}],
-// 				['dd', { spaced: false, indentation: 2, wrapper }, ['', null, 'Item']],
-// 			];
-
-// 			const actual = parseNesting(': ', stack);
-// 			expect(stack).toHaveLength(2);
-// 			expect(actual).toEqual([]);
-
-// 			const expected = buildExpected('dd', { spaced: false, indentation, wrapper },
-// 				[['', null, 'Item']]
-// 			);
-
-// 			expect(stack[stack.length - 1]).toEqual(expected);
-
-// 			expect(wrapper).toEqual(['ul', null,
-// 				['dd']
-// 			]);
-// 		});
-		
-// 		it('nested', () => {
-// 			const stack = [
-// 				['main', {}],
-// 				['dd', { spaced: false, indentation: 2, wrapper: ['dl', null] }, ['', null, 'Item']],
-// 			];
-
-// 			const actual = parseNesting('  : ', stack);
-// 			expect(stack).toHaveLength(2);
-// 			expect(actual[0]).not.toBe(stack[1]);
-
-// 			expect(actual).toEqual([
-// 				['dd', { spaced: false, indentation: 4, wrapper: ['dl', null,
-// 					['dt', null, 'Item']
-// 				] }],
-// 			]);
-// 		});
-
-// 		it('no whitespace', () => {
-// 			const stack = [
-// 				['main', {}],
-// 				['dd', { spaced: false, indentation: 2, wrapper: ['dl', null] }, ['', null, 'Item']],
-// 			];
-
-// 			const actual = parseNesting(':', stack);
-// 			expect(stack).toHaveLength(2);
-// 			expect(actual).toEqual([]);
-
-// 			expect(stack[stack.length - 1][1]).toMatchObject({
-// 				indentation: 2,
-// 				wrapper: ['dl', null,
-// 					['dd', null, ['', null, 'Item']],
-// 				],
-// 			});
-// 		});
-
-// 		it('extra whitespace', () => {
-// 			const stack = [
-// 				['main', {}],
-// 				['dd', { spaced: false, indentation: 2, wrapper: ['dl', null] }, ['', null, 'Item']],
-// 			];
-
-// 			const actual = parseNesting(':     ', stack);
-// 			expect(stack).toHaveLength(2);
-// 			expect(actual).toEqual([]);
-
-// 			expect(stack[stack.length - 1][1]).toMatchObject({
-// 				indentation: 2,
-// 				padding: '',
-// 				wrapper: ['dl', null,
-// 					['dd', null, ['', null, 'Item']],
-// 				],
-// 			});
-// 		});
-// 	});
-
-// 	describe('unordered list', () => {
-// 		it('created', () => {
-// 			const stack = [
-// 				['main', {}],
-// 			];
-
-// 			const actual = parseNesting('- ', stack);
-// 			expect(stack).toHaveLength(1);
-
-// 			expect(actual).toEqual([
-// 				['li', { spaced: false, indentation: 2, wrapper: ['ul', null] }],
-// 			]);
-// 		});
-
-// 		it('extended', () => {
-// 			const stack = [
-// 				['main', {}],
-// 				['li', { spaced: false, indentation: 2, wrapper: ['ul', null] }, ['', null, 'Item']],
-// 			];
-
-// 			const actual = parseNesting('- ', stack);
-// 			expect(stack).toHaveLength(2);
-// 			expect(actual).toEqual([]);
-
-// 			expect(stack[stack.length - 1][1]).toMatchObject({
-// 				indentation: 2,
-// 				wrapper: ['ul', null,
-// 					['li', null, ['', null, 'Item']],
-// 				],
-// 			});
-// 		});
-		
-// 		it('nested', () => {
-// 			const stack = [
-// 				['main', {}],
-// 				['li', { spaced: false, indentation: 2, wrapper: ['ul', null] }, ['', null, 'Item']],
-// 			];
-
-// 			const actual = parseNesting('  - ', stack);
-// 			expect(stack).toHaveLength(2);
-// 			expect(actual[0]).not.toBe(stack[1]);
-
-// 			expect(actual).toEqual([
-// 				['li', { spaced: false, indentation: 4, wrapper: ['ul', null] }],
-// 			]);
-// 		});
-		
-// 		it('extended nested', () => {
-// 			const stack = [
-// 				['main', {}],
-// 				['li', { spaced: false, indentation: 2, wrapper: ['ul', null] }],
-// 				['li', { spaced: false, indentation: 4, wrapper: ['ul', null] }, ['', null, 'Item']],
-// 			];
-
-// 			const actual = parseNesting('  - ', stack);
-// 			expect(stack).toHaveLength(3);
-// 			expect(actual[0]).not.toBe(stack[2]);
-
-// 			expect(stack[stack.length - 1][1]).toMatchObject({
-// 				indentation: 4,
-// 				wrapper: ['ul', null,
-// 					['li', null, ['', null, 'Item']],
-// 				],
-// 			});
-// 		});
-		
-// 		it('nested inline', () => {
-// 			const stack = [
-// 				['main', {}],
-// 			];
-
-// 			const actual = parseNesting('- - ', stack);
-// 			expect(stack).toHaveLength(1);
-
-// 			expect(actual).toEqual([
-// 				['li', { spaced: false, indentation: 2, wrapper: ['ul', null] }],
-// 				['li', { spaced: false, indentation: 4, wrapper: ['ul', null] }],
-// 			]);
-// 		});
-
-// 		it('end previous', () => {
-// 			const stack = [
-// 				['main', {}],
-// 				['li', { spaced: false, indentation: 3, wrapper: ['ol', null] }, ['', null, 'Item']],
-// 			];
-
-// 			const actual = parseNesting('- ', stack);
-// 			expect(stack).toHaveLength(1);
-
-// 			expect(actual).toEqual([
-// 				['li', { spaced: false, indentation: 2, wrapper: ['ul', null] }],
-// 			]);
-// 		});
-
-// 		it('extended lazy', () => {
-// 			const stack = [
-// 				['main', {}],
-// 				['li', { spaced: false, indentation: 2, wrapper: ['ul', null] }],
-// 			];
-
-// 			const actual = parseNesting('', stack);
-// 			expect(stack).toHaveLength(2);
-// 			expect(actual).toEqual([]);
-// 		});
-
-// 		it('spaced', () => {
-// 			const stack = [
-// 				['main', {}],
-// 				['li', { spaced: false, indentation: 2, wrapper: ['ul', null] }, ['', null, 'Item']],
-// 			];
-
-// 			const actual = parseNesting('- ', stack, true);
-// 			expect(stack).toHaveLength(2);
-// 			expect(actual).toEqual([]);
-
-// 			expect(stack[stack.length - 1][1]).toMatchObject({
-// 				spaced: true,
-// 				indentation: 2,
-// 				wrapper: ['ul', null,
-// 					['li', null, ['', null, 'Item']],
-// 				],
-// 			});
-// 		});
-
-// 		it('maintains spaced', () => {
-// 			const stack = [
-// 				['main', {}],
-// 				['li', { spaced: true, indentation: 2, wrapper: ['ul', null] }, ['', null, 'Item']],
-// 			];
-
-// 			const actual = parseNesting('- ', stack, false);
-// 			expect(stack).toHaveLength(2);
-// 			expect(actual).toEqual([]);
-
-// 			expect(stack[stack.length - 1][1]).toMatchObject({
-// 				spaced: true,
-// 				indentation: 2,
-// 				wrapper: ['ul', null,
-// 					['li', null, ['', null, 'Item']],
-// 				],
-// 			});
-// 		});
-		
-// 		it('spaced inline', () => {
-// 			const stack = [
-// 				['main', {}],
-// 				['li', { spaced: false, indentation: 2, wrapper: ['ul', null] }, ['', null, 'Item']],
-// 			];
-
-// 			const actual = parseNesting('- - ', stack);
-// 			expect(stack).toHaveLength(2);
-
-// 			expect(actual).toEqual([
-// 				['li', { spaced: false, indentation: 4, wrapper: ['ul', null] }],
-// 			]);
-
-// 			expect(stack[stack.length - 1][1]).toMatchObject({
-// 				indentation: 2,
-// 				wrapper: ['ul', null,
-// 					['li', null, ['', null, 'Item']],
-// 				],
-// 			});
-// 		});
-
-// 		it('no whitespace', () => {
-// 			const stack = [
-// 				['main', {}],
-// 				['li', { spaced: false, indentation: 2, wrapper: ['ul', null] }, ['', null, 'Item']],
-// 			];
-
-// 			const actual = parseNesting('-', stack);
-// 			expect(stack).toHaveLength(2);
-// 			expect(actual).toEqual([]);
-
-// 			expect(stack[stack.length - 1][1]).toMatchObject({
-// 				indentation: 2,
-// 				wrapper: ['ul', null,
-// 					['li', null, ['', null, 'Item']],
-// 				],
-// 			});
-// 		});
-
-// 		it('extra whitespace', () => {
-// 			const stack = [
-// 				['main', {}],
-// 				['li', { spaced: false, indentation: 2, wrapper: ['ul', null] }, ['', null, 'Item']],
-// 			];
-
-// 			const actual = parseNesting('-     ', stack);
-// 			expect(stack).toHaveLength(2);
-// 			expect(actual).toEqual([]);
-
-// 			expect(stack[stack.length - 1][1]).toMatchObject({
-// 				indentation: 2,
-// 				padding: '',
-// 				wrapper: ['ul', null,
-// 					['li', null, ['', null, 'Item']],
-// 				],
-// 			});
-// 		});
-// 	});
-
-// 	describe('ordered list', () => {
-// 		it('created', () => {
-// 			const stack = [
-// 				['main', {}],
-// 			];
-
-// 			const actual = parseNesting('1. ', stack);
-// 			expect(stack).toHaveLength(1);
-
-// 			expect(actual).toEqual([
-// 				['li', { spaced: false, indentation: 3, wrapper: ['ol', null] }],
-// 			]);
-// 		});
-
-// 		it('extended', () => {
-// 			const stack = [
-// 				['main', {}],
-// 				['li', { spaced: false, indentation: 3, wrapper: ['ol', null] }, ['', null, 'Item']],
-// 			];
-
-// 			const actual = parseNesting('1. ', stack);
-// 			expect(stack).toHaveLength(2);
-// 			expect(actual).toEqual([]);
-
-// 			expect(stack[stack.length - 1][1]).toMatchObject({
-// 				indentation: 3,
-// 				wrapper: ['ol', null,
-// 					['li', null, ['', null, 'Item']],
-// 				],
-// 			});
-// 		});
-		
-// 		it('nested', () => {
-// 			const stack = [
-// 				['main', {}],
-// 				['li', { spaced: false, indentation: 3, wrapper: ['ol', null] }, ['', null, 'Item']],
-// 			];
-
-// 			const actual = parseNesting('   1. ', stack);
-// 			expect(stack).toHaveLength(2);
-// 			expect(actual[0]).not.toBe(stack[1]);
-
-// 			expect(actual).toEqual([
-// 				['li', { spaced: false, indentation: 6, wrapper: ['ol', null] }],
-// 			]);
-// 		});
-		
-// 		it('extended nested', () => {
-// 			const stack = [
-// 				['main', {}],
-// 				['li', { spaced: false, indentation: 3, wrapper: ['ol', null] }],
-// 				['li', { spaced: false, indentation: 6, wrapper: ['ol', null] }, ['', null, 'Item']],
-// 			];
-
-// 			const actual = parseNesting('   1. ', stack);
-// 			expect(stack).toHaveLength(3);
-// 			expect(actual[0]).not.toBe(stack[2]);
-
-// 			expect(stack[stack.length - 1][1]).toMatchObject({
-// 				indentation: 6,
-// 				wrapper: ['ol', null,
-// 					['li', null, ['', null, 'Item']],
-// 				],
-// 			});
-// 		});
-		
-// 		it('nested inline', () => {
-// 			const stack = [
-// 				['main', {}],
-// 			];
-
-// 			const actual = parseNesting('1. 1. ', stack);
-// 			expect(stack).toHaveLength(1);
-
-// 			expect(actual).toEqual([
-// 				['li', { spaced: false, indentation: 3, wrapper: ['ol', null] }],
-// 				['li', { spaced: false, indentation: 6, wrapper: ['ol', null] }],
-// 			]);
-// 		});
-
-// 		it('end previous', () => {
-// 			const stack = [
-// 				['main', {}],
-// 				['li', { spaced: false, indentation: 2, wrapper: ['ul', null] }, ['', null, 'Item']],
-// 			];
-
-// 			const actual = parseNesting('1. ', stack);
-// 			expect(stack).toHaveLength(1);
-
-// 			expect(actual).toEqual([
-// 				['li', { spaced: false, indentation: 3, wrapper: ['ol', null] }],
-// 			]);
-// 		});
-
-// 		it('extended lazy', () => {
-// 			const stack = [
-// 				['main', {}],
-// 				['li', { spaced: false, indentation: 3, wrapper: ['ol', null] }],
-// 			];
-
-// 			const actual = parseNesting('', stack);
-// 			expect(stack).toHaveLength(2);
-// 			expect(actual).toEqual([]);
-// 		});
-
-// 		it('spaced', () => {
-// 			const stack = [
-// 				['main', {}],
-// 				['li', { spaced: false, indentation: 3, wrapper: ['ol', null] }, ['', null, 'Item']],
-// 			];
-
-// 			const actual = parseNesting('1. ', stack, true);
-// 			expect(stack).toHaveLength(2);
-// 			expect(actual).toEqual([]);
-
-// 			expect(stack[stack.length - 1][1]).toMatchObject({
-// 				spaced: true,
-// 				indentation: 3,
-// 				wrapper: ['ol', null,
-// 					['li', null, ['', null, 'Item']],
-// 				],
-// 			});
-// 		});
-
-// 		it('maintains spaced', () => {
-// 			const stack = [
-// 				['main', {}],
-// 				['li', { spaced: true, indentation: 3, wrapper: ['ol', null] }, ['', null, 'Item']],
-// 			];
-
-// 			const actual = parseNesting('1. ', stack, false);
-// 			expect(stack).toHaveLength(2);
-// 			expect(actual).toEqual([]);
-
-// 			expect(stack[stack.length - 1][1]).toMatchObject({
-// 				spaced: true,
-// 				indentation: 3,
-// 				wrapper: ['ol', null,
-// 					['li', null, ['', null, 'Item']],
-// 				],
-// 			});
-// 		});
-		
-// 		it('spaced inline', () => {
-// 			const stack = [
-// 				['main', {}],
-// 				['li', { spaced: false, indentation: 3, wrapper: ['ol', null] }, ['', null, 'Item']],
-// 			];
-
-// 			const actual = parseNesting('1. 1. ', stack);
-// 			expect(stack).toHaveLength(2);
-
-// 			expect(actual).toEqual([
-// 				['li', { spaced: false, indentation: 6, wrapper: ['ol', null] }],
-// 			]);
-
-// 			expect(stack[stack.length - 1][1]).toMatchObject({
-// 				indentation: 3,
-// 				wrapper: ['ol', null,
-// 					['li', null, ['', null, 'Item']],
-// 				],
-// 			});
-// 		});
-
-// 		it('no whitespace', () => {
-// 			const stack = [
-// 				['main', {}],
-// 				['li', { spaced: false, indentation: 3, wrapper: ['ol', null] }, ['', null, 'Item']],
-// 			];
-
-// 			const actual = parseNesting('1.', stack);
-// 			expect(stack).toHaveLength(2);
-// 			expect(actual).toEqual([]);
-
-// 			expect(stack[stack.length - 1][1]).toMatchObject({
-// 				indentation: 3,
-// 				wrapper: ['ol', null,
-// 					['li', null, ['', null, 'Item']],
-// 				],
-// 			});
-// 		});
-
-// 		it('extra whitespace', () => {
-// 			const stack = [
-// 				['main', {}],
-// 				['li', { spaced: false, indentation: 3, wrapper: ['ol', null] }, ['', null, 'Item']],
-// 			];
-
-// 			const actual = parseNesting('1.     ', stack);
-// 			expect(stack).toHaveLength(2);
-// 			expect(actual).toEqual([]);
-
-// 			expect(stack[stack.length - 1][1]).toMatchObject({
-// 				indentation: 3,
-// 				padding: '',
-// 				wrapper: ['ol', null,
-// 					['li', null, ['', null, 'Item']],
-// 				],
-// 			});
-// 		});
-// 	});
-
-// 	describe('blockquote', () => {
-// 		it('created', () => {
-// 			const stack = [
-// 				['main', {}],
-// 			];
-
-// 			const actual = parseNesting('> ', stack);
-// 			expect(stack).toHaveLength(1);
-
-// 			expect(actual).toEqual([
-// 				['blockquote', { spaced: false, indentation: 2 }],
-// 			]);
-// 		});
-
-// 		it('extended', () => {
-// 			const stack = [
-// 				['main', {}],
-// 				['blockquote', { spaced: false, indentation: 2 }, ['', null, 'Item']],
-// 			];
-
-// 			const actual = parseNesting('> ', stack);
-// 			expect(stack).toHaveLength(2);
-// 			expect(actual).toEqual([]);
-// 		});
-
-// 		it('nested', () => {
-// 			const stack = [
-// 				['main', {}],
-// 				['blockquote', { spaced: false, indentation: 2 }, ['', null, 'Item']],
-// 			];
-
-// 			const actual = parseNesting('>> ', stack);
-// 			expect(stack).toHaveLength(2);
-
-// 			expect(actual).toEqual([
-// 				['blockquote', { spaced: false, indentation: 3 }],
-// 			]);
-// 		});
-
-// 		it('nested wide', () => {
-// 			const stack = [
-// 				['main', {}],
-// 				['blockquote', { spaced: false, indentation: 2 }, ['', null, 'Item']],
-// 			];
-
-// 			const actual = parseNesting('>    > ', stack);
-// 			expect(stack).toHaveLength(2);
-
-// 			expect(actual).toEqual([
-// 				['blockquote', { spaced: false, indentation: 3 }],
-// 			]);
-// 		});
-
-// 		it('lazy', () => {
-// 			const stack = [
-// 				['main', {}],
-// 				['blockquote', { spaced: false, indentation: 2 }, ['', null, 'Item']],
-// 				['blockquote', { spaced: false, indentation: 3 }, ['', null, 'Item']],
-// 			];
-
-// 			const actual = parseNesting('> ', stack);
-// 			expect(stack).toHaveLength(3);
-// 			expect(actual).toEqual([]);
-// 		});
-
-// 		it('extra lazy', () => {
-// 			const stack = [
-// 				['main', {}],
-// 				['blockquote', { spaced: false, indentation: 2 }, ['', null, 'Item']],
-// 				['blockquote', { spaced: false, indentation: 3 }, ['', null, 'Item']],
-// 			];
-
-// 			const actual = parseNesting('', stack);
-// 			expect(stack).toHaveLength(3);
-// 			expect(actual).toEqual([]);
-// 		});
-
-// 		it('space interrupt', () => {
-// 			const stack = [
-// 				['main', {}],
-// 				['blockquote', { spaced: false, indentation: 2 }, ['', null, 'Item']],
-// 			];
-
-// 			const actual = parseNesting('> ', stack, true);
-// 			expect(stack).toHaveLength(1);
-
-// 			expect(actual).toEqual([
-// 				['blockquote', { spaced: false, indentation: 2 }],
-// 			]);
-// 		});
-
-// 		it('no whitespace', () => {
-// 			const stack = [
-// 				['main', {}],
-// 			];
-
-// 			const actual = parseNesting('>', stack);
-// 			expect(stack).toHaveLength(1);
-
-// 			expect(actual).toEqual([
-// 				['blockquote', { spaced: false, indentation: 2 }],
-// 			]);
-// 		});
-
-// 		it('extra whitespace', () => {
-// 			const stack = [
-// 				['main', {}],
-// 			];
-
-// 			const actual = parseNesting('>     ', stack);
-// 			expect(stack).toHaveLength(1);
-
-// 			expect(actual).toEqual([
-// 				['blockquote', { spaced: false, indentation: 2, padding: '' }],
-// 			]);
-// 		});
-// 	});
-// });
 
 describe('parse', () => {
 	it('paragraph', () => {
@@ -902,12 +276,26 @@ describe('parse', () => {
 			]);
 		});
 
-		it.skip('interrupts nesting', () => {
+		it('interrupts nesting', () => {
 			const actual = parse('    - abc');
 
 			expect(actual).toEqual(['main', null,
 				['pre', null,
 					['code', null, '- abc'],
+				],
+			]);
+		});
+
+		it.skip('space indentation', () => {
+			const actual = parse('-     abc\n      xyz');
+
+			expect(actual).toEqual(['main', null,
+				['ul', null,
+					['li', null,
+						['pre', null,
+							['code', null, 'abc\nxyz'],
+						],
+					],
 				],
 			]);
 		});

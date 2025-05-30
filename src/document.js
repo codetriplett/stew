@@ -1,7 +1,7 @@
 import stew from '.';
 
 // tags that shouldn't wrap content when server rendered
-const selfClosingTags = new Set([
+export const selfClosingTags = new Set([
 	'wbr', 'track', 'source', 'param', 'meta', 'link', 'keygen', 'input',
 	'img', 'hr', 'embed', 'command', 'col', 'br', 'base', 'area', '!doctype',
 ]);
