@@ -755,7 +755,7 @@ describe('parseInline', () => {
 // 	});
 // });
 
-describe.only('parse', () => {
+describe('parse', () => {
 	it('paragraph', () => {
 		const actual = parse('Paragraph');
 
@@ -841,7 +841,7 @@ describe.only('parse', () => {
 		});
 	});
 
-	describe.skip('preformatted', () => {
+	describe('preformatted', () => {
 		it('tab indentation', () => {
 			const actual = parse('\tabc');
 
@@ -872,7 +872,7 @@ describe.only('parse', () => {
 			]);
 		});
 
-		it.only('several newlines', () => {
+		it('several newlines', () => {
 			const actual = parse('\tabc\n\n\n\txyz');
 
 			expect(actual).toEqual(['main', null,

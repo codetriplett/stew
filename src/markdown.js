@@ -68,16 +68,6 @@ export function parseInline (string, rootNames, links) {
 	return content;
 }
 
-// TODO: figure out why esbuild doesn't support findLastIndex
-// - something about setting a target browser
-function findLastIndex(array, callback) {
-	for (const [i, item] of array.entries()) {
-		if (!callback(item, i, array)) {
-			return i - 1;
-		}
-	}
-}
-
 // most of the code can remain the same, key changes...
 // - only store containers in stack (main, li, dd, blockquote, etc)
 // - store indentation and spaced props on containter props object (main defaults to spaced)
@@ -107,10 +97,19 @@ function parseNesting (string, stack, containers, oldlines) {
 			break;
 		}
 	}
-	
+
 	if (depth >= stack.length && oldlines > 0 && indentation > 3) {
 		symbols = ['    '];
 		indentation = 0;
+		oldlines = 0;
+
+		// TODO: find a cleaner way to do this
+		if (depth > 1) {
+			depth--;
+		}
+	} else if (oldlines > 1) {
+		stack.splice(1);
+		depth = 1;
 	}
 
 	let [container] = stack.splice(depth);
@@ -151,6 +150,7 @@ function parseNesting (string, stack, containers, oldlines) {
 			const node = [subtype || type, props];
 			containers.add(node);
 			nodes.push(node);
+			container = undefined;
 
 			if (type === 'dl') {
 				const container = stack[depth - 1];
@@ -164,14 +164,15 @@ function parseNesting (string, stack, containers, oldlines) {
 			}
 		} else if (subtype && subtype !== 'code') {
 			wrapper.splice(-1, 0, [...container.slice(0, 2), ...container.splice(2)]);
+		}
+		
+		if (container) {
 			stack.push(container);
-		} else if (container) {
-			stack.push(container);
+			container = undefined;
 		}
 
 		indentation += symbol.length;
 		props.indentation = indentation;
-		container = undefined;
 	}
 	
 	if (oldlines === 1) {
@@ -196,11 +197,10 @@ export default function parse (content, rootPath = '') {
 	const containers = new Set(stack);
 	const links = new Set();
 	const references = {};
-	let newlines = 2;
-	let ticks = 0;
 	let locked = scopes.size > 0 && !scopes.has('');
+	let newlines = 1;
+	let ticks = 0;
 	let alignments, reference;
-	main[1].wrapper = ['', null, main];
 
 	const regex = new RegExp(['^',
 		'(\\s*(?::\\s{1,4})?(?:[>\s]+|(?:[-+*]|\\d+[.)])(?:\\s{1,4}|$))*\\s*)(?:',
@@ -211,30 +211,27 @@ export default function parse (content, rootPath = '') {
 			'|(\\[[ xX-_]\\](?!\\S)|\\|(?!\\|.*?\\|\\|))?\\s*(.*?)',
 		')',
 	'(\\s*)$'].join(''));
+
 	// eventually add HTML structure (starts with </?\w+>)
 	// - should probably be handled inline with an HTML stack to open and close tags (empty space)
 	// - only wrap in p tag if there is text that isn't wrapped in a tag
 
-	for (const line of lines) {
+	for (let line of lines) {
 		if (!/\S/.test(line)) {
-			if (newlines < 0) {
-				newlines = 0;
-			} else if (newlines) {
-				stack.splice(1);
-			}
-
-			newlines += 1;
+			newlines += newlines < 0 ? 2 : 1;
 			continue;
+		} else if (ticks) {
+			line = `\t${line}`;
 		}
 
 		let [,
 			symbols, key, href, title,
 			hashes, heading, id, underline,
 			dashes, structure = '', string, whitespace,
-		] = ticks ? ['\t'] : line.match(regex);
+		] = line.match(regex);
 
-		if (/^-{3,}|\*{3,}$/.test(symbols.trim())) {
-			dashes = symbols;
+		if (/^ {0,3}((-\s+){3,}|(\*\s+){3,})\s*$/.test(symbols)) {
+			dashes = symbols.trim();
 			symbols = '';
 		}
 
@@ -243,27 +240,32 @@ export default function parse (content, rootPath = '') {
 // |${dashes}|${structure}|${string}|`);
 
 		const oldlines = newlines;
-		const nodes = parseNesting(symbols, stack, containers, oldlines);
+		const nodes = parseNesting(symbols, stack, containers, ticks ? 1 : oldlines);
 		let container = stack[stack.length - 1];
 		stack.push(...nodes);
+		
+		if (key !== undefined && !references[key]) {
+			reference = { href: buildPath(rootNames, href) };
+			references[key] = reference;
+		} else if (hashes && stack.length < 2) {
+			locked = stack.length === 1 && scopes.size && !scopes.has(id);
+		}
+
+		if (locked) {
+			continue;
+		}
+
 		const node = stack[stack.length - 1];
 		let previous = node[node.length - 1];
 		newlines = string && !structure && whitespace.length < 2 ? -1 : 0;
-
-		// this will work after stack is revised to store wrapper (dl, ul, ol, blockquote, pre)
-		// - only dl, ul, ol, will have items as [subtype], followed by arrays of spliced content
-		// - items will be appended in the final step when spacing is processed
+		
 		if (node[0] === 'code') {
-			string = line;
+			string = line.replace(/^(\t| {4})/, '');
 
-			if (!ticks) {
-				string = line.replace(/^(\t| {4})/, '');
-			} else if (line.match(/^ {0,3}(`+)\s*$/)?.[1]?.length >= ticks) {
+			if (ticks && string.match(/^ {0,3}(`+)\s*$/)?.[1]?.length >= ticks) {
 				ticks = 0;
 				continue;
-			}
-
-			if (!nodes.length) {
+			} else if (!nodes.length) {
 				const newlines = Math.max(0, oldlines) + (node[2] ? 1 : 0);
 				node[2] += `${Array(newlines).fill('\n').join('')}${string}`;
 				continue;
@@ -271,18 +273,7 @@ export default function parse (content, rootPath = '') {
 
 			node.push(string);
 			string = '';
-		} else if (key !== undefined) {
-			if (!references[key]) {
-				reference = { href: buildPath(rootNames, href) };
-				references[key] = reference;
-			}
 		} else if (hashes) {
-			locked = stack.length === 1 && scopes.size && !scopes.has(id);
-
-			if (locked) {
-				continue;
-			}
-			
 			const node = [hashes.length, null];
 			nodes.push(node);
 			string = heading;
@@ -291,8 +282,6 @@ export default function parse (content, rootPath = '') {
 				node[1] = { id };
 				nodes.push(['a', { href: encodeURI(`${headingPath}#${id}`) }]);
 			}
-		} else if (locked) {
-			continue;
 		} else if (underline) {
 			const type = underline[0] === '=' ? 1 : 2;
 
@@ -306,8 +295,8 @@ export default function parse (content, rootPath = '') {
 			}
 		} else if (/^`{3,}/.test(string)) {
 			ticks = string.search(/[^`]|$/);
-			nodes.push(['pre', null], ['code', null, '']);
-			string = '';
+			newlines = oldlines;
+			continue;
 		} else if (structure[0] === '[') {
 			// TOOD: handlel checkbox here
 			// - xX are checked, all rest are unchecked
