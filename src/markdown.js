@@ -31,11 +31,25 @@ const blockRegex = new RegExp(['^',
 
 const inlineRegex = new RegExp(['^(.*?)(?:',
 	'([*_]+)(\\S+?(?:.+?\\S+?)?)[*_]+',
+	'|(`+)(.+?)(`+)',
+
+	// :key: emoji (insert as-is content, usually just a map of emoji characters, but could be prebuilt static content)
+	// - :key param param: call fn if emoji[key] is a function, and pass params to it after
+	//   - or emoji[key][param]... if an object is found (use '' prop of object if params still produce an object)
+	// ::text:: (mark) highlight
+	// ~text~ (u) underline
+	// ~~text~~ (s) strikethrough
+	// ~~~text~~~ (s u) both (maybe also allow ~~~~ for ins, and ~~~~~+ for del)
+	// <http://www.domain.com/path> (a) quick link
+
+	// TODO: handle inline code tags like em and strong, except capture closing symbols and make sure there are as there are opening ones (prepend leftover ones on remainder)
+	// `text` code
+
 	'|\\[\\s*(.*?)\\s*\\]\\s*(?:\\(\\s*(.*?)\\s*(\'.*?\'|".*?")?\\s*\\)|\\[\\s*(.*?)\\s*\\])',
 	'|\\|\\|(.+?)\\|\\|',
 '|$)(.*)$'].join(''));
 
-export function parseInline (string, rootNames, links) {
+export function parseInline (string, rootNames, links, emoji, inCell) {
 	// TODO: process expressions in text (e.g. bold, strikethrough, ndash, etc)
 	// - return array of children to spread onto parent element
 	const content = [];
@@ -43,6 +57,7 @@ export function parseInline (string, rootNames, links) {
 	while (string) {
 		const [,
 			before, formatting, formatted,
+			open, code, close,
 			text, href, title, key,
 			spoiler, remainder,
 		] = string.match(inlineRegex);
@@ -91,6 +106,9 @@ export function parseInline (string, rootNames, links) {
 					style: { color: 'transparent' },
 				},
 			}, spoiler]);
+		} else if (inCell && /^\s*\|/.test(remainder)) {
+			content.push(remainder.replace(/^\s*\|\s*/, ''));
+			break;
 		}
 		
 		string = remainder;
@@ -213,7 +231,7 @@ function parseNesting (string, stack, containers, oldlines) {
 	return nodes;
 }
 
-export default function parse (content, rootPath = '') {
+export default function parse (content, rootPath = '', emoji = {}, formatter) {
 	if (!content) {
 		return;
 	}
@@ -231,11 +249,14 @@ export default function parse (content, rootPath = '') {
 	let locked = scopes.size > 0 && !scopes.has('');
 	let newlines = 1;
 	let ticks = 0;
-	let alignments, reference;
+	let id = 0;
+	let alignments, reference, format;
 
 	// eventually add HTML structure (starts with </?\w+>)
 	// - should probably be handled inline with an HTML stack to open and close tags (empty space)
 	// - only wrap in p tag if there is text that isn't wrapped in a tag
+	// - HTML will be converted to stew arrays just like other nodes in the layout
+	// - at least no additional code will be needed to render the html properly
 
 	for (let line of lines) {
 		if (!/\S/.test(line)) {
@@ -296,6 +317,7 @@ export default function parse (content, rootPath = '') {
 
 			if (ticks && string.match(/^ {0,3}(`+)\s*$/)?.[1]?.length >= ticks) {
 				ticks = 0;
+				format = undefined;
 				continue;
 			} else if (!nodes.length) {
 				const newlines = Math.max(0, oldlines) + (node[2] ? 1 : 0);
@@ -303,6 +325,7 @@ export default function parse (content, rootPath = '') {
 				continue;
 			}
 
+			node[1].format = format;
 			node.push(string);
 			string = '';
 		} else if (hashes) {
@@ -325,14 +348,19 @@ export default function parse (content, rootPath = '') {
 			} else {
 				dashes = underline;
 			}
-		} else if (/^`{3,}/.test(string)) {
+		} else if (/^`{3,}[^`]*$/.test(string)) {
 			ticks = string.search(/[^`]|$/);
+			format = string.slice(ticks).trim();
 			newlines = oldlines;
 			continue;
 		} else if (structure[0] === '[') {
-			// TOOD: handlel checkbox here
+			// TOOD: handle checkbox here
 			// - xX are checked, all rest are unchecked
+			// - use number ids (iterate for each checkbox found)
+			id++;
 		} else if (structure[0] === '|') {
+			// TODO: move this to a separate parseTable function
+			// - run each cell through parseInline, add a param to cut inline processing short on next non-spoiler based | it finds
 			const remainder = string.endsWith('|') ? string : `${string}|`;
 			string = '';
 
@@ -402,13 +430,14 @@ export default function parse (content, rootPath = '') {
 		}
 
 		if (string) {
-			const content = parseInline(string, rootNames, links);
+			const content = parseInline(string, rootNames, links, emoji);
 
 			if (containers.has(container)) {
 				if (oldlines > 0 || previous[0] !== '') {
 					previous = ['', null];
 					container.push(previous);
 				} else if (!oldlines) {
+					// TODO: only do this if previous ended with two spaces or \
 					content.unshift(['br']);
 				}
 				
@@ -425,7 +454,7 @@ export default function parse (content, rootPath = '') {
 	}
 
 	for (const container of containers) {
-		const { spaced, wrapper = ['', null, container] } = container[1];
+		const { spaced, format, wrapper = ['', null, container] } = container[1];
 
 		for (const item of wrapper.slice(2)) {
 			item[1] = null;
@@ -440,6 +469,16 @@ export default function parse (content, rootPath = '') {
 				} else {
 					item.splice(i, 1, ...child.slice(2));
 				}
+			}
+		}
+
+		if (format !== undefined) {
+			const node = emoji['']?.(container[2], format);
+
+			if (Array.isArray(node)) {
+				wrapper.splice(0, 3, ...node);
+			} else if (node !== undefined) {
+				container[2] = node;
 			}
 		}
 	}

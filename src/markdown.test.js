@@ -276,6 +276,30 @@ describe('parse', () => {
 			]);
 		});
 
+		it('tick formatting', () => {
+			const actual = parse('```\nabc\n```', '/', {
+				'': code => ['div', null, code],
+			});
+
+			expect(actual).toEqual(['main', null,
+				['div', null, 'abc'],
+			]);
+		});
+
+		it('tick customized', () => {
+			const actual = parse('```capitalize\nabc\n```', '/', {
+				'': (code, type) => {
+					return type === 'capitalize' ? code.toUpperCase() : code;
+				},
+			});
+
+			expect(actual).toEqual(['main', null,
+				['pre', null,
+					['code', null, 'ABC'],
+				],
+			]);
+		});
+
 		it('interrupts nesting', () => {
 			const actual = parse('    - abc');
 
