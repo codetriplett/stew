@@ -30,8 +30,6 @@ const blockRegex = new RegExp(['^',
 '(\\s*)$'].join(''));
 
 const inlineRegex = new RegExp(['^(.*?)(?:',
-	'([*_]+)(\\S+?(?:.+?\\S+?)?)[*_]+',
-	'|(`+)(.+?)(`+)',
 
 	// :key: emoji (insert as-is content, usually just a map of emoji characters, but could be prebuilt static content)
 	// - :key param param: call fn if emoji[key] is a function, and pass params to it after
@@ -45,48 +43,39 @@ const inlineRegex = new RegExp(['^(.*?)(?:',
 	// TODO: handle inline code tags like em and strong, except capture closing symbols and make sure there are as there are opening ones (prepend leftover ones on remainder)
 	// `text` code
 
-	'|\\[\\s*(.*?)\\s*\\]\\s*(?:\\(\\s*(.*?)\\s*(\'.*?\'|".*?")?\\s*\\)|\\[\\s*(.*?)\\s*\\])',
+
+	// this is is the most straight-forward way without losing much functionality
+	// - allows control over which part of one emphasis gets the other
+	// - if double strong is needed, they can use HTML for now
+	'(\\*\\*.*?\\*\\*|__.*?__)',
+	'|(\\*.*?\\*|_.*?_)',
+	'|(`+)|::(.*?)::|:(.*?):|(-{2,3})',
+	'|(!)?\\[\\s*(.*?)\\s*\\]\\s*(?:\\(\\s*(.*?)\\s*(\'.*?\'|".*?")?\\s*\\)|\\[\\s*(.*?)\\s*\\])',
 	'|\\|\\|(.+?)\\|\\|',
 '|$)(.*)$'].join(''));
 
-export function parseInline (string, rootNames, links, emoji, inCell) {
+// close string can start with `s, end with |, and have any number of * and _ between
+// - if new ticks equals the number of 
+export function parseInline (string, rootNames, links, map, close) {
 	// TODO: process expressions in text (e.g. bold, strikethrough, ndash, etc)
 	// - return array of children to spread onto parent element
 	const content = [];
+	let i = 10;
 
-	while (string) {
-		const [,
-			before, formatting, formatted,
-			open, code, close,
-			text, href, title, key,
+	while (string && i--) {
+		let [,
+			before, strong, em,
+			ticks, highlight, emoji, dashes,
+			image, text, href, title, key,
 			spoiler, remainder,
 		] = string.match(inlineRegex);
-
-		// to do this right, it would need to do a lot of work to match the appropriate parts of open and close
-		// just use the open sequence as the source of truth and allow the close to be whatever
-		// this is easier to write as well since you can control the wrapping but can just put one symbol to close
-		// this is so much cleaner and doesn't compromize anything. The user should escape symbols they want as text, and can choose to care about the formatting
-		if (formatting) {
-			let embedded = parseInline(formatted);
-
-			for (let i = formatting.length - 1; i >= 0; i--) {
-				if (formatting[i - 1] === formatting[i]) {
-					embedded = [['strong', null, ...embedded]];
-					i--;
-				} else {
-					embedded = [['em', null, ...embedded]];
-				}
-			}
-
-			content.push(embedded[0]);
-		}
 
 		if (/\S/.test(before)) {
 			content.push(before);
 		}
 
 		if (text !== undefined) {
-			const node = ['a', null, text];
+			const node = [image ? 'img' : 'a', null, text];
 			content.push(node);
 
 			if (key !== undefined) {
@@ -100,16 +89,40 @@ export function parseInline (string, rootNames, links, emoji, inCell) {
 					props.title = title.slice(1, -1);
 				}
 			}
+		} else if (strong) {
+			const inside = strong.slice(2, -2);
+			content.push(['strong', null, ...parseInline(inside, rootNames, links)]);
+		} else if (em) {
+			const inside = em.slice(1, -1);
+			content.push(['em', null, ...parseInline(inside, rootNames, links)]);
+		} else if (dashes) {
+			// TODO: merge with surrounding strings when possible
+			content.push(dashes.length === 2 ? '&ndash;' : '&mdash;');
+		} else if (emoji) {
+			content.push(map[emoji]);
+		} else if (highlight) {
+			content.push(['mark', null, ...parseInline(highlight, rootNames, links)]);
+		} else if (ticks) {
+			const index = remainder.indexOf(ticks);
+			const code = index !== -1 ? remainder.slice(0, index) : remainder;
+			content.push(['code', null, code]);
+			remainder = index !== -1 ? remainder.slice(index + ticks.length) : '';
 		} else if (spoiler) {
 			content.push(['span', {
 				onclick: {
 					style: { color: 'transparent' },
 				},
 			}, spoiler]);
-		} else if (inCell && /^\s*\|/.test(remainder)) {
+		} else if (close === '|' && /^\s*\|/.test(remainder)) {
 			content.push(remainder.replace(/^\s*\|\s*/, ''));
 			break;
+		} else if (remainder) {
+			content.push(remainder);
+			break;
 		}
+
+		// TODO: do the recursive call to parseInline here
+		// - have each if block create a node with the appropriate tag to add content to
 		
 		string = remainder;
 	}
@@ -444,13 +457,23 @@ export default function parse (content, rootPath = '', emoji = {}, formatter) {
 				container = previous;
 			}
 
-			container.push(...content);
+			let sibling = container.pop();
+
+			if (typeof sibling === 'string' && typeof content[0] === 'string') {
+				sibling += ` ${content.shift()}`;
+			}
+
+			container.push(sibling, ...content);
 		}
 	}
 
 	for (const link of links) {
 		const key = link[1];
 		link[1] = { ...references[key] };
+
+		if (link[0] === 'image') {
+			link[1].alt = link.pop();
+		}
 	}
 
 	for (const container of containers) {

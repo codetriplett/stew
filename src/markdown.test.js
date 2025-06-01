@@ -19,7 +19,32 @@ import parse, { parseInline, finalize } from './markdown';
 // try to keep markdown to 25% of total bundle size, webgl to 25%, and the rest to the core functionality
 
 describe('parseInline', () => {
-	describe('formatting', () => {
+	it('adds emoji', () => {
+		const actual = parseInline(':smile:', '/', [], { smile: ':)' });
+		expect(actual).toEqual([':)']);
+	});
+
+	it('adds preset', () => {
+		const actual = parseInline(':message:', '/', [], { message: ['p', null, 'text'] });
+		expect(actual).toEqual([['p', null, 'text']]);
+	});
+
+	it('adds highlight', () => {
+		const actual = parseInline('::text::');
+		expect(actual).toEqual([['mark', null, 'text']]);
+	});
+	
+	it('adds ndash', () => {
+		const actual = parseInline('--');
+		expect(actual).toEqual(['&ndash;']);
+	});
+	
+	it('adds mdash', () => {
+		const actual = parseInline('---');
+		expect(actual).toEqual(['&mdash;']);
+	});
+
+	describe('formatted', () => {
 		it('em', () => {
 			const actual = parseInline('*text*');
 			expect(actual).toEqual([['em', null, 'text']]);
@@ -29,30 +54,32 @@ describe('parseInline', () => {
 			const actual = parseInline('**text**');
 			expect(actual).toEqual([['strong', null, 'text']]);
 		});
-		
-		it('lazy', () => {
-			const actual = parseInline('**text*');
-			expect(actual).toEqual([['strong', null, 'text']]);
-		});
-		
-		it('extra', () => {
-			const actual = parseInline('**text***');
-			expect(actual).toEqual([['strong', null, 'text']]);
-		});
-
-		it('emstrong', () => {
-			const actual = parseInline('***text***');
-			expect(actual).toEqual([['em', null, ['strong', null, 'text']]]);
-		});
 
 		it('strongem', () => {
 			const actual = parseInline('**_text_**');
 			expect(actual).toEqual([['strong', null, ['em', null, 'text']]]);
 		});
+
+		it('emstrong', () => {
+			const actual = parseInline('*__text__*');
+			expect(actual).toEqual([['em', null, ['strong', null, 'text']]]);
+		});
 		
 		it('embedded', () => {
 			const actual = parseInline('*[Label](/path)*');
 			expect(actual).toEqual([['em', null, ['a', { href: '/path' }, 'Label']]]);
+		});
+	});
+
+	describe('code', () => {
+		it('basic', () => {
+			const actual = parseInline('`text`');
+			expect(actual).toEqual([['code', null, 'text']]);
+		});
+
+		it('extra ticks', () => {
+			const actual = parseInline('``abc `lmno` xyz``');
+			expect(actual).toEqual([['code', null, 'abc `lmno` xyz']]);
 		});
 	});
 
@@ -62,6 +89,14 @@ describe('parseInline', () => {
 
 			expect(actual).toEqual([
 				['a', { href: '/path' }, 'Label']
+			]);
+		});
+
+		it('image', () => {
+			const actual = parseInline('![Label](/path)');
+
+			expect(actual).toEqual([
+				['img', { href: '/path' }, 'Label']
 			]);
 		});
 
@@ -409,7 +444,7 @@ describe('parse', () => {
 			expect(actual).toEqual(['main', null,
 				['ul', null,
 					['li', null,
-						'Item', 'Adjacent',
+						'Item Adjacent',
 					],
 				],
 			]);
@@ -616,7 +651,7 @@ describe('parse', () => {
 
 			expect(actual).toEqual(['main', null,
 				['blockquote', null,
-					'Item', 'Adjacent',
+					'Item Adjacent',
 				],
 			]);
 		});
