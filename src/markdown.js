@@ -30,53 +30,48 @@ const blockRegex = new RegExp(['^',
 '(\\s*)$'].join(''));
 
 const inlineRegex = new RegExp(['^(.*?)(?:',
-
-	// :key: emoji (insert as-is content, usually just a map of emoji characters, but could be prebuilt static content)
-	// - :key param param: call fn if emoji[key] is a function, and pass params to it after
-	//   - or emoji[key][param]... if an object is found (use '' prop of object if params still produce an object)
-	// ::text:: (mark) highlight
-	// ~text~ (u) underline
-	// ~~text~~ (s) strikethrough
-	// ~~~text~~~ (s u) both (maybe also allow ~~~~ for ins, and ~~~~~+ for del)
 	// <http://www.domain.com/path> (a) quick link
-
-	// TODO: handle inline code tags like em and strong, except capture closing symbols and make sure there are as there are opening ones (prepend leftover ones on remainder)
-	// `text` code
+	// <span></span>
 
 
-	// this is is the most straight-forward way without losing much functionality
-	// - allows control over which part of one emphasis gets the other
-	// - if double strong is needed, they can use HTML for now
-	'(\\*\\*.*?\\*\\*|__.*?__)',
-	'|(\\*.*?\\*|_.*?_)',
+	'(\\*\\*.+?\\*\\*|__.+?__)',
+	'|(\\*.+?\\*|_.+?_)',
+	'|~~(.+?)~~|~(.+?)~',
 	'|(`+)|::(.*?)::|:(.*?):|(-{2,3})',
 	'|(!)?\\[\\s*(.*?)\\s*\\]\\s*(?:\\(\\s*(.*?)\\s*(\'.*?\'|".*?")?\\s*\\)|\\[\\s*(.*?)\\s*\\])',
 	'|\\|\\|(.+?)\\|\\|',
 '|$)(.*)$'].join(''));
 
-// close string can start with `s, end with |, and have any number of * and _ between
-// - if new ticks equals the number of 
 export function parseInline (string, rootNames, links, map, close) {
 	// TODO: process expressions in text (e.g. bold, strikethrough, ndash, etc)
 	// - return array of children to spread onto parent element
 	const content = [];
-	let i = 10;
+	let leftover = '';
+	let previous;
 
-	while (string && i--) {
-		let [,
-			before, strong, em,
+	while (string) {
+		const [,
+			before, strong, em, strikethrough, underline,
 			ticks, highlight, emoji, dashes,
 			image, text, href, title, key,
 			spoiler, remainder,
 		] = string.match(inlineRegex);
 
+		const index = before.indexOf(close);
+		const strings = [];
+		let node;
+		string = remainder;
+
 		if (/\S/.test(before)) {
-			content.push(before);
+			strings.push(before);
 		}
 
-		if (text !== undefined) {
-			const node = [image ? 'img' : 'a', null, text];
-			content.push(node);
+		if (index !== -1) {
+			strings[0] = before.slice(0, index);
+			leftover =  `${before.slice(index + 1)}${remainder}`;
+			string = '';
+		} else if (text !== undefined) {
+			node = [image ? 'img' : 'a', null, text];
 
 			if (key !== undefined) {
 				node[1] = (key || text).toLowerCase();
@@ -90,56 +85,67 @@ export function parseInline (string, rootNames, links, map, close) {
 				}
 			}
 		} else if (strong) {
-			const inside = strong.slice(2, -2);
-			content.push(['strong', null, ...parseInline(inside, rootNames, links)]);
+			node = ['strong', null, strong.slice(2, -2)];
 		} else if (em) {
-			const inside = em.slice(1, -1);
-			content.push(['em', null, ...parseInline(inside, rootNames, links)]);
-		} else if (dashes) {
-			// TODO: merge with surrounding strings when possible
-			content.push(dashes.length === 2 ? '&ndash;' : '&mdash;');
-		} else if (emoji) {
-			content.push(map[emoji]);
+			node = ['em', null, em.slice(1, -1)];
+		} else if (underline) {
+			node = ['u', null, underline];
+		} else if (strikethrough) {
+			node = ['s', null, strikethrough];
 		} else if (highlight) {
-			content.push(['mark', null, ...parseInline(highlight, rootNames, links)]);
+			node = ['mark', null, highlight];
+		} else if (dashes) {
+			strings.push(dashes.length === 2 ? '&ndash;' : '&mdash;');
+		} else if (emoji) {
+			node = map[emoji];
+
+			if (node && typeof node === 'string') {
+				strings.push(node);
+				node = undefined;
+			}
+		} else if (spoiler) {
+			node = ['span', {
+				onclick: {
+					style: { color: 'transparent' },
+				},
+			}, spoiler];
 		} else if (ticks) {
 			const index = remainder.indexOf(ticks);
 			const code = index !== -1 ? remainder.slice(0, index) : remainder;
 			content.push(['code', null, code]);
-			remainder = index !== -1 ? remainder.slice(index + ticks.length) : '';
-		} else if (spoiler) {
-			content.push(['span', {
-				onclick: {
-					style: { color: 'transparent' },
-				},
-			}, spoiler]);
-		} else if (close === '|' && /^\s*\|/.test(remainder)) {
-			content.push(remainder.replace(/^\s*\|\s*/, ''));
-			break;
+			string = index !== -1 ? remainder.slice(index + ticks.length) : '';
+			continue;
 		} else if (remainder) {
-			content.push(remainder);
-			break;
+			strings.push(remainder);
+			string = '';
 		}
-
-		// TODO: do the recursive call to parseInline here
-		// - have each if block create a node with the appropriate tag to add content to
 		
-		string = remainder;
+		if (!node) {
+			if (typeof previous === 'string') {
+				strings.unshift(content.pop());
+			}
+
+			node = strings.join(' ');
+
+			if (!/\S/.test(node)) {
+				continue;
+			}
+		} else if (node[0] !== 'img') {
+			const inside = parseInline(node.pop(), rootNames, links, map);
+			node.push(...inside);
+		}
+		
+		content.push(node);
+		previous = node;
+	}
+
+	if (close) {
+		content.push(leftover);
 	}
 
 	return content;
 }
 
-// most of the code can remain the same, key changes...
-// - only store containers in stack (main, li, dd, blockquote, etc)
-// - store indentation and spaced props on containter props object (main defaults to spaced)
-// - have li and dd also store a list prop that points to that node so we can check its tagName and add children to it
-// - fragments will be used as child of containers if other type isn't detected (ul, ol, dl, blockquote, table, etc)
-// - include br to existing fragment if new line is also a fragment before adding the content
-// - on final pass, if container has been marked as spaced, change '' in fragments to 'p'
-// - things that borrow (underlined headlines, definition term, etc) will take the whole previous fragment if there is no newline
-//   - not only is this easier to manage, since we don't need to extract according to 'br', it also allows these elements to have br's themselves
-// - this should clean up quite a bit of code
 function parseNesting (string, stack, containers, oldlines) {
 	const nodes = [];
 	let fillCount = 0;
@@ -244,7 +250,7 @@ function parseNesting (string, stack, containers, oldlines) {
 	return nodes;
 }
 
-export default function parse (content, rootPath = '', emoji = {}, formatter) {
+export default function parse (content, rootPath = '', emoji = {}) {
 	if (!content) {
 		return;
 	}
@@ -373,15 +379,14 @@ export default function parse (content, rootPath = '', emoji = {}, formatter) {
 			id++;
 		} else if (structure[0] === '|') {
 			// TODO: move this to a separate parseTable function
-			// - run each cell through parseInline, add a param to cut inline processing short on next non-spoiler based | it finds
-			const remainder = string.endsWith('|') ? string : `${string}|`;
+			let remainder = string.endsWith('|') ? string : `${string}|`;
 			string = '';
 
 			if (/^(\s*:?-+:?\s*\|)+$/.test(remainder)) {
 				const isFirst = !alignments;
 				container = previous?.[2];
 
-				alignments = remainder.slice(0, -1).split(/\s*\|\s*/).map(string => {
+				alignments = remainder.split(/\s*\|\s*/).slice(0, -1).map(string => {
 					return string.endsWith(':') ? string.startsWith(':') ? 'center' : 'right' : '';
 				});
 
@@ -410,11 +415,19 @@ export default function parse (content, rootPath = '', emoji = {}, formatter) {
 				container = previous[previous.length - 1];
 			}
 
-			nodes.push(['tr', null, ...remainder.slice(0, -1).split('|').map((text, i) => {
-				const textAlign = alignments?.[i];
-				const content = parseInline(text, rootNames, links);
-				return ['td', textAlign ? { style: { textAlign } } : null, ...content];
-			})]);
+			// TODO: have parseInline detect when each cell closes by passing in '|' as the closing symbol
+			// - this way spoilers will be allowed in the cells
+
+			const cells = [];
+
+			while (remainder) {
+				const textAlign = alignments?.[cells.length];
+				const content = parseInline(remainder, rootNames, links, emoji, '|');
+				remainder = content.pop();
+				cells.push(['td', textAlign ? { style: { textAlign } } : null, ...content]);
+			}
+
+			nodes.push(['tr', null, ...cells]);
 		}
 
 		if (title) {
@@ -424,10 +437,6 @@ export default function parse (content, rootPath = '', emoji = {}, formatter) {
 		}
 
 		for (const node of nodes) {
-			// TODO: consider using wrapper as container and storing its items instead of wrappers
-			// - wouldn't need to do this extra step here
-			// - instead it would do one final splice to get its final item and then push those items onto the container
-			// - it already has to do the extra processing to set spacing anyway as a final step
 			if (containers.has(node) && node[1].wrapper) {
 				const { wrapper } = node[1];
 				container.push(wrapper);
@@ -450,7 +459,6 @@ export default function parse (content, rootPath = '', emoji = {}, formatter) {
 					previous = ['', null];
 					container.push(previous);
 				} else if (!oldlines) {
-					// TODO: only do this if previous ended with two spaces or \
 					content.unshift(['br']);
 				}
 				

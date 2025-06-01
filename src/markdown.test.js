@@ -19,16 +19,6 @@ import parse, { parseInline, finalize } from './markdown';
 // try to keep markdown to 25% of total bundle size, webgl to 25%, and the rest to the core functionality
 
 describe('parseInline', () => {
-	it('adds emoji', () => {
-		const actual = parseInline(':smile:', '/', [], { smile: ':)' });
-		expect(actual).toEqual([':)']);
-	});
-
-	it('adds preset', () => {
-		const actual = parseInline(':message:', '/', [], { message: ['p', null, 'text'] });
-		expect(actual).toEqual([['p', null, 'text']]);
-	});
-
 	it('adds highlight', () => {
 		const actual = parseInline('::text::');
 		expect(actual).toEqual([['mark', null, 'text']]);
@@ -42,6 +32,16 @@ describe('parseInline', () => {
 	it('adds mdash', () => {
 		const actual = parseInline('---');
 		expect(actual).toEqual(['&mdash;']);
+	});
+
+	it('adds emoji', () => {
+		const actual = parseInline(':smile:', '/', [], { smile: ':)' });
+		expect(actual).toEqual([':)']);
+	});
+
+	it('adds preset', () => {
+		const actual = parseInline(':message:', '/', [], { message: ['p', null, 'text'] });
+		expect(actual).toEqual([['p', null, 'text']]);
 	});
 
 	describe('formatted', () => {
@@ -69,15 +69,23 @@ describe('parseInline', () => {
 			const actual = parseInline('*[Label](/path)*');
 			expect(actual).toEqual([['em', null, ['a', { href: '/path' }, 'Label']]]);
 		});
-	});
+		
+		it('underline', () => {
+			const actual = parseInline('~text~');
+			expect(actual).toEqual([['u', null, 'text']]);
+		});
+		
+		it('strikethrough', () => {
+			const actual = parseInline('~~text~~');
+			expect(actual).toEqual([['s', null, 'text']]);
+		});
 
-	describe('code', () => {
-		it('basic', () => {
+		it('code', () => {
 			const actual = parseInline('`text`');
 			expect(actual).toEqual([['code', null, 'text']]);
 		});
 
-		it('extra ticks', () => {
+		it('deep code', () => {
 			const actual = parseInline('``abc `lmno` xyz``');
 			expect(actual).toEqual([['code', null, 'abc `lmno` xyz']]);
 		});
@@ -345,6 +353,7 @@ describe('parse', () => {
 			]);
 		});
 
+		// TODO: have parseNesting mark how much to remove fro line fro preformatted text
 		it.skip('space indentation', () => {
 			const actual = parse('-     abc\n      xyz');
 
@@ -635,6 +644,17 @@ describe('parse', () => {
 				],
 			]);
 		});
+		
+		it('definition with line break term', () => {
+			const actual = parse('Item  \nAdjacent\n: Child');
+
+			expect(actual).toEqual(['main', null,
+				['dl', null,
+					['dt', null, 'Item', ['br'], 'Adjacent'],
+					['dd', null, 'Child'],
+				],
+			]);
+		});
 	});
 
 	describe('blockquote', () => {
@@ -769,6 +789,28 @@ describe('parse', () => {
 							['td', { style: { textAlign: 'center' } }, 'A'],
 							['td', { style: { textAlign: 'right' } }, 'B'],
 							['td', null, 'C'],
+						],
+					],
+				],
+			]);
+		});
+		
+		it('includes spoiler', () => {
+			const actual = parse('| ||Item|| |');
+
+			expect(actual).toEqual(['main', null,
+				['table', null,
+					['tbody', null,
+						['tr', null,
+							['td', null,
+								['span', {
+									onclick: {
+										style: {
+											color: 'transparent',
+										},
+									},
+								}, 'Item'],
+							],
 						],
 					],
 				],
