@@ -44,6 +44,11 @@ describe('parseInline', () => {
 		expect(actual).toEqual([['p', null, 'text']]);
 	});
 
+	it('stops at breakpoint', () => {
+		const actual = parseInline('text|...', '/', [], {}, '|');
+		expect(actual).toEqual(['text', '...']);
+	});
+
 	describe('formatted', () => {
 		it('em', () => {
 			const actual = parseInline('*text*');
@@ -279,6 +284,16 @@ describe('parse', () => {
 			]);
 		});
 
+		it('indentation overage', () => {
+			const actual = parse('\t  abc');
+
+			expect(actual).toEqual(['main', null,
+				['pre', null,
+					['code', null, '  abc'],
+				],
+			]);
+		});
+
 		it('multiple lines', () => {
 			const actual = parse('\tabc\n\txyz');
 
@@ -353,8 +368,7 @@ describe('parse', () => {
 			]);
 		});
 
-		// TODO: have parseNesting mark how much to remove fro line fro preformatted text
-		it.skip('space indentation', () => {
+		it('nested space indentation', () => {
 			const actual = parse('-     abc\n      xyz');
 
 			expect(actual).toEqual(['main', null,
@@ -683,6 +697,19 @@ describe('parse', () => {
 				['blockquote', null,
 					'Item',
 					['br'],
+					'Adjacent',
+				],
+			]);
+		});
+
+		it('separate blocks', () => {
+			const actual = parse('> Item\n\n> Adjacent');
+
+			expect(actual).toEqual(['main', null,
+				['blockquote', null,
+					'Item',
+				],
+				['blockquote', null,
 					'Adjacent',
 				],
 			]);

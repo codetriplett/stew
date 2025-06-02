@@ -20,7 +20,7 @@ function buildPath (rootNames, href = '') {
 }
 
 const blockRegex = new RegExp(['^',
-	'(\\s*(?::\\s{1,4})?(?:[>\s]+|(?:[-+*]|\\d+[.)])(?:\\s{1,4}|$))*\\s*)(?:',
+	'(\\s*(?:[>\\s]+|(?:[-+*:]|\\d+[.)])(?:\\s{1,4}|\\t|$))*\\s*)(?:',
 		'(?:\\[\\s*(.*?)\\s*\\]:\\s+(<.*?>|[^<>]|[^<].*?[^>])(?:\\s+|$))?(\'.*?\'|".*?"|\\(.*?\\))?',
 		'|(#{1,6})\\s+(.*?)(?:\\s+#+(\\S*))?',
 		'|(=+|-+)',
@@ -37,39 +37,31 @@ const inlineRegex = new RegExp(['^(.*?)(?:',
 	'(\\*\\*.+?\\*\\*|__.+?__)',
 	'|(\\*.+?\\*|_.+?_)',
 	'|~~(.+?)~~|~(.+?)~',
-	'|(`+)|::(.*?)::|:(.*?):|(-{2,3})',
+	'|(`+)|::(.*?)::|:(.*?):',
 	'|(!)?\\[\\s*(.*?)\\s*\\]\\s*(?:\\(\\s*(.*?)\\s*(\'.*?\'|".*?")?\\s*\\)|\\[\\s*(.*?)\\s*\\])',
 	'|\\|\\|(.+?)\\|\\|',
 '|$)(.*)$'].join(''));
 
 export function parseInline (string, rootNames, links, map, close) {
-	// TODO: process expressions in text (e.g. bold, strikethrough, ndash, etc)
-	// - return array of children to spread onto parent element
 	const content = [];
-	let leftover = '';
-	let previous;
+	let i = 20;
 
-	while (string) {
-		const [,
-			before, strong, em, strikethrough, underline,
-			ticks, highlight, emoji, dashes,
+	while (string && i--) {
+		let [,
+			before, strong, em,
+			strikethrough, underline,
+			ticks, highlight, emoji,
 			image, text, href, title, key,
 			spoiler, remainder,
 		] = string.match(inlineRegex);
 
-		const index = before.indexOf(close);
-		const strings = [];
+		const breakpoint = before.indexOf(close);
 		let node;
-		string = remainder;
 
-		if (/\S/.test(before)) {
-			strings.push(before);
-		}
-
-		if (index !== -1) {
-			strings[0] = before.slice(0, index);
-			leftover =  `${before.slice(index + 1)}${remainder}`;
-			string = '';
+		if (breakpoint !== -1) {
+			before = string.slice(0, breakpoint);
+			node =  string.slice(breakpoint + 1);
+			remainder = '';
 		} else if (text !== undefined) {
 			node = [image ? 'img' : 'a', null, text];
 
@@ -94,15 +86,8 @@ export function parseInline (string, rootNames, links, map, close) {
 			node = ['s', null, strikethrough];
 		} else if (highlight) {
 			node = ['mark', null, highlight];
-		} else if (dashes) {
-			strings.push(dashes.length === 2 ? '&ndash;' : '&mdash;');
 		} else if (emoji) {
 			node = map[emoji];
-
-			if (node && typeof node === 'string') {
-				strings.push(node);
-				node = undefined;
-			}
 		} else if (spoiler) {
 			node = ['span', {
 				onclick: {
@@ -111,36 +96,26 @@ export function parseInline (string, rootNames, links, map, close) {
 			}, spoiler];
 		} else if (ticks) {
 			const index = remainder.indexOf(ticks);
-			const code = index !== -1 ? remainder.slice(0, index) : remainder;
-			content.push(['code', null, code]);
-			string = index !== -1 ? remainder.slice(index + ticks.length) : '';
-			continue;
-		} else if (remainder) {
-			strings.push(remainder);
-			string = '';
+			node = ['code', null, index !== -1 ? remainder.slice(0, index) : remainder];
+			remainder = index !== -1 ? remainder.slice(index + ticks.length) : '';
+		} else if (remainder === string) {
+			break;
 		}
-		
-		if (!node) {
-			if (typeof previous === 'string') {
-				strings.unshift(content.pop());
-			}
 
-			node = strings.join(' ');
+		string = remainder;
 
-			if (!/\S/.test(node)) {
-				continue;
-			}
-		} else if (node[0] !== 'img') {
+		if (/\S/.test(before)) {
+			content.push(before.replaceAll('---', '&mdash;').replaceAll('--', '&ndash;'));
+		}
+
+		if (Array.isArray(node) && !image && !ticks && !emoji) {
 			const inside = parseInline(node.pop(), rootNames, links, map);
 			node.push(...inside);
 		}
-		
-		content.push(node);
-		previous = node;
-	}
 
-	if (close) {
-		content.push(leftover);
+		if (node !== undefined) {
+			content.push(node);
+		}
 	}
 
 	return content;
@@ -148,43 +123,17 @@ export function parseInline (string, rootNames, links, map, close) {
 
 function parseNesting (string, stack, containers, oldlines) {
 	const nodes = [];
-	let fillCount = 0;
-
-	let symbols = !string ? [''] : string.replace(/\t/g, (m, index) => {
-		index += fillCount;
-		const count = 4 - (index % 4);
-		fillCount += count - 1;
-		return Array(count).fill(' ').join('');
-	}).match(/(\s+|(?:>|\S+)\s{0,4})+?/g);
-
-	let indentation = /\S/.test(symbols[0]) ? 0 : symbols.shift().length;
-	let depth;
-
-	for (depth = 0; depth < stack.length; depth++) {
-		if (indentation < stack[depth][1].indentation) {
-			break;
-		}
-	}
-
-	if (depth >= stack.length && oldlines > 0 && indentation > 3) {
-		symbols = ['    '];
-		indentation = 0;
-		oldlines = 0;
-
-		// TODO: find a cleaner way to do this
-		if (depth > 1) {
-			depth--;
-		}
-	} else if (oldlines > 1) {
-		stack.splice(1);
-		depth = 1;
-	}
-
-	let [container] = stack.splice(depth);
+	const symbols = string.match(/(\s+|(?:>|\S+)\s{0,4})+?/g) || [];
+	let indentation = 0;
+	let leftover = [];
+	let depth, props;
 
 	for (const symbol of symbols) {
 		let type = 'ol';
 		let subtype = 'li';
+		let extra = 0;
+		symbol.replaceAll('\t', (m, index) => extra += 3 - ((index + extra) % 4));
+		indentation += symbol.length + extra;
 
 		switch (symbol[0]) {
 			case '>': {
@@ -201,24 +150,43 @@ function parseNesting (string, stack, containers, oldlines) {
 				type = 'ul';
 				break;
 			}
-			case ' ': {
+			case ' ': case '\t': {
+				if (!depth) {
+					for (depth = 0; depth < stack.length; depth++) {
+						if (indentation < stack[depth][1].indentation) {
+							break;
+						}
+					}
+
+					if (depth >= stack.length && indentation > 3) {
+						const overage = Math.max(1, indentation - stack[depth - 1][1].indentation - 3);
+						leftover = symbols.splice(1, symbols.length, ' '.repeat(overage));
+					}
+
+					continue;
+				}
+
 				type = 'pre';
 				subtype = 'code';
+				leftover.push(symbol.slice(1));
+				indentation += 4;
+				oldlines = 0;
 				break;
 			}
 		}
 
-		let props = container?.[1] || {};
-		let { wrapper } = props;
+		depth ??= oldlines > 0 ? 1 : stack.length - 1 || 1;
+		let container = stack[depth];
+		props = container?.[1];
+		let { wrapper } = props || {};
 
-		if (type !== wrapper?.[0] && (subtype || oldlines > 0)) {
+		if ((type !== wrapper?.[0] || oldlines > 1) && (type !== container?.[0] || oldlines > 0)) {
 			const start = symbol.trim().slice(0, -1);
 			wrapper = subtype && [type, start && start !== '1' ? { start } : null];
 			props = { spaced: false, wrapper };
 			const node = [subtype || type, props];
 			containers.add(node);
 			nodes.push(node);
-			container = undefined;
 
 			if (type === 'dl') {
 				const container = stack[depth - 1];
@@ -230,17 +198,20 @@ function parseNesting (string, stack, containers, oldlines) {
 					wrapper.push(term);
 				}
 			}
-		} else if (subtype && subtype !== 'code') {
-			wrapper.splice(-1, 0, [...container.slice(0, 2), ...container.splice(2)]);
-		}
-		
-		if (container) {
-			stack.push(container);
-			container = undefined;
+		} else {
+			if (subtype && subtype !== 'code') {
+				wrapper.splice(-1, 0, [...container.slice(0, 2), ...container.splice(2)]);
+			}
+
+			depth++;
 		}
 
-		indentation += symbol.length;
 		props.indentation = indentation;
+		stack.splice(depth);
+	}
+
+	if (leftover.length) {
+		props.remainder = leftover.join('').length;
 	}
 	
 	if (oldlines === 1) {
@@ -260,7 +231,7 @@ export default function parse (content, rootPath = '', emoji = {}) {
 	const headingPath = scopes.size ? `/${trimmedPath}` : '';
 	const rootNames = trimmedPath ? trimmedPath.split('/') : [];
 	const lines = content.split(/\r\n|\r|\n/);
-	const main = ['blockquote', { spaced: true, indentation: 0 }];
+	const main = ['main', { spaced: true, indentation: 0 }];
 	const stack = [main];
 	const containers = new Set(stack);
 	const links = new Set();
@@ -296,15 +267,8 @@ export default function parse (content, rootPath = '', emoji = {}) {
 			symbols = '';
 		}
 
-// 		console.log(`|${symbols}|${key}|${href}|${title}|
-// |${hashes}|${heading}|${id}|${underline}|
-// |${dashes}|${structure}|${string}|`);
-
 		const oldlines = newlines;
-		// TODO: space/tab preformatted blocks should also ignore newlines
-		// - maybe skip the oldlines override for ticks here
-		// - have parseNesting skip its oldline > 0 check if it already sees the final item on stack is preformatted
-		const nodes = parseNesting(symbols, stack, containers, ticks ? 1 : oldlines);
+		const nodes = parseNesting(symbols, stack, containers, oldlines);
 		let container = stack[stack.length - 1];
 		stack.push(...nodes);
 		
@@ -328,11 +292,8 @@ export default function parse (content, rootPath = '', emoji = {}) {
 		newlines = string && !structure && whitespace.length < 2 ? -1 : 0;
 		
 		if (node[0] === 'code') {
-			// parseNesting needs to inform how to trim the line properly
-			// - maybe put a prop on node[1] with the whitespace overage (in space characters only)
-			// - then trim the beginning of line and apply the whitespace to the begginning
-			// - don't have it maintain tabs in the whitespace since those can be broken up if indentation isn't a multiple of 4
-			string = line.replace(/^(\t| {4})/, '');
+			const { remainder } = node[1];
+			string = line.slice(symbols.length - remainder);
 
 			if (ticks && string.match(/^ {0,3}(`+)\s*$/)?.[1]?.length >= ticks) {
 				ticks = 0;
@@ -340,7 +301,7 @@ export default function parse (content, rootPath = '', emoji = {}) {
 				continue;
 			} else if (!nodes.length) {
 				const newlines = Math.max(0, oldlines) + (node[2] ? 1 : 0);
-				node[2] += `${Array(newlines).fill('\n').join('')}${string}`;
+				node[2] += `${'\n'.repeat(newlines)}${string}`;
 				continue;
 			}
 
@@ -378,7 +339,6 @@ export default function parse (content, rootPath = '', emoji = {}) {
 			// - use number ids (iterate for each checkbox found)
 			id++;
 		} else if (structure[0] === '|') {
-			// TODO: move this to a separate parseTable function
 			let remainder = string.endsWith('|') ? string : `${string}|`;
 			string = '';
 
@@ -415,15 +375,13 @@ export default function parse (content, rootPath = '', emoji = {}) {
 				container = previous[previous.length - 1];
 			}
 
-			// TODO: have parseInline detect when each cell closes by passing in '|' as the closing symbol
-			// - this way spoilers will be allowed in the cells
-
 			const cells = [];
-
-			while (remainder) {
+			let i = 5;
+			
+			while (remainder && i--) {
 				const textAlign = alignments?.[cells.length];
 				const content = parseInline(remainder, rootNames, links, emoji, '|');
-				remainder = content.pop();
+				remainder = content.length > 1 ? content.pop() : '';
 				cells.push(['td', textAlign ? { style: { textAlign } } : null, ...content]);
 			}
 
@@ -514,6 +472,5 @@ export default function parse (content, rootPath = '', emoji = {}) {
 		}
 	}
 
-	main[0] = 'main';
 	return main;
 }
