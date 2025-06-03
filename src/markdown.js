@@ -20,12 +20,13 @@ function buildPath (rootNames, href = '') {
 }
 
 const blockRegex = new RegExp(['^',
-	'(\\s*(?:[>\\s]+|(?:[-+*:]|\\d+[.)])(?:\\s{1,4}|\\t|$))*\\s*)(?:',
+	'(\\s*(?:[>\\s]+|(?:[-+*:]|\\d+[.)])(?:\\s{1,4}|\\t|$))*\\s*)(?:\\[([ xX-_])\\]\\s(?=\\S))?(?:',
 		'(?:\\[\\s*(.*?)\\s*\\]:\\s+(<.*?>|[^<>]|[^<].*?[^>])(?:\\s+|$))?(\'.*?\'|".*?"|\\(.*?\\))?',
 		'|(#{1,6})\\s+(.*?)(?:\\s+#+(\\S*))?',
 		'|(=+|-+)',
 		'|((?:\\*\\s+){3,}|(?:-\\s+){3,}|(?:_\\s+){3,})',
-		'|(\\[[ xX-_]\\](?!\\S)|\\|(?!\\|.*?\\|\\|))?\\s*(.*?)',
+		'|(\\|(?!\\|.*?\\|\\|).*?)\\|?',
+		'|(.*?)',
 	')',
 '(\\s*)$'].join(''));
 
@@ -40,6 +41,7 @@ const inlineRegex = new RegExp(['^(.*?)(?:',
 	'|(`+)|::(.*?)::|:(.*?):',
 	'|(!)?\\[\\s*(.*?)\\s*\\]\\s*(?:\\(\\s*(.*?)\\s*(\'.*?\'|".*?")?\\s*\\)|\\[\\s*(.*?)\\s*\\])',
 	'|\\|\\|(.+?)\\|\\|',
+	'|<(\\S+.*?)>',
 '|$)(.*)$'].join(''));
 
 export function parseInline (string, rootNames, links, map, close) {
@@ -52,7 +54,7 @@ export function parseInline (string, rootNames, links, map, close) {
 			strikethrough, underline,
 			ticks, highlight, emoji,
 			image, text, href, title, key,
-			spoiler, remainder,
+			spoiler, tag, remainder,
 		] = string.match(inlineRegex);
 
 		const breakpoint = before.indexOf(close);
@@ -67,7 +69,7 @@ export function parseInline (string, rootNames, links, map, close) {
 
 			if (key !== undefined) {
 				node[1] = (key || text).toLowerCase();
-				links.add(node);
+				links.push(node);
 			} else {
 				const props = { href: buildPath(rootNames, href) };
 				node[1] = props;
@@ -233,13 +235,14 @@ export default function parse (content, rootPath = '', emoji = {}) {
 	const lines = content.split(/\r\n|\r|\n/);
 	const main = ['main', { spaced: true, indentation: 0 }];
 	const stack = [main];
+	const { '': formatter } = emoji;
 	const containers = new Set(stack);
-	const links = new Set();
+	const links = [];
 	const references = {};
 	let locked = scopes.size > 0 && !scopes.has('');
 	let newlines = 1;
 	let ticks = 0;
-	let id = 0;
+	let index = 0;
 	let alignments, reference, format;
 
 	// eventually add HTML structure (starts with </?\w+>)
@@ -257,9 +260,9 @@ export default function parse (content, rootPath = '', emoji = {}) {
 		}
 
 		let [,
-			symbols, key, href, title,
+			symbols, checkbox, key, href, title,
 			hashes, heading, id, underline,
-			dashes, structure = '', string, whitespace,
+			dashes, table, string, whitespace,
 		] = line.match(blockRegex);
 
 		if (/^ {0,3}((-\s+){3,}|(\*\s+){3,})\s*$/.test(symbols)) {
@@ -289,7 +292,7 @@ export default function parse (content, rootPath = '', emoji = {}) {
 
 		const node = stack[stack.length - 1];
 		let previous = node[node.length - 1];
-		newlines = string && !structure && whitespace.length < 2 ? -1 : 0;
+		newlines = string && !table && whitespace.length < 2 ? -1 : 0;
 		
 		if (node[0] === 'code') {
 			const { remainder } = node[1];
@@ -333,14 +336,13 @@ export default function parse (content, rootPath = '', emoji = {}) {
 			format = string.slice(ticks).trim();
 			newlines = oldlines;
 			continue;
-		} else if (structure[0] === '[') {
-			// TOOD: handle checkbox here
-			// - xX are checked, all rest are unchecked
-			// - use number ids (iterate for each checkbox found)
-			id++;
-		} else if (structure[0] === '|') {
-			let remainder = string.endsWith('|') ? string : `${string}|`;
-			string = '';
+		} else if (checkbox) {
+			const checked = checkbox.toLowerCase() === 'x';
+			const fragment = ['', null, ['input', { type: 'checkbox', checked, id: index }]];
+			nodes.push(fragment, ['label', { for: index }]);
+			index++;
+		} else if (table) {
+			let remainder = `${table.slice(1)}|`;
 
 			if (/^(\s*:?-+:?\s*\|)+$/.test(remainder)) {
 				const isFirst = !alignments;
@@ -410,26 +412,21 @@ export default function parse (content, rootPath = '', emoji = {}) {
 		}
 
 		if (string) {
-			const content = parseInline(string, rootNames, links, emoji);
-
 			if (containers.has(container)) {
 				if (oldlines > 0 || previous[0] !== '') {
 					previous = ['', null];
 					container.push(previous);
 				} else if (!oldlines) {
-					content.unshift(['br']);
+					previous.push(['br']);
+				} else {
+					string = ` ${string}`;
 				}
 				
 				container = previous;
 			}
 
-			let sibling = container.pop();
-
-			if (typeof sibling === 'string' && typeof content[0] === 'string') {
-				sibling += ` ${content.shift()}`;
-			}
-
-			container.push(sibling, ...content);
+			const content = parseInline(string, rootNames, links, emoji);
+			container.push(...content);
 		}
 	}
 
@@ -462,7 +459,7 @@ export default function parse (content, rootPath = '', emoji = {}) {
 		}
 
 		if (format !== undefined) {
-			const node = emoji['']?.(container[2], format);
+			const node = formatter?.(container[2], format);
 
 			if (Array.isArray(node)) {
 				wrapper.splice(0, 3, ...node);

@@ -154,11 +154,11 @@ describe('parseInline', () => {
 		});
 
 		it('reference', () => {
-			const links = new Set();
+			const links = [];
 			const actual = parseInline('[Label][key]', ['site'], links);
 			const node = ['a', 'key', 'Label'];
 			expect(actual).toEqual([node]);
-			expect(links).toEqual(new Set([node]));
+			expect(links).toEqual([node]);
 		});
 	});
 
@@ -467,7 +467,8 @@ describe('parse', () => {
 			expect(actual).toEqual(['main', null,
 				['ul', null,
 					['li', null,
-						'Item Adjacent',
+						'Item',
+						' Adjacent',
 					],
 				],
 			]);
@@ -685,7 +686,8 @@ describe('parse', () => {
 
 			expect(actual).toEqual(['main', null,
 				['blockquote', null,
-					'Item Adjacent',
+					'Item',
+					' Adjacent',
 				],
 			]);
 		});
@@ -856,6 +858,55 @@ describe('parse', () => {
 							},
 						},
 					}, 'Item'],
+				],
+			]);
+		});
+	});
+
+	describe('checkboxes', () => {
+		it('unchecked', () => {
+			const actual = parse('- [ ] Item');
+
+			expect(actual).toEqual(['main', null,
+				['ul', null,
+					['li', null,
+						['input', { type: 'checkbox', checked: false, id: 0 }],
+						['label', { for: 0 }, 'Item'],
+					],
+				],
+			]);
+		});
+
+		it('checked', () => {
+			const actual = parse('- [x] Item');
+
+			expect(actual).toEqual(['main', null,
+				['ul', null,
+					['li', null,
+						['input', { type: 'checkbox', checked: true, id: 0 }],
+						['label', { for: 0 }, 'Item'],
+					],
+				],
+			]);
+		});
+
+		it('spaced list', () => {
+			const actual = parse('- [ ] Item\n\n- [x] Adjacent');
+
+			expect(actual).toEqual(['main', null,
+				['ul', null,
+					['li', null,
+						['p', null,
+							['input', { type: 'checkbox', checked: false, id: 0 }],
+							['label', { for: 0 }, 'Item'],
+						],
+					],
+					['li', null,
+						['p', null,
+							['input', { type: 'checkbox', checked: true, id: 1 }],
+							['label', { for: 1 }, 'Adjacent'],
+						],
+					],
 				],
 			]);
 		});
