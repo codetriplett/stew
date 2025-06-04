@@ -1,171 +1,77 @@
-import parse, { parseInline, finalize } from './markdown';
+import parse, { parseInline } from './markdown';
 
-// TODO: consider simplified syntax after all features are finished to see if it can save on size and complexity
-// - only one list symbol per line and blockquotes must also have a space after them to avoid edge case handling (also looks neater)
-//   - !!! may not need this 
-// - tables must have at least one space in empty cell to set them apart from spoiler tags
-// - headlines allowed in list items, but don't lock/unlock scope like ones at root
+let stack;
 
-// TODO: also change the way the layout is build (switching to spaceable, and borrowing previous line is getting complicated)
-// - keep [tagName, {}, ...children], but use props to store the spaceable flag, and store each line of inline content in a fragment
-// - on final pass, extract children from fragments, and put a br between them, also wrap each chain of fragments in p if spaceable flag is present
-// - stack can just hold the container, and indentation can be stored on props as well
-// - final pass will recursively process children and replace props with null, except for spoilers and ol with offset start
-// - do this after current method is checked so we can compare the diff to see how much lighter the code is
-// - also set types so we can avoid doing regex on tagNames: container (main, blockquote, p), list (li, ol, dl)
-// - lists process fragments of their children content instead of the lists direct content (maybe this can just be a boolean prop isList)
-// - no longer need to store links and lists in Sets to process later, recursion will pick up on these (e.g. does link have href or key)
+beforeEach(() => {
+	stack = [['', null], [[]]];
+});
 
-// try to keep markdown to 25% of total bundle size, webgl to 25%, and the rest to the core functionality
-
-describe('parseInline', () => {
-	it('adds highlight', () => {
-		const actual = parseInline('::text::');
-		expect(actual).toEqual([['mark', null, 'text']]);
-	});
-	
+describe('parseInline', () => {	
 	it('adds ndash', () => {
-		const actual = parseInline('--');
-		expect(actual).toEqual(['&ndash;']);
+		const actual = parseInline('--', stack);
+		expect(actual).toEqual('');
+		expect(stack).toEqual([['', null, '&ndash;'], [[]]]);
 	});
 	
 	it('adds mdash', () => {
-		const actual = parseInline('---');
-		expect(actual).toEqual(['&mdash;']);
+		const actual = parseInline('---', stack);
+		expect(actual).toEqual('');
+		expect(stack).toEqual([['', null, '&mdash;'], [[]]]);
+	});
+
+	it('adds highlight', () => {
+		const actual = parseInline('::text::', stack);
+		expect(actual).toEqual('');
+		expect(stack).toEqual([['', null, ['mark', null, 'text']], [[]]]);
 	});
 
 	it('adds emoji', () => {
-		const actual = parseInline(':smile:', '/', [], { smile: ':)' });
-		expect(actual).toEqual([':)']);
+		const actual = parseInline(':smile:', stack, { smile: ':)' });
+		expect(actual).toEqual('');
+		expect(stack).toEqual([['', null, ':)'], [[]]]);
 	});
 
 	it('adds preset', () => {
-		const actual = parseInline(':message:', '/', [], { message: ['p', null, 'text'] });
-		expect(actual).toEqual([['p', null, 'text']]);
+		const actual = parseInline(':message:', stack, { message: ['p', null, 'text'] });
+		expect(actual).toEqual('');
+		expect(stack).toEqual([['', null, ['p', null, 'text']], [[]]]);
 	});
 
-	it('stops at breakpoint', () => {
-		const actual = parseInline('text|...', '/', [], {}, '|');
-		expect(actual).toEqual(['text', '...']);
+	it('continues through pipe', () => {
+		const actual = parseInline('text|...', stack);
+		expect(actual).toEqual('');
+		expect(stack).toEqual([['', null, 'text|...'], [[]]]);
 	});
 
-	describe('formatted', () => {
-		it('em', () => {
-			const actual = parseInline('*text*');
-			expect(actual).toEqual([['em', null, 'text']]);
-		});
-
-		it('strong', () => {
-			const actual = parseInline('**text**');
-			expect(actual).toEqual([['strong', null, 'text']]);
-		});
-
-		it('strongem', () => {
-			const actual = parseInline('**_text_**');
-			expect(actual).toEqual([['strong', null, ['em', null, 'text']]]);
-		});
-
-		it('emstrong', () => {
-			const actual = parseInline('*__text__*');
-			expect(actual).toEqual([['em', null, ['strong', null, 'text']]]);
-		});
-		
-		it('embedded', () => {
-			const actual = parseInline('*[Label](/path)*');
-			expect(actual).toEqual([['em', null, ['a', { href: '/path' }, 'Label']]]);
-		});
-		
-		it('underline', () => {
-			const actual = parseInline('~text~');
-			expect(actual).toEqual([['u', null, 'text']]);
-		});
-		
-		it('strikethrough', () => {
-			const actual = parseInline('~~text~~');
-			expect(actual).toEqual([['s', null, 'text']]);
-		});
-
-		it('code', () => {
-			const actual = parseInline('`text`');
-			expect(actual).toEqual([['code', null, 'text']]);
-		});
-
-		it('deep code', () => {
-			const actual = parseInline('``abc `lmno` xyz``');
-			expect(actual).toEqual([['code', null, 'abc `lmno` xyz']]);
-		});
+	it('stops at pipe', () => {
+		stack[0][0] = 'td';
+		const actual = parseInline('text|...', stack);
+		expect(actual).toEqual('...');
+		expect(stack).toEqual([['td', null, 'text'], [[]]]);
 	});
 
-	describe('links', () => {
-		it('relative', () => {
-			const actual = parseInline('[Label](/path)');
+	it('continues through spoiler', () => {
+		stack[0][0] = 'td';
+		const actual = parseInline('text||Item|||...', stack);
+		expect(actual).toEqual('...');
 
-			expect(actual).toEqual([
-				['a', { href: '/path' }, 'Label']
-			]);
-		});
-
-		it('image', () => {
-			const actual = parseInline('![Label](/path)');
-
-			expect(actual).toEqual([
-				['img', { href: '/path' }, 'Label']
-			]);
-		});
-
-		it('absolute', () => {
-			const actual = parseInline('[Label](http://www.domain.com/path)');
-
-			expect(actual).toEqual([
-				['a', { href: 'http://www.domain.com/path' }, 'Label']
-			]);
-		});
-
-		it('dotted', () => {
-			const actual = parseInline('[Label](./path)', ['site', 'category', 'other']);
-
-			expect(actual).toEqual([
-				['a', { href: '/site/category/path' }, 'Label']
-			]);
-		});
-
-		it('backtrack', () => {
-			const actual = parseInline('[Label](../path)', ['site', 'category', 'other']);
-
-			expect(actual).toEqual([
-				['a', { href: '/site/path' }, 'Label']
-			]);
-		});
-
-		it('title double quotes', () => {
-			const actual = parseInline('[Label](/path "Title")');
-
-			expect(actual).toEqual([
-				['a', { href: '/path', title: 'Title' }, 'Label']
-			]);
-		});
-
-		it('title single quotes', () => {
-			const actual = parseInline('[Label](/path \'Title\')');
-
-			expect(actual).toEqual([
-				['a', { href: '/path', title: 'Title' }, 'Label']
-			]);
-		});
-
-		it('reference', () => {
-			const links = [];
-			const actual = parseInline('[Label][key]', ['site'], links);
-			const node = ['a', 'key', 'Label'];
-			expect(actual).toEqual([node]);
-			expect(links).toEqual([node]);
-		});
+		expect(stack).toEqual([['td', null,
+			'text',
+			['span', {
+				onclick: {
+					style: {
+						color: 'transparent',
+					},
+				},
+			}, 'Item'],
+		], [[]]]);
 	});
 
 	it('spoiler tag', () => {
-		const actual = parseInline('||Item||');
+		const actual = parseInline('||Item||', stack);
+		expect(actual).toEqual('');
 
-		expect(actual).toEqual([
+		expect(stack).toEqual([['', null,
 			['span', {
 				onclick: {
 					style: {
@@ -173,7 +79,183 @@ describe('parseInline', () => {
 					},
 				},
 			}, 'Item']
-		]);
+		], [[]]]);
+	});
+
+	describe('formatted', () => {
+		it('em', () => {
+			const actual = parseInline('*text*', stack);
+			expect(actual).toEqual('');
+			expect(stack).toEqual([['', null, ['em', null, 'text']], [[]]]);
+		});
+
+		it('strong', () => {
+			const actual = parseInline('**text**', stack);
+			expect(actual).toEqual('');
+			expect(stack).toEqual([['', null, ['strong', null, 'text']], [[]]]);
+		});
+
+		it('strongem', () => {
+			const actual = parseInline('**_text_**', stack);
+			expect(actual).toEqual('');
+			expect(stack).toEqual([['', null, ['strong', null, ['em', null, 'text']]], [[]]]);
+		});
+
+		it('emstrong', () => {
+			const actual = parseInline('*__text__*', stack);
+			expect(actual).toEqual('');
+			expect(stack).toEqual([['', null, ['em', null, ['strong', null, 'text']]], [[]]]);
+		});
+		
+		it('embedded', () => {
+			const actual = parseInline('*[Label](/path)*', stack);
+			expect(actual).toEqual('');
+			expect(stack).toEqual([['', null, ['em', null, ['a', { href: '/path' }, 'Label']]], [[]]]);
+		});
+		
+		it('underline', () => {
+			const actual = parseInline('~text~', stack);
+			expect(actual).toEqual('');
+			expect(stack).toEqual([['', null, ['u', null, 'text']], [[]]]);
+		});
+		
+		it('strikethrough', () => {
+			const actual = parseInline('~~text~~', stack);
+			expect(actual).toEqual('');
+			expect(stack).toEqual([['', null, ['s', null, 'text']], [[]]]);
+		});
+
+		it('code', () => {
+			const actual = parseInline('`text`', stack);
+			expect(actual).toEqual('');
+			expect(stack).toEqual([['', null, ['code', null, 'text']], [[]]]);
+		});
+
+		it('deep code', () => {
+			const actual = parseInline('``abc `lmno` xyz``', stack);
+			expect(actual).toEqual('');
+			expect(stack).toEqual([['', null, ['code', null, 'abc `lmno` xyz']], [[]]]);
+		});
+	});
+
+	describe('links', () => {
+		it('relative', () => {
+			const actual = parseInline('[Label](/path)', stack);
+			expect(actual).toEqual('');
+
+			expect(stack).toEqual([['', null,
+				['a', { href: '/path' }, 'Label']
+			], [[]]]);
+		});
+
+		it('image', () => {
+			const actual = parseInline('![Label](/path)', stack);
+			expect(actual).toEqual('');
+
+			expect(stack).toEqual([['', null,
+				['img', { href: '/path' }, 'Label']
+			], [[]]]);
+		});
+
+		it('absolute', () => {
+			const actual = parseInline('[Label](http://www.domain.com/path)', stack);
+			expect(actual).toEqual('');
+
+			expect(stack).toEqual([['', null,
+				['a', { href: 'http://www.domain.com/path' }, 'Label']
+			], [[]]]);
+		});
+
+		it('dotted', () => {
+			stack[1][0] = ['site', 'category', 'other'];
+			const actual = parseInline('[Label](./path)', stack);
+			expect(actual).toEqual('');
+
+			expect(stack).toEqual([['', null,
+				['a', { href: '/site/category/path' }, 'Label']
+			], [['site', 'category', 'other']]]);
+		});
+
+		it('backtrack', () => {
+			stack[1][0] = ['site', 'category', 'other'];
+			const actual = parseInline('[Label](../path)', stack);
+			expect(actual).toEqual('');
+
+			expect(stack).toEqual([['', null,
+				['a', { href: '/site/path' }, 'Label']
+			], [['site', 'category', 'other']]]);
+		});
+
+		it('title double quotes', () => {
+			const actual = parseInline('[Label](/path "Title")', stack);
+			expect(actual).toEqual('');
+
+			expect(stack).toEqual([['', null,
+				['a', { href: '/path', title: 'Title' }, 'Label']
+			], [[]]]);
+		});
+
+		it('title single quotes', () => {
+			const actual = parseInline('[Label](/path \'Title\')', stack);
+			expect(actual).toEqual('');
+
+			expect(stack).toEqual([['', null,
+				['a', { href: '/path', title: 'Title' }, 'Label']
+			], [[]]]);
+		});
+
+		it('reference', () => {
+			stack[1][0] = ['site'];
+			const actual = parseInline('[Label][key]', stack);
+			const node = ['a', 'key', 'Label'];
+			expect(actual).toEqual('');
+			expect(stack).toEqual([['', null, node], [['site'], node]]);
+		});
+	});
+
+	describe('html tag', () => {
+		it('self closing', () => {
+			const actual = parseInline('<hr>', stack);
+			expect(actual).toEqual('');
+			expect(stack).toEqual([['', null, ['hr', null]], [[]]]);
+		});
+		
+		it('forced closing', () => {
+			const actual = parseInline('<span />', stack);
+			expect(actual).toEqual('');
+			expect(stack).toEqual([['', null, ['span', null]], [[]]]);
+		});
+
+		it('opening', () => {
+			const actual = parseInline('<span>', stack);
+			expect(actual).toEqual('');
+			expect(stack).toEqual([['span', null], ['', null, ['span', null]], [[]]]);
+		});
+
+		it('closing', () => {
+			stack.unshift(['span', null]);
+			const actual = parseInline('</span>', stack);
+			expect(actual).toEqual('');
+			expect(stack).toEqual([['', null], [[]]]);
+		});
+
+		it('with content', () => {
+			const actual = parseInline('<span>text</span>', stack);
+			expect(actual).toEqual('');
+			expect(stack).toEqual([['', null, ['span', null, 'text']], [[]]]);
+		});
+
+		it('with attributes', () => {
+			const actual = parseInline('<input type="checkbox" checked>', stack);
+			expect(actual).toEqual('');
+			expect(stack).toEqual([['', null, ['input', { type: 'checkbox', checked: true }]], [[]]]);
+		});
+
+		it('auto link', () => {
+			const actual = parseInline('<http://www.domain.com/path>', stack);
+			expect(actual).toEqual('');
+			expect(stack).toEqual([['', null, ['a', { href: 'http://www.domain.com/path' }, 'http://www.domain.com/path']], [[]]]);
+		});
 	});
 });
 
@@ -1042,10 +1124,3 @@ Xyz
 		});
 	});
 });
-
-// statements: line prefix
-// expressions: within text on line
-// list: wrap around statements (sets indentation based on spaces before first character in text)
-// - put all content that has the same indentation level within the list item
-// - also include paragraph content that is directly below li as content for li, regardless of indentation
-// - lis that exist at the parent's indentation will be nested as well

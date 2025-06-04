@@ -31,39 +31,34 @@ const blockRegex = new RegExp(['^',
 '(\\s*)$'].join(''));
 
 const inlineRegex = new RegExp(['^(.*?)(?:',
-	// <http://www.domain.com/path> (a) quick link
-	// <span></span>
-
-
 	'(\\*\\*.+?\\*\\*|__.+?__)',
 	'|(\\*.+?\\*|_.+?_)',
 	'|~~(.+?)~~|~(.+?)~',
-	'|(`+)|::(.*?)::|:(.*?):',
+	'|(`+)|::(.+?)::|:(.+?):',
 	'|(!)?\\[\\s*(.*?)\\s*\\]\\s*(?:\\(\\s*(.*?)\\s*(\'.*?\'|".*?")?\\s*\\)|\\[\\s*(.*?)\\s*\\])',
 	'|\\|\\|(.+?)\\|\\|',
-	'|<(\\S+.*?)>',
+	'|<(?:\\/(\\S+)|(https?:\\/\\/.*?)|([^\\/\\s].*?\\/?))>',
 '|$)(.*)$'].join(''));
 
-export function parseInline (string, rootNames, links, map, close) {
-	const content = [];
-	let i = 20;
-
+export function parseInline (string, stack, map) {
+	const links = stack[stack.length - 1];
+let i = 10;
 	while (string && i--) {
 		let [,
 			before, strong, em,
 			strikethrough, underline,
 			ticks, highlight, emoji,
 			image, text, href, title, key,
-			spoiler, tag, remainder,
+			spoiler, close, url, open, remainder,
 		] = string.match(inlineRegex);
 
-		const breakpoint = before.indexOf(close);
+		const [container] = stack;
+		const breakpoint = container[0] === 'td' ? before.indexOf('|') : -1;
 		let node;
 
 		if (breakpoint !== -1) {
 			before = string.slice(0, breakpoint);
-			node =  string.slice(breakpoint + 1);
-			remainder = '';
+			remainder = string.slice(breakpoint + 1);
 		} else if (text !== undefined) {
 			node = [image ? 'img' : 'a', null, text];
 
@@ -71,7 +66,7 @@ export function parseInline (string, rootNames, links, map, close) {
 				node[1] = (key || text).toLowerCase();
 				links.push(node);
 			} else {
-				const props = { href: buildPath(rootNames, href) };
+				const props = { href: buildPath(links[0], href) };
 				node[1] = props;
 
 				if (title) {
@@ -88,39 +83,58 @@ export function parseInline (string, rootNames, links, map, close) {
 			node = ['s', null, strikethrough];
 		} else if (highlight) {
 			node = ['mark', null, highlight];
-		} else if (emoji) {
-			node = map[emoji];
 		} else if (spoiler) {
 			node = ['span', {
 				onclick: {
 					style: { color: 'transparent' },
 				},
 			}, spoiler];
+		} else if (emoji) {
+			node = map[emoji];
+		} else if (close) {
+			const index = stack.findIndex(node => node[0] === close);
+			stack.splice(0, index === -1 ? stack.length - 1 : index + 1);
+		} else if (url) {
+			node = ['a', { href: url }, url];
+		} else if (open) {
+			const [tagName, ...rest] = open.match(/^\S+|[^='"\s\/]+(\s*=\s*('.*?('|$)|".*?("|$)|[^='"\s]+))?/g);
+			const attributes = rest.length ? {} : null;
+			node = [tagName, attributes];
+
+			for (const string of rest) {
+				const [name, value] = string.split(/\s*=\s*['"]?(.*)/s);
+				attributes[name] = value === undefined ? true : value.replace(/['"]$/, '');
+			}
+
+			if (!selfClosingTags.has(tagName) && !open.endsWith('/')) {
+				stack.unshift(node);
+			}
 		} else if (ticks) {
 			const index = remainder.indexOf(ticks);
 			node = ['code', null, index !== -1 ? remainder.slice(0, index) : remainder];
 			remainder = index !== -1 ? remainder.slice(index + ticks.length) : '';
-		} else if (remainder === string) {
-			break;
 		}
-
-		string = remainder;
 
 		if (/\S/.test(before)) {
-			content.push(before.replaceAll('---', '&mdash;').replaceAll('--', '&ndash;'));
+			container.push(before.replaceAll('---', '&mdash;').replaceAll('--', '&ndash;'));
+		}
+		
+		if (string === remainder) {
+			break;
+		} else {
+			string = remainder;
 		}
 
-		if (Array.isArray(node) && !image && !ticks && !emoji) {
-			const inside = parseInline(node.pop(), rootNames, links, map);
-			node.push(...inside);
+		if (!node) {
+			break;
+		} else if (Array.isArray(node) && node.length > 2 && !image && !ticks && !emoji) {
+			parseInline(node.pop(), [node, links], map);
 		}
 
-		if (node !== undefined) {
-			content.push(node);
-		}
+		container.push(node);
 	}
 
-	return content;
+	return string;
 }
 
 function parseNesting (string, stack, containers, oldlines) {
@@ -231,25 +245,19 @@ export default function parse (content, rootPath = '', emoji = {}) {
 	const [, trimmedPath, hash] = rootPath.match(/^\/?(.*?)\/?(?:#+(.*))?$/);
 	const scopes = new Set(hash?.split?.(/#+/) || []); // check if hash units are used, e.g. #123abc is really the #abc hash but with a variation value of 123
 	const headingPath = scopes.size ? `/${trimmedPath}` : '';
-	const rootNames = trimmedPath ? trimmedPath.split('/') : [];
 	const lines = content.split(/\r\n|\r|\n/);
 	const main = ['main', { spaced: true, indentation: 0 }];
 	const stack = [main];
 	const { '': formatter } = emoji;
-	const containers = new Set(stack);
-	const links = [];
 	const references = {};
+	const rootNames = trimmedPath ? trimmedPath.split('/') : [];
+	const links = [rootNames];
+	const containers = new Set(stack);
 	let locked = scopes.size > 0 && !scopes.has('');
 	let newlines = 1;
 	let ticks = 0;
 	let index = 0;
 	let alignments, reference, format;
-
-	// eventually add HTML structure (starts with </?\w+>)
-	// - should probably be handled inline with an HTML stack to open and close tags (empty space)
-	// - only wrap in p tag if there is text that isn't wrapped in a tag
-	// - HTML will be converted to stew arrays just like other nodes in the layout
-	// - at least no additional code will be needed to render the html properly
 
 	for (let line of lines) {
 		if (!/\S/.test(line)) {
@@ -382,9 +390,9 @@ export default function parse (content, rootPath = '', emoji = {}) {
 			
 			while (remainder && i--) {
 				const textAlign = alignments?.[cells.length];
-				const content = parseInline(remainder, rootNames, links, emoji, '|');
-				remainder = content.length > 1 ? content.pop() : '';
-				cells.push(['td', textAlign ? { style: { textAlign } } : null, ...content]);
+				const node = ['td', textAlign ? { style: { textAlign } } : null];
+				remainder = parseInline(remainder, [node, links], emoji);
+				cells.push(node);
 			}
 
 			nodes.push(['tr', null, ...cells]);
@@ -425,12 +433,11 @@ export default function parse (content, rootPath = '', emoji = {}) {
 				container = previous;
 			}
 
-			const content = parseInline(string, rootNames, links, emoji);
-			container.push(...content);
+			parseInline(string, [container, links], emoji);
 		}
 	}
 
-	for (const link of links) {
+	for (const link of links.slice(1)) {
 		const key = link[1];
 		link[1] = { ...references[key] };
 

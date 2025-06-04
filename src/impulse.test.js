@@ -30,7 +30,7 @@ beforeEach(() => {
 describe('processMemo', () => {
 	it('processes markdown', () => {
 		const actual = processMemo('# lmno', []);
-		expect(actual).toEqual(['', {}, [1, { '': 0 }, 'lmno']]);
+		expect(actual).toEqual(['main', null, [1, null, 'lmno']]);
 	});
 });
 
