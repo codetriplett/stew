@@ -42,8 +42,8 @@ const inlineRegex = new RegExp(['^(.*?)(?:',
 
 export function parseInline (string, stack, map) {
 	const links = stack[stack.length - 1];
-let i = 10;
-	while (string && i--) {
+
+	while (string) {
 		let [,
 			before, strong, em,
 			strikethrough, underline,
@@ -140,11 +140,12 @@ let i = 10;
 function parseNesting (string, stack, containers, oldlines) {
 	const nodes = [];
 	const symbols = string.match(/(\s+|(?:>|\S+)\s{0,4})+?/g) || [];
+	let depth = stack.length === 1 || oldlines > 0 ? stack.length - 2 : 0;
 	let indentation = 0;
-	let leftover = [];
-	let depth, props;
+	let props;
 
-	for (const symbol of symbols) {
+	while (symbols.length) {
+		const symbol = symbols.shift();
 		let type = 'ol';
 		let subtype = 'li';
 		let extra = 0;
@@ -167,16 +168,13 @@ function parseNesting (string, stack, containers, oldlines) {
 				break;
 			}
 			case ' ': case '\t': {
-				if (!depth) {
-					for (depth = 0; depth < stack.length; depth++) {
-						if (indentation < stack[depth][1].indentation) {
-							break;
-						}
-					}
+				if (indentation === symbol.length + extra) {
+					depth = stack.findIndex(entry => indentation >= entry[1].indentation) - 1;
+					const overage = indentation - stack[depth + 1][1].indentation;
 
-					if (depth >= stack.length && indentation > 3) {
-						const overage = Math.max(1, indentation - stack[depth - 1][1].indentation - 3);
-						leftover = symbols.splice(1, symbols.length, ' '.repeat(overage));
+					if (overage > 3) {
+						const remainder = symbols.splice(0);
+						symbols.push(`${' '.repeat(overage - 3)}${remainder.join('')}`);
 					}
 
 					continue;
@@ -184,28 +182,27 @@ function parseNesting (string, stack, containers, oldlines) {
 
 				type = 'pre';
 				subtype = 'code';
-				leftover.push(symbol.slice(1));
 				indentation += 4;
 				oldlines = 0;
 				break;
 			}
 		}
 
-		depth ??= oldlines > 0 ? 1 : stack.length - 1 || 1;
-		let container = stack[depth];
+		const container = stack[depth];
 		props = container?.[1];
 		let { wrapper } = props || {};
 
 		if ((type !== wrapper?.[0] || oldlines > 1) && (type !== container?.[0] || oldlines > 0)) {
 			const start = symbol.trim().slice(0, -1);
 			wrapper = subtype && [type, start && start !== '1' ? { start } : null];
-			props = { spaced: false, wrapper };
+			props = { spaced: false, remainder: symbol.length - 1, wrapper };
 			const node = [subtype || type, props];
 			containers.add(node);
 			nodes.push(node);
+			depth++;
 
 			if (type === 'dl') {
-				const container = stack[depth - 1];
+				const container = stack[depth];
 				const term = container[container.length - 1];
 
 				if (term?.[0] === '') {
@@ -214,24 +211,17 @@ function parseNesting (string, stack, containers, oldlines) {
 					wrapper.push(term);
 				}
 			}
-		} else {
-			if (subtype && subtype !== 'code') {
-				wrapper.splice(-1, 0, [...container.slice(0, 2), ...container.splice(2)]);
-			}
-
-			depth++;
+		} else if (subtype && subtype !== 'code') {
+			wrapper.splice(-1, 0, [...container.slice(0, 2), ...container.splice(2)]);
 		}
 
 		props.indentation = indentation;
-		stack.splice(depth);
-	}
-
-	if (leftover.length) {
-		props.remainder = leftover.join('').length;
+		stack.splice(0, depth);
+		depth = -1;
 	}
 	
 	if (oldlines === 1) {
-		stack[stack.length - 1][1].spaced = true;
+		stack[0][1].spaced = true;
 	}
 
 	return nodes;
@@ -253,6 +243,7 @@ export default function parse (content, rootPath = '', emoji = {}) {
 	const rootNames = trimmedPath ? trimmedPath.split('/') : [];
 	const links = [rootNames];
 	const containers = new Set(stack);
+	const tags = [];
 	let locked = scopes.size > 0 && !scopes.has('');
 	let newlines = 1;
 	let ticks = 0;
@@ -280,9 +271,8 @@ export default function parse (content, rootPath = '', emoji = {}) {
 
 		const oldlines = newlines;
 		const nodes = parseNesting(symbols, stack, containers, oldlines);
-		let container = stack[stack.length - 1];
-		stack.push(...nodes);
-		
+		let [container] = stack;
+
 		if (key !== undefined) {
 			key = key.toLowerCase();
 
@@ -298,7 +288,7 @@ export default function parse (content, rootPath = '', emoji = {}) {
 			continue;
 		}
 
-		const node = stack[stack.length - 1];
+		const node = nodes[nodes.length - 1] || stack[0];
 		let previous = node[node.length - 1];
 		newlines = string && !table && whitespace.length < 2 ? -1 : 0;
 		
@@ -405,10 +395,14 @@ export default function parse (content, rootPath = '', emoji = {}) {
 		}
 
 		for (const node of nodes) {
-			if (containers.has(node) && node[1].wrapper) {
-				const { wrapper } = node[1];
-				container.push(wrapper);
-				container = wrapper;
+			if (containers.has(node)) {
+				stack.unshift(node);
+
+				if (node[1].wrapper) {
+					const { wrapper } = node[1];
+					container.push(wrapper);
+					container = wrapper;
+				}
 			}
 
 			container.push(node);
@@ -433,7 +427,14 @@ export default function parse (content, rootPath = '', emoji = {}) {
 				container = previous;
 			}
 
-			parseInline(string, [container, links], emoji);
+			// TODO: clean this up a bit
+			// - tags should be a part of stack, but inline shouldn't be able to close part of stack controlled by markdown syntax
+			// - reverse direction of stack to have innermost ones at the start, like inline expects
+			// - have inline parse not splice out entries that are in containers set (pass as props of last item in stack, along with links as its children)
+			// - the goal should be that opening a tag on one line allows markdown to be added to it (e.g. headlines, lists, etc)
+			tags.push(container, links);
+			parseInline(string, tags, emoji);
+			tags.splice(-2);
 		}
 	}
 
