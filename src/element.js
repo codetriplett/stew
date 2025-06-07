@@ -97,22 +97,22 @@ export default function renderElement (info, object, children, context, document
 
 			if (prevNames.has('ref')) {
 				nextNames.add('ref');
-				attributes = { ...attributes, ...onclick };
+				attributes = onclick;
 			} else {
-				attributes = { ...attributes, ...onhover };
+				attributes = onhover;
 			}
 		} else if (onclick || onhover) {
 			if (typeof onclick === 'object') {
 				attributes.onclick = () => {
-					const nextNames = overrideAttributes(node, map, { ...attributes, ...onclick });
+					const nextNames = overrideAttributes(node, map, onclick);
 					nextNames?.add?.('')?.add?.('ref');
 				};
 			}
-			
+
 			if (typeof onhover === 'object') {
 				Object.assign(attributes, {
 					onmouseenter: () => {
-						const nextNames = overrideAttributes(node, map, { ...attributes, ...onhover });
+						const nextNames = overrideAttributes(node, map, onhover);
 						nextNames?.add?.('');
 					},
 					onmouseleave: () => {

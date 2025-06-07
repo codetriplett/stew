@@ -40,6 +40,10 @@ const inlineRegex = new RegExp(['^(.*?)(?:',
 	'|<(?:\\/(\\S+)|(https?:\\/\\/.*?)|([^\\/\\s].*?\\/?))>',
 '|$)(.*)$'].join(''));
 
+// TODO: treat formatting symbols like html open and close tags
+// - use the symbol as tag name and store them in a set for later processing
+// - final step will replace the symbol tag names (ones that didn't start with <) with the actual html symbol
+// - this will provide the same nesting ability as html while preventing html from closing the symbol equivalent tags
 export function parseInline (string, stack, links, customizations) {
 	while (string) {
 		let [,
@@ -83,9 +87,8 @@ export function parseInline (string, stack, links, customizations) {
 			node = ['mark', null, highlight];
 		} else if (spoiler) {
 			node = ['span', {
-				onclick: {
-					style: { color: 'transparent' },
-				},
+				style: { color: 'transparent' },
+				onclick: {},
 			}, spoiler];
 		} else if (emoji) {
 			node = customizations[emoji];
@@ -335,7 +338,7 @@ export default function parse (content, rootPath = '', customizations = {}) {
 
 			if (oldlines < 1 && previous?.[0] === '') {
 				previous[0] = type;
-				continue;
+				string = '';
 			} else if (type === 1) {
 				string = underline;
 			} else {
@@ -344,8 +347,7 @@ export default function parse (content, rootPath = '', customizations = {}) {
 		} else if (/^`{3,}[^`]*$/.test(string)) {
 			ticks = string.search(/[^`]|$/);
 			format = string.slice(ticks).trim();
-			newlines = oldlines;
-			continue;
+			string = '';
 		} else if (checkbox) {
 			const checked = checkbox.toLowerCase() === 'x';
 			const fragment = ['', null, ['input', { type: 'checkbox', checked, id: index }]];
@@ -356,7 +358,7 @@ export default function parse (content, rootPath = '', customizations = {}) {
 
 			if (/^(\s*:?-+:?\s*\|)+$/.test(remainder)) {
 				const isFirst = !alignments;
-				container = previous?.[2];
+				const container = previous?.[2];
 
 				alignments = remainder.split(/\s*\|\s*/).slice(0, -1).map(string => {
 					return string.endsWith(':') ? string.startsWith(':') ? 'center' : 'right' : '';
@@ -377,33 +379,31 @@ export default function parse (content, rootPath = '', customizations = {}) {
 						}
 					}
 				}
-
-				continue;
-			}
-
-			if (previous?.[0] !== 'table' || oldlines > 0) {
-				nodes.unshift(['tbody', null], ['table', null]);
 			} else {
-				container = previous[previous.length - 1];
-			}
+				if (previous?.[0] !== 'table' || oldlines > 0) {
+					nodes.unshift(['tbody', null], ['table', null]);
+				} else {
+					container = previous[previous.length - 1];
+				}
 
-			const cells = [];
-			let i = 5;
-			
-			while (remainder && i--) {
-				const textAlign = alignments?.[cells.length];
-				const node = ['td', textAlign ? { style: { textAlign } } : null];
-				remainder = parseInline(remainder, [node], links, customizations);
-				cells.push(node);
-			}
+				const cells = [];
+				let i = 5;
 
-			nodes.unshift(['tr', null, ...cells]);
+				while (remainder && i--) {
+					const textAlign = alignments?.[cells.length];
+					const node = ['td', textAlign ? { style: { textAlign } } : null];
+					remainder = parseInline(remainder, [node], links, customizations);
+					cells.push(node);
+				}
+
+				nodes.unshift(['tr', null, ...cells]);
+			}
 		}
 
 		if (title) {
 			reference.title = title;
-		} else if (underline || dashes) {
-			nodes.unshift(['hr']);
+		} else if (dashes) {
+			nodes.unshift(['hr', null]);
 		}
 
 		for (const node of nodes.reverse()) {
@@ -417,7 +417,7 @@ export default function parse (content, rootPath = '', customizations = {}) {
 			container = node;
 		}
 
-		if (container[0] !== 'tr') {
+		if (!table) {
 			alignments = undefined;
 		}
 
@@ -461,6 +461,8 @@ export default function parse (content, rootPath = '', customizations = {}) {
 			for (let i = item.length - 1; i > 1; i--) {
 				const child = item[i];
 
+				// TODO: unwrap fragments only contain one element, and it isn't a string
+				// - this would be for html (what about if whole paragraph was wrapped in * or other foramtting? )
 				if (child[0] !== '') {
 					continue;
 				} else if (spaced) {

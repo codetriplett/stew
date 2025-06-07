@@ -84,6 +84,69 @@ describe('renderElement', () => {
 			renderElement(ref, { lmno: 789, xyz: 456 }, ['xyz'], context, stew, nodes);
 			check('xyz', ['', {}, undefined, true]);
 		});
+
+		it('clears attributes', () => {
+			const ref = ['div'];
+
+			renderElement(ref, {
+				abc: 456, lmno: 123,
+				style: { abc: 456, lmno: 123 },
+				dataset: { abc: 456, lmno: 123 },
+			}, ['abc'], context, stew, nodes);
+
+			track(ref);
+
+			renderElement(ref, {}, ['xyz'], context, stew, nodes);
+
+			check(
+				'<div>xyz</div>',
+				['div', { '': new Set() }, true, true],
+			);
+		});
+
+		it('clears attributes onclick', () => {
+			const ref = ['div'];
+
+			renderElement(ref, {
+				abc: 456, lmno: 123,
+				style: { abc: 456, lmno: 123 },
+				dataset: { abc: 456, lmno: 123 },
+				onclick: {},
+			}, ['abc'], context, stew, nodes);
+
+			track(ref);
+			ref[2].onclick();
+			
+			renderElement(ref, {
+				onclick: {
+					xyz: 789,
+				},
+			}, ['xyz'], context, stew, nodes);
+
+			check(
+				'<div xyz="789">xyz</div>',
+				['div', { '': new Set(['', 'ref', 'xyz']) }, true, true],
+			);
+		});
+
+		it('updates attribures after onclick', () => {
+			const ref = ['div'];
+
+			renderElement(ref, {
+				abc: 456, lmno: 123,
+				style: { abc: 456, lmno: 123 },
+				dataset: { abc: 456, lmno: 123 },
+				onclick: {},
+			}, ['abc'], context, stew, nodes);
+
+			track(ref);
+			ref[2].onclick();
+
+			check(
+				'<div>abc</div>',
+				['div', { '': new Set(['', 'ref']) }, true, true],
+			);
+		});
 	});
 
 	describe('replace nodes', () => {

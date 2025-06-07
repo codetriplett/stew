@@ -59,11 +59,8 @@ describe('parseInline', () => {
 		expect(stack).toEqual([['td', null,
 			'text',
 			['span', {
-				onclick: {
-					style: {
-						color: 'transparent',
-					},
-				},
+				style: { color: 'transparent' },
+				onclick: {},
 			}, 'Item'],
 		]]);
 	});
@@ -74,11 +71,8 @@ describe('parseInline', () => {
 
 		expect(stack).toEqual([['', null,
 			['span', {
-				onclick: {
-					style: {
-						color: 'transparent',
-					},
-				},
+				style: { color: 'transparent' },
+				onclick: {},
 			}, 'Item']
 		]]);
 	});
@@ -95,6 +89,19 @@ describe('parseInline', () => {
 			expect(actual).toEqual('');
 			expect(stack).toEqual([['', null, ['strong', null, 'text']]]);
 		});
+
+		// it.only('double in single', () => {
+		// 	const actual = parseInline('*abc **lmno** xyz*', stack);
+		// 	expect(actual).toEqual('');
+
+		// 	expect(stack).toEqual([['', null,
+		// 		['em', null,
+		// 			'abc',
+		// 			['strong', null, 'lmno'],
+		// 			'xyz',
+		// 		],
+		// 	]]);
+		// });
 
 		it('strongem', () => {
 			const actual = parseInline('**_text_**', stack);
@@ -292,6 +299,14 @@ describe('parse', () => {
 
 		expect(actual).toEqual(['main', null,
 			['p', null, '#lmno'],
+		]);
+	});
+
+	it('horizontal rule', () => {
+		const actual = parse('---');
+
+		expect(actual).toEqual(['main', null,
+			['hr', null],
 		]);
 	});
 
@@ -774,6 +789,111 @@ lmno
 				],
 			]);
 		});
+
+		it('with hash heading', () => {
+			const actual = parse(`
+- # abc
+			`);
+
+			expect(actual).toEqual(['main', null,
+				['ul', null,
+					['li', null,
+						[1, null, 'abc'],
+					],
+				],
+			]);
+		});
+
+		it('with primary heading', () => {
+			const actual = parse(`
+- abc
+  ===
+			`);
+
+			expect(actual).toEqual(['main', null,
+				['ul', null,
+					['li', null,
+						[1, null, 'abc'],
+					],
+				],
+			]);
+		});
+
+		it('with horizontal rule', () => {
+			const actual = parse(`
+- ---
+			`);
+
+			expect(actual).toEqual(['main', null,
+				['ul', null,
+					['li', null,
+						['hr', null],
+					],
+				],
+			]);
+		});
+
+		it('with table', () => {
+			const actual = parse(`
+- | abc |
+  | --- |
+  | 123 |
+			`);
+
+			expect(actual).toEqual(['main', null,
+				['ul', null,
+					['li', null,
+						['table', null,
+							['thead', null,
+								['tr', null,
+									['th', null, ' abc '],
+								],
+							],
+							['tbody', null,
+								['tr', null,
+									['td', null, ' 123 '],
+								],
+							],
+						],
+					],
+				],
+			]);
+		});
+
+		it('with space preformatted', () => {
+			const actual = parse(`
+-     abc
+      xyz
+			`);
+
+			expect(actual).toEqual(['main', null,
+				['ul', null,
+					['li', null,
+						['pre', null,
+							['code', null, 'abc\nxyz'],
+						],
+					],
+				],
+			]);
+		});
+
+		it('with tick preformatted', () => {
+			const actual = parse(`
+- \`\`\`
+  abc
+  \`\`\`
+			`);
+
+			expect(actual).toEqual(['main', null,
+				['ul', null,
+					['li', null,
+						['pre', null,
+							['code', null, 'abc'],
+						],
+					],
+				],
+			]);
+		});
 	});
 
 	describe('blockquote', () => {
@@ -937,11 +1057,8 @@ lmno
 						['tr', null,
 							['td', null,
 								['span', {
-									onclick: {
-										style: {
-											color: 'transparent',
-										},
-									},
+									style: { color: 'transparent' },
+									onclick: {},
 								}, 'Item'],
 							],
 						],
@@ -950,17 +1067,14 @@ lmno
 			]);
 		});
 
-		it('ignores spoiler', () => {
+		it('spoiler before cell', () => {
 			const actual = parse('||Item||');
 
 			expect(actual).toEqual(['main', null,
 				['p', null,
 					['span', {
-						onclick: {
-							style: {
-								color: 'transparent',
-							},
-						},
+						style: { color: 'transparent' },
+						onclick: {},
 					}, 'Item'],
 				],
 			]);
