@@ -40,9 +40,7 @@ const inlineRegex = new RegExp(['^(.*?)(?:',
 	'|<(?:\\/(\\S+)|(https?:\\/\\/.*?)|([^\\/\\s].*?\\/?))>',
 '|$)(.*)$'].join(''));
 
-export function parseInline (string, stack, map) {
-	const links = stack[stack.length - 1];
-
+export function parseInline (string, stack, links, customizations) {
 	while (string) {
 		let [,
 			before, strong, em,
@@ -90,10 +88,10 @@ export function parseInline (string, stack, map) {
 				},
 			}, spoiler];
 		} else if (emoji) {
-			node = map[emoji];
+			node = customizations[emoji];
 		} else if (close) {
 			const index = stack.findIndex(node => node[0] === close);
-			stack.splice(0, index === -1 ? stack.length - 1 : index + 1);
+			stack.splice(0, Math.min(stack.length - 1, index + 1));
 		} else if (url) {
 			node = ['a', { href: url }, url];
 		} else if (open) {
@@ -126,11 +124,15 @@ export function parseInline (string, stack, map) {
 		}
 
 		if (!node) {
+			if (close) {
+				continue;
+			}
+			
 			break;
 		} else if (Array.isArray(node) && node.length > 2 && !image && !ticks && !emoji) {
-			parseInline(node.pop(), [node, links], map);
+			parseInline(node.pop(), [node], links, customizations);
 		}
-
+		
 		container.push(node);
 	}
 
@@ -140,7 +142,12 @@ export function parseInline (string, stack, map) {
 function parseNesting (string, stack, containers, oldlines) {
 	const nodes = [];
 	const symbols = string.match(/(\s+|(?:>|\S+)\s{0,4})+?/g) || [];
-	let depth = stack.length === 1 || oldlines > 0 ? stack.length - 2 : 0;
+
+	if (oldlines > 1 && stack[0][0] !== 'code' || oldlines > 0 && !symbols.length) {
+		stack.splice(0, stack.length - 1);
+	}
+
+	let depth = stack.length - 2;
 	let indentation = 0;
 	let props;
 
@@ -198,7 +205,7 @@ function parseNesting (string, stack, containers, oldlines) {
 			props = { spaced: false, remainder: symbol.length - 1, wrapper };
 			const node = [subtype || type, props];
 			containers.add(node);
-			nodes.push(node);
+			nodes.unshift(node);
 			depth++;
 
 			if (type === 'dl') {
@@ -227,7 +234,7 @@ function parseNesting (string, stack, containers, oldlines) {
 	return nodes;
 }
 
-export default function parse (content, rootPath = '', emoji = {}) {
+export default function parse (content, rootPath = '', customizations = {}) {
 	if (!content) {
 		return;
 	}
@@ -238,12 +245,12 @@ export default function parse (content, rootPath = '', emoji = {}) {
 	const lines = content.split(/\r\n|\r|\n/);
 	const main = ['main', { spaced: true, indentation: 0 }];
 	const stack = [main];
-	const { '': formatter } = emoji;
-	const references = {};
+	const tags = [main];
+	const { '': formatter } = customizations;
+	const containers = new Set(stack);
 	const rootNames = trimmedPath ? trimmedPath.split('/') : [];
 	const links = [rootNames];
-	const containers = new Set(stack);
-	const tags = [];
+	const references = {};
 	let locked = scopes.size > 0 && !scopes.has('');
 	let newlines = 1;
 	let ticks = 0;
@@ -253,6 +260,10 @@ export default function parse (content, rootPath = '', emoji = {}) {
 	for (let line of lines) {
 		if (!/\S/.test(line)) {
 			newlines += newlines < 0 ? 2 : 1;
+			continue;
+		} else if (tags.length > 1) {
+			parseInline(` ${line.trim()}`, tags, links, customizations);
+			newlines = -1;
 			continue;
 		} else if (ticks) {
 			line = `\t${line}`;
@@ -272,6 +283,7 @@ export default function parse (content, rootPath = '', emoji = {}) {
 		const oldlines = newlines;
 		const nodes = parseNesting(symbols, stack, containers, oldlines);
 		let [container] = stack;
+		stack.unshift(...nodes);
 
 		if (key !== undefined) {
 			key = key.toLowerCase();
@@ -281,14 +293,14 @@ export default function parse (content, rootPath = '', emoji = {}) {
 				references[key] = reference;
 			}
 		} else if (hashes && stack.length < 2) {
-			locked = stack.length === 1 && scopes.size && !scopes.has(id);
+			locked = scopes.size && !scopes.has(id);
 		}
 
 		if (locked) {
 			continue;
 		}
 
-		const node = nodes[nodes.length - 1] || stack[0];
+		const [node] = stack;
 		let previous = node[node.length - 1];
 		newlines = string && !table && whitespace.length < 2 ? -1 : 0;
 		
@@ -311,12 +323,12 @@ export default function parse (content, rootPath = '', emoji = {}) {
 			string = '';
 		} else if (hashes) {
 			const node = [hashes.length, null];
-			nodes.push(node);
+			nodes.unshift(node);
 			string = heading;
 			
 			if (id) {
 				node[1] = { id };
-				nodes.push(['a', { href: encodeURI(`${headingPath}#${id}`) }]);
+				nodes.unshift(['a', { href: encodeURI(`${headingPath}#${id}`) }]);
 			}
 		} else if (underline) {
 			const type = underline[0] === '=' ? 1 : 2;
@@ -337,7 +349,7 @@ export default function parse (content, rootPath = '', emoji = {}) {
 		} else if (checkbox) {
 			const checked = checkbox.toLowerCase() === 'x';
 			const fragment = ['', null, ['input', { type: 'checkbox', checked, id: index }]];
-			nodes.push(fragment, ['label', { for: index }]);
+			nodes.unshift(['label', { for: index }], fragment);
 			index++;
 		} else if (table) {
 			let remainder = `${table.slice(1)}|`;
@@ -370,7 +382,7 @@ export default function parse (content, rootPath = '', emoji = {}) {
 			}
 
 			if (previous?.[0] !== 'table' || oldlines > 0) {
-				nodes.push(['table', null], ['tbody', null]);
+				nodes.unshift(['tbody', null], ['table', null]);
 			} else {
 				container = previous[previous.length - 1];
 			}
@@ -381,28 +393,24 @@ export default function parse (content, rootPath = '', emoji = {}) {
 			while (remainder && i--) {
 				const textAlign = alignments?.[cells.length];
 				const node = ['td', textAlign ? { style: { textAlign } } : null];
-				remainder = parseInline(remainder, [node, links], emoji);
+				remainder = parseInline(remainder, [node], links, customizations);
 				cells.push(node);
 			}
 
-			nodes.push(['tr', null, ...cells]);
+			nodes.unshift(['tr', null, ...cells]);
 		}
 
 		if (title) {
 			reference.title = title;
 		} else if (underline || dashes) {
-			nodes.push(['hr']);
+			nodes.unshift(['hr']);
 		}
 
-		for (const node of nodes) {
-			if (containers.has(node)) {
-				stack.unshift(node);
-
-				if (node[1].wrapper) {
-					const { wrapper } = node[1];
-					container.push(wrapper);
-					container = wrapper;
-				}
+		for (const node of nodes.reverse()) {
+			if (containers.has(node) && node[1].wrapper) {
+				const { wrapper } = node[1];
+				container.push(wrapper);
+				container = wrapper;
 			}
 
 			container.push(node);
@@ -415,7 +423,7 @@ export default function parse (content, rootPath = '', emoji = {}) {
 
 		if (string) {
 			if (containers.has(container)) {
-				if (oldlines > 0 || previous[0] !== '') {
+				if (oldlines > 0 || previous?.[0] !== '') {
 					previous = ['', null];
 					container.push(previous);
 				} else if (!oldlines) {
@@ -423,18 +431,15 @@ export default function parse (content, rootPath = '', emoji = {}) {
 				} else {
 					string = ` ${string}`;
 				}
-				
-				container = previous;
-			}
 
-			// TODO: clean this up a bit
-			// - tags should be a part of stack, but inline shouldn't be able to close part of stack controlled by markdown syntax
-			// - reverse direction of stack to have innermost ones at the start, like inline expects
-			// - have inline parse not splice out entries that are in containers set (pass as props of last item in stack, along with links as its children)
-			// - the goal should be that opening a tag on one line allows markdown to be added to it (e.g. headlines, lists, etc)
-			tags.push(container, links);
-			parseInline(string, tags, emoji);
-			tags.splice(-2);
+				if (tags[tags.length - 1] !== previous) {
+					tags.splice(0, tags.length, previous);
+				}
+
+				parseInline(string, tags, links, customizations);
+			} else {
+				parseInline(string, [container], links, customizations);
+			}
 		}
 	}
 
