@@ -1,5 +1,14 @@
 import { selfClosingTags } from './document';
 
+// TODO: close previous paragrah if any of these are used
+// - open new paragraph when they are closed
+const blockTags = new Set([
+	'address', 'article', 'aside', 'blockquote', 'canvas', 'dd', 'div',
+	'dl', 'dt', 'fieldset', 'figcaption', 'figure', 'footer', 'form',
+	'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'hr', 'li', 'main', 'nav',
+	'noscript', 'ol', 'p', 'pre', 'section', 'table', 'tfoot', 'ul', 'video',
+]);
+
 function buildPath (rootNames, href = '') {
 	if (!href.startsWith('.')) {
 		return href;
@@ -31,36 +40,40 @@ const blockRegex = new RegExp(['^',
 '(\\s*)$'].join(''));
 
 const inlineRegex = new RegExp(['^(.*?)(?:',
-	'(\\*\\*.+?\\*\\*|__.+?__)',
-	'|(\\*.+?\\*|_.+?_)',
-	'|~~(.+?)~~|~(.+?)~',
-	'|(`+)|::(.+?)::|:(.+?):',
+	'(\\*{1,2}|_{1,2}|~{1,2}|:{2}|\\|{2})|(`+)|:(.+?):',
+	'|<(?:\\/(\\S+)\\s*|(https?:\\/\\/\\S*?)|([^\\/\\s].*?\\/?\\s*))>',
 	'|(!)?\\[\\s*(.*?)\\s*\\]\\s*(?:\\(\\s*(.*?)\\s*(\'.*?\'|".*?")?\\s*\\)|\\[\\s*(.*?)\\s*\\])',
-	'|\\|\\|(.+?)\\|\\|',
-	'|<(?:\\/(\\S+)|(https?:\\/\\/.*?)|([^\\/\\s].*?\\/?))>',
 '|$)(.*)$'].join(''));
 
-// TODO: treat formatting symbols like html open and close tags
-// - use the symbol as tag name and store them in a set for later processing
-// - final step will replace the symbol tag names (ones that didn't start with <) with the actual html symbol
-// - this will provide the same nesting ability as html while preventing html from closing the symbol equivalent tags
+const tags = {
+	'*': 'em',
+	'_': 'em',
+	'~': 's',
+	'**': 'strong',
+	'__': 'strong',
+	'~~': 'u',
+	'::': 'mark',
+	'||': 'span',
+};
+
 export function parseInline (string, stack, links, customizations) {
+	const formatting = new Set();
+
 	while (string) {
 		let [,
-			before, strong, em,
-			strikethrough, underline,
-			ticks, highlight, emoji,
-			image, text, href, title, key,
-			spoiler, close, url, open, remainder,
+			before, symbol, ticks, emoji, close, url, open,
+			image, text, href, title, key, remainder,
 		] = string.match(inlineRegex);
 
 		const [container] = stack;
+		const populated = container.length > 2 || /\S$/.test(before);
 		const breakpoint = container[0] === 'td' ? before.indexOf('|') : -1;
 		let node;
 
 		if (breakpoint !== -1) {
 			before = string.slice(0, breakpoint);
 			remainder = string.slice(breakpoint + 1);
+			string = remainder;
 		} else if (text !== undefined) {
 			node = [image ? 'img' : 'a', null, text];
 
@@ -75,23 +88,23 @@ export function parseInline (string, stack, links, customizations) {
 					props.title = title.slice(1, -1);
 				}
 			}
-		} else if (strong) {
-			node = ['strong', null, strong.slice(2, -2)];
-		} else if (em) {
-			node = ['em', null, em.slice(1, -1)];
-		} else if (underline) {
-			node = ['u', null, underline];
-		} else if (strikethrough) {
-			node = ['s', null, strikethrough];
-		} else if (highlight) {
-			node = ['mark', null, highlight];
-		} else if (spoiler) {
-			node = ['span', {
-				style: { color: 'transparent' },
-				onclick: {},
-			}, spoiler];
 		} else if (emoji) {
 			node = customizations[emoji];
+		} else if (container[0] === symbol && populated) {
+			stack.shift();
+		} else if (container[0] === symbol?.[0] && populated) {
+			stack.shift();
+			remainder = `${symbol[1]}${remainder}`;
+		} else if (symbol && /^\S/.test(remainder)) {
+			node = [symbol, null];
+			stack.unshift(node);
+			formatting.add(node);
+		} else if (symbol) {
+			before += symbol;
+		} else if (ticks) {
+			const index = remainder.indexOf(ticks);
+			node = ['code', null, index !== -1 ? remainder.slice(0, index) : remainder];
+			remainder = index !== -1 ? remainder.slice(index + ticks.length) : '';
 		} else if (close) {
 			const index = stack.findIndex(node => node[0] === close);
 			stack.splice(0, Math.min(stack.length - 1, index + 1));
@@ -110,10 +123,6 @@ export function parseInline (string, stack, links, customizations) {
 			if (!selfClosingTags.has(tagName) && !open.endsWith('/')) {
 				stack.unshift(node);
 			}
-		} else if (ticks) {
-			const index = remainder.indexOf(ticks);
-			node = ['code', null, index !== -1 ? remainder.slice(0, index) : remainder];
-			remainder = index !== -1 ? remainder.slice(index + ticks.length) : '';
 		}
 
 		if (/\S/.test(before)) {
@@ -122,21 +131,23 @@ export function parseInline (string, stack, links, customizations) {
 		
 		if (string === remainder) {
 			break;
-		} else {
-			string = remainder;
-		}
-
-		if (!node) {
-			if (close) {
-				continue;
-			}
-			
-			break;
-		} else if (Array.isArray(node) && node.length > 2 && !image && !ticks && !emoji) {
-			parseInline(node.pop(), [node], links, customizations);
+		} else if (node) {
+			container.push(node);
 		}
 		
-		container.push(node);
+		string = remainder;
+	}
+
+	for (const node of formatting) {
+		const symbol = node[0];
+		node[0] = tags[symbol];
+
+		if (symbol === '||') {
+			node[1] = {
+				style: { color: 'transparent' },
+				onclick: {},
+			};
+		}
 	}
 
 	return string;
@@ -461,8 +472,6 @@ export default function parse (content, rootPath = '', customizations = {}) {
 			for (let i = item.length - 1; i > 1; i--) {
 				const child = item[i];
 
-				// TODO: unwrap fragments only contain one element, and it isn't a string
-				// - this would be for html (what about if whole paragraph was wrapped in * or other foramtting? )
 				if (child[0] !== '') {
 					continue;
 				} else if (spaced) {

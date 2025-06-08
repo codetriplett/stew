@@ -77,6 +77,24 @@ describe('parseInline', () => {
 		]]);
 	});
 
+	it('formatted spoiler', () => {
+		const actual = parseInline('||*abc ::lmno:: xyz*||', stack);
+		expect(actual).toEqual('');
+
+		expect(stack).toEqual([['', null,
+			['span', {
+				style: { color: 'transparent' },
+				onclick: {},
+			},
+				['em', null,
+					'abc ',
+					['mark', null, 'lmno'],
+					' xyz',
+				],
+			],
+		]]);
+	});
+
 	describe('formatted', () => {
 		it('em', () => {
 			const actual = parseInline('*text*', stack);
@@ -90,21 +108,8 @@ describe('parseInline', () => {
 			expect(stack).toEqual([['', null, ['strong', null, 'text']]]);
 		});
 
-		// it.only('double in single', () => {
-		// 	const actual = parseInline('*abc **lmno** xyz*', stack);
-		// 	expect(actual).toEqual('');
-
-		// 	expect(stack).toEqual([['', null,
-		// 		['em', null,
-		// 			'abc',
-		// 			['strong', null, 'lmno'],
-		// 			'xyz',
-		// 		],
-		// 	]]);
-		// });
-
 		it('strongem', () => {
-			const actual = parseInline('**_text_**', stack);
+			const actual = parseInline('***text***', stack);
 			expect(actual).toEqual('');
 			expect(stack).toEqual([['', null, ['strong', null, ['em', null, 'text']]]]);
 		});
@@ -114,6 +119,32 @@ describe('parseInline', () => {
 			expect(actual).toEqual('');
 			expect(stack).toEqual([['', null, ['em', null, ['strong', null, 'text']]]]);
 		});
+
+		it('double in single', () => {
+			const actual = parseInline('*abc **lmno** xyz*', stack);
+			expect(actual).toEqual('');
+
+			expect(stack).toEqual([['', null,
+				['em', null,
+					'abc ',
+					['strong', null, 'lmno'],
+					' xyz',
+				],
+			]]);
+		});
+
+		it('single in double', () => {
+			const actual = parseInline('**abc *lmno* xyz**', stack);
+			expect(actual).toEqual('');
+
+			expect(stack).toEqual([['', null,
+				['strong', null,
+					'abc ',
+					['em', null, 'lmno'],
+					' xyz',
+				],
+			]]);
+		});
 		
 		it('embedded', () => {
 			const actual = parseInline('*[Label](/path)*', stack, links);
@@ -121,16 +152,16 @@ describe('parseInline', () => {
 			expect(stack).toEqual([['', null, ['em', null, ['a', { href: '/path' }, 'Label']]]]);
 		});
 		
-		it('underline', () => {
+		it('strikethrough', () => {
 			const actual = parseInline('~text~', stack);
 			expect(actual).toEqual('');
-			expect(stack).toEqual([['', null, ['u', null, 'text']]]);
+			expect(stack).toEqual([['', null, ['s', null, 'text']]]);
 		});
 		
-		it('strikethrough', () => {
+		it('underline', () => {
 			const actual = parseInline('~~text~~', stack);
 			expect(actual).toEqual('');
-			expect(stack).toEqual([['', null, ['s', null, 'text']]]);
+			expect(stack).toEqual([['', null, ['u', null, 'text']]]);
 		});
 
 		it('code', () => {
@@ -1305,6 +1336,20 @@ no
 					['span', null, ' lm', ' no'],
 					' xyz',
 				],
+			]);
+		});
+		
+		// TODO: have parseInline break paragraph up when a block tag is encountered
+		// - maybe have parseInline return an array of the new nodes to push to container (still have fist item be remainder string)
+		it.skip('unwrapped tag', () => {
+			const actual = parse(`
+<div>
+lmno
+</div> xyz
+			`);
+
+			expect(actual).toEqual(['main', null,
+				['div', null, ' lmno'],
 			]);
 		});
 
