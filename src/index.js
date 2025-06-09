@@ -23,7 +23,7 @@
 
 import { isServer } from './document';
 import { effects, processEffects, processMemo } from './impulse';
-import createState, { schedule, unsubscribe } from './state';
+import createState, { queue, schedule, unsubscribe } from './state';
 import { compile } from './program';
 import render from './view';
 
@@ -89,48 +89,34 @@ stew(() => {}, deps, fallback) // useFetch/useEffect
 
 */
 
-// TODO: have the stew function also serve as the virtual document
-// - move the properties that existed on virtualDocument on stew function
-// - maybe change isServer checks to check wiether document is stew or not
-// - might need to set an activeDocument like impulse does for activeRef
-// - with this change, all functionality will use the stew library, and that can be the only export
 export default function stew (...layout) {
 	if (!layout.length) {
-		// stew() // await render (don't add to effects)
-		return new Promise(resolve => effects.push([, resolve]));
+		return queue.size ? new Promise(resolve => effects.push([, resolve])) : Promise.resolve();
 	}
 
+	const [original] = layout;
 	let [node, object] = layout;
 	let document;
 
 	if (Array.isArray(node)) {
 		return compile(...layout);
 	} else if (Array.isArray(object)) {
-		// TODO: move markdown parser here and parse/store the result as a memo if first param is a string
-		// - add that string to deps array when doing check to see if it shoudl be recalculated
-		// - first item in deps array will be for the path and hash value
-		// - have hash be # when you want to include jump links to all headings that have ids
-		// - provide an id with the hash value to scope the layout to the content between that heading and the next
-		// - include the path in the jump link when scoped hash is provided
 		return processMemo(...layout);
 	} else if (node === stew) {
 		document = stew;
-		layout[0] = document.createDocumentFragment();
-	} else if (typeof node !== 'function') {
+		node = '';
+	}
+
+	if (typeof node !== 'function') {
 		if (layout.length === 1) {
 			return createState(node);
 		}
 
 		document = isServer ? stew : globalThis.document;
 		
-		// TODO: use selector string to create node for isServer, and query for it on client
-		// - this allows better code reuse between server and client
-		// - both will return node that matches the selector
-		// - keep it simple, just tagName, id, classes, and attributes before first > + or , (default to div if no tagName is provided)
 		if (typeof node === 'string') {
 			node = node ? document.querySelector(node) : document.createDocumentFragment();
 		}
-		// have stew return swap function only if node object was already provided (not a string)
 
 		if (!node) {
 			console.error(`Element not found: ${node}`);
@@ -146,7 +132,7 @@ export default function stew (...layout) {
 	const info = render(layout, context, document, [], ['', {}], 0, {});
 	processEffects();
 
-	return Object.assign(manifest => {
+	return node !== original ? node : manifest => {
 		switch (typeof manifest) {
 			case 'boolean': {
 				if (manifest) {
@@ -157,6 +143,8 @@ export default function stew (...layout) {
 					suspend(info);
 				}
 
+				// TODO: need to suspend and resume webgl animations as well
+				// - could just make the duration 0 when returning from pause
 				break;
 			}
 			case 'function': {
@@ -175,13 +163,6 @@ export default function stew (...layout) {
 
 				break;
 			}
-
-			// TODO: need to suspend and resume webgl animations as well
-			// - could just make the duration 0 when returning from pause
 		}
-
-		return info[2];
-	}, {
-		toString: () => String(info[2]),
-	});
+	};
 };

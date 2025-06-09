@@ -1,12 +1,12 @@
-# Page #page
+# Page {#page}
 
 Page
 
-## First #first
+## First {#first}
 
-:: First ::
+::First::
 
-_italics **and bold**_
+*italics **and bold***
 
 ## Second
 

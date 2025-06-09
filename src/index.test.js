@@ -1,7 +1,7 @@
 import stew, { hotSwapStep } from '.';
 import { compile } from './program';
 import { effects, processMemo } from './impulse';
-import createState from './state';
+import createState, { queue } from './state';
 import render from './view';
 
 jest.mock('./impulse');
@@ -51,11 +51,24 @@ describe('hotSwapStep', () => {
 	});
 });
 
+// TODO: change these to integration tests with no mocks
 describe('stew', () => {
+	it('bounces back promise', async () => {
+		const actual = stew();
+		expect(effects).toEqual([]);
+		expect(actual).toEqual(expect.any(Promise));
+		await actual;
+		expect(effects).toEqual([]);
+	});
+
 	it('creates render promise', async () => {
+		queue.add([]);
 		const actual = stew();
 		expect(effects).toEqual([[, expect.any(Function)]]);
 		expect(actual).toEqual(expect.any(Promise));
+		setTimeout(() => effects.splice(0).map(effect => effect[1]()));
+		await actual;
+		expect(effects).toEqual([]);
 	});
 
 	it('creates webgl renderer', () => {
@@ -132,19 +145,19 @@ describe('stew', () => {
 	it('renders fragment', () => {
 		const actual = stew('', context, 'lmno');
 		expect(render).toHaveBeenCalledWith([expect.any(Object), {}, 'lmno'], context, stew, [], ['', {}], 0, {});
-		expect(actual).toEqual(expect.any(Function));
+		expect(actual).toEqual(expect.any(Object));
 	});
 
 	it('renders within queried node', () => {
 		const actual = stew('body', context, 'lmno');
 		expect(render).toHaveBeenCalledWith([expect.any(Object), {}, 'lmno'], context, stew, [], ['', {}], 0, {});
-		expect(actual).toEqual(expect.any(Function));
+		expect(actual).toEqual(expect.any(Object));
 	});
 
 	it('renders virtual fragment', () => {
 		const actual = stew(stew, context, 'lmno');
 		expect(render).toHaveBeenCalledWith([expect.any(Object), {}, 'lmno'], context, stew, [], ['', {}], 0, {});
-		expect(actual).toEqual(expect.any(Function));
+		expect(actual).toEqual(expect.any(Object));
 	});
 
 	it('rejects missing node', () => {

@@ -138,6 +138,7 @@ export default function render (layout, context, document, nodes, container, i, 
 			map[key] = info;
 		}
 
+
 		callback(info, props, children, context, document, nodes);
 	}
 

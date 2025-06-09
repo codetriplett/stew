@@ -255,9 +255,9 @@ describe('parseInline', () => {
 
 	describe('html tag', () => {
 		it('self closing', () => {
-			const actual = parseInline('<hr>', stack);
+			const actual = parseInline('<br>', stack);
 			expect(actual).toEqual('');
-			expect(stack).toEqual([['', null, ['hr', null]]]);
+			expect(stack).toEqual([['', null, ['br', null]]]);
 		});
 		
 		it('forced closing', () => {
@@ -295,6 +295,12 @@ describe('parseInline', () => {
 			const actual = parseInline('<http://www.domain.com/path>', stack);
 			expect(actual).toEqual('');
 			expect(stack).toEqual([['', null, ['a', { href: 'http://www.domain.com/path' }, 'http://www.domain.com/path']]]);
+		});
+
+		it('unwraps root', () => {
+			const actual = parseInline('<div>', stack);
+			expect(actual).toEqual('');
+			expect(stack).toEqual([['div', null], ['', { unwrapped: true }, ['div', null]]]);
 		});
 	});
 });
@@ -375,7 +381,7 @@ describe('parse', () => {
 		});
 		
 		it('with link', () => {
-			const actual = parse('# Heading #lmno');
+			const actual = parse('# Heading {#lmno}');
 
 			expect(actual).toEqual(['main', null,
 				[1, { id: 'lmno' },
@@ -932,7 +938,9 @@ lmno
 			const actual = parse('> Item');
 
 			expect(actual).toEqual(['main', null,
-				['blockquote', null, 'Item'],
+				['blockquote', null,
+					['p', null, 'Item'],
+				],
 			]);
 		});
 
@@ -941,8 +949,7 @@ lmno
 
 			expect(actual).toEqual(['main', null,
 				['blockquote', null,
-					'Item',
-					' Adjacent',
+					['p', null, 'Item', ' Adjacent'],
 				],
 			]);
 		});
@@ -952,9 +959,7 @@ lmno
 
 			expect(actual).toEqual(['main', null,
 				['blockquote', null,
-					'Item',
-					['br'],
-					'Adjacent',
+					['p', null, 'Item', ['br'], 'Adjacent'],
 				],
 			]);
 		});
@@ -964,10 +969,10 @@ lmno
 
 			expect(actual).toEqual(['main', null,
 				['blockquote', null,
-					'Item',
+					['p', null, 'Item'],
 				],
 				['blockquote', null,
-					'Adjacent',
+					['p', null, 'Adjacent'],
 				],
 			]);
 		});
@@ -1209,11 +1214,11 @@ lmno
 Summary
 # Heading
 Paragraph
-## Abc #abc
+## Abc {#abc}
 Abc
-## Lmno #lmno
+## Lmno {#lmno}
 Lmno
-## Xyz #xyz
+## Xyz {#xyz}
 Xyz
 			`, '/path#');
 
@@ -1227,11 +1232,11 @@ Xyz
 Summary
 # Heading
 Paragraph
-## Abc #abc
+## Abc {#abc}
 Abc
-## Lmno #lmno
+## Lmno {#lmno}
 Lmno
-## Xyz #xyz
+## Xyz {#xyz}
 Xyz
 			`, '/path#lmno');
 
@@ -1248,11 +1253,11 @@ Xyz
 Summary
 # Heading
 Paragraph
-## Abc #abc
+## Abc {#abc}
 Abc
-## Lmno #lmno
+## Lmno {#lmno}
 Lmno
-## Xyz #xyz
+## Xyz {#xyz}
 Xyz
 			`, '/path#lmno#');
 
@@ -1270,11 +1275,11 @@ Xyz
 Summary
 # Heading
 Paragraph
-## Abc #abc
+## Abc {#abc}
 Abc
-## Lmno #lmno
+## Lmno {#lmno}
 Lmno
-## Xyz #xyz
+## Xyz {#xyz}
 Xyz
 			`, '/path#abc#xyz');
 
@@ -1339,17 +1344,51 @@ no
 			]);
 		});
 		
-		// TODO: have parseInline break paragraph up when a block tag is encountered
-		// - maybe have parseInline return an array of the new nodes to push to container (still have fist item be remainder string)
-		it.skip('unwrapped tag', () => {
+		it('unwrapped tag', () => {
 			const actual = parse(`
-<div>
+abc <div>
 lmno
 </div> xyz
 			`);
 
 			expect(actual).toEqual(['main', null,
+				'abc ',
 				['div', null, ' lmno'],
+				' xyz',
+			]);
+		});
+		
+		it('in blockquote', () => {
+			const actual = parse(`
+> abc <span>
+> lmno
+> </span> xyz
+			`);
+
+			expect(actual).toEqual(['main', null,
+				['blockquote', null,
+					['p', null,
+						'abc ',
+						['span', null, ' lmno'],
+						' xyz',
+					],
+				],
+			]);
+		});
+		
+		it('unwrapped tag in blockquote', () => {
+			const actual = parse(`
+> abc <div>
+> lmno
+> </div> xyz
+			`);
+
+			expect(actual).toEqual(['main', null,
+				['blockquote', null,
+					'abc ',
+					['div', null, ' lmno'],
+					' xyz',
+				],
 			]);
 		});
 

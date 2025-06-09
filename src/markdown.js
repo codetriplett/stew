@@ -31,7 +31,7 @@ function buildPath (rootNames, href = '') {
 const blockRegex = new RegExp(['^',
 	'(\\s*(?:[>\\s]+|(?:[-+*:]|\\d+[.)])(?:\\s{1,4}|\\t|$))*\\s*)(?:\\[([ xX-_])\\]\\s(?=\\S))?(?:',
 		'(?:\\[\\s*(.*?)\\s*\\]:\\s+(<.*?>|[^<>]|[^<].*?[^>])(?:\\s+|$))?(\'.*?\'|".*?"|\\(.*?\\))?',
-		'|(#{1,6})\\s+(.*?)(?:\\s+#+(\\S*))?',
+		'|(#{1,6})\\s+(.*?)(?:\\s+\\{#(\\S*)\\})?(?:\\s+#+)?',
 		'|(=+|-+)',
 		'|((?:\\*\\s+){3,}|(?:-\\s+){3,}|(?:_\\s+){3,})',
 		'|(\\|(?!\\|.*?\\|\\|).*?)\\|?',
@@ -41,7 +41,7 @@ const blockRegex = new RegExp(['^',
 
 const inlineRegex = new RegExp(['^(.*?)(?:',
 	'(\\*{1,2}|_{1,2}|~{1,2}|:{2}|\\|{2})|(`+)|:(.+?):',
-	'|<(?:\\/(\\S+)\\s*|(https?:\\/\\/\\S*?)|([^\\/\\s].*?\\/?\\s*))>',
+	'|<(?:\\/(\\S+?)\\s*|(https?:\\/\\/\\S*?)|([^\\/\\s].*?\\/?\\s*))>',
 	'|(!)?\\[\\s*(.*?)\\s*\\]\\s*(?:\\(\\s*(.*?)\\s*(\'.*?\'|".*?")?\\s*\\)|\\[\\s*(.*?)\\s*\\])',
 '|$)(.*)$'].join(''));
 
@@ -57,6 +57,7 @@ const tags = {
 };
 
 export function parseInline (string, stack, links, customizations) {
+	const root = stack[stack.length - 1];
 	const formatting = new Set();
 
 	while (string) {
@@ -122,6 +123,10 @@ export function parseInline (string, stack, links, customizations) {
 
 			if (!selfClosingTags.has(tagName) && !open.endsWith('/')) {
 				stack.unshift(node);
+			}
+
+			if (blockTags.has(tagName) && !root[1]) {
+				stack[stack.length - 1][1] = { unwrapped: true };
 			}
 		}
 
@@ -216,7 +221,7 @@ function parseNesting (string, stack, containers, oldlines) {
 		if ((type !== wrapper?.[0] || oldlines > 1) && (type !== container?.[0] || oldlines > 0)) {
 			const start = symbol.trim().slice(0, -1);
 			wrapper = subtype && [type, start && start !== '1' ? { start } : null];
-			props = { spaced: false, remainder: symbol.length - 1, wrapper };
+			props = { spaced: !subtype, remainder: symbol.length - 1, wrapper };
 			const node = [subtype || type, props];
 			containers.add(node);
 			nodes.unshift(node);
@@ -276,6 +281,14 @@ export default function parse (content, rootPath = '', customizations = {}) {
 			newlines += newlines < 0 ? 2 : 1;
 			continue;
 		} else if (tags.length > 1) {
+			for (const container of stack) {
+				if (container[0] !== 'blockquote') {
+					break;
+				}
+
+				line = line.replace(/^\s*>\s*/, '');
+			}
+
 			parseInline(` ${line.trim()}`, tags, links, customizations);
 			newlines = -1;
 			continue;
@@ -474,7 +487,7 @@ export default function parse (content, rootPath = '', customizations = {}) {
 
 				if (child[0] !== '') {
 					continue;
-				} else if (spaced) {
+				} else if (spaced && !child[1]?.unwrapped) {
 					child[0] = 'p';
 				} else {
 					item.splice(i, 1, ...child.slice(2));
