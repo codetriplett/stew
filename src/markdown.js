@@ -253,7 +253,7 @@ function parseNesting (string, stack, containers, oldlines) {
 	return nodes;
 }
 
-export default function parse (content, rootPath = '', customizations = {}) {
+export default function parse (content, rootPath = '', customizations = {}, tagName = '') {
 	if (!content) {
 		return;
 	}
@@ -262,7 +262,7 @@ export default function parse (content, rootPath = '', customizations = {}) {
 	const scopes = new Set(hash?.split?.(/#+/) || []); // check if hash units are used, e.g. #123abc is really the #abc hash but with a variation value of 123
 	const headingPath = scopes.size ? `/${trimmedPath}` : '';
 	const lines = content.split(/\r\n|\r|\n/);
-	const main = ['main', { spaced: true, indentation: 0 }];
+	const main = [tagName, { spaced: true, indentation: 0 }];
 	const stack = [main];
 	const tags = [main];
 	const { '': formatter } = customizations;
@@ -270,6 +270,7 @@ export default function parse (content, rootPath = '', customizations = {}) {
 	const rootNames = trimmedPath ? trimmedPath.split('/') : [];
 	const links = [rootNames];
 	const references = {};
+	const staged = [];
 	let locked = scopes.size > 0 && !scopes.has('');
 	let newlines = 1;
 	let ticks = 0;
@@ -309,6 +310,7 @@ export default function parse (content, rootPath = '', customizations = {}) {
 
 		const oldlines = newlines;
 		const nodes = parseNesting(symbols, stack, containers, oldlines);
+		let allowed = false;
 		let [container] = stack;
 		stack.unshift(...nodes);
 
@@ -321,9 +323,14 @@ export default function parse (content, rootPath = '', customizations = {}) {
 			}
 		} else if (hashes && stack.length < 2) {
 			locked = scopes.size && !scopes.has(id);
+		
+			if (scopes.size === 1 && scopes.has('') && !staged.length) {
+				allowed = true;
+				container = staged;
+			}
 		}
 
-		if (locked) {
+		if (locked && !allowed) {
 			continue;
 		}
 
@@ -354,8 +361,13 @@ export default function parse (content, rootPath = '', customizations = {}) {
 			string = heading;
 			
 			if (id) {
-				node[1] = { id };
-				nodes.unshift(['a', { href: encodeURI(`${headingPath}#${id}`) }]);
+				if (!scopes.size) {
+					node[1] = { id };
+				}
+
+				nodes.unshift(['a', {
+					href: encodeURI(`${headingPath}#${allowed ? '' : id}`),
+				}]);
 			}
 		} else if (underline) {
 			const type = underline[0] === '=' ? 1 : 2;
@@ -506,5 +518,6 @@ export default function parse (content, rootPath = '', customizations = {}) {
 		}
 	}
 
+	main.splice(2, 0, ...staged);
 	return main;
 }

@@ -97,6 +97,9 @@ function Section ({ columnSections }) {
 	];
 }
 
+// shuffle together h tags sections of the same level, but don't include nested h tag sections
+// - click on the heading to scope to new heading level and then render the next level of headings below it
+// - essentially, it should scope to the first heading it finds, and then merge the next level of headings
 function Composite ({ columns }) {
 	if (columns.length < 2) {
 		return columns[0];
@@ -133,7 +136,7 @@ function Composite ({ columns }) {
 }
 
 function App () {
-	const [names, ...paths] = stew(() => {
+	const [content, ...names] = stew(() => {
 		const { pathname } = window.location;
 		const names = [];
 
@@ -147,27 +150,22 @@ function App () {
 		}
 
 		paths[0] = `./${paths[0]}`;
-		return [names, ...paths];
+
+		const columns = paths.map(path => {
+			const [dots, ...rest] = path.split('/');
+			const { length } = dots;
+			names.splice(-length, length, ...rest);
+			path = `/${names.join('/')}`;
+			const markdown = stew(fetchText, [`${path}.md`], undefined);
+			return stew(markdown, [path, {}, 'main']);
+		});
+
+		const content = columns.every(column => column) && Composite({ columns });
+		return [content, ...names];
 	}, []);
-	
-	const stack = [...names];
-
-	const columns = paths.map(path => {
-		const [dots, ...rest] = path.split('/');
-		const { length } = dots;
-		stack.splice(-length, length, ...rest);
-		path = `/${stack.join('/')}`;
-		const markdown = stew(fetchText, [`${path}.md`], undefined);
-		return stew(markdown, [path]);
-		// snippets can just parse markdown like above, but with their scoped headings set as a hash
-		// - can include any number of hashes on one path, including empty one if summary (before h1) should be included
-		// - e.g. #abc#xyz, #abc#xyz#
-		// - this tracks with how code blocks are referenced in MD (when summary section has preformatted block)
-	});
-
-	const content = columns.every(column => column) && Composite({ columns });
 
 	if (names.length < 2) {
+		content[0] = 'main';
 		return content;
 	}
 
