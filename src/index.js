@@ -23,7 +23,7 @@
 
 import { isServer } from './document';
 import { effects, processEffects, processMemo } from './impulse';
-import createState, { queue, schedule, unsubscribe } from './state';
+import createState, { queue, schedule } from './state';
 import { compile } from './program';
 import render from './view';
 
@@ -48,46 +48,6 @@ export function hotSwapStep (info, manifest, subscriptions) {
 
 	hotSwapStep(proxy, manifest, subscriptions);
 }
-
-export function suspend (info) {
-	const [, impulse,, ...children] = info;
-
-	if (Array.isArray(impulse)) {
-		unsubscribe(info);
-	}
-
-	for (const child of children) {
-		suspend(child);
-	}
-}
-
-export function resume (info, subscriptions) {
-	const [, impulse,, ...children] = info;
-
-	if (Array.isArray(impulse)) {
-		subscriptions.add(impulse);
-		return;
-	}
-
-	for (const child of children) {
-		resume(child);
-	}
-}
-
-/*
-
-use stew function for hooks as well
-
-stew() // onRender
-// promise that resolves after current impulses and queue has been resolved (mostly for testing)
-
-stew(() => {}, deps) // useMemo
-
-stew(() => {}) // useEffect (but not useFetch)
-stew(() => {}, deps, fallback) // useFetch/useEffect
-// 
-
-*/
 
 export default function stew (...layout) {
 	if (!layout.length) {
@@ -133,36 +93,8 @@ export default function stew (...layout) {
 	processEffects();
 
 	return node !== original ? node : manifest => {
-		switch (typeof manifest) {
-			case 'boolean': {
-				if (manifest) {
-					const subscriptions = new Set();
-					resume(info, subscriptions);
-					schedule(subscriptions);
-				} else {
-					suspend(info);
-				}
-
-				// TODO: need to suspend and resume webgl animations as well
-				// - could just make the duration 0 when returning from pause
-				break;
-			}
-			case 'function': {
-				const override = manifest;
-				manifest = new Map();
-				manifest.set(info[0], override);
-			}
-			case 'object': {
-				if (!manifest) {
-					remove(info);
-				} else {
-					const subscriptions = new Set();
-					hotSwapStep(info, manifest, subscriptions);
-					schedule(subscriptions);
-				}
-
-				break;
-			}
-		}
+		const subscriptions = new Set();
+		hotSwapStep(info, manifest, subscriptions);
+		schedule(subscriptions);
 	};
 };

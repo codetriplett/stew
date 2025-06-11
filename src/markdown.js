@@ -57,8 +57,10 @@ const tags = {
 };
 
 export function parseInline (string, stack, links, customizations) {
+	const [container] = stack;
 	const root = stack[stack.length - 1];
 	const formatting = new Set();
+	let spaceable = Array.isArray(container[container.length - 1]);
 
 	while (string) {
 		let [,
@@ -137,6 +139,11 @@ export function parseInline (string, stack, links, customizations) {
 		if (string === remainder) {
 			break;
 		} else if (node) {
+			if (spaceable && Array.isArray(node)) {
+				container.push(' ');
+				spaceable = false;
+			}
+
 			container.push(node);
 		}
 		
@@ -290,7 +297,7 @@ export default function parse (content, rootPath = '', customizations = {}, tagN
 				line = line.replace(/^\s*>\s*/, '');
 			}
 
-			parseInline(` ${line.trim()}`, tags, links, customizations);
+			parseInline(` ${line.trim()} `, tags, links, customizations);
 			newlines = -1;
 			continue;
 		} else if (ticks) {
@@ -435,13 +442,17 @@ export default function parse (content, rootPath = '', customizations = {}, tagN
 				nodes.unshift(['tr', null, ...cells]);
 			}
 		}
+		
+		if (!table) {
+			alignments = undefined;
 
-		if (title) {
-			reference.title = title;
-		} else if (dashes) {
-			nodes.unshift(['hr', null]);
+			if (title) {
+				reference.title = title;
+			} else if (dashes) {
+				nodes.unshift(['hr', null]);
+			}
 		}
-
+		
 		for (const node of nodes.reverse()) {
 			if (containers.has(node) && node[1].wrapper) {
 				const { wrapper } = node[1];
@@ -453,30 +464,23 @@ export default function parse (content, rootPath = '', customizations = {}, tagN
 			container = node;
 		}
 
-		if (!table) {
-			alignments = undefined;
+		if (!string) {
+			continue;
+		} else if (!containers.has(container)) {
+			parseInline(string, [container], links, customizations);
+			continue;
+		} else if (oldlines > 0 || previous?.[0] !== '') {
+			previous = ['', null];
+			container.push(previous);
+		} else if (!oldlines) {
+			previous.push(['br']);
 		}
 
-		if (string) {
-			if (containers.has(container)) {
-				if (oldlines > 0 || previous?.[0] !== '') {
-					previous = ['', null];
-					container.push(previous);
-				} else if (!oldlines) {
-					previous.push(['br']);
-				} else {
-					string = ` ${string}`;
-				}
-
-				if (tags[tags.length - 1] !== previous) {
-					tags.splice(0, tags.length, previous);
-				}
-
-				parseInline(string, tags, links, customizations);
-			} else {
-				parseInline(string, [container], links, customizations);
-			}
+		if (tags[tags.length - 1] !== previous) {
+			tags.splice(0, tags.length, previous);
 		}
+
+		parseInline(` ${string} `, tags, links, customizations);
 	}
 
 	for (const link of links.slice(1)) {

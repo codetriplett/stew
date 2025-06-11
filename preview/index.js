@@ -136,7 +136,7 @@ function Composite ({ columns }) {
 }
 
 function App () {
-	const [content, ...names] = stew(() => {
+	const [names, ...paths] = stew(() => {
 		const { pathname } = window.location;
 		const names = [];
 
@@ -151,23 +151,25 @@ function App () {
 
 		paths[0] = `./${paths[0]}`;
 
-		const columns = paths.map(path => {
+		return [names, ...paths.map(path => {
 			const [dots, ...rest] = path.split('/');
 			const { length } = dots;
 			names.splice(-length, length, ...rest);
-			path = `/${names.join('/')}`;
-			const markdown = stew(fetchText, [`${path}.md`], undefined);
-			return stew(markdown, [path, {}, 'main']);
-		});
-
-		const content = columns.every(column => column) && Composite({ columns });
-		return [content, ...names];
+			return `/${names.join('/')}`;
+		})];
 	}, []);
 
-	if (names.length < 2) {
-		content[0] = 'main';
-		return content;
-	}
+	const columns = paths.map(path => {
+		const markdown = stew(fetchText, [`${path}.md`], undefined);
+		return stew(markdown, [path, {}, 'main']);
+	});
+
+	// TODO: merge columns in Composite component
+	const content = columns.length < 2 ? columns[0] : ['main', {
+		style: { display: 'flex' },
+	},
+		...columns.map(column => ['div', { style: { flex: '0 1 0' } }, ...column.slice(2)]),
+	];
 
 	return Block({ names }, content);
 }

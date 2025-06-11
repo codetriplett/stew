@@ -310,7 +310,15 @@ describe('parse', () => {
 		const actual = parse('Paragraph');
 
 		expect(actual).toEqual(['', null,
-			['p', null, 'Paragraph'],
+			['p', null, ' Paragraph '],
+		]);
+	});
+
+	it('paragraph with wrapped', () => {
+		const actual = parse('Paragraph\nAdjacent');
+
+		expect(actual).toEqual(['', null,
+			['p', null, ' Paragraph ', ' Adjacent '],
 		]);
 	});
 
@@ -318,7 +326,7 @@ describe('parse', () => {
 		const actual = parse('Paragraph  \nAdjacent');
 
 		expect(actual).toEqual(['', null,
-			['p', null, 'Paragraph', ['br'], 'Adjacent'],
+			['p', null, ' Paragraph ', ['br'], ' Adjacent '],
 		]);
 	});
 
@@ -326,8 +334,20 @@ describe('parse', () => {
 		const actual = parse('Paragraph\n\nAdjacent');
 
 		expect(actual).toEqual(['', null,
-			['p', null, 'Paragraph'],
-			['p', null, 'Adjacent'],
+			['p', null, ' Paragraph '],
+			['p', null, ' Adjacent '],
+		]);
+	});
+
+	it('between text lines', () => {
+		const actual = parse('Item\n[Label](/path)\nAdjacent');
+
+		expect(actual).toEqual(['', null,
+			['p', null,
+				' Item ',
+				['a', { href: '/path' }, 'Label'],
+				' Adjacent ',
+			],
 		]);
 	});
 	
@@ -335,7 +355,7 @@ describe('parse', () => {
 		const actual = parse('#lmno');
 
 		expect(actual).toEqual(['', null,
-			['p', null, '#lmno'],
+			['p', null, ' #lmno '],
 		]);
 	});
 
@@ -351,7 +371,7 @@ describe('parse', () => {
 		const actual = parse('Paragraph', '/', {}, 'main');
 
 		expect(actual).toEqual(['main', null,
-			['p', null, 'Paragraph'],
+			['p', null, ' Paragraph '],
 		]);
 	});
 
@@ -360,7 +380,7 @@ describe('parse', () => {
 			const actual = parse('Heading\n===');
 
 			expect(actual).toEqual(['', null,
-				[1, null, 'Heading'],
+				[1, null, ' Heading '],
 			]);
 		});
 
@@ -368,7 +388,7 @@ describe('parse', () => {
 			const actual = parse('Heading\n---');
 
 			expect(actual).toEqual(['', null,
-				[2, null, 'Heading'],
+				[2, null, ' Heading '],
 			]);
 		});
 		
@@ -402,7 +422,7 @@ describe('parse', () => {
 			const actual = parse('####### Heading');
 
 			expect(actual).toEqual(['', null,
-				['p', null, '####### Heading'],
+				['p', null, ' ####### Heading '],
 			]);
 		});
 	});
@@ -533,7 +553,7 @@ describe('parse', () => {
 
 			expect(actual).toEqual(['', null,
 				['ul', null,
-					['li', null, 'Item'],
+					['li', null, ' Item '],
 				],
 			]);
 		});
@@ -543,8 +563,8 @@ describe('parse', () => {
 
 			expect(actual).toEqual(['', null,
 				['ul', null,
-					['li', null, 'Item'],
-					['li', null, 'Adjacent'],
+					['li', null, ' Item '],
+					['li', null, ' Adjacent '],
 				],
 			]);
 		});
@@ -566,7 +586,7 @@ describe('parse', () => {
 				['ul', null,
 					['li', null,
 						['ul', null,
-							['li', null, 'Item'],
+							['li', null, ' Item '],
 						],
 					],
 				],
@@ -580,7 +600,7 @@ describe('parse', () => {
 				['ol', { start: '2' },
 					['li', null,
 						['ul', null,
-							['li', null, 'Item'],
+							['li', null, ' Item '],
 						],
 					],
 				],
@@ -593,10 +613,10 @@ describe('parse', () => {
 			expect(actual).toEqual(['', null,
 				['ul', null,
 					['li', null,
-						['p', null, 'Item'],
+						['p', null, ' Item '],
 					],
 					['li', null,
-						['p', null, 'Adjacent'],
+						['p', null, ' Adjacent '],
 					],
 				],
 			]);
@@ -611,8 +631,7 @@ describe('parse', () => {
 			expect(actual).toEqual(['', null,
 				['ul', null,
 					['li', null,
-						'Item',
-						' Adjacent',
+						' Item ', ' Adjacent ',
 					],
 				],
 			]);
@@ -627,9 +646,9 @@ describe('parse', () => {
 			expect(actual).toEqual(['', null,
 				['ul', null,
 					['li', null,
-						'Item',
+						' Item ',
 						['br'],
-						'Adjacent',
+						' Adjacent ',
 					],
 				],
 			]);
@@ -645,8 +664,8 @@ describe('parse', () => {
 			expect(actual).toEqual(['', null,
 				['ul', null,
 					['li', null,
-						['p', null, 'Item'],
-						['p', null, 'Adjacent'],
+						['p', null, ' Item '],
+						['p', null, ' Adjacent '],
 					],
 				],
 			]);
@@ -663,11 +682,11 @@ describe('parse', () => {
 			expect(actual).toEqual(['', null,
 				['ul', null,
 					['li', null,
-						['p', null, 'Item'],
-						['p', null, 'Adjacent'],
+						['p', null, ' Item '],
+						['p', null, ' Adjacent '],
 					],
 					['li', null,
-						['p', null, 'Sibling'],
+						['p', null, ' Sibling '],
 					],
 				],
 			]);
@@ -678,10 +697,10 @@ describe('parse', () => {
 
 			expect(actual).toEqual(['', null,
 				['ul', null,
-					['li', null, 'Item'],
+					['li', null, ' Item '],
 				],
 				['ul', null,
-					['li', null, 'Adjacent'],
+					['li', null, ' Adjacent '],
 				],
 			]);
 		});
@@ -697,11 +716,11 @@ lmno
 
 			expect(actual).toEqual(['', null,
 				['ul', null,
-					['li', null, 'abc'],
+					['li', null, ' abc '],
 				],
-				['p', null, 'lmno'],
+				['p', null, ' lmno '],
 				['ul', null,
-					['li', null, 'xyz'],
+					['li', null, ' xyz '],
 				],
 			]);
 		});
@@ -711,8 +730,8 @@ lmno
 
 			expect(actual).toEqual(['', null,
 				['ol', null,
-					['li', null, 'Item'],
-					['li', null, 'Adjacent'],
+					['li', null, ' Item '],
+					['li', null, ' Adjacent '],
 				],
 			]);
 		});
@@ -722,8 +741,8 @@ lmno
 
 			expect(actual).toEqual(['', null,
 				['ol', { start: '2' },
-					['li', null, 'Item'],
-					['li', null, 'Adjacent'],
+					['li', null, ' Item '],
+					['li', null, ' Adjacent '],
 				],
 			]);
 		});
@@ -733,10 +752,10 @@ lmno
 
 			expect(actual).toEqual(['', null,
 				['ul', null,
-					['li', null, 'Item'],
+					['li', null, ' Item '],
 				],
 				['ol', null,
-					['li', null, 'Adjacent'],
+					['li', null, ' Adjacent '],
 				],
 			]);
 		});
@@ -747,9 +766,9 @@ lmno
 			expect(actual).toEqual(['', null,
 				['ul', null,
 					['li', null,
-						'Item',
+						' Item ',
 						['ul', null,
-							['li', null, 'Child'],
+							['li', null, ' Child '],
 						],
 					],
 				],
@@ -766,9 +785,9 @@ lmno
 			expect(actual).toEqual(['', null,
 				['ul', null,
 					['li', null,
-						['p', null, 'Item'],
+						['p', null, ' Item '],
 						['ul', null,
-							['li', null, 'Subitem'],
+							['li', null, ' Subitem '],
 						],
 					],
 				],
@@ -780,8 +799,8 @@ lmno
 
 			expect(actual).toEqual(['', null,
 				['dl', null,
-					['dt', null, 'Item'],
-					['dd', null, 'Child'],
+					['dt', null, ' Item '],
+					['dd', null, ' Child '],
 				],
 			]);
 		});
@@ -791,9 +810,9 @@ lmno
 
 			expect(actual).toEqual(['', null,
 				['dl', null,
-					['dt', null, 'Item'],
-					['dd', null, 'Child'],
-					['dd', null, 'Adjacent'],
+					['dt', null, ' Item '],
+					['dd', null, ' Child '],
+					['dd', null, ' Adjacent '],
 				],
 			]);
 		});
@@ -803,12 +822,12 @@ lmno
 
 			expect(actual).toEqual(['', null,
 				['dl', null,
-					['dt', null, 'Item'],
+					['dt', null, ' Item '],
 					['dd', null,
-						['p', null, 'Child'],
+						['p', null, ' Child '],
 					],
 					['dd', null,
-						['p', null, 'Adjacent'],
+						['p', null, ' Adjacent '],
 					],
 				],
 			]);
@@ -819,7 +838,7 @@ lmno
 
 			expect(actual).toEqual(['', null,
 				['dl', null,
-					['dd', null, 'Child'],
+					['dd', null, ' Child '],
 				],
 			]);
 		});
@@ -829,8 +848,8 @@ lmno
 
 			expect(actual).toEqual(['', null,
 				['dl', null,
-					['dt', null, 'Item', ['br'], 'Adjacent'],
-					['dd', null, 'Child'],
+					['dt', null, ' Item ', ['br'], ' Adjacent '],
+					['dd', null, ' Child '],
 				],
 			]);
 		});
@@ -858,7 +877,7 @@ lmno
 			expect(actual).toEqual(['', null,
 				['ul', null,
 					['li', null,
-						[1, null, 'abc'],
+						[1, null, ' abc '],
 					],
 				],
 			]);
@@ -947,7 +966,7 @@ lmno
 
 			expect(actual).toEqual(['', null,
 				['blockquote', null,
-					['p', null, 'Item'],
+					['p', null, ' Item '],
 				],
 			]);
 		});
@@ -957,7 +976,7 @@ lmno
 
 			expect(actual).toEqual(['', null,
 				['blockquote', null,
-					['p', null, 'Item', ' Adjacent'],
+					['p', null, ' Item ', ' Adjacent '],
 				],
 			]);
 		});
@@ -967,7 +986,7 @@ lmno
 
 			expect(actual).toEqual(['', null,
 				['blockquote', null,
-					['p', null, 'Item', ['br'], 'Adjacent'],
+					['p', null, ' Item ', ['br'], ' Adjacent '],
 				],
 			]);
 		});
@@ -977,10 +996,10 @@ lmno
 
 			expect(actual).toEqual(['', null,
 				['blockquote', null,
-					['p', null, 'Item'],
+					['p', null, ' Item '],
 				],
 				['blockquote', null,
-					['p', null, 'Adjacent'],
+					['p', null, ' Adjacent '],
 				],
 			]);
 		});
@@ -1207,10 +1226,10 @@ lmno
 
 			expect(actual).toEqual(['', null,
 				['ul', null,
-					['li', null, 'Item'],
+					['li', null, ' Item '],
 				],
 				['ul', null,
-					['li', null, 'Adjacent'],
+					['li', null, ' Adjacent '],
 				],
 			]);
 		});
@@ -1234,7 +1253,7 @@ Xyz
 				[1, null,
 					['a', { href: '/path#' }, 'Heading'],
 				],
-				['p', null, 'Summary'],
+				['p', null, ' Summary '],
 			]);
 		});
 		
@@ -1252,11 +1271,11 @@ Xyz
 			`, '/path#main#');
 
 			expect(actual).toEqual(['', null,
-				['p', null, 'Summary'],
+				['p', null, ' Summary '],
 				[1, null,
 					['a', { href: '/path#main' }, 'Heading'],
 				],
-				['p', null, 'Paragraph'],
+				['p', null, ' Paragraph '],
 			]);
 		});
 
@@ -1277,7 +1296,7 @@ Xyz
 				[2, null,
 					['a', { href: '/path#lmno' }, 'Lmno'],
 				],
-				['p', null, 'Lmno'],
+				['p', null, ' Lmno '],
 			]);
 		});
 
@@ -1295,11 +1314,11 @@ Xyz
 			`, '/path#lmno#');
 
 			expect(actual).toEqual(['', null,
-				['p', null, 'Summary'],
+				['p', null, ' Summary '],
 				[2, null,
 					['a', { href: '/path#lmno' }, 'Lmno'],
 				],
-				['p', null, 'Lmno'],
+				['p', null, ' Lmno '],
 			]);
 		});
 
@@ -1320,11 +1339,11 @@ Xyz
 				[2, null,
 					['a', { href: '/path#abc' }, 'Abc'],
 				],
-				['p', null, 'Abc'],
+				['p', null, ' Abc '],
 				[2, null,
 					['a', { href: '/path#xyz' }, 'Xyz'],
 				],
-				['p', null, 'Xyz'],
+				['p', null, ' Xyz '],
 			]);
 		});
 	});
@@ -1337,9 +1356,9 @@ abc <span>lmno</span> xyz
 
 			expect(actual).toEqual(['', null,
 				['p', null,
-					'abc ',
+					' abc ',
 					['span', null, 'lmno'],
-					' xyz',
+					' xyz ',
 				],
 			]);
 		});
@@ -1353,9 +1372,9 @@ lmno
 
 			expect(actual).toEqual(['', null,
 				['p', null,
-					'abc ',
-					['span', null, ' lmno'],
-					' xyz',
+					' abc ',
+					['span', null, ' lmno '],
+					' xyz ',
 				],
 			]);
 		});
@@ -1370,9 +1389,9 @@ no
 
 			expect(actual).toEqual(['', null,
 				['p', null,
-					'abc ',
-					['span', null, ' lm', ' no'],
-					' xyz',
+					' abc ',
+					['span', null, ' lm ', ' no '],
+					' xyz ',
 				],
 			]);
 		});
@@ -1385,9 +1404,47 @@ lmno
 			`);
 
 			expect(actual).toEqual(['', null,
-				'abc ',
-				['div', null, ' lmno'],
-				' xyz',
+				' abc ',
+				['div', null, ' lmno '],
+				' xyz ',
+			]);
+		});
+
+		it('wrapped tags', () => {
+			const actual = parse(`
+abc <span>lm</span>
+<span>no</span> xyz
+			`);
+
+			expect(actual).toEqual(['', null,
+				['p', null,
+					' abc ',
+					['span', null, 'lm'],
+					' ',
+					['span', null, 'no'],
+					' xyz ',
+				],
+			]);
+		});
+
+		it('wrapped tags in tag', () => {
+			const actual = parse(`
+abc <span>
+<span>lm</span>
+<span>no</span>
+</span> xyz
+			`);
+
+			expect(actual).toEqual(['', null,
+				['p', null,
+					' abc ',
+					['span', null,
+						['span', null, 'lm'],
+						' ',
+						['span', null, 'no'],
+					],
+					' xyz ',
+				],
 			]);
 		});
 		
@@ -1401,9 +1458,9 @@ lmno
 			expect(actual).toEqual(['', null,
 				['blockquote', null,
 					['p', null,
-						'abc ',
-						['span', null, ' lmno'],
-						' xyz',
+						' abc ',
+						['span', null, ' lmno '],
+						' xyz ',
 					],
 				],
 			]);
@@ -1418,9 +1475,9 @@ lmno
 
 			expect(actual).toEqual(['', null,
 				['blockquote', null,
-					'abc ',
-					['div', null, ' lmno'],
-					' xyz',
+					' abc ',
+					['div', null, ' lmno '],
+					' xyz ',
 				],
 			]);
 		});
@@ -1434,9 +1491,9 @@ abc <span>
 
 			expect(actual).toEqual(['', null,
 				['p', null,
-					'abc ',
-					['span', null, ' - lmno'],
-					' xyz',
+					' abc ',
+					['span', null, ' - lmno '],
+					' xyz ',
 				],
 			]);
 		});
