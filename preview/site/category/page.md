@@ -8,6 +8,8 @@ Page
 
 *italics **and bold***
 
+[Link](./other)
+
 ## Second
 
 | abc | xyz |

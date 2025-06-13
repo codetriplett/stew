@@ -80,6 +80,10 @@ export function parseInline (string, stack, links, customizations) {
 		} else if (text !== undefined) {
 			node = [image ? 'img' : 'a', null, text];
 
+			if (!image) {
+				links[1].push(node);
+			}
+
 			if (key !== undefined) {
 				node[1] = (key || text).toLowerCase();
 				links.push(node);
@@ -268,7 +272,7 @@ function parseNesting (string, stack, containers, oldlines) {
 	return nodes;
 }
 
-export default function parse (content, rootPath = '', customizations = {}, tagName = '') {
+export default function parse (content, rootPath = '', customizations = {}) {
 	if (!content) {
 		return;
 	}
@@ -277,13 +281,14 @@ export default function parse (content, rootPath = '', customizations = {}, tagN
 	const scopes = new Set(hash?.split?.(/#+/) || []); // check if hash units are used, e.g. #123abc is really the #abc hash but with a variation value of 123
 	const headingPath = scopes.size ? `/${trimmedPath}` : '';
 	const lines = content.split(/\r\n|\r|\n/);
-	const main = [tagName, { spaced: true, indentation: 0 }];
+	const main = ['', { spaced: true, indentation: 0 }];
 	const stack = [main];
 	const tags = [main];
 	const { '': formatter } = customizations;
 	const containers = new Set(stack);
 	const rootNames = trimmedPath ? trimmedPath.split('/') : [];
-	const links = [rootNames];
+	const links = [rootNames, []];
+	const map = {};
 	const references = {};
 	const staged = [];
 	let locked = scopes.size > 0 && !scopes.has('');
@@ -291,6 +296,12 @@ export default function parse (content, rootPath = '', customizations = {}, tagN
 	let ticks = 0;
 	let index = 0;
 	let alignments, reference, format;
+
+	if (!locked) {
+		const array = [];
+		map[''] = array;
+		links[1] = array;
+	}
 
 	for (let line of lines) {
 		if (!/\S/.test(line)) {
@@ -337,8 +348,15 @@ export default function parse (content, rootPath = '', customizations = {}, tagN
 				references[key] = reference;
 			}
 		} else if (hashes && stack.length < 2) {
+			// TODO: maybe set fallback id as heading text, but only the \w characters, and spaces replaced with -
 			locked = scopes.size && !scopes.has(id);
 		
+			if (id && !locked) {
+				const array = [];
+				map[id] = array;
+				links[1] = array;
+			}
+
 			if (scopes.size === 1 && scopes.has('') && !staged.length) {
 				allowed = true;
 				container = staged;
@@ -491,7 +509,7 @@ export default function parse (content, rootPath = '', customizations = {}, tagN
 		parseInline(` ${string} `, tags, links, customizations);
 	}
 
-	for (const link of links.slice(1)) {
+	for (const link of links.slice(2)) {
 		const key = link[1];
 		link[1] = { ...references[key] };
 
@@ -530,6 +548,6 @@ export default function parse (content, rootPath = '', customizations = {}, tagN
 		}
 	}
 
-	main.splice(2, 0, ...staged);
+	main.splice(1, 1, map, ...staged);
 	return main;
 }

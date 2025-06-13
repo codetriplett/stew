@@ -4,7 +4,7 @@ let stack, links;
 
 beforeEach(() => {
 	stack = [['', null]];
-	links = [[]];
+	links = [[], []];
 });
 
 describe('parseInline', () => {
@@ -181,15 +181,17 @@ describe('parseInline', () => {
 		it('relative', () => {
 			const actual = parseInline('[Label](/path)', stack, links);
 			expect(actual).toEqual('');
+			expect(links).toEqual([[], [['a', { href: '/path' }, 'Label']]]);
 
 			expect(stack).toEqual([['', null,
-				['a', { href: '/path' }, 'Label']
+				['a', { href: '/path' }, 'Label'],
 			]]);
 		});
 
 		it('image', () => {
 			const actual = parseInline('![Label](/path)', stack, links);
 			expect(actual).toEqual('');
+			expect(links).toEqual([[], []]);
 
 			expect(stack).toEqual([['', null,
 				['img', { href: '/path' }, 'Label']
@@ -199,6 +201,7 @@ describe('parseInline', () => {
 		it('absolute', () => {
 			const actual = parseInline('[Label](http://www.domain.com/path)', stack, links);
 			expect(actual).toEqual('');
+			expect(links).toEqual([[], [['a', { href: 'http://www.domain.com/path' }, 'Label']]]);
 
 			expect(stack).toEqual([['', null,
 				['a', { href: 'http://www.domain.com/path' }, 'Label']
@@ -209,6 +212,7 @@ describe('parseInline', () => {
 			links[0] = ['site', 'category', 'other'];
 			const actual = parseInline('[Label](./path)', stack, links);
 			expect(actual).toEqual('');
+			expect(links).toEqual([['site', 'category', 'other'], [['a', { href: '/site/category/path' }, 'Label']]]);
 
 			expect(stack).toEqual([['', null,
 				['a', { href: '/site/category/path' }, 'Label']
@@ -219,6 +223,7 @@ describe('parseInline', () => {
 			links[0] = ['site', 'category', 'other'];
 			const actual = parseInline('[Label](../path)', stack, links);
 			expect(actual).toEqual('');
+			expect(links).toEqual([['site', 'category', 'other'], [['a', { href: '/site/path' }, 'Label']]]);
 
 			expect(stack).toEqual([['', null,
 				['a', { href: '/site/path' }, 'Label']
@@ -228,6 +233,7 @@ describe('parseInline', () => {
 		it('title double quotes', () => {
 			const actual = parseInline('[Label](/path "Title")', stack, links);
 			expect(actual).toEqual('');
+			expect(links).toEqual([[], [['a', { href: '/path', title: 'Title' }, 'Label']]]);
 
 			expect(stack).toEqual([['', null,
 				['a', { href: '/path', title: 'Title' }, 'Label']
@@ -237,6 +243,7 @@ describe('parseInline', () => {
 		it('title single quotes', () => {
 			const actual = parseInline('[Label](/path \'Title\')', stack, links);
 			expect(actual).toEqual('');
+			expect(links).toEqual([[], [['a', { href: '/path', title: 'Title' }, 'Label']]]);
 
 			expect(stack).toEqual([['', null,
 				['a', { href: '/path', title: 'Title' }, 'Label']
@@ -249,7 +256,7 @@ describe('parseInline', () => {
 			const node = ['a', 'key', 'Label'];
 			expect(actual).toEqual('');
 			expect(stack).toEqual([['', null, node]]);
-			expect(links).toEqual([['site'], node]);
+			expect(links).toEqual([['site'], [['a', 'key', 'Label']], node]);
 		});
 	});
 
@@ -309,7 +316,7 @@ describe('parse', () => {
 	it('paragraph', () => {
 		const actual = parse('Paragraph');
 
-		expect(actual).toEqual(['', null,
+		expect(actual).toEqual(['', { '': [] },
 			['p', null, ' Paragraph '],
 		]);
 	});
@@ -317,7 +324,7 @@ describe('parse', () => {
 	it('paragraph with wrapped', () => {
 		const actual = parse('Paragraph\nAdjacent');
 
-		expect(actual).toEqual(['', null,
+		expect(actual).toEqual(['', { '': [] },
 			['p', null, ' Paragraph ', ' Adjacent '],
 		]);
 	});
@@ -325,7 +332,7 @@ describe('parse', () => {
 	it('paragraph with br', () => {
 		const actual = parse('Paragraph  \nAdjacent');
 
-		expect(actual).toEqual(['', null,
+		expect(actual).toEqual(['', { '': [] },
 			['p', null, ' Paragraph ', ['br'], ' Adjacent '],
 		]);
 	});
@@ -333,7 +340,7 @@ describe('parse', () => {
 	it('paragraph separate', () => {
 		const actual = parse('Paragraph\n\nAdjacent');
 
-		expect(actual).toEqual(['', null,
+		expect(actual).toEqual(['', { '': [] },
 			['p', null, ' Paragraph '],
 			['p', null, ' Adjacent '],
 		]);
@@ -342,7 +349,11 @@ describe('parse', () => {
 	it('between text lines', () => {
 		const actual = parse('Item\n[Label](/path)\nAdjacent');
 
-		expect(actual).toEqual(['', null,
+		expect(actual).toEqual(['', {
+			'': [
+				['a', { href: '/path' }, 'Label'],
+			],
+		},
 			['p', null,
 				' Item ',
 				['a', { href: '/path' }, 'Label'],
@@ -354,7 +365,7 @@ describe('parse', () => {
 	it('hash tag', () => {
 		const actual = parse('#lmno');
 
-		expect(actual).toEqual(['', null,
+		expect(actual).toEqual(['', { '': [] },
 			['p', null, ' #lmno '],
 		]);
 	});
@@ -362,16 +373,8 @@ describe('parse', () => {
 	it('horizontal rule', () => {
 		const actual = parse('---');
 
-		expect(actual).toEqual(['', null,
+		expect(actual).toEqual(['', { '': [] },
 			['hr', null],
-		]);
-	});
-
-	it('wrapper tag', () => {
-		const actual = parse('Paragraph', '/', {}, 'main');
-
-		expect(actual).toEqual(['main', null,
-			['p', null, ' Paragraph '],
 		]);
 	});
 
@@ -379,7 +382,7 @@ describe('parse', () => {
 		it('heading primary', () => {
 			const actual = parse('Heading\n===');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				[1, null, ' Heading '],
 			]);
 		});
@@ -387,7 +390,7 @@ describe('parse', () => {
 		it('heading secondary', () => {
 			const actual = parse('Heading\n---');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				[2, null, ' Heading '],
 			]);
 		});
@@ -395,7 +398,7 @@ describe('parse', () => {
 		it('one hash', () => {
 			const actual = parse('# Heading');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				[1, null, 'Heading'],
 			]);
 		});
@@ -403,7 +406,7 @@ describe('parse', () => {
 		it('six hashes', () => {
 			const actual = parse('###### Heading');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				[6, null, 'Heading'],
 			]);
 		});
@@ -411,7 +414,7 @@ describe('parse', () => {
 		it('with link', () => {
 			const actual = parse('# Heading {#lmno}');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [], lmno: [] },
 				[1, { id: 'lmno' },
 					['a', { href: '#lmno' }, 'Heading'],
 				],
@@ -421,8 +424,35 @@ describe('parse', () => {
 		it('extra hashes', () => {
 			const actual = parse('####### Heading');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['p', null, ' ####### Heading '],
+			]);
+		});
+		
+		it('collects links', () => {
+			const actual = parse(`
+[Abc](/abc)
+# Heading {#lmno}
+[Xyz](/xyz)
+			`);
+
+			expect(actual).toEqual(['', {
+				'': [
+					['a', { href: '/abc' }, 'Abc'],
+				],
+				lmno: [
+					['a', { href: '/xyz' }, 'Xyz'],
+				],
+			},
+				['p', null,
+					['a', { href: '/abc' }, 'Abc'],
+				],
+				[1, { id: 'lmno' },
+					['a', { href: '#lmno' }, 'Heading'],
+				],
+				['p', null,
+					['a', { href: '/xyz' }, 'Xyz'],
+				],
 			]);
 		});
 	});
@@ -431,7 +461,7 @@ describe('parse', () => {
 		it('tab indentation', () => {
 			const actual = parse('\tabc');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['pre', null,
 					['code', null, 'abc'],
 				],
@@ -441,7 +471,7 @@ describe('parse', () => {
 		it('space indentation', () => {
 			const actual = parse('    abc');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['pre', null,
 					['code', null, 'abc'],
 				],
@@ -451,7 +481,7 @@ describe('parse', () => {
 		it('indentation space overage', () => {
 			const actual = parse('\t  abc');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['pre', null,
 					['code', null, '  abc'],
 				],
@@ -461,7 +491,7 @@ describe('parse', () => {
 		it('indentation tab overage', () => {
 			const actual = parse('\t\tabc');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['pre', null,
 					['code', null, '    abc'],
 				],
@@ -471,7 +501,7 @@ describe('parse', () => {
 		it('multiple lines', () => {
 			const actual = parse('\tabc\n\txyz');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['pre', null,
 					['code', null, 'abc\nxyz'],
 				],
@@ -481,7 +511,7 @@ describe('parse', () => {
 		it('several newlines', () => {
 			const actual = parse('\tabc\n\n\n\txyz');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['pre', null,
 					['code', null, 'abc\n\n\nxyz'],
 				],
@@ -491,7 +521,7 @@ describe('parse', () => {
 		it('tick wrapped', () => {
 			const actual = parse('```\nabc\n```');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['pre', null,
 					['code', null, 'abc'],
 				],
@@ -501,7 +531,7 @@ describe('parse', () => {
 		it('tick space overage', () => {
 			const actual = parse('```\n  abc\n```');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['pre', null,
 					['code', null, '  abc'],
 				],
@@ -511,7 +541,7 @@ describe('parse', () => {
 		it('tick tab overage', () => {
 			const actual = parse('```\n\tabc\n```');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['pre', null,
 					['code', null, '    abc'],
 				],
@@ -521,7 +551,7 @@ describe('parse', () => {
 		it('nested ticks', () => {
 			const actual = parse('````\n```\nabc\n```\n````');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['pre', null,
 					['code', null, '```\nabc\n```'],
 				],
@@ -533,7 +563,7 @@ describe('parse', () => {
 				'': code => ['div', null, code],
 			});
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['div', null, 'abc'],
 			]);
 		});
@@ -545,7 +575,7 @@ describe('parse', () => {
 				},
 			});
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['pre', null,
 					['code', null, 'ABC'],
 				],
@@ -555,7 +585,7 @@ describe('parse', () => {
 		it('interrupts nesting', () => {
 			const actual = parse('    - abc\n      - xyz');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['pre', null,
 					['code', null, '- abc\n  - xyz'],
 				],
@@ -567,7 +597,7 @@ describe('parse', () => {
 		it('unordered', () => {
 			const actual = parse('- Item');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['ul', null,
 					['li', null, ' Item '],
 				],
@@ -577,7 +607,7 @@ describe('parse', () => {
 		it('multiple items', () => {
 			const actual = parse('- Item\n- Adjacent');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['ul', null,
 					['li', null, ' Item '],
 					['li', null, ' Adjacent '],
@@ -588,7 +618,7 @@ describe('parse', () => {
 		it('empty item', () => {
 			const actual = parse('-');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['ul', null,
 					['li', null],
 				],
@@ -598,7 +628,7 @@ describe('parse', () => {
 		it('nested inline', () => {
 			const actual = parse('- - Item');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['ul', null,
 					['li', null,
 						['ul', null,
@@ -612,7 +642,7 @@ describe('parse', () => {
 		it('nested ordered inline', () => {
 			const actual = parse('2. - Item');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['ol', { start: '2' },
 					['li', null,
 						['ul', null,
@@ -626,7 +656,7 @@ describe('parse', () => {
 		it('spaced items', () => {
 			const actual = parse('- Item\n\n- Adjacent');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['ul', null,
 					['li', null,
 						['p', null, ' Item '],
@@ -644,7 +674,7 @@ describe('parse', () => {
   Adjacent
 			`);
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['ul', null,
 					['li', null,
 						' Item ', ' Adjacent ',
@@ -659,7 +689,7 @@ describe('parse', () => {
   Adjacent
 			`);
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['ul', null,
 					['li', null,
 						' Item ',
@@ -677,7 +707,7 @@ describe('parse', () => {
   Adjacent
 			`);
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['ul', null,
 					['li', null,
 						['p', null, ' Item '],
@@ -695,7 +725,7 @@ describe('parse', () => {
 - Sibling
 			`);
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['ul', null,
 					['li', null,
 						['p', null, ' Item '],
@@ -711,7 +741,7 @@ describe('parse', () => {
 		it('separated', () => {
 			const actual = parse('- Item\n\n\n- Adjacent');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['ul', null,
 					['li', null, ' Item '],
 				],
@@ -730,7 +760,7 @@ lmno
 - xyz
 			`);
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['ul', null,
 					['li', null, ' abc '],
 				],
@@ -744,7 +774,7 @@ lmno
 		it('ordered', () => {
 			const actual = parse('1. Item\n2. Adjacent');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['ol', null,
 					['li', null, ' Item '],
 					['li', null, ' Adjacent '],
@@ -755,7 +785,7 @@ lmno
 		it('offset start', () => {
 			const actual = parse('2. Item\n3. Adjacent');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['ol', { start: '2' },
 					['li', null, ' Item '],
 					['li', null, ' Adjacent '],
@@ -766,7 +796,7 @@ lmno
 		it('mixed', () => {
 			const actual = parse('- Item\n\n1. Adjacent');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['ul', null,
 					['li', null, ' Item '],
 				],
@@ -779,7 +809,7 @@ lmno
 		it('nested', () => {
 			const actual = parse('- Item\n  - Child');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['ul', null,
 					['li', null,
 						' Item ',
@@ -798,7 +828,7 @@ lmno
   - Subitem
 			`);
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['ul', null,
 					['li', null,
 						['p', null, ' Item '],
@@ -813,7 +843,7 @@ lmno
 		it('definition list', () => {
 			const actual = parse('Item\n: Child');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['dl', null,
 					['dt', null, ' Item '],
 					['dd', null, ' Child '],
@@ -824,7 +854,7 @@ lmno
 		it('definition multiple', () => {
 			const actual = parse('Item\n: Child\n: Adjacent');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['dl', null,
 					['dt', null, ' Item '],
 					['dd', null, ' Child '],
@@ -836,7 +866,7 @@ lmno
 		it('definition spaced', () => {
 			const actual = parse('Item\n\n: Child\n\n: Adjacent');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['dl', null,
 					['dt', null, ' Item '],
 					['dd', null,
@@ -852,7 +882,7 @@ lmno
 		it('definition without term', () => {
 			const actual = parse(': Child');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['dl', null,
 					['dd', null, ' Child '],
 				],
@@ -862,7 +892,7 @@ lmno
 		it('definition with line break term', () => {
 			const actual = parse('Item  \nAdjacent\n: Child');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['dl', null,
 					['dt', null, ' Item ', ['br'], ' Adjacent '],
 					['dd', null, ' Child '],
@@ -875,7 +905,7 @@ lmno
 - # abc
 			`);
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['ul', null,
 					['li', null,
 						[1, null, 'abc'],
@@ -890,7 +920,7 @@ lmno
   ===
 			`);
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['ul', null,
 					['li', null,
 						[1, null, ' abc '],
@@ -904,7 +934,7 @@ lmno
 - ---
 			`);
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['ul', null,
 					['li', null,
 						['hr', null],
@@ -920,7 +950,7 @@ lmno
   | 123 |
 			`);
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['ul', null,
 					['li', null,
 						['table', null,
@@ -946,7 +976,7 @@ lmno
       xyz
 			`);
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['ul', null,
 					['li', null,
 						['pre', null,
@@ -964,7 +994,7 @@ lmno
   \`\`\`
 			`);
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['ul', null,
 					['li', null,
 						['pre', null,
@@ -980,7 +1010,7 @@ lmno
 		it('single line', () => {
 			const actual = parse('> Item');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['blockquote', null,
 					['p', null, ' Item '],
 				],
@@ -990,7 +1020,7 @@ lmno
 		it('wrapped lines', () => {
 			const actual = parse('> Item\n> Adjacent');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['blockquote', null,
 					['p', null, ' Item ', ' Adjacent '],
 				],
@@ -1000,7 +1030,7 @@ lmno
 		it('multiple lines', () => {
 			const actual = parse('> Item  \n> Adjacent');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['blockquote', null,
 					['p', null, ' Item ', ['br'], ' Adjacent '],
 				],
@@ -1010,7 +1040,7 @@ lmno
 		it('separate blocks', () => {
 			const actual = parse('> Item\n\n> Adjacent');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['blockquote', null,
 					['p', null, ' Item '],
 				],
@@ -1025,7 +1055,7 @@ lmno
 		it('cell', () => {
 			const actual = parse('|Item|');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['table', null,
 					['tbody', null,
 						['tr', null,
@@ -1039,7 +1069,7 @@ lmno
 		it('grid', () => {
 			const actual = parse('|1|2|3|\n|A|B|C|');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['table', null,
 					['tbody', null,
 						['tr', null,
@@ -1060,7 +1090,7 @@ lmno
 		it('with alignment', () => {
 			const actual = parse('|---|:-:|--:|\n|1|2|3|\n|A|B|C|');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['table', null,
 					['tbody', null,
 						['tr', null,
@@ -1081,7 +1111,7 @@ lmno
 		it('with header', () => {
 			const actual = parse('|L|C|R|\n|---|:-:|--:|\n|1|2|3|\n|A|B|C|');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['table', null,
 					['thead', null,
 						['tr', null,
@@ -1109,7 +1139,7 @@ lmno
 		it('with multple alignments', () => {
 			const actual = parse('|---|:-:|--:|\n|1|2|3|\n|:-:|--:|---|\n|A|B|C|');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['table', null,
 					['tbody', null,
 						['tr', null,
@@ -1130,7 +1160,7 @@ lmno
 		it('includes spoiler', () => {
 			const actual = parse('| ||Item|| |');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['table', null,
 					['tbody', null,
 						['tr', null,
@@ -1149,7 +1179,7 @@ lmno
 		it('spoiler before cell', () => {
 			const actual = parse('||Item||');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['p', null,
 					['span', {
 						style: { color: 'transparent' },
@@ -1164,7 +1194,7 @@ lmno
 		it('unchecked', () => {
 			const actual = parse('- [ ] Item');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['ul', null,
 					['li', null,
 						['input', { type: 'checkbox', checked: false, id: 0 }],
@@ -1177,7 +1207,7 @@ lmno
 		it('checked', () => {
 			const actual = parse('- [x] Item');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['ul', null,
 					['li', null,
 						['input', { type: 'checkbox', checked: true, id: 0 }],
@@ -1190,7 +1220,7 @@ lmno
 		it('spaced list', () => {
 			const actual = parse('- [ ] Item\n\n- [x] Adjacent');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['ul', null,
 					['li', null,
 						['p', null,
@@ -1213,7 +1243,11 @@ lmno
 		it('upper definition', () => {
 			const actual = parse('[key]: /path\n[Item][key]');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', {
+				'': [
+					['a', { href: '/path' }, 'Item'],
+				],
+			},
 				['p', null,
 					['a', { href: '/path' }, 'Item'],
 				],
@@ -1223,7 +1257,11 @@ lmno
 		it('upper definition', () => {
 			const actual = parse('[Item][key]\n[key]: /path');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', {
+				'': [
+					['a', { href: '/path' }, 'Item'],
+				],
+			},
 				['p', null,
 					['a', { href: '/path' }, 'Item'],
 				],
@@ -1240,7 +1278,7 @@ lmno
 - Adjacent
 			`);
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['ul', null,
 					['li', null, ' Item '],
 				],
@@ -1265,7 +1303,7 @@ Lmno
 Xyz
 			`, '/path#');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				[1, null,
 					['a', { href: '/path#' }, 'Heading'],
 				],
@@ -1286,7 +1324,7 @@ Lmno
 Xyz
 			`, '/path#main#');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [], main: [] },
 				['p', null, ' Summary '],
 				[1, null,
 					['a', { href: '/path#main' }, 'Heading'],
@@ -1308,7 +1346,7 @@ Lmno
 Xyz
 			`, '/path#lmno');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { lmno: [] },
 				[2, null,
 					['a', { href: '/path#lmno' }, 'Lmno'],
 				],
@@ -1329,7 +1367,7 @@ Lmno
 Xyz
 			`, '/path#lmno#');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [], lmno: [] },
 				['p', null, ' Summary '],
 				[2, null,
 					['a', { href: '/path#lmno' }, 'Lmno'],
@@ -1351,7 +1389,7 @@ Lmno
 Xyz
 			`, '/path#abc#xyz');
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { abc: [], xyz: [] },
 				[2, null,
 					['a', { href: '/path#abc' }, 'Abc'],
 				],
@@ -1370,7 +1408,7 @@ Xyz
 abc <span>lmno</span> xyz
 			`);
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['p', null,
 					' abc ',
 					['span', null, 'lmno'],
@@ -1386,7 +1424,7 @@ lmno
 </span> xyz
 			`);
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['p', null,
 					' abc ',
 					['span', null, ' lmno '],
@@ -1403,7 +1441,7 @@ no
 </span> xyz
 			`);
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['p', null,
 					' abc ',
 					['span', null, ' lm ', ' no '],
@@ -1419,7 +1457,7 @@ lmno
 </div> xyz
 			`);
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				' abc ',
 				['div', null, ' lmno '],
 				' xyz ',
@@ -1432,7 +1470,7 @@ abc <span>lm</span>
 <span>no</span> xyz
 			`);
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['p', null,
 					' abc ',
 					['span', null, 'lm'],
@@ -1451,7 +1489,7 @@ abc <span>
 </span> xyz
 			`);
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['p', null,
 					' abc ',
 					['span', null,
@@ -1471,7 +1509,7 @@ abc <span>
 > </span> xyz
 			`);
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['blockquote', null,
 					['p', null,
 						' abc ',
@@ -1489,7 +1527,7 @@ abc <span>
 > </div> xyz
 			`);
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['blockquote', null,
 					' abc ',
 					['div', null, ' lmno '],
@@ -1505,7 +1543,7 @@ abc <span>
 </span> xyz
 			`);
 
-			expect(actual).toEqual(['', null,
+			expect(actual).toEqual(['', { '': [] },
 				['p', null,
 					' abc ',
 					['span', null, ' - lmno '],

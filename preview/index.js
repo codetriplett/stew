@@ -161,11 +161,11 @@ function App () {
 
 	const columns = paths.map(path => {
 		const markdown = stew(fetchText, [`${path}.md`], undefined);
-		return stew(markdown, [path, { smile: '🙂' }, 'main']);
+		return stew(markdown, [path, { smile: '🙂' }]);
 	});
 
 	// TODO: merge columns in Composite component
-	const content = columns.length < 2 ? columns[0] : ['main', {
+	const content = columns.length < 2 ? ['main', null, ...columns] : ['main', {
 		style: { display: 'flex' },
 	},
 		...columns.map(column => ['div', { style: { flex: '0 1 0' } }, ...column.slice(2)]),
