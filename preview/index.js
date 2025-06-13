@@ -161,7 +161,7 @@ function App () {
 
 	const columns = paths.map(path => {
 		const markdown = stew(fetchText, [`${path}.md`], undefined);
-		return stew(markdown, [path, {}, 'main']);
+		return stew(markdown, [path, { smile: '🙂' }, 'main']);
 	});
 
 	// TODO: merge columns in Composite component

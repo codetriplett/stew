@@ -167,7 +167,13 @@ export function parseInline (string, stack, links, customizations) {
 
 function parseNesting (string, stack, containers, oldlines) {
 	const nodes = [];
-	const symbols = string.match(/(\s+|(?:>|\S+)\s{0,4})+?/g) || [];
+	let extra = 0;
+
+	const symbols = string.replace(/\t/g, (m, index) => {
+		const width = 4 - ((index + extra) % 4);
+		extra += width - 1;
+		return ' '.repeat(width);
+	}).match(/((?:\s+|>|\S+(?:\s{0,4}(?!\s)|\s)))+?/g) || [];
 
 	if (oldlines > 1 && stack[0][0] !== 'code' || oldlines > 0 && !symbols.length) {
 		stack.splice(0, stack.length - 1);
@@ -175,20 +181,19 @@ function parseNesting (string, stack, containers, oldlines) {
 
 	let depth = stack.length - 2;
 	let indentation = 0;
-	let props;
+	let props, padding;
 
 	while (symbols.length) {
-		const symbol = symbols.shift();
+		let symbol = symbols.shift();
 		let type = 'ol';
 		let subtype = 'li';
 		let extra = 0;
 		symbol.replaceAll('\t', (m, index) => extra += 3 - ((index + extra) % 4));
-		indentation += symbol.length + extra;
+		indentation += symbol.length;
 
 		switch (symbol[0]) {
-			case '>': {
-				type = 'blockquote';
-				subtype = undefined;
+			case '-': case '+': case '*': {
+				type = 'ul';
 				break;
 			}
 			case ':': {
@@ -196,26 +201,28 @@ function parseNesting (string, stack, containers, oldlines) {
 				subtype = 'dd';
 				break;
 			}
-			case '-': case '+': case '*': {
-				type = 'ul';
+			case '>': {
+				type = 'blockquote';
+				subtype = undefined;
+				indentation = 0;
 				break;
 			}
-			case ' ': case '\t': {
-				if (indentation === symbol.length + extra) {
+			case ' ': {
+				if (indentation === symbol.length) {
 					depth = stack.findIndex(entry => indentation >= entry[1].indentation) - 1;
 					const overage = indentation - stack[depth + 1][1].indentation;
 
-					if (overage > 3) {
-						const remainder = symbols.splice(0);
-						symbols.push(`${' '.repeat(overage - 3)}${remainder.join('')}`);
+					if (overage < 4) {
+						continue;
 					}
 
-					continue;
+					symbol = symbol.slice(indentation - overage);
 				}
 
 				type = 'pre';
 				subtype = 'code';
-				indentation += 4;
+				indentation = undefined;
+				padding = `${symbol.slice(4)}${symbols.splice(0).join('')}`;
 				oldlines = 0;
 				break;
 			}
@@ -228,7 +235,7 @@ function parseNesting (string, stack, containers, oldlines) {
 		if ((type !== wrapper?.[0] || oldlines > 1) && (type !== container?.[0] || oldlines > 0)) {
 			const start = symbol.trim().slice(0, -1);
 			wrapper = subtype && [type, start && start !== '1' ? { start } : null];
-			props = { spaced: !subtype, remainder: symbol.length - 1, wrapper };
+			props = { spaced: !subtype, wrapper };
 			const node = [subtype || type, props];
 			containers.add(node);
 			nodes.unshift(node);
@@ -249,6 +256,7 @@ function parseNesting (string, stack, containers, oldlines) {
 		}
 
 		props.indentation = indentation;
+		props.padding = padding;
 		stack.splice(0, depth);
 		depth = -1;
 	}
@@ -346,8 +354,8 @@ export default function parse (content, rootPath = '', customizations = {}, tagN
 		newlines = string && !table && whitespace.length < 2 ? -1 : 0;
 		
 		if (node[0] === 'code') {
-			const { remainder } = node[1];
-			string = line.slice(symbols.length - remainder);
+			const { padding = '' } = node[1];
+			string = `${padding}${line.slice(symbols.length)}`;
 
 			if (ticks && string.match(/^ {0,3}(`+)\s*$/)?.[1]?.length >= ticks) {
 				ticks = 0;

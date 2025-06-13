@@ -448,12 +448,22 @@ describe('parse', () => {
 			]);
 		});
 
-		it('indentation overage', () => {
+		it('indentation space overage', () => {
 			const actual = parse('\t  abc');
 
 			expect(actual).toEqual(['', null,
 				['pre', null,
 					['code', null, '  abc'],
+				],
+			]);
+		});
+
+		it('indentation tab overage', () => {
+			const actual = parse('\t\tabc');
+
+			expect(actual).toEqual(['', null,
+				['pre', null,
+					['code', null, '    abc'],
 				],
 			]);
 		});
@@ -484,6 +494,26 @@ describe('parse', () => {
 			expect(actual).toEqual(['', null,
 				['pre', null,
 					['code', null, 'abc'],
+				],
+			]);
+		});
+
+		it('tick space overage', () => {
+			const actual = parse('```\n  abc\n```');
+
+			expect(actual).toEqual(['', null,
+				['pre', null,
+					['code', null, '  abc'],
+				],
+			]);
+		});
+
+		it('tick tab overage', () => {
+			const actual = parse('```\n\tabc\n```');
+
+			expect(actual).toEqual(['', null,
+				['pre', null,
+					['code', null, '    abc'],
 				],
 			]);
 		});
@@ -523,25 +553,11 @@ describe('parse', () => {
 		});
 
 		it('interrupts nesting', () => {
-			const actual = parse('    - abc');
+			const actual = parse('    - abc\n      - xyz');
 
 			expect(actual).toEqual(['', null,
 				['pre', null,
-					['code', null, '- abc'],
-				],
-			]);
-		});
-
-		it('nested space indentation', () => {
-			const actual = parse('-     abc\n      xyz');
-
-			expect(actual).toEqual(['', null,
-				['ul', null,
-					['li', null,
-						['pre', null,
-							['code', null, 'abc\nxyz'],
-						],
-					],
+					['code', null, '- abc\n  - xyz'],
 				],
 			]);
 		});
@@ -549,7 +565,7 @@ describe('parse', () => {
 
 	describe('list', () => {
 		it('unordered', () => {
-			const actual = parse('-  Item');
+			const actual = parse('- Item');
 
 			expect(actual).toEqual(['', null,
 				['ul', null,
