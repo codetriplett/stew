@@ -81,7 +81,7 @@ export function parseInline (string, stack, links, customizations) {
 			node = [image ? 'img' : 'a', null, text];
 
 			if (!image) {
-				links[1].push(node);
+				links[1].splice(-1, 0, node);
 			}
 
 			if (key !== undefined) {
@@ -272,36 +272,40 @@ function parseNesting (string, stack, containers, oldlines) {
 	return nodes;
 }
 
+function getText (node) {
+	if (typeof node === 'string') {
+		return node;
+	}
+
+	return node[0] === 'br' ? ' ' : node.slice(2).map(getText).join('');
+}
+
 export default function parse (content, rootPath = '', customizations = {}) {
 	if (!content) {
 		return;
 	}
 
 	const [, trimmedPath, hash] = rootPath.match(/^\/?(.*?)\/?(?:#+(.*))?$/);
-	const scopes = new Set(hash?.split?.(/#+/) || []); // check if hash units are used, e.g. #123abc is really the #abc hash but with a variation value of 123
+	const comprehensive = rootPath.endsWith('##');
+	const scopes = new Set(!comprehensive && hash?.split?.(/#+/) || []);
 	const headingPath = scopes.size ? `/${trimmedPath}` : '';
 	const lines = content.split(/\r\n|\r|\n/);
 	const main = ['', { spaced: true, indentation: 0 }];
 	const stack = [main];
 	const tags = [main];
 	const { '': formatter } = customizations;
-	const containers = new Set(stack);
 	const rootNames = trimmedPath ? trimmedPath.split('/') : [];
-	const links = [rootNames, []];
-	const map = {};
+	const links = [rootNames, [`/${trimmedPath}`, '']];
+	const headingStack = [links[1]];
+	const map = { '': links[1] };
+	const containers = new Set(stack);
 	const references = {};
-	const staged = [];
-	let locked = scopes.size > 0 && !scopes.has('');
+	let locked = !comprehensive && (!scopes.size || !scopes.has(''));
+	let candidate = ''
 	let newlines = 1;
-	let ticks = 0;
-	let index = 0;
+	let tickCount = 0;
+	let checkboxCount = 0;
 	let alignments, reference, format;
-
-	if (!locked) {
-		const array = [];
-		map[''] = array;
-		links[1] = array;
-	}
 
 	for (let line of lines) {
 		if (!/\S/.test(line)) {
@@ -319,7 +323,7 @@ export default function parse (content, rootPath = '', customizations = {}) {
 			parseInline(` ${line.trim()} `, tags, links, customizations);
 			newlines = -1;
 			continue;
-		} else if (ticks) {
+		} else if (tickCount) {
 			line = `\t${line}`;
 		}
 
@@ -336,7 +340,6 @@ export default function parse (content, rootPath = '', customizations = {}) {
 
 		const oldlines = newlines;
 		const nodes = parseNesting(symbols, stack, containers, oldlines);
-		let allowed = false;
 		let [container] = stack;
 		stack.unshift(...nodes);
 
@@ -347,36 +350,42 @@ export default function parse (content, rootPath = '', customizations = {}) {
 				reference = { href: buildPath(rootNames, href) };
 				references[key] = reference;
 			}
-		} else if (hashes && stack.length < 2) {
-			// TODO: maybe set fallback id as heading text, but only the \w characters, and spaces replaced with -
-			locked = scopes.size && !scopes.has(id);
-		
-			if (id && !locked) {
-				const array = [];
-				map[id] = array;
-				links[1] = array;
-			}
 
-			if (scopes.size === 1 && scopes.has('') && !staged.length) {
-				allowed = true;
-				container = staged;
-			}
-		}
-
-		if (locked && !allowed) {
 			continue;
 		}
-
+		
 		const [node] = stack;
 		let previous = node[node.length - 1];
-		newlines = string && !table && whitespace.length < 2 ? -1 : 0;
-		
-		if (node[0] === 'code') {
+		newlines = string && whitespace.length < 2 ? -1 : 0;
+
+		if (hashes) {
+			const node = [hashes.length, null];
+			nodes.unshift(node);
+			string = heading;
+		} else if (underline && oldlines < 1 && (candidate || previous?.[0] === '')) {
+			const type = underline[0] === '=' ? 1 : 2;
+			hashes = '#'.repeat(type);
+
+			if (candidate) {
+				nodes.unshift([type, '']);
+				string = ` ${candidate.replace(/<br>$/, '')}`;
+			} else {
+				container = previous;
+				container[0] = type;
+			}
+		} else if (locked) {
+			if (!string || oldlines > 0) {
+				candidate = '';
+			}
+
+			candidate += `${string}${whitespace.length > 1 ? '<br>' : ' '}`;
+			continue;
+		} else if (node[0] === 'code') {
 			const { padding = '' } = node[1];
 			string = `${padding}${line.slice(symbols.length)}`;
 
-			if (ticks && string.match(/^ {0,3}(`+)\s*$/)?.[1]?.length >= ticks) {
-				ticks = 0;
+			if (tickCount && string.match(/^ {0,3}(`+)\s*$/)?.[1]?.length >= tickCount) {
+				tickCount = 0;
 				format = undefined;
 				continue;
 			} else if (!nodes.length) {
@@ -388,40 +397,21 @@ export default function parse (content, rootPath = '', customizations = {}) {
 			node[1].format = format;
 			node.push(string);
 			string = '';
-		} else if (hashes) {
-			const node = [hashes.length, null];
-			nodes.unshift(node);
-			string = heading;
-			
-			if (id) {
-				if (!scopes.size) {
-					node[1] = { id };
-				}
-
-				nodes.unshift(['a', {
-					href: encodeURI(`${headingPath}#${allowed ? '' : id}`),
-				}]);
-			}
 		} else if (underline) {
-			const type = underline[0] === '=' ? 1 : 2;
-
-			if (oldlines < 1 && previous?.[0] === '') {
-				previous[0] = type;
-				string = '';
-			} else if (type === 1) {
+			if (underline[0] === '=') {
 				string = underline;
 			} else {
 				dashes = underline;
 			}
 		} else if (/^`{3,}[^`]*$/.test(string)) {
-			ticks = string.search(/[^`]|$/);
-			format = string.slice(ticks).trim();
+			tickCount = string.search(/[^`]|$/);
+			format = string.slice(tickCount).trim();
 			string = '';
 		} else if (checkbox) {
 			const checked = checkbox.toLowerCase() === 'x';
-			const fragment = ['', null, ['input', { type: 'checkbox', checked, id: index }]];
-			nodes.unshift(['label', { for: index }], fragment);
-			index++;
+			const fragment = ['', null, ['input', { type: 'checkbox', checked, id: `c-${checkboxCount}` }]];
+			nodes.unshift(['label', { for: checkboxCount }], fragment);
+			checkboxCount++;
 		} else if (table) {
 			let remainder = `${table.slice(1)}|`;
 
@@ -469,6 +459,8 @@ export default function parse (content, rootPath = '', customizations = {}) {
 			}
 		}
 		
+		candidate = '';
+		
 		if (!table) {
 			alignments = undefined;
 
@@ -490,23 +482,66 @@ export default function parse (content, rootPath = '', customizations = {}) {
 			container = node;
 		}
 
-		if (!string) {
-			continue;
-		} else if (!containers.has(container)) {
-			parseInline(string, [container], links, customizations);
-			continue;
-		} else if (oldlines > 0 || previous?.[0] !== '') {
-			previous = ['', null];
-			container.push(previous);
-		} else if (!oldlines) {
-			previous.push(['br']);
+		if (string) {
+			if (containers.has(container)) {
+				if (oldlines > 0 || previous?.[0] !== '') {
+					previous = ['', null];
+					container.push(previous);
+				} else if (!oldlines) {
+					previous.push(['br']);
+				}
+
+				if (tags[tags.length - 1] !== previous) {
+					tags.splice(0, tags.length, previous);
+				}
+
+				parseInline(` ${string} `, tags, links, customizations);
+			} else {
+				parseInline(string, [container], links, customizations);
+			}
 		}
 
-		if (tags[tags.length - 1] !== previous) {
-			tags.splice(0, tags.length, previous);
+		if (!hashes || stack.length > 1) {
+			continue;
 		}
 
-		parseInline(` ${string} `, tags, links, customizations);
+		const [type] = container;
+		const text = getText(container).trim().replace(/^\s+$/, ' ');
+
+		if (!id) {
+			id = text.toLowerCase().replace(/[^a-z]+/g, '-').replace(/^-|-$/g, '');
+
+			if (!id || /^[a-z]-\d+$/.test(id)) {
+				id = `h-${Object.keys(map).length - 1}`;
+			}
+		}
+
+		const borrowHeading = scopes.size === 1 && scopes.has('');
+		locked = !borrowHeading && scopes.size && !scopes.has(id);
+
+		if (locked) {
+			stack[0].pop();
+			continue;
+		} else if (!scopes.size) {
+			container[1] = { id };
+		}
+		
+		container.push(['a', {
+			href: `${headingPath}#${borrowHeading ? '' : id}`,
+		}, ...container.splice(2)]);
+	
+		const array = [text, `h${type}`];
+		map[id] = array;
+		links[1] = array;
+		const index = headingStack.findIndex(array => !(array[array.length - 1][1] >= type));
+		headingStack.splice(0, index, array);
+		const section = headingStack[1];
+		section[section.length - 1] += `#${id}`;
+
+		if (borrowHeading) {
+			main.splice(2, 0, stack[0].pop());
+			break;
+		}
 	}
 
 	for (const link of links.slice(2)) {
@@ -548,6 +583,9 @@ export default function parse (content, rootPath = '', customizations = {}) {
 		}
 	}
 
-	main.splice(1, 1, map, ...staged);
+	const root = map[''];
+	map[''] = root.pop();
+	headingStack[headingStack.length - 2]?.splice?.(1, 0, ...root.slice(1));
+	main[1] = map;
 	return main;
 }
