@@ -1,7 +1,6 @@
 const { createServer } = require('http');
 const { readFile } = require('fs');
 const stew = require('./dist/stew.min.js');
-const App = require('./preview/index.js');
 
 const port = process.env.PORT || 8080;
 
@@ -38,33 +37,63 @@ function send (res, content, type = types.txt) {
 	res.end(content);
 }
 
-function convertComponent ({ name }, vars, container) {
-	console.log('======');
-	// return App[name](container);s
-}
-
 createServer(async ({ url }, res) => {
 	const regex = /^(?:\/+)?(.*?)(?:\.([^/.?#]*)|\/*)?(?:\?(.*?))?$/;
 	let [, path = '', extension] = url.match(regex);
 
 	if (!extension) {
-		const initialProps = App.generateInitialState?.() || {};
-
 		const html = [
 			'<!DOCTYPE html>',
 			'<html lang="en">',
 				'<head>',
 					'<title>StewTube</title>',
-					`<link href="/index.css" rel="stylesheet">`,
+					'<style id="styles">',
+						'h1 a:only-child,',
+						'h2 a:only-child,',
+						'h3 a:only-child,',
+						'h4 a:only-child,',
+						'h5 a:only-child,',
+						'h6 a:only-child {',
+							'position: relative;',
+							'text-decoration: none;',
+							'color: var(--paper-font-color);',
+						'}',
+						'h1 a:only-child:hover:after,',
+						'h2 a:only-child:hover:after,',
+						'h3 a:only-child:hover:after,',
+						'h4 a:only-child:hover:after,',
+						'h5 a:only-child:hover:after,',
+						'h6 a:only-child:hover:after {',
+							'content: \'#\';',
+							'position: absolute;',
+							'left: calc(100% + 5px);',
+						'}',
+						'a {',
+							'color: var(--link-font-color);',
+						'}',
+						'a:visited {',
+							'color: var(--link-visited-font-color);',
+						'}',
+						'code {',
+							'tab-size: 4;',
+						'}',
+						'span[style="color:transparent"],',
+						'span[style="color:transparent;"],',
+						'span[style="color: transparent"],',
+						'span[style="color: transparent;"] {',
+							'background: var(--paper-font-color);',
+							'user-select: none;',
+						'} ',
+					'</style>',
+					'<link href="/index.css" rel="stylesheet">',
 					'<script src="/stew.min.js"></script>',
 				'</head>',
 				'<body>',
 					stew('', {}, ['div', { id: 'app' }]),
-					`<script src="/index.js"></script>`,
+					'<script src="/index.js"></script>',
 					'<script>',
-						'const render = ({ name }, container) => App[name](container);',
-						'const context = { swap: () => swap(window.manifest) };',
-						`const swap = stew(\'#app\', { \'\': render }, [\'\', context, [App, ${JSON.stringify(initialProps)}]]);`,
+						// TODO: allow input on home page for code for object render function
+						'stew(\'#app\', {}, [App]);',
 					'</script>',
 				'</body>',
 			'</html>',
