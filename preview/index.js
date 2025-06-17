@@ -10,7 +10,7 @@ if (typeof window === 'object') {
 }
 
 const state = stew({
-	snips: ['/site/category/other#second'],
+	snips: ['/site/category/other#second', '/site/category/other#zeroth'],
 	hideMenu: false,
 	isEditing: false,
 });
@@ -29,7 +29,14 @@ try {
 
 function fetchText (path) {
 	const file = window.localStorage.getItem(path);
-	return file || fetch(path).then(res => res.text()).catch(() => '');
+
+	return file || fetch(path).then(res => {
+		if (!res.ok) {
+			throw 'Not found';
+		}
+		
+		return res.text()
+	});
 }
 
 function fetchJson (path) {
@@ -88,12 +95,12 @@ function LeftMenu ({ map }) {
 
 function Citation ({ snip }) {
 	const [path] = snip.split('#');
-	const markdown = stew(fetchText, [`${path}.md`], undefined);
-	const content = stew(markdown, [snip, emoji]);
+	const markdown = stew(fetchText, [`${path}.md`], '', ['p', null, `File not found: ${path}`]);
+	let content = typeof markdown === 'string' ? stew(markdown, [snip, emoji]) : markdown;
 
-	// TODO: render 'not found' message if fetchText returns undefined
-	// - should stew() accept 4th param for catch fallback value?
-	// - if no fourth param, use third as fallback as well as initial value
+	if (content && Object.keys(content[1] || {}).length === 1) {
+		content = ['p', null, `Section not found: ${snip}`];
+	}
 
 	return content && ['div', {
 		className: 'snip',
@@ -171,7 +178,7 @@ function Page () {
 	// TODO: create composite from all documents
 	// - merge sections across documents into rows if they share the same id (and parents share the same ids)
 	const [column = []] = paths.map(path => {
-		const markdown = stew(fetchText, [`${path}.md`], undefined);
+		const markdown = stew(fetchText, [`${path}.md`], '');
 		return stew(markdown, [path, emoji]);
 	});
 

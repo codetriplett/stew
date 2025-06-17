@@ -5,7 +5,7 @@ import parse from './markdown';
 
 export const impulses = [];
 export const effects = [];
-let prevMemos = [];
+export let prevMemos = [];
 let activeInfo;
 
 export function execute (callback, ...params) {
@@ -39,7 +39,7 @@ export function processEffects () {
 //   - pass in nothing to suspend or resume
 //   - in both cases clearing the variable that holds the suspend/resume/swap will allow it to garbage collect the tree
 export function processMemo (callback, ...rest) {
-	let [deps = [], fallback] = rest;
+	let [deps = [], intermediate, fallback] = rest;
 	const memo = prevMemos.shift() || [undefined];
 	let value = memo[1];
 	activeInfo?.push?.(memo);
@@ -55,9 +55,9 @@ export function processMemo (callback, ...rest) {
 		memo.splice(deps.length + 2);
 		return value;
 	} else if (!callback) {
-		if (fallback && !isServer) {
+		if (intermediate && !isServer) {
 			// if effect should be scheduled
-			memo[0] = fallback;
+			memo[0] = intermediate;
 			effects.push(memo);
 		}
 
@@ -73,13 +73,13 @@ export function processMemo (callback, ...rest) {
 
 	if (rest.length > 1 && value instanceof Promise) {
 		// if it is async
-		value.then(value => {
+		value.catch(() => fallback ?? intermediate).then(value => {
 			memo[1] = value;
 			schedule(new Set([impulse]));
 		});
 
 		const [impulse] = impulses;
-		value = memo.length === 1 ? fallback : memo[1];
+		value = memo.length === 1 ? intermediate : memo[1];
 	}
 
 	memo.splice(0, memo.length, undefined, value, ...deps);

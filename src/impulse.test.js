@@ -1,11 +1,13 @@
 import { track, check, text, fragment, element } from './validate';
 import stew from '.';
-import renderImpulse, { impulses, processMemo, processFollowups, useEffect } from './impulse';
+import renderImpulse, { impulses, prevMemos, processMemo, processFollowups, useEffect } from './impulse';
 
 let context, node, nodes, callback, layout, impulse, unsubscribe;
 
 beforeEach(() => {
 	jest.clearAllMocks();
+	globalThis.requestAnimationFrame = setTimeout;
+	impulses.push([() => {}, new Set()]);
 	context = {};
 	node = stew.createElement('div');
 	nodes = [node];
@@ -30,7 +32,15 @@ beforeEach(() => {
 describe('processMemo', () => {
 	it('processes markdown', () => {
 		const actual = processMemo('# lmno', []);
-		expect(actual).toEqual(['', null, [1, null, 'lmno']]);
+
+		expect(actual).toEqual(['', {
+			'': '#lmno',
+			lmno: ['lmno', 'h1'],
+		},
+			[1, { id: 'lmno' },
+				['a', { href: '#lmno' }, 'lmno'],
+			],
+		]);
 	});
 });
 
@@ -46,7 +56,7 @@ describe('renderImpulse', () => {
 		expect(nodes).toEqual([node, ref[2][2]]);
 		
 		expect(ref).toEqual([callback,
-			[expect.any(Function), new Set()],
+			[expect.any(Function), new Set(), impulses[0]],
 			['div', { '': new Set(['lmno']) },
 				{ ...element, tagName: 'DIV', lmno: 456, childNodes: [
 					{ ...text, nodeValue: 'content' },
