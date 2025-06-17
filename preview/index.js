@@ -9,11 +9,23 @@ if (typeof window === 'object') {
 	module.exports = App;
 }
 
-const state = stew({});
+const state = stew({
+	snips: ['/site/category/other#second'],
+	hideMenu: false,
+	isEditing: false,
+});
 
 const { pathname } = window.location;
+const styles = document.querySelector('#styles').textContent;
 const theme = window.localStorage.getItem('theme') || 'dark';
 document.body.className = `${theme}-theme`;
+let emoji;
+
+try {
+	emoji = JSON.parse(window.localStorage.getItem('emoji') || '{}');
+} catch (err) {
+	emoji = {};
+}
 
 function fetchText (path) {
 	const file = window.localStorage.getItem(path);
@@ -70,38 +82,52 @@ function LeftMenu ({ map }) {
 	if (children.length === 1) {
 		hash = sections[children[0]].slice(-1)[0]
 	}
-console.log(hash);
-	return LeftMenuList(sections, hash)
+
+	return ['div', { className: 'nav' }, LeftMenuList(sections, hash)];
+}
+
+function Citation ({ snip }) {
+	const [path] = snip.split('#');
+	const markdown = stew(fetchText, [`${path}.md`], undefined);
+	const content = stew(markdown, [snip, emoji]);
+
+	// TODO: render 'not found' message if fetchText returns undefined
+	// - should stew() accept 4th param for catch fallback value?
+	// - if no fourth param, use third as fallback as well as initial value
+
+	return content && ['div', {
+		className: 'snip',
+	},
+		['button', {
+			className: 'close',
+			onclick: () => {
+				const { snips } = state;
+				const index = snips.indexOf(snip);
+				snips.splice(index, 1);
+				state.snips = [...snips];
+				// storeSession();
+			},
+		}, '✕'],
+		content,
+	];
 }
 
 function RightMenu () {
-	return ['div', null, 'Right Menu'];
+	const { snips } = state;
+	const content = snips.map(snip => [Citation, { '': snip, snip }]);
+	return content.length && ['div', { className: 'snips' }, ...content];
 }
 
 function Block ({ names, data, resources }, content) {
 	const path = names.join('/');
 
 	if (resources) {
-		// TODO: change this to [Component, schema, ...resources]
-		// - resources should already have them converted to stew arrays (link, style, script)
-		// - the rest of module will be used for named exports
-		const [Component,, styles, ...urls] = stew(fetchCode, [`/${path}.mjs`], {}).default || [];
-		const cssUrls = urls.filter(url => url.endsWith('.css'));
-		const jsUrls = urls.filter(url => /\.m?js$/.test(url));
+		// TODO: create function to convert MD to MJS on save
+		// - convert styles to ['style', ...] and put as first resource node
+		// - convert resource css and js to ['link', ...] and ['script', ...] for the rest
+		const [Component,, ...blockResources] = stew(fetchCode, [`/${path}.mjs`], {}).default || [];
 		content = Component && data ? Component(data, content) : undefined;
-
-		// TODO: remove these, since css and js will already have them saved in this format
-		for (const src of jsUrls.reverse()) {
-			resources.unshift(['script', { type: 'module', src }]);
-		}
-
-		for (const href of cssUrls.reverse()) {
-			resources.unshift(['link', { rel: 'stylesheet', href }]);
-		}
-
-		if (styles) {
-			resources.unshift(['style', null, styles]);
-		}
+		resources.unshift(...blockResources);
 	} else {
 		resources = [];
 	}
@@ -116,6 +142,9 @@ function Block ({ names, data, resources }, content) {
 }
 
 function Page () {
+	const { hideMenu, isEditing } = state;
+	const formRef = [];
+
 	const [names, ...paths] = stew(() => {
 		const { pathname } = window.location;
 		const names = [];
@@ -139,123 +168,57 @@ function Page () {
 		})];
 	}, []);
 
-	const styles = stew(() => {
-		return document.querySelector('#styles').textContent;
-	}, []);
-	
-	// TODO: read and parse customizations object from localStage as an onmount memo for use in markdown call
-
-	const columns = paths.map(path => {
-		// TODO: include a revision number in deps to ensure new files are used once saved
-		// - this param won't be used by the function, so it should be fine
+	// TODO: create composite from all documents
+	// - merge sections across documents into rows if they share the same id (and parents share the same ids)
+	const [column = []] = paths.map(path => {
 		const markdown = stew(fetchText, [`${path}.md`], undefined);
-		return stew(markdown, [path, {}]);
+		return stew(markdown, [path, emoji]);
 	});
 
-	// TODO: clean up old map and manifest code
-	// - no longer need to maintain a map
-	// - ranges aren't needed, since markdown will render to the hash sections you give it
-	// - references aren't needed, since markdown will include the citations per section
-	// - this should clean up quite a bit of code and complexity
-	// console.log('======= link map', columns[0][1]);
+	const content = ['main', null, ...column.slice(2)];
+	const map = column[1];
 
-	const content = columns.length < 2 ? ['main', null, columns[0]] : ['main', {
-		style: { display: 'flex' },
-	},
-		...columns.map(column => ['div', { style: { flex: '0 1 0' } }, ...column.slice(2)]),
-	];
-
-	const { hash, draftData, draft, snips, isLeftNavExpanded = true, isEditing, isChanged } = state;
-	const hashPath = `${pathname}${hash}`;
-	const formRef = [];
-
-	// const manifest = stew(() => {
-	// 	const manifest = {};
-	// 	getCitations(pathname, manifest);
-	// 	return manifest;
-	// 	// getMentions(pathname, citations);
-	// }, [content, hash]);
-
-	// const leftButtonClassName = `expand-left ${!isLeftNavExpanded ? 'toggle-off' : ''}`;
-	const leftButtonClassName = 'expand-left';
+	// TODO: have content be a textarea with the markdown file as value while in editing mode
+	// - set formRef on textarea
+	// - see how stew code would look with '' serving as ref if array is passed [id, ...refs]
 
 	return ['', {},
-		// TODO: toggle between left nav and editing mode
-		isEditing
-			? [Editor, { formRef, draftData, file }]
-			: isLeftNavExpanded && [LeftMenu, { map: columns[0]?.[1] }],
+		!hideMenu && [LeftMenu, { map }],
 		['div', {
 			className: 'main',
 		},
-			// TODO: don't show left nav or edit button if showing a composite of two files
-			!isEditing
-				? ['button', {
-					className: leftButtonClassName,
+			isEditing
+				?  ['button', {
+					className: 'expand-left',
 					onclick: () => {
-						// state.isLeftNavExpanded = !isLeftNavExpanded;
+						if (draftData !== null) {
+							updateFile(pathname, draftData, 'json');
+						}
+
+						if (draft !== null) {
+							updateFile(pathname, draft, 'md');
+						}
+
+						storeSession();
 					},
-				}, '≡']
-				: isChanged
-					? ['button', {
-						className: leftButtonClassName,
-						onclick: () => {
-							const [form, textarea] = formRef;
-							
-							if (!form.reportValidity()) {
-								return null;
-							}
-
-							Object.assign(state, {
-								draftData: processForm(form),
-								draft: textarea.value === files[pathname] ? null : textarea.value,
-								isChanged: false,
-							});
-						},
-					}, '👁']
-					// TODO: only show this if draft has been previewed and there are changes from what is currently saved
-					// - maybe show delete button if draft is '' instead of null
-					: ['button', {
-						className: leftButtonClassName,
-						onclick: () => {
-							if (draftData !== null) {
-								updateFile(pathname, draftData, 'json');
-							}
-
-							if (draft !== null) {
-								updateFile(pathname, draft, 'md');
-							}
-
-							storeSession();
-						},
-					}, '🖫'],
-			// TODO: have separate 'reset' and 'delete' button
-			!isEditing
+				}, '🖫']
+				: ['button', {
+					className: 'expand-left',
+					onclick: () => state.hideMenu = !hideMenu,
+				}, '≡'],
+			isEditing
 				? ['button', {
 					className: 'expand-right',
-					onclick: () => {
-						// state.isEditing = true;
-					},
-				}, '✎']
-				: isChanged
-					? ['button', {
-						className: 'expand-right',
-						onclick: () => {
-							Object.assign(state, {
-								draft: null,
-								isChanged: false,
-							});
-						},
-					}, '🗑︎'] // TODO: change this to cancel symbol (circle with slash)
-					: ['button', {
-						className: 'expand-right',
-						onclick: () => {
-							// state.isEditing = false;
-						},
-					}, '✕'],
+					onclick: () => state.isEditing = false,
+				}, '✕']
+				: ['button', {
+					className: 'expand-right',
+					onclick: () => state.isEditing = true,
+				}, '✎'],
 			['div', {},
 				['template', { shadowrootmode: 'open' },
 					['style', null, styles],
-					names.length > 1 ? Block({ names }, content) : content,
+					!isEditing && names.length > 1 ? Block({ names }, content) : content,
 				],
 			],
 		],

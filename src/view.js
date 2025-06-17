@@ -104,7 +104,10 @@ export default function render (layout, context, document, nodes, container, i, 
 	
 		switch (typeof tagName) {
 			case 'object': {
-				if (tagName) {
+				if (Array.isArray(tagName)) {
+					object = null;
+					children = layout;
+				} else if (tagName) {
 					// just handle portal, promise didn't really work well with multiple impulse renders
 					// - this should be all that's needed since new ref resembles an element that was already been set up, but not added to parent
 					node = tagName;

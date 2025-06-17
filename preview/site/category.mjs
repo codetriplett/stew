@@ -5,9 +5,9 @@ function Category ({ page }, ...children) {
 	];
 }
 
-export default [Category, {}, `
+export default [Category, {}, ['style', null, `
 	nav {
 		width: 240px;
 		background: lightgray;
 	}
-`];
+`]];
