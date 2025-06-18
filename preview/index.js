@@ -11,6 +11,7 @@ if (typeof window === 'object') {
 
 const state = stew({
 	snips: ['/site/category/other#second', '/site/category/other#zeroth'],
+	focusedSection: '',
 	hideMenu: false,
 	isEditing: false,
 });
@@ -62,35 +63,87 @@ function Editor () {
 	return ['div', null, 'Editor'];
 }
 
-function LeftMenuList (sections, hash) {
+function LeftMenuList (map, hash) {
 	const children = hash.split('#').slice(1);
 
-	return !children.length ? null : ['ul', null,
+	return !children.length ? null : ['ul', {
+		className: 'children',
+	},
 		...children.map(name => {
-			const [text, ...rest] = sections[name];
+			const [text, ...rest] = name && map[name] || [];
 			const hash = rest.pop();
 			
 			return ['li', null,
-				text,
-				LeftMenuList(sections, hash),
+				['button', {
+					className: 'child-button',
+					onclick: () => {
+						state.focusedSection = name;
+						window.location.hash = name;
+					},
+				}, text],
+				LeftMenuList(map, hash),
 			];
 		}),
 	];
 }
 
-function LeftMenu ({ map }) {
-	if (!map) {
+function getText (node) {
+	if (typeof node === 'string') {
+		return node;
+	}
+
+	return node[0] === 'br' ? ' ' : node.slice(2).map(getText).join('');
+}
+
+function LeftMenu ({ map, rootHash, rootName = '' }) {
+	const { hideMenu, focusedSection, snips } = state;
+
+	if (hideMenu || !map) {
 		return;
 	}
 
-	let { '': hash, ...sections } = map;
-	const children = hash.split('#').slice(1);
+	const citations = focusedSection && map[focusedSection]?.slice?.(1, -1) || [];
 
-	if (children.length === 1) {
-		hash = sections[children[0]].slice(-1)[0]
+	if (rootName) {
+		const rootCitations = map[rootName].slice(1, -1);
+		citations.push(...rootCitations);
 	}
 
-	return ['div', { className: 'nav' }, LeftMenuList(sections, hash)];
+	return ['div', { className: 'nav' },
+		LeftMenuList(map, rootHash),
+		citations.length > 0 && ['ul', {
+			className: 'citations',
+		},
+			citations.map(citation => {
+				const { href } = citation[1];
+				const text = getText(citation);
+
+				return ['li', null,
+					['button', {
+						className: 'citation-button',
+						onclick: () => {
+							const [path, ...hashes] = href.split('#');
+							let wasAdded = false;
+
+							for (const hash of hashes) {
+								const snip = `${path}#${hash}`;
+								const index = snips.indexOf(snip);
+
+								if (index === -1) {
+									snips.push(href);
+									wasAdded = true;
+								}
+							}
+
+							if (wasAdded) {
+								state.snips = [...snips];
+							}
+						},
+					}, text],
+				];
+			}),
+		],
+	];
 }
 
 function Citation ({ snip }) {
@@ -177,20 +230,38 @@ function Page () {
 
 	// TODO: create composite from all documents
 	// - merge sections across documents into rows if they share the same id (and parents share the same ids)
-	const [column = []] = paths.map(path => {
+	const [column] = paths.map(path => {
 		const markdown = stew(fetchText, [`${path}.md`], '');
 		return stew(markdown, [path, emoji]);
 	});
 
-	const content = ['main', null, ...column.slice(2)];
-	const map = column[1];
+	const content = column && ['main', null, ...column.slice(2)];
+	const map = column?.[1];
+
+	const [rootHash, rootName] = stew(() => {
+		if (!content) {
+			return [''];
+		}
+
+		const { '': hash, ...sections } = map;
+		const children = hash.split('#').slice(1);
+
+		if (children.length !== 1) {
+			return hash;
+		}
+
+		const root = sections[children[0]];
+		return [root[root.length - 1], children[0]];
+	}, [map]);
 
 	// TODO: have content be a textarea with the markdown file as value while in editing mode
 	// - set formRef on textarea
 	// - see how stew code would look with '' serving as ref if array is passed [id, ...refs]
 
+	const includeMenu = rootHash.indexOf('#') !== -1;
+
 	return ['', {},
-		!hideMenu && [LeftMenu, { map }],
+		includeMenu && [LeftMenu, { map, rootHash, rootName }],
 		['div', {
 			className: 'main',
 		},
@@ -209,9 +280,9 @@ function Page () {
 						storeSession();
 					},
 				}, '🖫']
-				: ['button', {
+				: includeMenu && ['button', {
 					className: 'expand-left',
-					onclick: () => state.hideMenu = !hideMenu,
+					onclick: () => state.hideMenu = !state.hideMenu,
 				}, '≡'],
 			isEditing
 				? ['button', {

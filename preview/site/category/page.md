@@ -2,13 +2,15 @@
 
 Page
 
+[*Other* Link](./other#other)
+
 ## First {#first}
 
 ::First::
 
 *italics **and bold***
 
-[Link](./other)
+[Link](./other#first)
 
 ## Second
 

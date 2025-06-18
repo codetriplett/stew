@@ -78,18 +78,28 @@ export function parseInline (string, stack, links, customizations) {
 			remainder = string.slice(breakpoint + 1);
 			string = remainder;
 		} else if (text !== undefined) {
-			node = [image ? 'img' : 'a', null, text];
+			node = [image ? 'img' : 'a', null];
 
 			if (!image) {
+				parseInline(text, [node], links, customizations);
 				links[1].splice(-1, 0, node);
 			}
 
 			if (key !== undefined) {
-				node[1] = (key || text).toLowerCase();
+				if (image) {
+					node.push(text);
+				}
+
+				node[1] = (key || getText(node)).toLowerCase();
 				links.push(node);
 			} else {
-				const props = { href: buildPath(links[0], href) };
+				const path = buildPath(links[0], href);
+				const props = image ? { src: path } : { href: path };
 				node[1] = props;
+
+				if (image) {
+					props.alt = text;
+				}
 
 				if (title) {
 					props.title = title.slice(1, -1);
@@ -286,8 +296,7 @@ export default function parse (content, rootPath = '', customizations = {}) {
 	}
 
 	const [, trimmedPath, hash] = rootPath.match(/^\/?(.*?)\/?(?:#+(.*))?$/);
-	const comprehensive = rootPath.endsWith('##');
-	const scopes = new Set(!comprehensive && hash?.split?.(/#+/) || []);
+	const scopes = new Set(hash?.split?.(/#+/) || []);
 	const headingPath = scopes.size ? `/${trimmedPath}` : '';
 	const lines = content.split(/\r\n|\r|\n/);
 	const main = ['', { spaced: true, indentation: 0 }];
@@ -300,7 +309,7 @@ export default function parse (content, rootPath = '', customizations = {}) {
 	const map = { '': links[1] };
 	const containers = new Set(stack);
 	const references = {};
-	let locked = !comprehensive && (!scopes.size || !scopes.has(''));
+	let locked = scopes.size && !scopes.has('');
 	let candidate = ''
 	let newlines = 1;
 	let tickCount = 0;
@@ -546,10 +555,14 @@ export default function parse (content, rootPath = '', customizations = {}) {
 
 	for (const link of links.slice(2)) {
 		const key = link[1];
-		link[1] = { ...references[key] };
+		const { href, ...attributes } = references[key];
+		link[1] = attributes;
 
-		if (link[0] === 'image') {
+		if (link[0] === 'img') {
+			attributes.src = href;
 			link[1].alt = link.pop();
+		} else {
+			attributes.href = href;
 		}
 	}
 

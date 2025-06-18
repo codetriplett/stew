@@ -147,6 +147,7 @@ body.dark-theme {
     width: 30px;
     height: 30px;
     margin: 0;
+	padding: 0;
 	border: 1px solid var(--button-border-color);
     border-radius: 50%;
     line-height: 30px;
