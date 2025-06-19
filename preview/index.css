@@ -138,6 +138,10 @@ body.dark-theme {
 	background: var(--reference-active-background);
 }
 
+.main .expand-left,
+.main .expand-right {
+	z-index: 9;
+}
 .main .save,
 .main .expand-left,
 .main .expand-right,

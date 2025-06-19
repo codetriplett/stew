@@ -201,8 +201,15 @@ function Block ({ names, data, resources }, content) {
 	return Block({ names, data, resources }, content);
 }
 
+function resizeTextarea (ref) {
+	const [, textarea] = ref;
+	textarea.style.height = '0px';
+	const { scrollHeight } = textarea;
+	textarea.style.height = `${scrollHeight}px`;
+}
+
 function Page () {
-	const { hideMenu, isEditing } = state;
+	const { isEditing } = state;
 	const formRef = [];
 
 	const [names, ...paths] = stew(() => {
@@ -230,16 +237,54 @@ function Page () {
 
 	// TODO: create composite from all documents
 	// - merge sections across documents into rows if they share the same id (and parents share the same ids)
-	const [column] = paths.map(path => {
+	const [column] = paths.map((path, i) => {
 		const markdown = stew(fetchText, [`${path}.md`], '');
-		return stew(markdown, [path, emoji]);
+
+		if (!isEditing) {
+			return stew(markdown, [path, emoji]);
+		} else if (i > 0) {
+			return;
+		}
+
+		return ['', null,
+			['form', {
+				ref: formRef,
+				className: 'edit',
+				// onkeyup: () => state.isChanged = true,
+			},
+				// FormField(schema, data),
+				['textarea', {
+					ref: formRef,
+					className: 'editor',
+					placeholder: '(empty)',
+					onkeydown: event => {
+						const { key } = event;
+
+						if (key === 'Tab') {
+							event.preventDefault();
+							const [, textarea] = formRef;
+							const { value, selectionStart, selectionEnd } = textarea;
+							textarea.value = `${value.slice(0, selectionStart)}\t${value.slice(selectionEnd)}`;
+							textarea.selectionStart = textarea.selectionEnd = selectionStart + 1;
+						}
+
+						resizeTextarea(formRef);
+						// state.isChanged = true;
+					},
+					onkeyup: () => {
+						resizeTextarea(formRef);
+						// state.isChanged = true;
+					},
+				}, markdown],
+			],
+		];
 	});
 
 	const content = column && ['main', null, ...column.slice(2)];
 	const map = column?.[1];
 
 	const [rootHash, rootName] = stew(() => {
-		if (!content) {
+		if (!map) {
 			return [''];
 		}
 
@@ -262,6 +307,7 @@ function Page () {
 
 	return ['', {},
 		includeMenu && [LeftMenu, { map, rootHash, rootName }],
+		// TODO: redo the layout so 'main' becomes 'edit' when editing
 		['div', {
 			className: 'main',
 		},
@@ -293,7 +339,7 @@ function Page () {
 					className: 'expand-right',
 					onclick: () => state.isEditing = true,
 				}, '✎'],
-			['div', {},
+			isEditing ? content : ['div', {},
 				['template', { shadowrootmode: 'open' },
 					['style', null, styles],
 					!isEditing && names.length > 1 ? Block({ names }, content) : content,
