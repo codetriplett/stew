@@ -1,5 +1,5 @@
 import { print, text, fragment, element } from './validate';
-import stew from '.';
+import stew from './stew';
 import { impulses } from './impulse';
 import render, { remove, reconcile } from './view';
 

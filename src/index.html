@@ -1,0 +1,53 @@
+<!DOCTYPE html><html lang="en"><head>
+
+<title>StewTube</title>
+
+<style id="styles">
+	h1 a:only-child,
+	h2 a:only-child,
+	h3 a:only-child,
+	h4 a:only-child,
+	h5 a:only-child,
+	h6 a:only-child {
+		position: relative;
+		text-decoration: none;
+		color: var(--paper-font-color);
+	}
+	h1 a:only-child:hover:after,
+	h2 a:only-child:hover:after,
+	h3 a:only-child:hover:after,
+	h4 a:only-child:hover:after,
+	h5 a:only-child:hover:after,
+	h6 a:only-child:hover:after {
+		content: '#';
+		position: absolute;
+		left: calc(100% + 5px);
+	}
+	a {
+		color: var(--link-font-color);
+	}
+	a:visited {
+		color: var(--link-visited-font-color);
+	}
+	code {
+		tab-size: 4;
+	}
+	span[style="color:transparent"],
+	span[style="color:transparent;"],
+	span[style="color: transparent"],
+	span[style="color: transparent;"] {
+		background: var(--paper-font-color);
+		user-select: none;
+	} 
+</style>
+
+<link href="/index.css" rel="stylesheet">
+<script src="/stew.min.js"></script>
+
+</head><body>
+
+<div id="app"></div>
+<script src="/index.min.js"></script>
+<script>stew('#app', {}, [App]);</script>
+
+</body></html>

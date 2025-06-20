@@ -1,17 +1,18 @@
-import packageJson from './package.json' assert { type: 'json' };
+import packageJson from './package.json' with { type: 'json' };
 import { build, analyzeMetafile } from 'esbuild';
+import { copy } from 'esbuild-plugin-copy';
 
 const { version } = packageJson;
 
 const config = {
-	entryPoints: ['src/index.js'],
+	entryPoints: ['src/stew.js'],
 	legalComments: 'linked',
 	banner: {
 		js: `//@triplett/stew@v${version}`,
 	},
 	bundle: true,
 	minify: true,
-	metafile: true
+	metafile: true,
 };
 
 const jsInfo = await build({
@@ -30,5 +31,34 @@ const mjsInfo = await build({
 	format: 'esm',
 });
 
+const uiInfo = await build({
+	entryPoints: ['src/index.js'],
+	outfile: 'dist/index.min.js',
+	format: 'iife',
+	globalName: 'App',
+	footer: {
+		js: 'window.App=App.default',
+	},
+	external: ['@triplett/stew'],
+	bundle: true,
+	minify: true,
+	metafile: true,
+    plugins: [
+		copy({
+			resolveFrom: 'cwd',
+			assets: {
+				from: [
+					'./src/server.js',
+					'./src/index.css',
+					'./src/index.html',
+					'./src/favicon.ico',
+				],
+				to: ['./dist'],
+			},
+		}),
+	],
+});
+
 console.log(await analyzeMetafile(jsInfo.metafile));
 console.log(await analyzeMetafile(mjsInfo.metafile));
+console.log(await analyzeMetafile(uiInfo.metafile));

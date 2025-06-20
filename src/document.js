@@ -1,4 +1,4 @@
-import stew from '.';
+import stew from './stew';
 
 // tags that shouldn't wrap content when server rendered
 export const selfClosingTags = new Set([

@@ -1,5 +1,5 @@
 import { track, check, text, fragment, element } from './validate';
-import stew from '.';
+import stew from './stew';
 import renderImpulse, { impulses, prevMemos, processMemo, processFollowups, useEffect } from './impulse';
 
 let context, node, nodes, callback, layout, impulse, unsubscribe;

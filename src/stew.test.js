@@ -1,4 +1,4 @@
-import stew, { hotSwapStep } from '.';
+import stew, { hotSwapStep } from './stew';
 import { compile } from './program';
 import { effects, processMemo } from './impulse';
 import createState, { queue } from './state';

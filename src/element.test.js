@@ -1,4 +1,4 @@
-import stew from '.';
+import stew from './stew';
 import { track, check } from './validate';
 import renderElement from './element';
 

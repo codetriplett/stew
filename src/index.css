@@ -138,13 +138,9 @@ body.dark-theme {
 	background: var(--reference-active-background);
 }
 
-.main .expand-left,
-.main .expand-right {
-	z-index: 9;
-}
 .main .save,
-.main .expand-left,
-.main .expand-right,
+.expand-left,
+.expand-right,
 .snips .close {
     position: absolute;
     top: 10px;
@@ -158,8 +154,8 @@ body.dark-theme {
 	color: var(--button-font-color);
     background: var(--button-background);
 }
-.main .expand-left:hover,
-.main .expand-right:hover,
+.expand-left:hover,
+.expand-right:hover,
 .snips .close:hover {
 	border-color: var(--button-hover-border-color);
 	color: var(--button-hover-font-color);
@@ -171,12 +167,12 @@ body.dark-theme {
     line-height: 27px;
     font-weight: bold;
 }
-.main .expand-left {
+.expand-left {
     left: 10px;
 	font-size: 26px;
 	line-height: 26px;
 }
-.main .expand-right {
+.expand-right {
     right: 10px;
 	font-size: 25px;
 	line-height: 27px;
@@ -185,6 +181,12 @@ body.dark-theme {
     right: 10px;
     font-size: 17px;
 }
+.edit textarea {
+	min-height: 186px;
+}
+
+
+
 
 
 
