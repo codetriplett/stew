@@ -1,31 +1,45 @@
 import { onsubmit, FormField } from './form';
 
+const { localStorage, location } = window;
+const { pathname } = location;
+const styles = document.querySelector('#styles').textContent;
+let settings;
+
+// try {
+// 	emoji = JSON.parse(localStorage.getItem('/') || '{}');
+// } catch (err) {
+// 	emoji = {};
+// }
+
 const state = stew({
 	snips: ['/site/category/other#second', '/site/category/other#zeroth'],
 	focusedSection: '',
 	hideMenu: false,
 	isEditing: false,
-	theme: 'dark',
+	settings: {},
 });
 
-const { pathname } = window.location;
-const styles = document.querySelector('#styles').textContent;
-const theme = window.localStorage.getItem('theme') || 'dark';
-document.body.className = `${theme}-theme`;
-let emoji;
-
-try {
-	emoji = JSON.parse(window.localStorage.getItem('emoji') || '{}');
-} catch (err) {
-	emoji = {};
+function updateSettings (updates) {
+	state.settings = { ...Object.assign(settings, updates) };
+	localStorage.setItem('/', JSON.stringify(settings));
 }
 
+window.addEventListener('pageshow', () => {
+	try {
+		settings = JSON.parse(localStorage.getItem('/') || '{}');
+	} catch (err) {
+		settings = {};
+	}
+
+	state.settings = { ...settings };
+});
+
 function fetchText (path) {
-	const file = window.localStorage.getItem(path);
+	const file = localStorage.getItem(path);
 
 	return file || fetch(path).then(res => {
 		if (!res.ok) {
-			throw 'Not found';
+			throw `Not found: ${path}`;
 		}
 		
 		return res.text()
@@ -33,22 +47,23 @@ function fetchText (path) {
 }
 
 function fetchJson (path) {
-	const file = window.localStorage.getItem(path);
-	return file ? JSON.parse(file) : fetch(path).then(res => res.json()).catch(() => null);
+	const file = localStorage.getItem(path);
+
+	return file ? JSON.parse(file) : fetch(path).then(res => {
+		if (!res.ok) {
+			throw `Not found: ${path}`;
+		}
+		
+		return res.json();
+	});
 }
 
 function fetchCode (path) {
-	const file = window.localStorage.getItem(path);
+	const file = localStorage.getItem(path);
 
-	if (file) {
-		return import(URL.createObjectURL(
-			new Blob([file], { type: 'application/javascript' })
-		));
-	}
-
-	return import(path).catch(() => {
-		console.error(`Not found: ${path}`);
-	});
+	return import(!file ? path : URL.createObjectURL(
+		new Blob([file], { type: 'application/javascript' }),
+	));
 }
 
 function LeftMenuList (map, hash) {
@@ -83,10 +98,10 @@ function getText (node) {
 	return node[0] === 'br' ? ' ' : node.slice(2).map(getText).join('');
 }
 
-function LeftMenu ({ map, rootHash, rootName = '' }) {
+function LeftMenu ({ map = {}, rootHash, rootName }, themeToggle) {
 	const { hideMenu, focusedSection, snips } = state;
 
-	if (hideMenu || !map) {
+	if (hideMenu) {
 		return;
 	}
 
@@ -131,10 +146,11 @@ function LeftMenu ({ map, rootHash, rootName = '' }) {
 				];
 			}),
 		],
+		themeToggle,
 	];
 }
 
-function Citation ({ snip }) {
+function Citation ({ snip, emoji }) {
 	const [path] = snip.split('#');
 	const markdown = stew(fetchText, [`${path}.md`], '', ['p', null, `File not found: ${path}`]);
 	let content = typeof markdown === 'string' ? stew(markdown, [snip, emoji]) : markdown;
@@ -147,7 +163,7 @@ function Citation ({ snip }) {
 		className: 'snip',
 	},
 		['button', {
-			className: 'close',
+			className: 'right-button close-button',
 			onclick: () => {
 				const { snips } = state;
 				const index = snips.indexOf(snip);
@@ -160,33 +176,51 @@ function Citation ({ snip }) {
 	];
 }
 
-function RightMenu () {
+function RightMenu ({ emoji }) {
 	const { snips } = state;
-	const content = snips.map(snip => [Citation, { '': snip, snip }]);
+	const content = snips.map(snip => [Citation, { '': snip, snip, emoji }]);
 	return content.length && ['div', { className: 'snips' }, ...content];
 }
 
-function Block ({ names, data, resources }, content) {
+function Block ({ names, data, resources, breadcrumbs }, content) {
 	const path = names.join('/');
 
 	if (resources) {
 		// TODO: create function to convert MD to MJS on save
 		// - convert styles to ['style', ...] and put as first resource node
 		// - convert resource css and js to ['link', ...] and ['script', ...] for the rest
-		const [Component,, ...blockResources] = stew(fetchCode, [`/${path}.mjs`], {}).default || [];
+		const [heading,, Component, ...blockResources] = stew(fetchCode, [`/${path}.mjs`], {}).default || [];
 		content = Component && data ? Component(data, content) : undefined;
 		resources.unshift(...blockResources);
+
+		breadcrumbs.unshift(['a', { href: `/${path}` }, heading]);
 	} else {
 		resources = [];
 	}
 
 	if (names.length < 2) {
-		return ['', null, ...resources, content];
+		return ['', null,
+			pathname !== '/' && ['ul', { className: 'breadcrumbs' }, 
+				['li', null,
+					['a', { href: '/' }, 'Home'],
+				],
+				...breadcrumbs.map(breadcrumb => {
+					return ['li', null, breadcrumb];
+				}),
+			],
+			['div', null,
+				['template', { shadowrootmode: 'open' },
+					['style', null, styles],
+					...resources,
+					content,
+				],
+			],
+		];
 	}
 
 	names = names.slice(0, -1);
 	data = stew(fetchJson, [`/${path}.json`], null);
-	return Block({ names, data, resources }, content);
+	return Block({ names, data, resources, breadcrumbs }, content);
 }
 
 function resizeTextarea (ref) {
@@ -240,25 +274,24 @@ function Editor ({ names, file }) {
 			}, file],
 		],
 		['button', {
-			className: 'expand-left',
+			className: 'left-button save-button',
 			onclick: () => {
 				const [form] = formRef;
 				const textarea = form.querySelector('textarea');
-				// TODO: store MD as '' key on props
-				// - have save function store '' to MD file, and rest to JSON
-				console.log(textarea.value);
+				localStorage.setItem(`/${names.join('/')}.md`, textarea.value);
 				// storeSession();
 			},
 		}, '🖫'],
 		['button', {
-			className: 'expand-right',
+			className: 'right-button close-button',
 			onclick: () => state.isEditing = false,
 		}, '✕'],
 	];
 }
 
-function Page () {
-	const { isEditing } = state;
+function Page ({ emoji }) {
+	const { isEditing, settings } = state;
+	const { theme } = settings;
 
 	const [names, ...paths] = stew(() => {
 		const { pathname } = window.location;
@@ -273,7 +306,7 @@ function Page () {
 			paths.unshift(names[names.length - 1]);
 		}
 
-		paths[0] = `./${paths[0]}`;
+		paths[0] = `./${paths[0] || 'index'}`;
 
 		return [names, ...paths.map(path => {
 			const [dots, ...rest] = path.split('/');
@@ -308,7 +341,7 @@ function Page () {
 		const children = hash.split('#').slice(1);
 
 		if (children.length !== 1) {
-			return hash;
+			return [hash, ''];
 		}
 
 		const root = sections[children[0]];
@@ -320,65 +353,55 @@ function Page () {
 	// - see how stew code would look with '' serving as ref if array is passed [id, ...refs]
 
 	const includeMenu = rootHash.indexOf('#') !== -1;
+	const breadcrumbs = [];
+
+	if (rootName) {
+		breadcrumbs.push(map[rootName][0]);
+	}
 
 	return ['', {},
 		includeMenu && [LeftMenu, { map, rootHash, rootName }],
 		['div', {
 			className: 'main',
 		},
-			['div', {},
-				['template', { shadowrootmode: 'open' },
-					['style', null, styles],
-					!isEditing && names.length > 1 ? Block({ names }, content) : content,
-				],
-			],
+			Block({ names, breadcrumbs }, content),
 			includeMenu && ['button', {
-				className: 'expand-left',
+				className: 'left-button menu-button',
 				onclick: () => state.hideMenu = !state.hideMenu,
 			}, '≡'],
-			['button', {
-				className: 'expand-right',
-				onclick: () => state.isEditing = true,
-			}, '✎'],
+			pathname === '/'
+				? ['button', {
+					type: 'button',
+					className: 'right-button theme-button',
+					onclick: () => {
+						updateSettings({ theme: theme === 'dark' ? 'light' : 'dark' });
+					},
+				}, theme === 'dark' ? '☼' : '☽']
+				: ['button', {
+					className: 'right-button edit-button',
+					onclick: () => state.isEditing = true,
+				}, '✎'],
 		],
-		!isEditing && [RightMenu],
-	];
-}
-
-// TODO: give overview here
-// - also show list of files that have drafts
-function HomePage () {
-	const { theme } = state;
-	console.log(theme);
-
-	stew(null, [theme], () => {
-		document.body.className = `${theme}-theme`;
-	});
-
-	return ['div', {
-		className: 'main',
-	},
-		['button', {
-			type: 'button',
-			style: {
-				position: 'absolute',
-				right: '15px',
-			},
-			onclick: () => {
-				state.theme = theme === 'dark' ? 'light' : 'dark';
-				// localStorage.setItem('settings', JSON.stringify(state.settings));
-			},
-		}, 'switch to ', theme === 'dark' ? 'light' : 'dark', ' mode'],
-		[1, {}, 'Bring Your Notes to Life'],
-		['p', {},
-			'At its core, this is a simple note-taking tool that allows you to create links between notes for easy exploration. Notes are formatted in Markdown, which is a common and straightforward format that offers great portability. This tool extends that to support blocks of code that can wrap your notes in interective elements to create websites, or even 3d graphics. Even if you have no coding experience, this tool can serve as an entry point to learn those skills, without needing to learn complex build systems.',
-		],
-		['small', {},
-			'All notes are stored locally in your browser. Everything here is a work in progress, but feel free to try it out for yourself.',
-		],
+		!isEditing && [RightMenu, { emoji }],
 	];
 }
 
 export default function App () {
-	return pathname === '/' ? HomePage : Page;
+	const { settings } = state;
+	const { theme } = settings;
+
+	const emoji = stew(fetchJson, ['/index.json'], null, {});
+	const formatter = stew(fetchCode, ['/index.mjs'], null, {});
+
+	stew(null, [theme], () => {
+		const { readonly } = flags;
+		document.body.className = `${theme}-theme ${readonly ? 'readonly' : ''}`;
+	});
+
+	if (emoji === null || formatter === null) {
+		return;
+	}
+
+	emoji[''] = formatter.default;
+	return [Page, { emoji }];
 }

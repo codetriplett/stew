@@ -1,9 +1,13 @@
 const { createServer } = require('http');
-const { readFile } = require('fs');
+const { readFile, writeFile } = require('fs');
 
-const { env, cwd, argv: [,, portParam = 8080, folderParam = '', ] } = process;
-const folder = `${cwd()}${folderParam.replace(/^(?!\\|\/|$)|\//g, '\\').replace(/(\\|\/)$/, '')}`;
-const port = env.PORT || Number(portParam);
+const { env, cwd, argv: [,, config = ''] } = process;
+const [overrides, ...flagNames] = config.split('#');
+const [, portOverride, pathExtension] = overrides.match(/^(?::(.*?)(?:[\\\/]|$))?(?:[\\\/]*(.*?)\/*)$/);
+const port = env.PORT || Number(portOverride || '8080');
+const folder = `${cwd()}${pathExtension.replace(/^(?!\\|\/|$)|\//g, '\\').replace(/(\\|\/)$/, '')}`;
+const flags = Object.fromEntries(flagNames.map(name => [name, true]));
+const { readonly } = flags;
 
 const types = {
 	txt: 'text/plain',
@@ -34,13 +38,17 @@ const manifest = new Set([
 ]);
 
 function send (res, content, type = types.txt) {
-	const utf8 = !/^image\/(?!svg)/.test(type);
 	let status = 200;
 
-	if (!(content instanceof Buffer) && typeof content !== 'string') {
+	if (typeof type === 'number') {
+		status = type;
+		type = types.txt;
+	} else if (!(content instanceof Buffer) && typeof content !== 'string') {
 		status = 404;
 		content = 'Not found';
 	}
+	
+	const utf8 = !/^image\/(?!svg)/.test(type);
 
 	res.writeHead(status, {
 		'Content-Length': Buffer.byteLength(content),
@@ -50,19 +58,53 @@ function send (res, content, type = types.txt) {
 	res.end(content);
 }
 
-createServer(({ url }, res) => {
+createServer(({ method, url }, res) => {
 	const regex = /^(?:\/+)?(.*?(?:\.([^/.?#]*)|\/*)?)(?:\?(.*?))?$/;
 	let [, path = '', extension] = url.match(regex);
 
-	if (!extension) {
-		path = 'index.html';
-		extension = 'html';
+	switch (method) {
+		case 'PUT':
+		case 'DELETE': {
+			if (readonly) {
+				send(res, 'Server is read-only.', 404);
+			} else if (!extension) {
+				send(res, 'Missing file extension.', 404);
+			} else if (method === 'PUT') {
+				writeFile(`${folder}/${path}`, ['utf8'], err => {
+					if (err) {
+						send(res, err.message, 404);
+					} else {
+						send(res, 'Success');
+					}
+				});
+			} else {
+				// TODO: delete file
+			}
+
+			return;
+		}
+		case 'POST': {
+			// TODO: load MJS and call default function (simulate API)
+			// - demo mode should simulate this client-side
+			return;
+		}
+		case 'GET': {
+			if (!extension) {
+				path = 'index.html';
+			}
+
+			const type = types[extension || 'html'];
+			const options = !/^image\/(?!svg)/.test(type) ? ['utf8'] : [];
+
+			readFile(`${manifest.has(path) ? __dirname : folder}/${path}`, ...options, (err, content) => {
+				if (!extension) {
+					content = content.replace('<body>', `<body><script>const flags=${JSON.stringify(flags)};</script>`);
+				}
+
+				send(res, content, type);
+			});
+
+			return;
+		}
 	}
-
-	const type = types[extension];
-	const options = !/^image\/(?!svg)/.test(type) ? ['utf8'] : [];
-
-	readFile(`${manifest.has(path) ? __dirname : folder}/${path}`, ...options, (err, content) => {
-		send(res, content, type);
-	});
 }).listen(port, err => console.log(`server is listening on ${port}`));

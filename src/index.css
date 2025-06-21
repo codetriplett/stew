@@ -48,8 +48,8 @@ body.dark-theme {
 	--reference-font-color: #999;
 	--reference-active-background: #555;
 	--divider-color: #777;
-	--link-font-color: #4b4bde;
-	--link-visited-font-color: #8d54c1;
+	--link-font-color: #2a8ede;
+	--link-visited-font-color: #8544c1;
 }
 
 #app {
@@ -138,10 +138,8 @@ body.dark-theme {
 	background: var(--reference-active-background);
 }
 
-.main .save,
-.expand-left,
-.expand-right,
-.snips .close {
+.left-button,
+.right-button {
     position: absolute;
     top: 10px;
     width: 30px;
@@ -153,34 +151,58 @@ body.dark-theme {
     line-height: 30px;
 	color: var(--button-font-color);
     background: var(--button-background);
+
+	&:hover {
+		border-color: var(--button-hover-border-color);
+		color: var(--button-hover-font-color);
+		background: var(--button-hover-background);
+	}
 }
-.expand-left:hover,
-.expand-right:hover,
-.snips .close:hover {
-	border-color: var(--button-hover-border-color);
-	color: var(--button-hover-font-color);
-	background: var(--button-hover-background);
+.left-button {
+    left: 10px;
 }
-.main .save {
+.right-button {
     right: 10px;
+}
+.menu-button {
+	font-size: 26px;
+	line-height: 26px;
+}
+.edit-button {
+	font-size: 25px;
+	line-height: 27px;
+}
+.save-button {
     font-size: 24px;
     line-height: 27px;
     font-weight: bold;
 }
-.expand-left {
-    left: 10px;
-	font-size: 26px;
-	line-height: 26px;
+.theme-button {
+    font-size: 21px;
 }
-.expand-right {
-    right: 10px;
-	font-size: 25px;
-	line-height: 27px;
+.light-theme .theme-button {
+	padding-left: 2px;
 }
-.snips .close {
-    right: 10px;
+.close-button {
     font-size: 17px;
 }
+
+.breadcrumbs {
+	padding: 0 32px;
+    margin: 0 0 20px;
+    text-align: center;
+	
+	li {
+		display: inline;
+
+		+ li:before {
+			content: '〉';
+            font-size: 11px;
+            margin-left: 5px;
+		}
+	}
+}
+
 .edit textarea {
 	min-height: 186px;
 }

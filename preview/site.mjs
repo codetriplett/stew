@@ -5,7 +5,7 @@ function Site ({ category }, ...children) {
 	];
 }
 
-export default [Site, {}, ['style', null, `
+export default ['Site', {}, Site, ['style', null, `
 	header {
 		height: 60px;
 		color: white;
