@@ -1,4 +1,5 @@
 import { extractData, FormField } from './form';
+import { extractCode } from './code';
 
 const { localStorage, location } = window;
 const { pathname } = location;
@@ -14,7 +15,6 @@ let settings;
 const state = stew({
 	snips: ['/site/category/other#second', '/site/category/other#zeroth'],
 	focusedSection: '',
-	hideMenu: false,
 	isEditing: false,
 	settings: {},
 	revision: 0,
@@ -89,14 +89,17 @@ function fetchCode (path) {
 }
 
 function LeftMenuList (map, hash) {
+	if (!hash) {
+		return;
+	}
+
 	const children = hash.split('#').slice(1);
 
 	return !children.length ? null : ['ul', {
 		className: 'children',
 	},
 		...children.map(name => {
-			const [text, ...rest] = name && map[name] || [];
-			const hash = rest.pop();
+			const [hash, text] = name && map[name] || [];
 			
 			return ['li', null,
 				['button', {
@@ -120,19 +123,17 @@ function getText (node) {
 	return node[0] === 'br' ? ' ' : node.slice(2).map(getText).join('');
 }
 
-function LeftMenu ({ map = {}, rootHash, rootName }, themeToggle) {
-	const { hideMenu, focusedSection, snips } = state;
+function LeftMenu ({ map = {}, root }, themeToggle) {
+	const { focusedSection, snips, settings } = state;
+	const { hideMenu } = settings;
 
 	if (hideMenu) {
 		return;
 	}
 
-	const citations = focusedSection && map[focusedSection]?.slice?.(1, -1) || [];
-
-	if (rootName) {
-		const rootCitations = map[rootName].slice(1, -1);
-		citations.push(...rootCitations);
-	}
+	const [rootHash,, ...rootCitations] = root;
+	const citations = focusedSection && map[focusedSection]?.slice?.(2) || [];
+	citations.push(...rootCitations);
 
 	return ['div', { className: 'nav' },
 		LeftMenuList(map, rootHash),
@@ -212,10 +213,13 @@ function Block ({ names, data, resources, breadcrumbs }, content) {
 		// TODO: create function to convert MD to MJS on save
 		// - convert styles to ['style', ...] and put as first resource node
 		// - convert resource css and js to ['link', ...] and ['script', ...] for the rest
-		const [heading,, Component, ...blockResources] = stew(fetchCode, [path], {}).default || [];
+		const [Component, schema, ...blockResources] = stew(fetchCode, [path], {}).default || [];
 		content = Component && data ? Component(data, content) : undefined;
 		resources.unshift(...blockResources);
-		breadcrumbs.unshift(['a', { href: `/${path}` }, heading]);
+
+		if (schema) {
+			breadcrumbs.unshift(['a', { href: `/${path}` }, schema['']]);
+		}
 	} else {
 		resources = [];
 	}
@@ -253,11 +257,15 @@ function resizeTextarea (ref) {
 }
 
 function Editor ({ names, file }) {
-	const schema = stew(fetchCode, [names.slice(0, -1).join('/')], {}).default?.[1];
-	const data = stew(fetchData, [names.join('/'), state.revision], {});
+	let schema, data;
 
-	if (!schema) {
-		return;
+	if (names.length > 1) {
+		schema = stew(fetchCode, [names.slice(0, -1).join('/')], {}).default?.[1];
+		data = stew(fetchData, [names.join('/'), state.revision], {});
+
+		if (!schema) {
+			return;
+		}
 	}
 
 	const formRef = [];
@@ -270,7 +278,7 @@ function Editor ({ names, file }) {
 			ref: formRef,
 			onsubmit: event => event.preventDefault(),
 		},
-			FormField(schema, data),
+			schema && FormField(schema, data),
 			['textarea', {
 				ref: formRef,
 				className: 'editor',
@@ -299,12 +307,15 @@ function Editor ({ names, file }) {
 			className: 'left-button save-button',
 			onclick: async () => {
 				const [form] = formRef;
-				const textarea = form.querySelector('textarea');
+				const file = form.querySelector('textarea').value;
+				const code = extractCode(file);
 				const data = extractData(form);
+				const path = names.join('/');
 				
 				await Promise.all([
-					putFile(`/${names.join('/')}.md`, textarea.value),
-					putFile(`/${names.join('/')}.json`, JSON.stringify(data)),
+					putFile(`/${path}.md`, file),
+					code && putFile(`/${path}.mjs`, code),
+					putFile(`/${path}.json`, JSON.stringify(data)),
 				]);
 
 				state.revision++;
@@ -319,7 +330,7 @@ function Editor ({ names, file }) {
 
 function Page ({ emoji }) {
 	const { isEditing, settings, revision } = state;
-	const { theme } = settings;
+	const { theme, hideMenu } = settings;
 
 	const [names, ...paths] = stew(() => {
 		const { pathname } = window.location;
@@ -361,42 +372,47 @@ function Page ({ emoji }) {
 	const content = column && ['main', null, ...column.slice(2)];
 	const map = column?.[1];
 
-	const [rootHash, rootName] = stew(() => {
+	// either map[''] or the array of its only child, with root links prepended
+	const root = stew(() => {
 		if (!map) {
 			return [''];
 		}
 
-		const { '': hash, ...sections } = map;
+		const { '': root, ...sections } = map;
+		const [hash] = root;
 		const children = hash.split('#').slice(1);
 
 		if (children.length !== 1) {
-			return [hash, ''];
+			return root;
 		}
 
-		const root = sections[children[0]];
-		return [root[root.length - 1], children[0]];
+		const child = [...sections[children[0]]];
+		child.splice(2, 0, ...root.slice(2));
+		return child;
 	}, [map]);
 
 	// TODO: have content be a textarea with the markdown file as value while in editing mode
 	// - set formRef on textarea
 	// - see how stew code would look with '' serving as ref if array is passed [id, ...refs]
 
-	const includeMenu = rootHash.indexOf('#') !== -1;
+	const includeMenu = root[0].indexOf('#') !== -1;
 	const breadcrumbs = [];
 
-	if (rootName) {
-		breadcrumbs.push(map[rootName][0]);
+	if (map && root !== map['']) {
+		breadcrumbs.push(root[1]);
 	}
 
 	return ['', {},
-		includeMenu && [LeftMenu, { map, rootHash, rootName }],
+		includeMenu && [LeftMenu, { map, root }],
 		['div', {
 			className: 'main',
 		},
 			Block({ names, breadcrumbs }, content),
 			includeMenu && ['button', {
 				className: 'left-button menu-button',
-				onclick: () => state.hideMenu = !state.hideMenu,
+				onclick: () => {
+					updateSettings({ hideMenu: !hideMenu });
+				},
 			}, '≡'],
 			pathname === '/'
 				? ['button', {

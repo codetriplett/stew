@@ -1,4 +1,5 @@
-function Test (data) {
+function test () {
+	const [data] = arguments;
 	console.log(data);
 }
 
@@ -22,7 +23,8 @@ path/path/\w+/
 
 */
 
-export default ['Test', {
+export default [test, {
+	'': 'Test',
 	boolean: '/ Boolean',
 	number: '/.. Number',
 	string: '// String',
@@ -34,4 +36,5 @@ export default ['Test', {
 		string: '// String',
 		date: 'date/2000-01-01..2020-12-31 Date',
 	},
-}, Test, ['style', null, ``]];
+}, ['style', null,
+``]];

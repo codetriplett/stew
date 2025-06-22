@@ -82,7 +82,7 @@ export function parseInline (string, stack, links, customizations) {
 
 			if (!image) {
 				parseInline(text, [node], links, customizations);
-				links[1].splice(-1, 0, node);
+				links[1].push(node);
 			}
 
 			if (key !== undefined) {
@@ -304,7 +304,7 @@ export default function parse (content, rootPath = '', customizations = {}) {
 	const tags = [main];
 	const { '': formatter } = customizations;
 	const rootNames = trimmedPath ? trimmedPath.split('/') : [];
-	const links = [rootNames, [`/${trimmedPath}`, '']];
+	const links = [rootNames, ['h0', `/${trimmedPath}`]];
 	const headingStack = [links[1]];
 	const map = { '': links[1] };
 	const containers = new Set(stack);
@@ -401,6 +401,8 @@ export default function parse (content, rootPath = '', customizations = {}) {
 				const newlines = Math.max(0, oldlines) + (node[2] ? 1 : 0);
 				node[2] += `${'\n'.repeat(newlines)}${string}`;
 				continue;
+			} else if (stack.length < 3) {
+				links[1][0] += `:${main.length - 2}`;
 			}
 
 			node[1].format = format;
@@ -539,13 +541,12 @@ export default function parse (content, rootPath = '', customizations = {}) {
 			href: `${headingPath}#${borrowHeading ? '' : id}`,
 		}, ...container.splice(2)]);
 	
-		const array = [text, `h${type}`];
+		const array = [`h${type}`, text];
 		map[id] = array;
 		links[1] = array;
-		const index = headingStack.findIndex(array => !(array[array.length - 1][1] >= type));
+		const index = headingStack.findIndex(array => !(array[0][1] >= type));
 		headingStack.splice(0, index, array);
-		const section = headingStack[1];
-		section[section.length - 1] += `#${id}`;
+		headingStack[1][0] += `#${id}`;
 
 		if (borrowHeading) {
 			main.splice(2, 0, stack[0].pop());
@@ -596,9 +597,6 @@ export default function parse (content, rootPath = '', customizations = {}) {
 		}
 	}
 
-	const root = map[''];
-	map[''] = root.pop();
-	headingStack[headingStack.length - 2]?.splice?.(1, 0, ...root.slice(1));
 	main[1] = map;
 	return main;
 }
