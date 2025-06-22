@@ -1,47 +1,60 @@
-export function onsubmit (event) {
-		event.preventDefault();
-		const form = event.target;
-		const data = {};
+function convertValue (type, value, checked) {
+	switch (type) {
+		case 'checkbox': {
+			return checked;
+		}
+		case 'number':
+		case 'range': {
+			return Number(value);
+		}
+	}
 
-		if (!form.checkValidity()) {
-			return;
+	return value;
+}
+
+export function extractData (form) {
+	const data = {};
+
+	if (!form.checkValidity()) {
+		form.reportValidity();
+		return;
+	}
+
+	for (const input of form.elements) {
+		const { type, id, value, checked, placeholder } = input;
+
+		if (!id) {
+			continue;
 		}
 
-		for (const input of form.elements) {
-			const { type, id, value, checked, placeholder } = input;
+		const names = id.split(/\.|(?=\[)/).map(name => name[0] === '[' ? Number(name.slice(1, -1)) : name);
+		const finalName = names.pop();
+		let castValue = convertValue(type, value, checked);
+	
+		if (names[0] === '') {
+			names.shift();
 
-			if (!id) {
-				continue;
+			if (!castValue) {
+				castValue = convertValue(type, placeholder, checked);
 			}
-
-			const names = id.split(/\.|(?=\[)/).map(name => name[0] === '[' ? Number(name.slice(1, -1)) : name);
-			const finalName = names.pop();
-			let castValue = convertValue(type, value, checked);
-		
-			if (names[0] === '') {
-				names.shift();
-
-				if (!castValue) {
-					castValue = convertValue(type, placeholder, checked);
-				}
-			} else if (!castValue) {
-				continue;
-			}
-
-			const object = names.reduce((object, name) => {
-				if (object[name]) {
-					return object[name];
-				}
-
-				const newObject = typeof name === 'number' ? [] : {};
-				object[name] = newObject
-				return newObject;
-			}, data);
-
-			object[finalName] = castValue;
+		} else if (!castValue) {
+			continue;
 		}
 
-		console.log(data);
+		const object = names.reduce((object, name) => {
+			if (object[name]) {
+				return object[name];
+			}
+
+			const newObject = typeof name === 'number' ? [] : {};
+			object[name] = newObject
+			return newObject;
+		}, data);
+
+		object[finalName] = castValue;
+	}
+
+	return data;
 }
 
 // TODO: decide if this is needed

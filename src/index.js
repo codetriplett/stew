@@ -1,4 +1,4 @@
-import { onsubmit, FormField } from './form';
+import { extractData, FormField } from './form';
 
 const { localStorage, location } = window;
 const { pathname } = location;
@@ -17,6 +17,7 @@ const state = stew({
 	hideMenu: false,
 	isEditing: false,
 	settings: {},
+	revision: 0,
 });
 
 function updateSettings (updates) {
@@ -34,7 +35,26 @@ window.addEventListener('pageshow', () => {
 	state.settings = { ...settings };
 });
 
-function fetchText (path) {
+async function putFile (path, body) {
+	const method = !/\S/.test(body) || path.endsWith('.json') && body === '{}' ? 'DELETE' : 'PUT';
+	const { readonly } = flags;
+
+	if (!readonly) {
+		const res = await fetch(path, { method, body });
+
+		if (!res.ok) {
+			throw `Unsuccessful ${method}: ${path}`;
+		}
+	} else if (method !== 'DELETE') {
+		localStorage.setItem(path, body);
+		return;
+	}
+	
+	localStorage.removeItem(path);
+}
+
+function fetchNote (path) {
+	path = `/${path}.md`;
 	const file = localStorage.getItem(path);
 
 	return file || fetch(path).then(res => {
@@ -46,7 +66,8 @@ function fetchText (path) {
 	});
 }
 
-function fetchJson (path) {
+function fetchData (path) {
+	path = `/${path}.json`;
 	const file = localStorage.getItem(path);
 
 	return file ? JSON.parse(file) : fetch(path).then(res => {
@@ -59,6 +80,7 @@ function fetchJson (path) {
 }
 
 function fetchCode (path) {
+	path = `/${path}.mjs`;
 	const file = localStorage.getItem(path);
 
 	return import(!file ? path : URL.createObjectURL(
@@ -151,8 +173,8 @@ function LeftMenu ({ map = {}, rootHash, rootName }, themeToggle) {
 }
 
 function Citation ({ snip, emoji }) {
-	const [path] = snip.split('#');
-	const markdown = stew(fetchText, [`${path}.md`], '', ['p', null, `File not found: ${path}`]);
+	const [path] = snip.replace(/^\/+/, '').split('#');
+	const markdown = stew(fetchNote, [path], '', ['p', null, `File not found: /${path}.md`]);
 	let content = typeof markdown === 'string' ? stew(markdown, [snip, emoji]) : markdown;
 
 	if (content && Object.keys(content[1] || {}).length === 1) {
@@ -183,16 +205,16 @@ function RightMenu ({ emoji }) {
 }
 
 function Block ({ names, data, resources, breadcrumbs }, content) {
+	const isStart = !!resources;
 	const path = names.join('/');
 
-	if (resources) {
+	if (isStart) {
 		// TODO: create function to convert MD to MJS on save
 		// - convert styles to ['style', ...] and put as first resource node
 		// - convert resource css and js to ['link', ...] and ['script', ...] for the rest
-		const [heading,, Component, ...blockResources] = stew(fetchCode, [`/${path}.mjs`], {}).default || [];
+		const [heading,, Component, ...blockResources] = stew(fetchCode, [path], {}).default || [];
 		content = Component && data ? Component(data, content) : undefined;
 		resources.unshift(...blockResources);
-
 		breadcrumbs.unshift(['a', { href: `/${path}` }, heading]);
 	} else {
 		resources = [];
@@ -219,7 +241,7 @@ function Block ({ names, data, resources, breadcrumbs }, content) {
 	}
 
 	names = names.slice(0, -1);
-	data = stew(fetchJson, [`/${path}.json`], null);
+	data = stew(fetchData, [path, isStart && state.revision], null);
 	return Block({ names, data, resources, breadcrumbs }, content);
 }
 
@@ -231,8 +253,8 @@ function resizeTextarea (ref) {
 }
 
 function Editor ({ names, file }) {
-	const schema = stew(fetchCode, [`/${names.slice(0, -1).join('/')}.mjs`], {}).default?.[1];
-	const data = stew(fetchJson, [`/${names.join('/')}.json`], {});
+	const schema = stew(fetchCode, [names.slice(0, -1).join('/')], {}).default?.[1];
+	const data = stew(fetchData, [names.join('/'), state.revision], {});
 
 	if (!schema) {
 		return;
@@ -246,7 +268,7 @@ function Editor ({ names, file }) {
 	},
 		['form', {
 			ref: formRef,
-			onsubmit,
+			onsubmit: event => event.preventDefault(),
 		},
 			FormField(schema, data),
 			['textarea', {
@@ -275,11 +297,17 @@ function Editor ({ names, file }) {
 		],
 		['button', {
 			className: 'left-button save-button',
-			onclick: () => {
+			onclick: async () => {
 				const [form] = formRef;
 				const textarea = form.querySelector('textarea');
-				localStorage.setItem(`/${names.join('/')}.md`, textarea.value);
-				// storeSession();
+				const data = extractData(form);
+				
+				await Promise.all([
+					putFile(`/${names.join('/')}.md`, textarea.value),
+					putFile(`/${names.join('/')}.json`, JSON.stringify(data)),
+				]);
+
+				state.revision++;
 			},
 		}, '🖫'],
 		['button', {
@@ -290,7 +318,7 @@ function Editor ({ names, file }) {
 }
 
 function Page ({ emoji }) {
-	const { isEditing, settings } = state;
+	const { isEditing, settings, revision } = state;
 	const { theme } = settings;
 
 	const [names, ...paths] = stew(() => {
@@ -312,19 +340,20 @@ function Page ({ emoji }) {
 			const [dots, ...rest] = path.split('/');
 			const { length } = dots;
 			names.splice(-length, length, ...rest);
-			return `/${names.join('/')}`;
+			return names.join('/');
 		})];
 	}, []);
 
 	const isComposite = paths.length > 1;
-	const files = paths.map(path => stew(fetchText, [`${path}.md`], ''));
+	const files = paths.map((path, i) => stew(fetchNote, [path, i || revision], ''));
+	// TODO: figure out why revision change triggers two renders, and why first one doesn't show updated file
+	// - revision should be waiting until save promise has resolved, and removes localStorage first, so it should fetch most recent
 
 	// TODO: load parent schema
 	// - store in memo that returns undefined when not editing (will be done in Block component)
 	if (isEditing) {
 		return [Editor, { names, file: files[0] }];
 	}
-
 
 	// TODO: create composite from all documents
 	// - merge sections across documents into rows if they share the same id (and parents share the same ids)
@@ -382,6 +411,10 @@ function Page ({ emoji }) {
 					onclick: () => state.isEditing = true,
 				}, '✎'],
 		],
+		// TODO: if on home page, have right menu show past sessions to resume
+		// - first link will be for the page to navigate to, remaining links will be for snips to load
+		// - include option to clone active session
+		// - also show files that have been changed but not yet saved
 		!isEditing && [RightMenu, { emoji }],
 	];
 }
@@ -390,8 +423,8 @@ export default function App () {
 	const { settings } = state;
 	const { theme } = settings;
 
-	const emoji = stew(fetchJson, ['/index.json'], null, {});
-	const formatter = stew(fetchCode, ['/index.mjs'], null, {});
+	const emoji = stew(fetchData, ['index'], null, {});
+	const formatter = stew(fetchCode, ['index'], null, {});
 
 	stew(null, [theme], () => {
 		const { readonly } = flags;

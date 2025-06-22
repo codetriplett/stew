@@ -203,8 +203,15 @@ body.dark-theme {
 	}
 }
 
-.edit textarea {
-	min-height: 186px;
+.edit {
+	form {
+		margin-top: 32px;
+	}
+
+	textarea {
+		margin-top: 24px;
+		min-height: 186px;
+	}
 }
 
 
@@ -242,7 +249,8 @@ body.dark-theme {
 	display: flex;
 	gap: 10px;
 	flex-direction: column;
-	padding: 10px 0 0 15px;
+	margin-top: 10px;
+	padding-left: 15px;
 	border-left: 1px solid var(--paper-font-color);
 }
 .edit > ul {

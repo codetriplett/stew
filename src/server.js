@@ -38,9 +38,14 @@ const manifest = new Set([
 ]);
 
 function send (res, content, type = types.txt) {
+	const headers = {};
 	let status = 200;
 
 	if (typeof type === 'number') {
+		if (type === 405) {
+			headers.Allow = 'GET';
+		}
+
 		status = type;
 		type = types.txt;
 	} else if (!(content instanceof Buffer) && typeof content !== 'string') {
@@ -51,6 +56,7 @@ function send (res, content, type = types.txt) {
 	const utf8 = !/^image\/(?!svg)/.test(type);
 
 	res.writeHead(status, {
+		...headers,
 		'Content-Length': Buffer.byteLength(content),
 		'Content-Type': `${type}${utf8 ? '; charset=utf-8' : ''}`
 	});
@@ -58,53 +64,62 @@ function send (res, content, type = types.txt) {
 	res.end(content);
 }
 
-createServer(({ method, url }, res) => {
+createServer((req, res) => {
+	const { method, url } = req;
 	const regex = /^(?:\/+)?(.*?(?:\.([^/.?#]*)|\/*)?)(?:\?(.*?))?$/;
 	let [, path = '', extension] = url.match(regex);
+	const type = types[extension || 'html'];
+	const options = [];
 
-	switch (method) {
-		case 'PUT':
-		case 'DELETE': {
-			if (readonly) {
-				send(res, 'Server is read-only.', 404);
-			} else if (!extension) {
-				send(res, 'Missing file extension.', 404);
-			} else if (method === 'PUT') {
-				writeFile(`${folder}/${path}`, ['utf8'], err => {
-					if (err) {
-						send(res, err.message, 404);
-					} else {
-						send(res, 'Success');
-					}
-				});
-			} else {
-				// TODO: delete file
-			}
-
-			return;
-		}
-		case 'POST': {
-			// TODO: load MJS and call default function (simulate API)
-			// - demo mode should simulate this client-side
-			return;
-		}
-		case 'GET': {
-			if (!extension) {
-				path = 'index.html';
-			}
-
-			const type = types[extension || 'html'];
-			const options = !/^image\/(?!svg)/.test(type) ? ['utf8'] : [];
-
-			readFile(`${manifest.has(path) ? __dirname : folder}/${path}`, ...options, (err, content) => {
-				if (!extension) {
-					content = content.replace('<body>', `<body><script>const flags=${JSON.stringify(flags)};</script>`);
-				}
-
-				send(res, content, type);
-			});
-
-			return;
-		}
+	if (!/^image\/(?!svg)/.test(type)) {
+		options.push({ encoding: 'utf8' });
 	}
+	
+	if (method === 'GET') {
+		if (!extension) {
+			path = 'index.html';
+		}
+
+		readFile(`${manifest.has(path) ? __dirname : folder}/${path}`, ...options, (err, content) => {
+			if (!extension) {
+				content = content.replace('<body>', `<body><script>const flags=${JSON.stringify(flags)};</script>`);
+			}
+
+			send(res, content, type);
+		});
+
+		return;
+	} else if (readonly) {
+		send(res, 'Server is read-only.', 405);
+		return;
+	} else if (method === 'DELETE') {
+		// TODO: delete file
+		return;
+	}
+
+	let body = '';
+
+	req.on('data', (data) => {
+		body += data;
+
+		if (body.length > 1e6) {
+			req.connection.destroy();
+		}
+	});
+
+	req.on('end', () => {
+		if (method === 'POST') {
+			// TODO: load MJS and call default function (simulate API)
+			// - demo mode should simulate this client-side 
+			return;
+		}
+
+		writeFile(`${folder}/${path}`, body, ...options, err => {
+			if (err) {
+				send(res, err.message, 500);
+			} else {
+				send(res, 'Success');
+			}
+		});
+	});
 }).listen(port, err => console.log(`server is listening on ${port}`));
