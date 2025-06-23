@@ -2,7 +2,7 @@ import { extractData, FormField } from './form';
 import { extractCode } from './code';
 
 const { localStorage, location } = window;
-const { pathname } = location;
+const { pathname, hash } = location;
 const styles = document.querySelector('#styles').textContent;
 let settings;
 
@@ -14,7 +14,7 @@ let settings;
 
 const state = stew({
 	snips: ['/site/category/other#second', '/site/category/other#zeroth'],
-	focusedSection: '',
+	focusedSection: hash.slice(1),
 	isEditing: false,
 	settings: {},
 	revision: 0,
@@ -23,6 +23,26 @@ const state = stew({
 function updateSettings (updates) {
 	state.settings = { ...Object.assign(settings, updates) };
 	localStorage.setItem('/', JSON.stringify(settings));
+}
+
+function scrollTo (hash) {
+	const container = document.querySelector('.main > div');
+	let top = 0;
+
+	if (!container) {
+		return;
+	} else if (hash) {
+		const heading = container.shadowRoot.querySelector(hash);
+
+		if (!heading) {
+			return;
+		}
+
+		const { y = 0 } = heading.getBoundingClientRect();
+		top = y + window.scrollY - 15;
+	}
+
+    window.scrollTo({ top, behavior: 'smooth' });
 }
 
 window.addEventListener('pageshow', () => {
@@ -34,6 +54,34 @@ window.addEventListener('pageshow', () => {
 
 	state.settings = { ...settings };
 });
+
+window.addEventListener('hashchange', () => {
+	const { hash } = window.location;
+	state.focusedSection = hash.slice(1);
+	scrollTo(hash);
+});
+
+const sideColumns = [];
+
+function updateWidths () {
+	sideColumns.map((column, i) => {
+		if (!column) {
+			return;
+		}
+
+		const [flexContainer, scrollContainer] = column;
+
+		if (i) {
+			const width = flexContainer.clientWidth;
+			scrollContainer.style.width = `${width}px`;
+		} else {
+			const width = scrollContainer.clientWidth;
+			flexContainer.style.flexBasis = `${width}px`;
+		}
+	});
+}
+
+window.addEventListener('resize', updateWidths);
 
 async function putFile (path, body) {
 	const method = !/\S/.test(body) || path.endsWith('.json') && body === '{}' ? 'DELETE' : 'PUT';
@@ -105,7 +153,6 @@ function LeftMenuList (map, hash) {
 				['button', {
 					className: 'child-button',
 					onclick: () => {
-						state.focusedSection = name;
 						window.location.hash = name;
 					},
 				}, text],
@@ -128,48 +175,58 @@ function LeftMenu ({ map = {}, root }, themeToggle) {
 	const { hideMenu } = settings;
 
 	if (hideMenu) {
+		sideColumns[0] = null;
 		return;
 	}
 
-	const [rootHash,, ...rootCitations] = root;
-	const citations = focusedSection && map[focusedSection]?.slice?.(2) || [];
-	citations.push(...rootCitations);
+	stew(null, [], updateWidths);
+	const citations = map[focusedSection]?.slice?.(2) || [];
+	const [rootHash] = root;
+	sideColumns[0] = [];
 
-	return ['div', { className: 'nav' },
-		LeftMenuList(map, rootHash),
-		citations.length > 0 && ['ul', {
-			className: 'citations',
+	return ['div', {
+		className: 'nav',
+		ref: sideColumns[0],
+	},
+		['div', {
+			className: 'scroll-column',
+			ref: sideColumns[0],
 		},
-			citations.map(citation => {
-				const { href } = citation[1];
-				const text = getText(citation);
+			LeftMenuList(map, rootHash),
+			citations.length > 0 && ['ul', {
+				className: 'citations',
+			},
+				citations.map(citation => {
+					const { href } = citation[1];
+					const text = getText(citation);
 
-				return ['li', null,
-					['button', {
-						className: 'citation-button',
-						onclick: () => {
-							const [path, ...hashes] = href.split('#');
-							let wasAdded = false;
+					return ['li', null,
+						['button', {
+							className: 'citation-button',
+							onclick: () => {
+								const [path, ...hashes] = href.split('#');
+								let wasAdded = false;
 
-							for (const hash of hashes) {
-								const snip = `${path}#${hash}`;
-								const index = snips.indexOf(snip);
+								for (const hash of hashes) {
+									const snip = `${path}#${hash}`;
+									const index = snips.indexOf(snip);
 
-								if (index === -1) {
-									snips.push(href);
-									wasAdded = true;
+									if (index === -1) {
+										snips.push(href);
+										wasAdded = true;
+									}
 								}
-							}
 
-							if (wasAdded) {
-								state.snips = [...snips];
-							}
-						},
-					}, text],
-				];
-			}),
+								if (wasAdded) {
+									state.snips = [...snips];
+								}
+							},
+						}, text],
+					];
+				}),
+			],
+			themeToggle,
 		],
-		themeToggle,
 	];
 }
 
@@ -202,7 +259,24 @@ function Citation ({ snip, emoji }) {
 function RightMenu ({ emoji }) {
 	const { snips } = state;
 	const content = snips.map(snip => [Citation, { '': snip, snip, emoji }]);
-	return content.length && ['div', { className: 'snips' }, ...content];
+
+	if (!content.length) {
+		sideColumns[1] = null;
+		return;
+	}
+
+	stew(null, [], updateWidths);
+	sideColumns[1] = [];
+
+	return ['div', {
+		className: 'snips',
+		ref: sideColumns[1],
+	},
+		['div', {
+			className: 'scroll-column',
+			ref: sideColumns[1],
+		}, ...content]
+	];
 }
 
 function Block ({ names, data, resources, breadcrumbs }, content) {
@@ -225,6 +299,10 @@ function Block ({ names, data, resources, breadcrumbs }, content) {
 	}
 
 	if (names.length < 2) {
+		if (content) {
+			stew(null, [], () => scrollTo(hash));
+		}
+
 		return ['', null,
 			pathname !== '/' && ['ul', { className: 'breadcrumbs' }, 
 				['li', null,
@@ -250,10 +328,12 @@ function Block ({ names, data, resources, breadcrumbs }, content) {
 }
 
 function resizeTextarea (ref) {
+	const { scrollX, scrollY } = window;
 	const [, textarea] = ref;
 	textarea.style.height = '0px';
 	const { scrollHeight } = textarea;
 	textarea.style.height = `${scrollHeight}px`;
+	window.scrollTo(scrollX, scrollY);
 }
 
 function Editor ({ names, file }) {
@@ -283,6 +363,7 @@ function Editor ({ names, file }) {
 				ref: formRef,
 				className: 'editor',
 				placeholder: '(empty)',
+				spellcheck: false,
 				onkeydown: event => {
 					const { key } = event;
 

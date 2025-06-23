@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 const { createServer } = require('http');
 const { readFile, writeFile } = require('fs');
 
