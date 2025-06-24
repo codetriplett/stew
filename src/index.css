@@ -91,7 +91,7 @@ body.dark-theme {
 	margin: 8px;
 }
 .nav {
-	flex: 0 0 240px;
+	flex: 0 0 270px;
 }
 .snips {
 	flex: 0 0.666666 640px;
@@ -105,7 +105,8 @@ body.dark-theme {
 	overflow: auto;
 }
 .nav .scroll-column {
-	max-width: 320px;
+	min-width: 120px;
+	max-width: 270px;
 }
 
 .main h1 {
@@ -115,7 +116,6 @@ body.dark-theme {
 .children {
 	display: inline-block;
 	width: 100%;
-	max-width: 200px;
 	padding-left: 16px;
 }
 .nav > .scroll-column > .children {
@@ -129,6 +129,9 @@ body.dark-theme {
 }
 .child-button {
 	color: var(--navigation-font-color);
+}
+.child-button-active {
+	text-decoration: underline;
 }
 .citation-button {
 	color: var(--reference-font-color);

@@ -4,8 +4,8 @@ Other
 
 ## Second
 
-Second
+[Site Setup](/site#)
 
 ## First
 
-First
+[Category Setup](/site/category#)

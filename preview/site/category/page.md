@@ -1,6 +1,7 @@
 [*OOther* Link](./other#oother)
 
-# Page {#page}
+Page
+=
 
 Page
 

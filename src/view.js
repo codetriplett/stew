@@ -97,6 +97,9 @@ export default function render (layout, context, document, nodes, container, i, 
 		}
 	} else {
 		let [tagName, object, ...children] = layout;
+		// TODO: maybe rename '' to key officially
+		// - people would have opinions about using ''
+		// - key is safe to use, and ref is already implemented
 		const { '': key, ...props } = object || {};
 		let callback = renderElement;
 		let node;

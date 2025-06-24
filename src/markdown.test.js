@@ -508,6 +508,19 @@ describe('parse', () => {
 				],
 			]);
 		});
+		
+		it('hides summary', () => {
+			const actual = parse('Summary\n# Heading');
+
+			expect(actual).toEqual(['', {
+				'': ['h0#heading', '/'],
+				heading: ['h1', 'Heading'],
+			},
+				[1, { id: 'heading' },
+					['a', { href: '#heading' }, 'Heading'],
+				],
+			]);
+		});
 	});
 
 	describe('preformatted', () => {
@@ -641,6 +654,16 @@ describe('parse', () => {
 			expect(actual).toEqual(['', { '': ['h0:0', '/'] },
 				['pre', null,
 					['code', null, '- abc\n  - xyz'],
+				],
+			]);
+		});
+
+		it('interrupts heading', () => {
+			const actual = parse('    # abc');
+
+			expect(actual).toEqual(['', { '': ['h0:0', '/'] },
+				['pre', null,
+					['code', null, '# abc'],
 				],
 			]);
 		});
@@ -1317,6 +1340,30 @@ lmno
 			]);
 		});
 
+		it('title', () => {
+			const actual = parse('[key]: /path "title"\n[Item][key]');
+
+			expect(actual).toEqual(['', {
+				'': ['h0', '/', ['a', { href: '/path', title: 'title' }, 'Item']],
+			},
+				['p', null,
+					['a', { href: '/path', title: 'title' }, 'Item'],
+				],
+			]);
+		});
+
+		it('title on newline', () => {
+			const actual = parse('[key]: /path\n[Item][key]\n"title"');
+
+			expect(actual).toEqual(['', {
+				'': ['h0', '/', ['a', { href: '/path', title: 'title' }, 'Item']],
+			},
+				['p', null,
+					['a', { href: '/path', title: 'title' }, 'Item'],
+				],
+			]);
+		});
+
 		it('inferred key', () => {
 			const actual = parse('[key]: /path\n[Key][]');
 
@@ -1503,6 +1550,75 @@ Xyz
 					['a', { href: '/path#xyz' }, 'Xyz'],
 				],
 				['p', null, ' Xyz '],
+			]);
+		});
+
+		it('unscoped list below', () => {
+			const actual = parse(`
+# Abc {#abc}
+Abc
+# Xyz {#xyz}
+- lmno
+- xyz
+			`, '/path#abc');
+
+			expect(actual).toEqual(['', {
+				'': ['h0#abc', '/path'],
+				abc: ['h1', 'Abc'],
+			},
+				[1, null,
+					['a', { href: '/path#abc' }, 'Abc'],
+				],
+				['p', null, ' Abc '],
+			]);
+		});
+
+		it('unscoped list above', () => {
+			const actual = parse(`
+# Abc {#abc}
+- abc
+- lmno
+# Xyz {#xyz}
+Xyz
+			`, '/path#xyz');
+
+			expect(actual).toEqual(['', {
+				'': ['h0#xyz', '/path'],
+				xyz: ['h1', 'Xyz'],
+			},
+				[1, null,
+					['a', { href: '/path#xyz' }, 'Xyz'],
+				],
+				['p', null, ' Xyz '],
+			]);
+		});
+
+		it('skips nested headings', () => {
+			const actual = parse(`
+# Abc {#abc}
+Abc
+
+- ## Lmno {#lmno}
+  Lmno
+
+# Xyz {#xyz}
+Xyz
+			`, '/path#abc');
+
+			expect(actual).toEqual(['', {
+				'': ['h0#abc', '/path'],
+				abc: ['h1', 'Abc'],
+			},
+				[1, null,
+					['a', { href: '/path#abc' }, 'Abc'],
+				],
+				['p', null, ' Abc '],
+				['ul', null,
+					['li', null,
+						[2, null, 'Lmno'],
+						' Lmno ',
+					],
+				],
 			]);
 		});
 	});

@@ -4,28 +4,68 @@ import { extractCode } from './code';
 const { localStorage, location } = window;
 const { pathname, hash } = location;
 const styles = document.querySelector('#styles').textContent;
-let settings;
-
-// try {
-// 	emoji = JSON.parse(localStorage.getItem('/') || '{}');
-// } catch (err) {
-// 	emoji = {};
-// }
 
 const state = stew({
-	snips: ['/site/category/other#second', '/site/category/other#zeroth'],
 	focusedSection: hash.slice(1),
 	isEditing: false,
 	settings: {},
+	snips: [],
+	sessions: [],
+	sessionIndex: 0,
 	revision: 0,
 });
 
-function updateSettings (updates) {
-	state.settings = { ...Object.assign(settings, updates) };
-	localStorage.setItem('/', JSON.stringify(settings));
+function packSettingsAndSessions () {
+	const { snips, settings, sessions, sessionIndex } = state;
+	sessions.splice(sessionIndex, 1, snips.join(' '));
+	const value = [sessionIndex, settings, ...sessions];
+	localStorage.setItem('/', JSON.stringify(value));
 }
 
-function scrollTo (hash) {
+function unpackSettingsAndSessions () {
+	let value;
+
+	try {
+		value = JSON.parse(localStorage.getItem('/'));
+	} catch (err) {
+	}
+
+	if (!Array.isArray(value)) {
+		value = [0, typeof value === 'object' ? value : {}];
+	}
+
+	const [sessionIndex, settings, ...sessions] = value;
+	const session = sessions[sessionIndex]?.trim?.();
+	const snips = session?.split?.(/\s+/) || [];
+	Object.assign(state, { snips, settings, sessions, sessionIndex });
+}
+
+function updateSettings (updates) {
+	const { settings } = state;
+	state.settings = { ...Object.assign(settings, updates) };
+	packSettingsAndSessions();
+}
+
+function addSnips (...newSnips) {
+	const { snips } = state;
+	let wasAdded = false;
+
+	for (const snip of newSnips) {
+		const index = snips.indexOf(snip);
+
+		if (index === -1) {
+			snips.push(snip);
+			wasAdded = true;
+		}
+	}
+
+	if (wasAdded) {
+		state.snips = [...snips];
+		packSettingsAndSessions();
+	}
+}
+
+function scrollTo (hash, behavior) {
 	const container = document.querySelector('.main > div');
 	let top = 0;
 
@@ -42,23 +82,17 @@ function scrollTo (hash) {
 		top = y + window.scrollY - 15;
 	}
 
-    window.scrollTo({ top, behavior: 'smooth' });
+    window.scrollTo({ top, behavior });
 }
 
 window.addEventListener('pageshow', () => {
-	try {
-		settings = JSON.parse(localStorage.getItem('/') || '{}');
-	} catch (err) {
-		settings = {};
-	}
-
-	state.settings = { ...settings };
+	unpackSettingsAndSessions();
 });
 
 window.addEventListener('hashchange', () => {
 	const { hash } = window.location;
 	state.focusedSection = hash.slice(1);
-	scrollTo(hash);
+	scrollTo(hash, 'smooth');
 });
 
 const sideColumns = [];
@@ -136,27 +170,34 @@ function fetchCode (path) {
 	));
 }
 
-function LeftMenuList (map, hash) {
-	if (!hash) {
+function LeftMenuList (map, hashes) {
+	if (!hashes) {
 		return;
 	}
 
-	const children = hash.split('#').slice(1);
+	const { hash } = window.location;
+	const children = hashes.split('#').slice(1);
 
 	return !children.length ? null : ['ul', {
 		className: 'children',
 	},
 		...children.map(name => {
-			const [hash, text] = name && map[name] || [];
+			const [hashes, text] = name && map[name] || [];
 			
 			return ['li', null,
 				['button', {
-					className: 'child-button',
+					className: `child-button ${name === hash.slice(1) ? 'child-button-active' : ''}`,
 					onclick: () => {
-						window.location.hash = name;
+						const { hash } = window.location;
+
+						if (name !== hash.slice(1)) {
+							window.location.hash = name;
+						} else {
+							addSnips(`${pathname}${hash}`);
+						}
 					},
 				}, text],
-				LeftMenuList(map, hash),
+				LeftMenuList(map, hashes),
 			];
 		}),
 	];
@@ -171,7 +212,7 @@ function getText (node) {
 }
 
 function LeftMenu ({ map = {}, root }, themeToggle) {
-	const { focusedSection, snips, settings } = state;
+	const { focusedSection, settings } = state;
 	const { hideMenu } = settings;
 
 	if (hideMenu) {
@@ -179,7 +220,7 @@ function LeftMenu ({ map = {}, root }, themeToggle) {
 		return;
 	}
 
-	stew(null, [], updateWidths);
+	stew(null, [window.location.hash], updateWidths);
 	const citations = map[focusedSection]?.slice?.(2) || [];
 	const [rootHash] = root;
 	sideColumns[0] = [];
@@ -205,21 +246,7 @@ function LeftMenu ({ map = {}, root }, themeToggle) {
 							className: 'citation-button',
 							onclick: () => {
 								const [path, ...hashes] = href.split('#');
-								let wasAdded = false;
-
-								for (const hash of hashes) {
-									const snip = `${path}#${hash}`;
-									const index = snips.indexOf(snip);
-
-									if (index === -1) {
-										snips.push(href);
-										wasAdded = true;
-									}
-								}
-
-								if (wasAdded) {
-									state.snips = [...snips];
-								}
+								addSnips(...hashes.map(hash => `${path}#${hash}`));
 							},
 						}, text],
 					];
@@ -247,9 +274,12 @@ function Citation ({ snip, emoji }) {
 			onclick: () => {
 				const { snips } = state;
 				const index = snips.indexOf(snip);
-				snips.splice(index, 1);
-				state.snips = [...snips];
-				// storeSession();
+
+				if (index !== -1) {
+					snips.splice(index, 1);
+					state.snips = [...snips];
+					// TODO: save snips to sessions that can be viewed and picked up again on home page
+				}
 			},
 		}, '✕'],
 		content,
@@ -284,9 +314,6 @@ function Block ({ names, data, resources, breadcrumbs }, content) {
 	const path = names.join('/');
 
 	if (isStart) {
-		// TODO: create function to convert MD to MJS on save
-		// - convert styles to ['style', ...] and put as first resource node
-		// - convert resource css and js to ['link', ...] and ['script', ...] for the rest
 		const [Component, schema, ...blockResources] = stew(fetchCode, [path], {}).default || [];
 		content = Component && data ? Component(data, content) : undefined;
 		resources.unshift(...blockResources);
@@ -300,7 +327,7 @@ function Block ({ names, data, resources, breadcrumbs }, content) {
 
 	if (names.length < 2) {
 		if (content) {
-			stew(null, [], () => scrollTo(hash));
+			stew(null, [], () => scrollTo(hash, 'instant'));
 		}
 
 		return ['', null,

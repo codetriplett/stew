@@ -10,12 +10,6 @@ export function extractCode (file) {
 	if (!index) {
 		return;
 	}
-	
-	// TODO: add imports by using links from sections
-	// - gather all unique paths and which hashes are used for each (stored in Set)
-	// - have # bring in default, and have rest be named
-	// - use title attribute for aliases and barrel imports (no hash, but has title)
-	// - need to check whether each path is an actual module before adding as import (and whether each hash qualifies)
 
 	const claimed = new Set();
 	const imports = {};

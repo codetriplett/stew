@@ -348,7 +348,7 @@ export default function parse (content, rootPath = '', customizations = {}) {
 		}
 
 		const oldlines = newlines;
-		const nodes = parseNesting(symbols, stack, containers, oldlines);
+		const nodes = locked ? [] : parseNesting(symbols, stack, containers, oldlines);
 		let [container] = stack;
 		stack.unshift(...nodes);
 
@@ -358,6 +358,10 @@ export default function parse (content, rootPath = '', customizations = {}) {
 			if (!references[key]) {
 				reference = { href: buildPath(rootNames, href) };
 				references[key] = reference;
+
+				if (title) {
+					reference.title = title.slice(1, -1);
+				}
 			}
 
 			continue;
@@ -366,6 +370,13 @@ export default function parse (content, rootPath = '', customizations = {}) {
 		const [node] = stack;
 		let previous = node[node.length - 1];
 		newlines = string && whitespace.length < 2 ? -1 : 0;
+		const isPreformatted = node[0] === 'code';
+
+		if (isPreformatted) {
+			hashes = undefined;
+			underline = undefined;
+			table = undefined;
+		}
 
 		if (hashes) {
 			const node = [hashes.length, null];
@@ -389,7 +400,7 @@ export default function parse (content, rootPath = '', customizations = {}) {
 
 			candidate += `${string}${whitespace.length > 1 ? '<br>' : ' '}`;
 			continue;
-		} else if (node[0] === 'code') {
+		} else if (isPreformatted) {
 			const { padding = '' } = node[1];
 			string = `${padding}${line.slice(symbols.length)}`;
 
@@ -476,7 +487,7 @@ export default function parse (content, rootPath = '', customizations = {}) {
 			alignments = undefined;
 
 			if (title) {
-				reference.title = title;
+				reference.title = title.slice(1, -1);
 			} else if (dashes) {
 				nodes.unshift(['hr', null]);
 			}
@@ -512,8 +523,11 @@ export default function parse (content, rootPath = '', customizations = {}) {
 			}
 		}
 
-		if (!hashes || stack.length > 1) {
+		if (!hashes || symbols || stack.length > 1) {
 			continue;
+		} else if (headingStack.length === 1 && !scopes.has('')) {
+			main.splice(2, main.length - 3);
+			headingStack[0].splice(2);
 		}
 
 		const [type] = container;
