@@ -17,7 +17,9 @@ const state = stew({
 
 function packSettingsAndSessions () {
 	const { snips, settings, sessions, sessionIndex } = state;
-	sessions.splice(sessionIndex, 1, snips.join(' '));
+	const session = sessions[sessionIndex] || ['', null];
+	session.splice(2, session.length, ...snips);
+	sessions.splice(sessionIndex, 1, session);
 	const value = [sessionIndex, settings, ...sessions];
 	localStorage.setItem('/', JSON.stringify(value));
 }
@@ -31,12 +33,12 @@ function unpackSettingsAndSessions () {
 	}
 
 	if (!Array.isArray(value)) {
-		value = [0, typeof value === 'object' ? value : {}];
+		value = [0, typeof value === 'object' && value || {}];
 	}
 
 	const [sessionIndex, settings, ...sessions] = value;
-	const session = sessions[sessionIndex]?.trim?.();
-	const snips = session?.split?.(/\s+/) || [];
+	const session = sessions[sessionIndex] || [];
+	const snips = session.slice(2);
 	Object.assign(state, { snips, settings, sessions, sessionIndex });
 }
 
@@ -117,22 +119,66 @@ function updateWidths () {
 
 window.addEventListener('resize', updateWidths);
 
-async function putFile (path, body) {
-	const method = !/\S/.test(body) || path.endsWith('.json') && body === '{}' ? 'DELETE' : 'PUT';
+const originals = {};
+
+async function putFile (path, body, isCommit) {
+	// TODO: store originals of MD and JSON when rendering Block
+	// - also prevent MJS from saving if MD hasn't changed
+
+	// if (body === original) {
+	// 	if (!isCommit) {
+	// 		localStorage.removeItem(path);
+	// 	}
+
+	// 	return;
+	// }
+
+	const method = /\S/.test(body) ? 'PUT' : 'DELETE';
 	const { readonly } = flags;
 
-	if (!readonly) {
+	if (isCommit && !readonly) {
 		const res = await fetch(path, { method, body });
 
 		if (!res.ok) {
 			throw `Unsuccessful ${method}: ${path}`;
 		}
-	} else if (method !== 'DELETE') {
+	} else if (method === 'DELETE') {
+		localStorage.removeItem(path);
+	} else {
 		localStorage.setItem(path, body);
+	}
+}
+
+function clear (path) {
+	localStorage.removeItem(`/${path}.md`);
+	localStorage.removeItem(`/${path}.mjs`);
+	localStorage.removeItem(`/${path}.json`);
+}
+
+async function save (names, ref, isCommit) {
+	const [form, textarea] = ref;
+	const file = textarea.value;
+	const code = extractCode(file);
+	const data = extractData(form);
+	const path = names.join('/');
+
+	if (!data) {
 		return;
 	}
-	
-	localStorage.removeItem(path);
+
+	await Promise.all([
+		putFile(`/${path}.md`, file, isCommit),
+		code && putFile(`/${path}.mjs`, code, isCommit),
+		putFile(`/${path}.json`, Object.keys(data).length ? JSON.stringify(data) : '', isCommit),
+	]);
+
+	if (isCommit) {
+		clear(path);
+	} else {
+		state.isEditing = false;
+	}
+
+	state.revision++;
 }
 
 function fetchNote (path) {
@@ -331,7 +377,7 @@ function Block ({ names, data, resources, breadcrumbs }, content) {
 		}
 
 		return ['', null,
-			pathname !== '/' && ['ul', { className: 'breadcrumbs' }, 
+			['ul', { className: 'breadcrumbs' }, 
 				['li', null,
 					['a', { href: '/' }, 'Home'],
 				],
@@ -363,6 +409,11 @@ function resizeTextarea (ref) {
 	window.scrollTo(scrollX, scrollY);
 }
 
+// TODO: have close button be preview button when change is detected
+// - this will save it to local storage and return you to the rendered note
+// - have left nav on Home Page show all drafts that haven't been saved
+// - have save button clear it from local storage but not return you to rendered note
+// - maybe have save button show download link that opens stew NPM page in new tab when in readonly mode
 function Editor ({ names, file }) {
 	let schema, data;
 
@@ -413,32 +464,18 @@ function Editor ({ names, file }) {
 		],
 		['button', {
 			className: 'left-button save-button',
-			onclick: async () => {
-				const [form] = formRef;
-				const file = form.querySelector('textarea').value;
-				const code = extractCode(file);
-				const data = extractData(form);
-				const path = names.join('/');
-				
-				await Promise.all([
-					putFile(`/${path}.md`, file),
-					code && putFile(`/${path}.mjs`, code),
-					putFile(`/${path}.json`, JSON.stringify(data)),
-				]);
-
-				state.revision++;
-			},
+			onclick: () => save(names, formRef, true),
 		}, '🖫'],
 		['button', {
-			className: 'right-button close-button',
-			onclick: () => state.isEditing = false,
-		}, '✕'],
+			className: 'right-button preview-button',
+			onclick: () => save(names, formRef),
+		}, '👁'],
 	];
 }
 
 function Page ({ emoji }) {
 	const { isEditing, settings, revision } = state;
-	const { theme, hideMenu } = settings;
+	const { hideMenu } = settings;
 
 	const [names, ...paths] = stew(() => {
 		const { pathname } = window.location;
@@ -453,7 +490,7 @@ function Page ({ emoji }) {
 			paths.unshift(names[names.length - 1]);
 		}
 
-		paths[0] = `./${paths[0] || 'index'}`;
+		paths[0] = `./${paths[0]}`;
 
 		return [names, ...paths.map(path => {
 			const [dots, ...rest] = path.split('/');
@@ -522,18 +559,10 @@ function Page ({ emoji }) {
 					updateSettings({ hideMenu: !hideMenu });
 				},
 			}, '≡'],
-			pathname === '/'
-				? ['button', {
-					type: 'button',
-					className: 'right-button theme-button',
-					onclick: () => {
-						updateSettings({ theme: theme === 'dark' ? 'light' : 'dark' });
-					},
-				}, theme === 'dark' ? '☼' : '☽']
-				: ['button', {
-					className: 'right-button edit-button',
-					onclick: () => state.isEditing = true,
-				}, '✎'],
+			['button', {
+				className: 'right-button edit-button',
+				onclick: () => state.isEditing = true,
+			}, '✎'],
 		],
 		// TODO: if on home page, have right menu show past sessions to resume
 		// - first link will be for the page to navigate to, remaining links will be for snips to load
@@ -543,17 +572,55 @@ function Page ({ emoji }) {
 	];
 }
 
+function Home () {
+	const { settings } = state;
+	const { theme } = settings;
+	const markdown = stew(fetchNote, ['index'], '');
+	const layout = stew(markdown, ['/#'], null);
+	
+	return ['', {},
+		// TODO: render drafts in left menu
+		['div', {
+			className: 'main',
+		},
+			layout,
+			// TODO: render active snips session here
+			// - display inactive ones to the side, along with a button to create a new session
+			// - ones to the side can be clicked to make active or closed
+			// - Include a field to rename the active session when it is active, and a close button
+
+			// TODO: maybe put a sync button here to allow drafts to be pulled from sessionStorage
+			// - this fits nicely with drafts in the left column and opens this up to multi device
+			['button', {
+				type: 'button',
+				className: 'right-button theme-button',
+				onclick: () => {
+					updateSettings({ theme: theme === 'dark' ? 'light' : 'dark' });
+				},
+			}, theme === 'dark' ? '☽' : '☼'],
+		],
+		// TODO: have right menu show past sessions to resume
+		// - first link will be for the page to navigate to, remaining links will be for snips to load
+		// - include option to clone active session
+		// - also show files that have been changed but not yet saved
+	];
+}
+
 export default function App () {
 	const { settings } = state;
 	const { theme } = settings;
-
-	const emoji = stew(fetchData, ['index'], null, {});
-	const formatter = stew(fetchCode, ['index'], null, {});
-
+	
 	stew(null, [theme], () => {
 		const { readonly } = flags;
 		document.body.className = `${theme}-theme ${readonly ? 'readonly' : ''}`;
 	});
+
+	if (pathname === '/') {
+		return [Home];
+	}
+
+	const emoji = stew(fetchData, ['index'], null, {});
+	const formatter = stew(fetchCode, ['index'], null, {});
 
 	if (emoji === null || formatter === null) {
 		return;

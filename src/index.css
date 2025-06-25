@@ -191,6 +191,10 @@ body.dark-theme {
     line-height: 27px;
     font-weight: bold;
 }
+.preview-button {
+	font-size: 27px;
+    line-height: 27px;
+}
 .theme-button {
     font-size: 21px;
 }

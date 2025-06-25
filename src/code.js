@@ -2,6 +2,11 @@
 // - just deliver what is needed to render a page at first
 export function extractCode (file) {
 	const layout = stew(file, ['/']);
+
+	if (!layout) {
+		return;
+	}
+
 	const [, map, ...content] = layout;
 	const { '': root, ...sections } = map;
 	const [type, name] = root[0].split('#');
