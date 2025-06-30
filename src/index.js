@@ -51,6 +51,7 @@ function updateSettings (updates) {
 function addSnips (...newSnips) {
 	const { snips } = state;
 	let wasAdded = false;
+	updateSettings({ hideSnips: false });
 
 	for (const snip of newSnips) {
 		const index = snips.indexOf(snip);
@@ -119,20 +120,7 @@ function updateWidths () {
 
 window.addEventListener('resize', updateWidths);
 
-const originals = {};
-
 async function putFile (path, body, isCommit) {
-	// TODO: store originals of MD and JSON when rendering Block
-	// - also prevent MJS from saving if MD hasn't changed
-
-	// if (body === original) {
-	// 	if (!isCommit) {
-	// 		localStorage.removeItem(path);
-	// 	}
-
-	// 	return;
-	// }
-
 	const method = /\S/.test(body) ? 'PUT' : 'DELETE';
 	const { readonly } = flags;
 
@@ -156,6 +144,7 @@ function clear (path) {
 }
 
 async function save (names, ref, isCommit) {
+	const { readonly } = flags;
 	const [form, textarea] = ref;
 	const file = textarea.value;
 	const code = extractCode(file);
@@ -172,10 +161,10 @@ async function save (names, ref, isCommit) {
 		putFile(`/${path}.json`, Object.keys(data).length ? JSON.stringify(data) : '', isCommit),
 	]);
 
-	if (isCommit) {
-		clear(path);
-	} else {
+	if (!isCommit) {
 		state.isEditing = false;
+	} else if (!readonly) {
+		clear(path);
 	}
 
 	state.revision++;
@@ -249,6 +238,9 @@ function LeftMenuList (map, hashes) {
 	];
 }
 
+// TODO: see if markdown parser can process these links beforehand
+// - have them just set a single child with the string
+// - then this function can be removed
 function getText (node) {
 	if (typeof node === 'string') {
 		return node;
@@ -257,8 +249,11 @@ function getText (node) {
 	return node[0] === 'br' ? ' ' : node.slice(2).map(getText).join('');
 }
 
+// TODO: if map is for a navigation node (all links), show the nav items for the currently active page
+// - need to add a focusedPage in addition to focused section
+// - on hashchange check if id is for a focusedPage and update it, otherwise update focusedSection
 function LeftMenu ({ map = {}, root }, themeToggle) {
-	const { focusedSection, settings } = state;
+	const { focusedSection, settings, navigation } = state;
 	const { hideMenu } = settings;
 
 	if (hideMenu) {
@@ -267,7 +262,7 @@ function LeftMenu ({ map = {}, root }, themeToggle) {
 	}
 
 	stew(null, [window.location.hash], updateWidths);
-	const citations = map[focusedSection]?.slice?.(2) || [];
+	const citations = focusedSection && map[focusedSection]?.slice?.(2) || [];
 	const [rootHash] = root;
 	sideColumns[0] = [];
 
@@ -306,7 +301,7 @@ function LeftMenu ({ map = {}, root }, themeToggle) {
 function Citation ({ snip, emoji }) {
 	const [path] = snip.replace(/^\/+/, '').split('#');
 	const markdown = stew(fetchNote, [path], '', ['p', null, `File not found: /${path}.md`]);
-	let content = typeof markdown === 'string' ? stew(markdown, [snip, emoji]) : markdown;
+	let content = typeof markdown === 'string' ? stew(markdown, [snip, emoji], null) : markdown;
 
 	if (content && Object.keys(content[1] || {}).length === 1) {
 		content = ['p', null, `Section not found: ${snip}`];
@@ -333,14 +328,15 @@ function Citation ({ snip, emoji }) {
 }
 
 function RightMenu ({ emoji }) {
-	const { snips } = state;
-	const content = snips.map(snip => [Citation, { '': snip, snip, emoji }]);
+	const { snips, settings } = state;
+	const { hideSnips } = settings;
 
-	if (!content.length) {
+	if (hideSnips) {
 		sideColumns[1] = null;
 		return;
 	}
 
+	const content = snips.map(snip => [Citation, { '': snip, snip, emoji }]);
 	stew(null, [], updateWidths);
 	sideColumns[1] = [];
 
@@ -365,7 +361,8 @@ function Block ({ names, data, resources, breadcrumbs }, content) {
 		resources.unshift(...blockResources);
 
 		if (schema) {
-			breadcrumbs.unshift(['a', { href: `/${path}` }, schema['']]);
+			const heading = schema[''];
+			breadcrumbs.unshift(['a', { href: `/${path}` }, heading]);
 		}
 	} else {
 		resources = [];
@@ -382,7 +379,13 @@ function Block ({ names, data, resources, breadcrumbs }, content) {
 					['a', { href: '/' }, 'Home'],
 				],
 				...breadcrumbs.map(breadcrumb => {
-					return ['li', null, breadcrumb];
+					return ['li', null,
+						breadcrumb,
+						typeof breadcrumb === 'string' && ['button', {
+							className: 'edit-button',
+							onclick: () => state.isEditing = true,
+						}, '🖉'],
+					];
 				}),
 			],
 			['div', null,
@@ -396,7 +399,7 @@ function Block ({ names, data, resources, breadcrumbs }, content) {
 	}
 
 	names = names.slice(0, -1);
-	data = stew(fetchData, [path, isStart && state.revision], null);
+	data = stew(fetchData, [path, isStart && state.revision], null, {});
 	return Block({ names, data, resources, breadcrumbs }, content);
 }
 
@@ -474,10 +477,10 @@ function Editor ({ names, file }) {
 }
 
 function Page ({ emoji }) {
-	const { isEditing, settings, revision } = state;
-	const { hideMenu } = settings;
+	const { isEditing, snips, settings, revision } = state;
+	const { hideMenu, hideSnips } = settings;
 
-	const [names, ...paths] = stew(() => {
+	const [names, fallback, ...paths] = stew(() => {
 		const { pathname } = window.location;
 		const names = [];
 
@@ -490,9 +493,11 @@ function Page ({ emoji }) {
 			paths.unshift(names[names.length - 1]);
 		}
 
+		const heading = names[names.length - 1].replace(/-+/g, ' ').trim();
+		const fallback = `# ${heading.replace(/(^|\s)[a-z]/g, m => m.toUpperCase())}`;
 		paths[0] = `./${paths[0]}`;
 
-		return [names, ...paths.map(path => {
+		return [names, fallback, ...paths.map(path => {
 			const [dots, ...rest] = path.split('/');
 			const { length } = dots;
 			names.splice(-length, length, ...rest);
@@ -501,21 +506,22 @@ function Page ({ emoji }) {
 	}, []);
 
 	const isComposite = paths.length > 1;
-	const files = paths.map((path, i) => stew(fetchNote, [path, i || revision], ''));
-	// TODO: figure out why revision change triggers two renders, and why first one doesn't show updated file
-	// - revision should be waiting until save promise has resolved, and removes localStorage first, so it should fetch most recent
 
-	// TODO: load parent schema
-	// - store in memo that returns undefined when not editing (will be done in Block component)
-	if (isEditing) {
-		return [Editor, { names, file: files[0] }];
+	if (isComposite) {
+		// TODO: if composite fetch and process all columns and combine into one
+		// - merge sections across documents into rows if they share the same id (and parents share the same ids)
+		// - maybe don't allow editing for composite, and make breadcrumbs list all column names as last item
 	}
 
-	// TODO: create composite from all documents
-	// - merge sections across documents into rows if they share the same id (and parents share the same ids)
-	const [column] = files.map((file, i) => stew(file, [paths[i], emoji]));
-	const content = column && ['main', null, ...column.slice(2)];
-	const map = column?.[1];
+	const [path] = paths;
+	const markdown = stew(fetchNote, [path, revision], '', fallback);
+
+	if (isEditing) {
+		return [Editor, { names, file: markdown }];
+	}
+
+	const content = stew(markdown, [path, emoji], null);
+	const map = content[1];
 
 	// either map[''] or the array of its only child, with root links prepended
 	const root = stew(() => {
@@ -523,17 +529,14 @@ function Page ({ emoji }) {
 			return [''];
 		}
 
-		const { '': root, ...sections } = map;
-		const [hash] = root;
+		const { '': hash, ...sections } = map;
 		const children = hash.split('#').slice(1);
 
 		if (children.length !== 1) {
-			return root;
+			return [hash, ''];
 		}
 
-		const child = [...sections[children[0]]];
-		child.splice(2, 0, ...root.slice(2));
-		return child;
+		return sections[children[0]];
 	}, [map]);
 
 	// TODO: have content be a textarea with the markdown file as value while in editing mode
@@ -541,40 +544,51 @@ function Page ({ emoji }) {
 	// - see how stew code would look with '' serving as ref if array is passed [id, ...refs]
 
 	const includeMenu = root[0].indexOf('#') !== -1;
+	const includeSnips = snips.length > 0;
 	const breadcrumbs = [];
 
-	if (map && root !== map['']) {
-		breadcrumbs.push(root[1]);
+	if (content) {
+		breadcrumbs.push(root[1] || names[names.length - 1]);
 	}
 
 	return ['', {},
+		// TODO: store array in state for index links that could wrap the left menu links
+		// - these are ones that the parents might store in schema['']
+		// - allows for creating left nav links that expand to show content for child pages
 		includeMenu && [LeftMenu, { map, root }],
 		['div', {
 			className: 'main',
 		},
-			Block({ names, breadcrumbs }, content),
+			Block({ names, breadcrumbs }, ['main', null, content]),
 			includeMenu && ['button', {
 				className: 'left-button menu-button',
 				onclick: () => {
 					updateSettings({ hideMenu: !hideMenu });
 				},
 			}, '≡'],
-			['button', {
-				className: 'right-button edit-button',
-				onclick: () => state.isEditing = true,
-			}, '✎'],
+			// TODO: have this be a toggle for snips
+			// - put edit button next to name in final breadcrumb (just pencil without filled in circle)
+			// - this works better for how mobile will have the left and right content slide in from the side when these buttons are pressed
+			// - it also allows for a more focused view of the page while keeping the snips in teh background for quick reference
+			// - open the right nav whenever a new snip is added though
+			includeSnips && ['button', {
+				className: 'right-button snips-button',
+				onclick: () => {
+					updateSettings({ hideSnips: !hideSnips });
+				},
+			}, '#'],
 		],
 		// TODO: if on home page, have right menu show past sessions to resume
 		// - first link will be for the page to navigate to, remaining links will be for snips to load
 		// - include option to clone active session
 		// - also show files that have been changed but not yet saved
-		!isEditing && [RightMenu, { emoji }],
+		includeSnips && [RightMenu, { emoji }],
 	];
 }
 
 function Home () {
 	const { settings } = state;
-	const { theme } = settings;
+	const { theme,  } = settings;
 	const markdown = stew(fetchNote, ['index'], '');
 	const layout = stew(markdown, ['/#'], null);
 	
@@ -589,8 +603,18 @@ function Home () {
 			// - ones to the side can be clicked to make active or closed
 			// - Include a field to rename the active session when it is active, and a close button
 
-			// TODO: maybe put a sync button here to allow drafts to be pulled from sessionStorage
-			// - this fits nicely with drafts in the left column and opens this up to multi device
+			// TODO: toggle between info and hashmap mode
+			// - store references in .txt file that matches name of .md file
+			// - lines that start with # mark the sections within the note
+			// - lines that start with / are links within the section
+			// - one link for each unique path, with composite hash of all sections it points to
+			['button', {
+				type: 'button',
+				className: 'left-button map-button',
+				onclick: () => {
+					console.log('==== toggle hash map');
+				},
+			}, '#'],
 			['button', {
 				type: 'button',
 				className: 'right-button theme-button',

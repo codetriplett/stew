@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const { createServer } = require('http');
-const { readFile, writeFile } = require('fs');
+const { readFile, writeFile, access, unlink, constants } = require('fs');
 
 const { env, cwd, argv: [,, config = ''] } = process;
 const [overrides, ...flagNames] = config.split('#');
@@ -91,11 +91,29 @@ createServer((req, res) => {
 		});
 
 		return;
-	} else if (readonly) {
+	}
+	
+	const filepath = `${folder}/${path}`;
+	
+	if (readonly) {
 		send(res, 'Server is read-only.', 405);
 		return;
 	} else if (method === 'DELETE') {
-		// TODO: delete file
+		access(filepath, constants.F_OK, err => {
+			if (err) {
+				send(res, 'Unnecessary');
+				return;
+			}
+
+			unlink('path/to/your/file.txt', err => {
+				if (err) {
+					send(res, err.message, 500);
+				} else {
+					send(res, 'Success');
+				}
+			});
+		});
+
 		return;
 	}
 
@@ -111,12 +129,19 @@ createServer((req, res) => {
 
 	req.on('end', () => {
 		if (method === 'POST') {
+			// TODO: return list of all references made to a hashpath if body is not an object
+			// - read from .txt file found at that path
+			// - lines that start with # are for the sections that can be referenced
+			// - lines that start with / are for the files that reference the section
+			// - add multple hash values after path if referenced by more than one section
+			// - there should be only one path for each unique file that references each section
+
 			// TODO: load MJS and call default function (simulate API)
 			// - demo mode should simulate this client-side 
 			return;
 		}
 
-		writeFile(`${folder}/${path}`, body, ...options, err => {
+		writeFile(filepath, body, ...options, err => {
 			if (err) {
 				send(res, err.message, 500);
 			} else {

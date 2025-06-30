@@ -3,7 +3,7 @@
 export function extractCode (file) {
 	const layout = stew(file, ['/']);
 
-	if (!layout) {
+	if (!layout || !layout[1]) {
 		return;
 	}
 

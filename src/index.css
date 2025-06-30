@@ -182,9 +182,8 @@ body.dark-theme {
 	font-size: 26px;
 	line-height: 26px;
 }
-.edit-button {
-	font-size: 25px;
-	line-height: 27px;
+.snips-button {
+	font-size: 23px;
 }
 .save-button {
     font-size: 24px;
@@ -195,6 +194,9 @@ body.dark-theme {
 	font-size: 27px;
     line-height: 27px;
 }
+.map-button {
+	font-size: 23px;
+}
 .theme-button {
     font-size: 21px;
 }
@@ -203,6 +205,14 @@ body.dark-theme {
 }
 .close-button {
     font-size: 17px;
+}
+.edit-button {
+    position: relative;
+    top: 2px;
+    border: none;
+	font-size: 21px;
+    color: var(--link-font-color);
+	background: none;
 }
 
 .breadcrumbs {

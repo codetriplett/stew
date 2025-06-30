@@ -304,7 +304,7 @@ export default function parse (content, rootPath = '', customizations = {}) {
 	const tags = [main];
 	const { '': formatter } = customizations;
 	const rootNames = trimmedPath ? trimmedPath.split('/') : [];
-	const links = [rootNames, ['h0', `/${trimmedPath}`]];
+	const links = [rootNames, ['h0', '']];
 	const headingStack = [links[1]];
 	const map = { '': links[1] };
 	const containers = new Set(stack);
@@ -611,6 +611,12 @@ export default function parse (content, rootPath = '', customizations = {}) {
 		}
 	}
 
-	main[1] = map;
+	const root = map[''][0].slice(2);
+
+	if (root) {
+		map[''] = `h${root}`;
+		main[1] = map;
+	}
+
 	return main;
 }

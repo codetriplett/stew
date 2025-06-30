@@ -1,0 +1,5 @@
+Index Pages
+- allow parent pages to define a set of child pages to show in the nav
+- child page nav will be embedded under its nav item from parent list
+- clicking top level items in nav will open that child page
+- store these in schema under '' prop like so ['heading', null, 'child-1', 'child-2', etc...]
