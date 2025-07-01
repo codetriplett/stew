@@ -1,16 +1,17 @@
 // TODO: use dynamic import to load this and all Editor features
 // - just deliver what is needed to render a page at first
 export function extractCode (file) {
+	const summary = stew(file, ['/#']);
 	const layout = stew(file, ['/']);
 
-	if (!layout || !layout[1]) {
+	if (!summary || !summary[1] || !layout || !layout[1]) {
 		return;
 	}
 
 	const [, map, ...content] = layout;
 	const { '': root, ...sections } = map;
-	const [type, name] = root[0].split('#');
-	const [, index] = type.split(':');
+	const [, name] = root.split('#');
+	const [, index] = summary[1][''].split(':');
 
 	if (!index) {
 		return;
@@ -97,9 +98,9 @@ export function extractCode (file) {
 
 	let code = strings.join('\n');
 	const heading = sections[name]?.[1] || '';
-	const definition = content[index]?.[2]?.[2];
+	const definition = summary[Number(index) + 3]?.[2]?.[2];
 	const schemaStart = definition.indexOf('{');
-	let schemaFinish = definition.search(/\n\s*\}/);
+	let schemaFinish = definition.search(/[\{\n]\s*\}/);
 	schemaFinish = definition.indexOf('}', schemaFinish);
 	const resources = definition.slice(0, schemaStart).trim();
 	const styles = definition.slice(schemaFinish + 1).trim();
@@ -109,10 +110,11 @@ export function extractCode (file) {
 		new Function(`return ${schema}`)();
 	} catch (err) {
 		console.error(`Schema syntax error: ${err.message}`);
-		schema = '{\n}';
+		schema = '{}';
 	}
 
-	code += `\n\nexport default [${name || 'null'}, {\n    '': '${heading}',${schema.slice(1)}, ['style', null,\n\`${styles}\`]`;
+	schema = schema.replace(/^\{[\r\n]*|[\r\n]*\}$/g, '');
+	code += `\n\nexport default [${name || 'null'}, {\n    '': '${heading}',${schema ? `\n${schema}` : ''}\n}${!styles ? '' : `, ['style', null, \`\n${styles}\n\`]`}`;
 
 	for (const url of resources.split(/\s*\n+\s*/)) {
 		if (!url.startsWith('/')) {

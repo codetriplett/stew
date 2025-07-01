@@ -57,13 +57,40 @@ return \`Hello \${place}\`;
 export default [component, {
     '': 'Component',
     place: '// Place',
-}, ['style', null,
-\`* {
+}, ['style', null, \`
+* {
     color: blue;
-}\`],
+}
+\`],
     ['link', { href: '/style.css', rel: 'stylesheet' }],
     ['script', { src: '/script.mjs', type: 'module' }],
-];`
+];
+`
+		);
+	});
+
+	it('minimal code', () => {
+		const actual = extractCode(`
+\`\`\`
+{}
+\`\`\`
+
+# Component
+
+\`\`\`
+return 'Hello World';
+\`\`\`
+		`);
+
+		expect(actual).toEqual(
+`export function component () {
+return 'Hello World';
+}
+
+export default [component, {
+    '': 'Component',
+}];
+`
 		);
 	});
 });

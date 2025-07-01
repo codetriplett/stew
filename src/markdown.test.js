@@ -1419,10 +1419,7 @@ lmno
 [Xyz](/xyz)
 			`, '/path#');
 
-			expect(actual).toEqual(['', {
-				'': 'h#heading',
-				heading: ['h1', 'Heading'],
-			},
+			expect(actual).toEqual(['', null,
 				[1, null,
 					['a', { href: '/path#' }, 'Heading'],
 				],

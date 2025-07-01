@@ -7,10 +7,11 @@ const styles = document.querySelector('#styles').textContent;
 
 const state = stew({
 	focusedSection: hash.slice(1),
-	isEditing: false,
+	isEditing: pathname.endsWith('//'),
 	settings: {},
 	snips: [],
 	sessions: [],
+	canvas: null,
 	sessionIndex: 0,
 	revision: 0,
 });
@@ -319,7 +320,7 @@ function Citation ({ snip, emoji }) {
 				if (index !== -1) {
 					snips.splice(index, 1);
 					state.snips = [...snips];
-					// TODO: save snips to sessions that can be viewed and picked up again on home page
+					packSettingsAndSessions();
 				}
 			},
 		}, '✕'],
@@ -370,7 +371,24 @@ function Block ({ names, data, resources, breadcrumbs }, content) {
 
 	if (names.length < 2) {
 		if (content) {
-			stew(null, [], () => scrollTo(hash, 'instant'));
+			const ref = [];
+
+			stew(null, [], () => {
+				scrollTo(hash, 'instant');
+				state.canvas = ref[0] || null;
+			});
+
+			if (content[2]?.[0] === 'canvas') {
+				if (content[0] === '') {
+					content[0] = 'div';
+				}
+
+				if (!content[1]) {
+					content[1] = {};
+				}
+
+				content[1].ref = ref;
+			}
 		}
 
 		return ['', null,
@@ -477,7 +495,7 @@ function Editor ({ names, file }) {
 }
 
 function Page ({ emoji }) {
-	const { isEditing, snips, settings, revision } = state;
+	const { isEditing, canvas, snips, settings, revision } = state;
 	const { hideMenu, hideSnips } = settings;
 
 	const [names, fallback, ...paths] = stew(() => {
@@ -521,7 +539,7 @@ function Page ({ emoji }) {
 	}
 
 	const content = stew(markdown, [path, emoji], null);
-	const map = content[1];
+	const map = content?.[1];
 
 	// either map[''] or the array of its only child, with root links prepended
 	const root = stew(() => {
@@ -560,12 +578,13 @@ function Page ({ emoji }) {
 			className: 'main',
 		},
 			Block({ names, breadcrumbs }, ['main', null, content]),
-			includeMenu && ['button', {
+			includeMenu ? ['button', {
 				className: 'left-button menu-button',
-				onclick: () => {
-					updateSettings({ hideMenu: !hideMenu });
-				},
-			}, '≡'],
+				onclick: () => updateSettings({ hideMenu: !hideMenu }),
+			}, '≡'] : canvas && ['button', {
+				className: 'left-button fullscreen-button',
+				onclick: () => canvas.requestFullscreen(),
+			}, '⛶'],
 			// TODO: have this be a toggle for snips
 			// - put edit button next to name in final breadcrumb (just pencil without filled in circle)
 			// - this works better for how mobile will have the left and right content slide in from the side when these buttons are pressed
@@ -573,9 +592,7 @@ function Page ({ emoji }) {
 			// - open the right nav whenever a new snip is added though
 			includeSnips && ['button', {
 				className: 'right-button snips-button',
-				onclick: () => {
-					updateSettings({ hideSnips: !hideSnips });
-				},
+				onclick: () => updateSettings({ hideSnips: !hideSnips }),
 			}, '#'],
 		],
 		// TODO: if on home page, have right menu show past sessions to resume
@@ -586,6 +603,68 @@ function Page ({ emoji }) {
 	];
 }
 
+function alphabetizeFolder (folder) {
+	const { '': files, ...folders } = folder;
+	const copy = { '': files.sort() };
+
+	for (const name of Object.keys(folders).sort()) {
+		copy[name] = alphabetizeFolder(folder[name]);
+	}
+
+	return copy;
+}
+
+function Folder (folder, path = '/') {
+	const { '': files, ...folders } = folder;
+
+	return ['ul', null,
+		...Object.entries(folders).map(([name, folder]) => {
+			return ['li', null,
+				name,
+				Folder(folder, `${path}${name}/`),
+			];
+		}),
+		...files.map(name => {
+			return ['li', null,
+				['a', { href: `${path}${name}//`}, name],
+			];
+		}),
+	];
+}
+
+function Drafts () {
+	const tree = stew(() => {
+		// TODO: create tree
+		const paths = Object.keys(localStorage).filter(name => /^\/(?!\/).*\.(md|json)$/.test(name));
+		const tree = { '': [] };
+		
+		if (!paths.length) {
+			return;
+		}
+
+		for (const path of paths) {
+			const names = path.slice(1).split('/');
+			const filename = names.pop().replace(/\.(md|json)$/, '');
+
+			const folder = names.reduce((folder, name) => {
+				if (!folder[name]) {
+					folder[name] = { '': [] };
+				}
+
+				return folder[name];
+			}, tree);
+
+			if (folder[''].indexOf(filename) === -1) {
+				folder[''].push(filename);
+			}
+		}
+
+		return alphabetizeFolder(tree);
+	}, []);
+
+	return tree && Folder(tree);
+}
+
 function Home () {
 	const { settings } = state;
 	const { theme,  } = settings;
@@ -594,6 +673,7 @@ function Home () {
 	
 	return ['', {},
 		// TODO: render drafts in left menu
+		[Drafts],
 		['div', {
 			className: 'main',
 		},
@@ -618,9 +698,7 @@ function Home () {
 			['button', {
 				type: 'button',
 				className: 'right-button theme-button',
-				onclick: () => {
-					updateSettings({ theme: theme === 'dark' ? 'light' : 'dark' });
-				},
+				onclick: () => updateSettings({ theme: theme === 'dark' ? 'light' : 'dark' }),
 			}, theme === 'dark' ? '☽' : '☼'],
 		],
 		// TODO: have right menu show past sessions to resume

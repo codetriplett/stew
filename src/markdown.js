@@ -528,6 +528,7 @@ export default function parse (content, rootPath = '', customizations = {}) {
 		} else if (headingStack.length === 1 && !scopes.has('')) {
 			main.splice(2, main.length - 3);
 			headingStack[0].splice(2);
+			map[''][0] = 'h0';
 		}
 
 		const [type] = container;
@@ -554,6 +555,11 @@ export default function parse (content, rootPath = '', customizations = {}) {
 		container.push(['a', {
 			href: `${headingPath}#${borrowHeading ? '' : id}`,
 		}, ...container.splice(2)]);
+
+		if (borrowHeading) {
+			main.splice(2, 0, stack[0].pop());
+			break;
+		}
 	
 		const array = [`h${type}`, text];
 		map[id] = array;
@@ -561,11 +567,6 @@ export default function parse (content, rootPath = '', customizations = {}) {
 		const index = headingStack.findIndex(array => !(array[0][1] >= type));
 		headingStack.splice(0, index, array);
 		headingStack[1][0] += `#${id}`;
-
-		if (borrowHeading) {
-			main.splice(2, 0, stack[0].pop());
-			break;
-		}
 	}
 
 	for (const link of links.slice(2)) {

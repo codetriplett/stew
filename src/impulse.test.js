@@ -34,7 +34,7 @@ describe('processMemo', () => {
 		const actual = processMemo('# lmno', []);
 
 		expect(actual).toEqual(['', {
-			'': ['h0#lmno', '/'],
+			'': 'h#lmno',
 			lmno: ['h1', 'lmno'],
 		},
 			[1, { id: 'lmno' },
