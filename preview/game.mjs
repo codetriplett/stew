@@ -1,10 +1,30 @@
+const state = stew({
+    isHeld: false,
+});
+
 export function game () {
+stew(() => {
+    window.addEventListener('keydown', ({ key }) => {
+        if (key === ' ') {
+            state.isHeld = true;
+        }
+    });
+
+    window.addEventListener('keyup', ({ key }) => {
+        if (key === ' ') {
+            state.isHeld = false;
+        }
+    });
+}, []);
+
+const { isHeld } = state;
+
 const vertexes = [
     -0.5, -0.5, 0.5, -0.5, 0.5, 0.5,
     0.5, 0.5, -0.5, 0.5, -0.5, -0.5,
 ];
 
-const color = [0.5, 0.25, 0.75];
+const color = isHeld ? [0.5, 0.75, 0.25] : [0.5, 0.25, 0.75];
 
 return ['div', {
     className: 'game',

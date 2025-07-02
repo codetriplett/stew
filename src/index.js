@@ -4,6 +4,7 @@ import { extractCode } from './code';
 const { localStorage, location } = window;
 const { pathname, hash } = location;
 const styles = document.querySelector('#styles').textContent;
+let emoji, intro;
 
 const state = stew({
 	focusedSection: hash.slice(1),
@@ -176,11 +177,14 @@ function fetchNote (path) {
 	const file = localStorage.getItem(path);
 
 	return file || fetch(path).then(res => {
-		if (!res.ok) {
-			throw `Not found: ${path}`;
-		}
-		
-		return res.text()
+		return res.ok ? res.text() : '';
+	}).then(text => {
+		return text || fetch('/index.md').then(res => {
+			return res.ok ? res.text() : '';
+		}).then(text => {
+			intro = stew(text, ['/#', emoji]);
+			return '';
+		});
 	});
 }
 
@@ -189,11 +193,7 @@ function fetchData (path) {
 	const file = localStorage.getItem(path);
 
 	return file ? JSON.parse(file) : fetch(path).then(res => {
-		if (!res.ok) {
-			throw `Not found: ${path}`;
-		}
-		
-		return res.json();
+		return res.ok ? res.json() : {};
 	});
 }
 
@@ -301,8 +301,8 @@ function LeftMenu ({ map = {}, root }, themeToggle) {
 
 function Citation ({ snip, emoji }) {
 	const [path] = snip.replace(/^\/+/, '').split('#');
-	const markdown = stew(fetchNote, [path], '', ['p', null, `File not found: /${path}.md`]);
-	let content = typeof markdown === 'string' ? stew(markdown, [snip, emoji], null) : markdown;
+	const markdown = stew(fetchNote, [path], null);
+	let content = typeof markdown !== 'string' ? markdown : markdown ? stew(markdown, [snip, emoji], null) : ['p', null, `File not found: /${path}.md`];
 
 	if (content && Object.keys(content[1] || {}).length === 1) {
 		content = ['p', null, `Section not found: ${snip}`];
@@ -532,13 +532,13 @@ function Page ({ emoji }) {
 	}
 
 	const [path] = paths;
-	const markdown = stew(fetchNote, [path, revision], '', fallback);
+	const markdown = stew(fetchNote, [path, revision], null);
 
 	if (isEditing) {
-		return [Editor, { names, file: markdown }];
+		return typeof markdown === 'string' ? [Editor, { names, file: markdown }] : fallback;
 	}
 
-	const content = stew(markdown, [path, emoji], null);
+	const content = markdown ? stew(markdown, [path, emoji], null) : intro;
 	const map = content?.[1];
 
 	// either map[''] or the array of its only child, with root links prepended
@@ -617,16 +617,19 @@ function alphabetizeFolder (folder) {
 function Folder (folder, path = '/') {
 	const { '': files, ...folders } = folder;
 
-	return ['ul', null,
+	return ['ul', { className: 'children' },
 		...Object.entries(folders).map(([name, folder]) => {
 			return ['li', null,
-				name,
+				['span', { className: 'child-button' }, `${name}/`],
 				Folder(folder, `${path}${name}/`),
 			];
 		}),
 		...files.map(name => {
 			return ['li', null,
-				['a', { href: `${path}${name}//`}, name],
+				['a', {
+					href: `${path}${name}//`,
+					className: 'child-button',
+				}, name],
 			];
 		}),
 	];
@@ -662,7 +665,23 @@ function Drafts () {
 		return alphabetizeFolder(tree);
 	}, []);
 
-	return tree && Folder(tree);
+	if (!tree) {
+		sideColumns[0] = null
+		return;
+	}
+
+	stew(null, [window.location.hash], updateWidths);
+	sideColumns[0] = [];
+
+	return ['div', {
+		className: 'nav',
+		ref: sideColumns[0],
+	},
+		['div', {
+			className: 'scroll-column',
+			ref: sideColumns[0],
+		}, Folder(tree)],
+	];
 }
 
 function Home () {
@@ -688,13 +707,13 @@ function Home () {
 			// - lines that start with # mark the sections within the note
 			// - lines that start with / are links within the section
 			// - one link for each unique path, with composite hash of all sections it points to
-			['button', {
-				type: 'button',
-				className: 'left-button map-button',
-				onclick: () => {
-					console.log('==== toggle hash map');
-				},
-			}, '#'],
+			// ['button', {
+			// 	type: 'button',
+			// 	className: 'left-button map-button',
+			// 	onclick: () => {
+			// 		console.log('==== toggle hash map');
+			// 	},
+			// }, '#'],
 			['button', {
 				type: 'button',
 				className: 'right-button theme-button',
@@ -721,7 +740,7 @@ export default function App () {
 		return [Home];
 	}
 
-	const emoji = stew(fetchData, ['index'], null, {});
+	emoji = stew(fetchData, ['index'], null, {});
 	const formatter = stew(fetchCode, ['index'], null, {});
 
 	if (emoji === null || formatter === null) {

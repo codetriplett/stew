@@ -39,22 +39,40 @@ const manifest = new Set([
 	'stew.min.mjs.LEGAL.txt',
 ]);
 
-function send (res, content, type = types.txt) {
+function send (res, content, extension) {
 	const headers = {};
 	let status = 200;
 
-	if (typeof type === 'number') {
-		if (type === 405) {
+	if (typeof extension === 'number') {
+		if (extension === 405) {
 			headers.Allow = 'GET';
 		}
 
-		status = type;
-		type = types.txt;
+		status = extension;
+		extension = undefined;
 	} else if (!(content instanceof Buffer) && typeof content !== 'string') {
-		status = 404;
-		content = 'Not found';
+		switch (extension) {
+			case 'md': {
+				content = '';
+				break;
+			}
+			case 'mjs': {
+				content = 'export default [(_, content) => content, {}];';
+				break;
+			}
+			case 'json': {
+				content = '{}';
+				break;
+			}
+			default: {
+				status = 404;
+				content = 'Not found';
+				break;
+			}
+		}
 	}
 	
+	const type = types[extension ?? 'txt'];
 	const utf8 = !/^image\/(?!svg)/.test(type);
 
 	res.writeHead(status, {
@@ -85,9 +103,10 @@ createServer((req, res) => {
 		readFile(`${manifest.has(path) ? __dirname : folder}/${path}`, ...options, (err, content) => {
 			if (!extension) {
 				content = content.replace('<body>', `<body><script>const flags=${JSON.stringify(flags)};</script>`);
+				extension = 'html';
 			}
 
-			send(res, content, type);
+			send(res, content, extension);
 		});
 
 		return;

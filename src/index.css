@@ -128,6 +128,14 @@ body.dark-theme {
 	text-align: left;
 }
 .child-button {
+	display: block;
+	color: var(--navigation-font-color);
+	text-decoration: none;
+}
+span.child-button {
+	color: var(--reference-font-color);
+}
+.child-button:visited {
 	color: var(--navigation-font-color);
 }
 .child-button-active {
@@ -142,7 +150,9 @@ body.dark-theme {
 	margin-top: 4px;
 	border-top: 1px solid var(--divider-color);
 }
+.nav span,
 .nav button {
+	display: block;
 	border: none;
 	background: none;
 	font-size: inherit;
