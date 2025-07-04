@@ -1,11 +1,15 @@
-Click edit to get started with a simple note, component, or game. 
+```
+{
+	smile: '🙂',
+}
+```
 
-[Markdown Notes](/markdown)  
-[Stew Components](/stew)  
-[WebGL Games](/webgl)  
+# Formatter
 
-# Bring your ideas to life
+```
+const [format, code] = arguments;
 
-This tool serves as a quick way to hold and build on your ideas.
-
-The demo site stores everything in your browser, but it can be installed for more permanent storage. Notes will be converted to HTML for easier reading and navigating. Enter any URL to get started, or read on to learn more, including the ability to convert your notes to websites or games.
+switch (format) {
+	case 'custom': return `CUSTOM\n${code}`;
+}
+```

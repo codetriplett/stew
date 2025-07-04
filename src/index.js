@@ -4,7 +4,7 @@ import { extractCode } from './code';
 const { localStorage, location } = window;
 const { pathname, hash } = location;
 const styles = document.querySelector('#styles').textContent;
-let emoji, intro;
+let emoji, formatter;
 
 const state = stew({
 	focusedSection: hash.slice(1),
@@ -178,13 +178,6 @@ function fetchNote (path) {
 
 	return file || fetch(path).then(res => {
 		return res.ok ? res.text() : '';
-	}).then(text => {
-		return text || fetch('/index.md').then(res => {
-			return res.ok ? res.text() : '';
-		}).then(text => {
-			intro = stew(text, ['/#', emoji]);
-			return '';
-		});
 	});
 }
 
@@ -253,11 +246,22 @@ function getText (node) {
 // TODO: if map is for a navigation node (all links), show the nav items for the currently active page
 // - need to add a focusedPage in addition to focused section
 // - on hashchange check if id is for a focusedPage and update it, otherwise update focusedSection
-function LeftMenu ({ map = {}, root }, themeToggle) {
+function LeftMenu ({ map = {}, root, isEligible }) {
 	const { focusedSection, settings, navigation } = state;
 	const { hideMenu } = settings;
+	const showMenu = isEligible && !hideMenu;
+	
+	stew(null, [showMenu], () => {
+		const { classList } = document.body;
 
-	if (hideMenu) {
+		if (showMenu) {
+			classList.add('menu-active');
+		} else {
+			classList.remove('menu-active');
+		}
+	});
+
+	if (!showMenu) {
 		sideColumns[0] = null;
 		return;
 	}
@@ -294,12 +298,11 @@ function LeftMenu ({ map = {}, root }, themeToggle) {
 					];
 				}),
 			],
-			themeToggle,
 		],
 	];
 }
 
-function Citation ({ snip, emoji }) {
+function Citation ({ snip }) {
 	const [path] = snip.replace(/^\/+/, '').split('#');
 	const markdown = stew(fetchNote, [path], null);
 	let content = typeof markdown !== 'string' ? markdown : markdown ? stew(markdown, [snip, emoji], null) : ['p', null, `File not found: /${path}.md`];
@@ -328,16 +331,27 @@ function Citation ({ snip, emoji }) {
 	];
 }
 
-function RightMenu ({ emoji }) {
+function RightMenu ({ isEligible }) {
 	const { snips, settings } = state;
 	const { hideSnips } = settings;
+	const showSnips = isEligible && !hideSnips;
+	
+	stew(null, [showSnips], () => {
+		const { classList } = document.body;
 
-	if (hideSnips) {
+		if (showSnips) {
+			classList.add('snips-active');
+		} else {
+			classList.remove('snips-active');
+		}
+	});
+
+	if (!showSnips) {
 		sideColumns[1] = null;
 		return;
 	}
 
-	const content = snips.map(snip => [Citation, { '': snip, snip, emoji }]);
+	const content = snips.map(snip => [Citation, { '': snip, snip }]);
 	stew(null, [], updateWidths);
 	sideColumns[1] = [];
 
@@ -494,7 +508,16 @@ function Editor ({ names, file }) {
 	];
 }
 
-function Page ({ emoji }) {
+// TODO: have index.md hold emoji nad formatter
+// - emoji are already stored in index.json, so index.md should be how that gets authored
+// - don't use index.json as schema, like it does for all other pages
+// - have H1 store the formatter function
+// - have inline CSS override tool styles (e.g. custom themes)
+// - can also use resources section to impore React if people prefer
+
+// TODO: clean up UI now that MD MJS and JSON return empty content instead of 404
+
+function Page () {
 	const { isEditing, canvas, snips, settings, revision } = state;
 	const { hideMenu, hideSnips } = settings;
 
@@ -538,7 +561,7 @@ function Page ({ emoji }) {
 		return typeof markdown === 'string' ? [Editor, { names, file: markdown }] : fallback;
 	}
 
-	const content = markdown ? stew(markdown, [path, emoji], null) : intro;
+	const content = stew(markdown, [path, emoji], null);
 	const map = content?.[1];
 
 	// either map[''] or the array of its only child, with root links prepended
@@ -573,7 +596,7 @@ function Page ({ emoji }) {
 		// TODO: store array in state for index links that could wrap the left menu links
 		// - these are ones that the parents might store in schema['']
 		// - allows for creating left nav links that expand to show content for child pages
-		includeMenu && [LeftMenu, { map, root }],
+		[LeftMenu, { map, root, isEligible: includeMenu }],
 		['div', {
 			className: 'main',
 		},
@@ -599,7 +622,7 @@ function Page ({ emoji }) {
 		// - first link will be for the page to navigate to, remaining links will be for snips to load
 		// - include option to clone active session
 		// - also show files that have been changed but not yet saved
-		includeSnips && [RightMenu, { emoji }],
+		[RightMenu, { isEligible: includeSnips }],
 	];
 }
 
@@ -685,10 +708,10 @@ function Drafts () {
 }
 
 function Home () {
-	const { settings } = state;
-	const { theme,  } = settings;
-	const markdown = stew(fetchNote, ['index'], '');
-	const layout = stew(markdown, ['/#'], null);
+	const { settings, snips } = state;
+	const { theme } = settings;
+
+	console.log(snips);
 	
 	return ['', {},
 		// TODO: render drafts in left menu
@@ -696,7 +719,20 @@ function Home () {
 		['div', {
 			className: 'main',
 		},
-			layout,
+			stew(`
+# Write it down and bring it to life
+
+This site serves as a place to store and navigate through your notes. 
+Everything is stored locally in your browser, but an installable version will be available soon. 
+Notes support Markdown, and can be nested to create interactive sites and games. 
+Enter a URL to create a new note, or read on to learn more. 
+
+[Markdown notes](/markdown)  
+
+[Stew components](/stew)  
+
+[WebGL games](/webgl)  
+			`, ['/']),
 			// TODO: render active snips session here
 			// - display inactive ones to the side, along with a button to create a new session
 			// - ones to the side can be clicked to make active or closed
@@ -730,23 +766,19 @@ function Home () {
 export default function App () {
 	const { settings } = state;
 	const { theme } = settings;
-	
-	stew(null, [theme], () => {
-		const { readonly } = flags;
-		document.body.className = `${theme}-theme ${readonly ? 'readonly' : ''}`;
-	});
+	const indexModule = stew(fetchCode, ['index'], null);
 
-	if (pathname === '/') {
-		return [Home];
-	}
-
-	emoji = stew(fetchData, ['index'], null, {});
-	const formatter = stew(fetchCode, ['index'], null, {});
-
-	if (emoji === null || formatter === null) {
+	if (!indexModule) {
 		return;
 	}
 
-	emoji[''] = formatter.default;
-	return [Page, { emoji }];
+	[formatter, emoji] = indexModule.default;
+	emoji[''] = formatter;
+
+	stew(null, [theme], () => {
+		const { readonly } = flags;
+		document.body.className = `${theme}-theme ${pathname === '/' ? 'home' : 'page'} ${readonly ? 'readonly' : ''}`;
+	});
+
+	return [pathname === '/' ? Home : Page];
 }

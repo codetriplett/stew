@@ -602,7 +602,7 @@ export default function parse (content, rootPath = '', customizations = {}) {
 		}
 
 		if (format !== undefined) {
-			const node = formatter?.(container[2], format);
+			const node = formatter?.(format, container[2]);
 
 			if (Array.isArray(node)) {
 				wrapper.splice(0, 3, ...node);

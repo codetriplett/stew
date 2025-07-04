@@ -23,6 +23,7 @@ export function extractCode (file) {
 	let defaultString = '';
 
 	for (const [name, section] of Object.entries(sections)) {
+		const formattedName = name.replace(/-./g, m => m.slice(1).toUppercase());
 		const [hash,, ...links] = section;
 		const [type, index] = hash.split('#')[0].split(':');
 
@@ -57,9 +58,9 @@ export function extractCode (file) {
 		let string;
 
 		if (innerCode[0] === '{') {
-			string = `\nconst ${name} = stew(${innerCode});`;
+			string = `\nconst ${formattedName} = stew(${innerCode});`;
 		} else {
-			string = `\nexport function ${name} () {\n${innerCode || ''}\n}`;
+			string = `\nexport function ${formattedName} () {\n${innerCode || ''}\n}`;
 		}
 
 		if (type === 'h2') {
@@ -97,6 +98,7 @@ export function extractCode (file) {
 	}
 
 	let code = strings.join('\n');
+	const formattedName = name.replace(/-./g, m => m.slice(1).toUppercase());
 	const heading = sections[name]?.[1] || '';
 	const definition = summary[Number(index) + 3]?.[2]?.[2];
 	const schemaStart = definition.indexOf('{');
@@ -114,7 +116,7 @@ export function extractCode (file) {
 	}
 
 	schema = schema.replace(/^\{[\r\n]*|[\r\n]*\}$/g, '');
-	code += `\n\nexport default [${name || 'null'}, {\n    '': '${heading}',${schema ? `\n${schema}` : ''}\n}${!styles ? '' : `, ['style', null, \`\n${styles}\n\`]`}`;
+	code += `\n\nexport default [${formattedName || 'null'}, {\n    '': '${heading}',${schema ? `\n${schema}` : ''}\n}${!styles ? '' : `, ['style', null, \`\n${styles}\n\`]`}`;
 
 	for (const url of resources.split(/\s*\n+\s*/)) {
 		if (!url.startsWith('/')) {

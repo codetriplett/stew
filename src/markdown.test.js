@@ -624,7 +624,7 @@ describe('parse', () => {
 
 		it('tick formatting', () => {
 			const actual = parse('```\nabc\n```', '/', {
-				'': code => ['div', null, code],
+				'': (type, code) => ['div', null, code],
 			});
 
 			expect(actual).toEqual(['', { '': 'h:0' },
@@ -634,7 +634,7 @@ describe('parse', () => {
 
 		it('tick customized', () => {
 			const actual = parse('```capitalize\nabc\n```', '/', {
-				'': (code, type) => {
+				'': (type, code) => {
 					return type === 'capitalize' ? code.toUpperCase() : code;
 				},
 			});

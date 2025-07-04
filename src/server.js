@@ -124,7 +124,7 @@ createServer((req, res) => {
 				return;
 			}
 
-			unlink('path/to/your/file.txt', err => {
+			unlink(filepath, err => {
 				if (err) {
 					send(res, err.message, 500);
 				} else {
@@ -142,7 +142,7 @@ createServer((req, res) => {
 		body += data;
 
 		if (body.length > 1e6) {
-			req.connection.destroy();
+			req.destroy();
 		}
 	});
 
