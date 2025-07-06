@@ -4,9 +4,10 @@ const { createServer } = require('http');
 const { readFile, writeFile, access, unlink, constants } = require('fs');
 
 const { env, cwd, argv: [,, config = ''] } = process;
+const { PORT, LOG_PATH } = env;
 const [overrides, ...flagNames] = config.split('#');
 const [, portOverride, pathExtension] = overrides.match(/^(?::(.*?)(?:[\\\/]|$))?(?:[\\\/]*(.*?)\/*)$/);
-const port = env.PORT || Number(portOverride || '8080');
+const port = PORT || Number(portOverride || '8080');
 const folder = `${cwd()}${pathExtension.replace(/^(?!\\|\/|$)|\//g, '\\').replace(/(\\|\/)$/, '')}`;
 const flags = Object.fromEntries(flagNames.map(name => [name, true]));
 const { readonly } = flags;
@@ -32,6 +33,7 @@ const manifest = new Set([
 	'favicon.ico',
 	'index.css',
 	'index.html',
+	'index.png',
 	'index.min.js',
 	'stew.min.js',
 	'stew.min.js.LEGAL.txt',
@@ -98,6 +100,10 @@ createServer((req, res) => {
 	if (method === 'GET') {
 		if (!extension) {
 			path = 'index.html';
+		}
+
+		if (LOG_PATH === 'true') {
+			console.log('var type: ', typeof LOG_PATH, '| path: ', `${folder}/${path}`);
 		}
 
 		readFile(`${manifest.has(path) ? __dirname : folder}/${path}`, ...options, (err, content) => {

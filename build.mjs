@@ -51,6 +51,7 @@ const uiInfo = await build({
 					'./src/server.js',
 					'./src/index.css',
 					'./src/index.html',
+					'./src/index.png',
 					'./src/favicon.ico',
 				],
 				to: ['./dist'],

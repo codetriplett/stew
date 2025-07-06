@@ -326,7 +326,7 @@ function Citation ({ snip }) {
 					packSettingsAndSessions();
 				}
 			},
-		}, '✕'],
+		}],
 		content,
 	];
 }
@@ -497,14 +497,18 @@ function Editor ({ names, file }) {
 				},
 			}, file],
 		],
+		// TODO: add a delete icon to replace save when file is empty
 		['button', {
 			className: 'left-button save-button',
 			onclick: () => save(names, formRef, true),
-		}, '🖫'],
+		}],
+		// TODO: only store to localStorage if it differs from what last saved
+		// - have save store add the committed draft to the state so it can be checked here
+		// - clear from local storage if draft is empty when previewing
 		['button', {
 			className: 'right-button preview-button',
 			onclick: () => save(names, formRef),
-		}, '👁'],
+		}],
 	];
 }
 
@@ -557,6 +561,12 @@ function Page () {
 	const [path] = paths;
 	const markdown = stew(fetchNote, [path, revision], null);
 
+	stew(null, [markdown], () => {
+		if (typeof markdown === 'string' && !/\S/.test(markdown)) {
+			state.isEditing = true;
+		}
+	});
+
 	if (isEditing) {
 		return typeof markdown === 'string' ? [Editor, { names, file: markdown }] : fallback;
 	}
@@ -604,10 +614,10 @@ function Page () {
 			includeMenu ? ['button', {
 				className: 'left-button menu-button',
 				onclick: () => updateSettings({ hideMenu: !hideMenu }),
-			}, '≡'] : canvas && ['button', {
+			}] : canvas && ['button', {
 				className: 'left-button fullscreen-button',
 				onclick: () => canvas.requestFullscreen(),
-			}, '⛶'],
+			}],
 			// TODO: have this be a toggle for snips
 			// - put edit button next to name in final breadcrumb (just pencil without filled in circle)
 			// - this works better for how mobile will have the left and right content slide in from the side when these buttons are pressed
@@ -616,7 +626,7 @@ function Page () {
 			includeSnips && ['button', {
 				className: 'right-button snips-button',
 				onclick: () => updateSettings({ hideSnips: !hideSnips }),
-			}, '#'],
+			}],
 		],
 		// TODO: if on home page, have right menu show past sessions to resume
 		// - first link will be for the page to navigate to, remaining links will be for snips to load
@@ -754,7 +764,7 @@ Enter a URL to create a new note, or read on to learn more.
 				type: 'button',
 				className: 'right-button theme-button',
 				onclick: () => updateSettings({ theme: theme === 'dark' ? 'light' : 'dark' }),
-			}, theme === 'dark' ? '☽' : '☼'],
+			}],
 		],
 		// TODO: have right menu show past sessions to resume
 		// - first link will be for the page to navigate to, remaining links will be for snips to load

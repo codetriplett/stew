@@ -41,13 +41,14 @@ export function extractData (form) {
 			continue;
 		}
 
-		const object = names.reduce((object, name) => {
+		const object = names.reduce((object, name, i) => {
 			if (object[name]) {
 				return object[name];
 			}
 
-			const newObject = typeof name === 'number' ? [] : {};
-			object[name] = newObject
+			const nextName = names[i + 1] ?? finalName;
+			const newObject = typeof nextName === 'number' ? [] : {};
+			object[name] = newObject;
 			return newObject;
 		}, data);
 
@@ -163,36 +164,28 @@ function BooleanSelect ({ label, placeholder, value, inputs }, ...options) {
 	];
 }
 
-function RangeSelect ({ label, placeholder, value, inputs, rest }, ...options) {
+function RangeSelect ({ label, placeholder, value, inputs, rest, names }, ...options) {
 	const state = stew(() => {
-		return stew({ array: Array.isArray(value) ? value : [] });
+		const array = Array.isArray(value) ? value : [];
+		const optionIndexes = array.map(value => findOption(value, ...inputs));
+		return stew({ optionIndexes, array });
 	}, []);
 
-	const { array } = state;
+	const { optionIndexes, array } = state;
 
 	return ['label', {},
 		label,
 		['ol', {},
-			...array.entries().map((value, i) => {
-				// TODO: handle cases where index is -1 (invalid items)
-				const index = findOption(value, ...inputs);
-				return ['li', {}, FormField(rest[index], value, ...names, i)];
+			...array.map((value, i) => {
+				const index = optionIndexes[i];
+				return index === -1 ? null : ['li', {}, FormField(rest[index], value, ...names, i)];
 			}),
 		],
 		['select', {
 			onchange: event => {
-				console.log('==== insert new item', event.target.selectedIndex - 1);
-				// const newInput = inputs[selectedIndex - 1];
-				// select[2][1].selected = true;
-		
-				// if (!newInput) {
-				// 	return;
-				// }
-		
-				// const clonedInput = [...newInput];
-				// clonedInput[1] = { ...clonedInput[1] };
-				// clonedInput[1].id += `[${list.length - 2}]`;
-				// list.push(['li', {}, clonedInput]);
+				const index = event.target.selectedIndex - 1;
+				state.optionIndexes = [...optionIndexes, index];
+				state.array = [...array, undefined];
 				event.target.selectedIndex = 0;
 			}
 		},
@@ -233,7 +226,7 @@ function FormSelect (definition, value, ...names) {
 		}
 		case 'number':
 		case 'range': {
-			return [RangeSelect, { label, placeholder, value, inputs, rest }, ...options];
+			return [RangeSelect, { label, placeholder, value, inputs, rest, names }, ...options];
 		}
 	}
 

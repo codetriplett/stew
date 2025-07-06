@@ -1,4 +1,4 @@
-import { checkInput, findOption, FormField } from './form';
+import { extractData, checkInput, findOption, FormField } from './form';
 
 /*
 
@@ -19,6 +19,130 @@ import { checkInput, findOption, FormField } from './form';
 path/path/\w+/
 
 */
+
+const checkValidity = jest.fn();
+const reportValidity = jest.fn();
+export const elements = [];
+let form;
+
+export function addElements (value, id = '') {
+	let type = 'text';
+	let checked = false;
+
+	switch (typeof value) {
+		case 'number': {
+			type = 'number';
+			value = String(value);
+			break;
+		}
+		case 'boolean': {
+			type = 'checkbox';
+			checked = value;
+			value = checked ? 'on' : 'off';
+			break;
+		}
+		case 'object': {
+			if (Array.isArray(value)) {
+				for (const [i, item] of value.entries()) {
+					addElements(item, `${id}[${i}]`);
+				}
+
+				return;
+			} else if (value) {
+				if (id) {
+					id = `${id}.`;
+				}
+
+				for (const [name, item] of Object.entries(value)) {
+					addElements(item, `${id}${name}`);
+				}
+
+				return;
+			}
+		}
+		case 'undefined': {
+			value = '';
+			break;
+		}
+	}
+
+	elements.push({ type, id, value, checked, placeholder: '' });
+}
+
+beforeEach(() => {
+	jest.clearAllMocks();
+	elements.splice(0);
+	checkValidity.mockReturnValue(true);
+
+	form = {
+		checkValidity,
+		reportValidity,
+		elements,
+	};
+});
+
+describe('extractData', () => {
+	it('extracts data', () => {
+		addElements({
+			boolean: true,
+			number: 123,
+			string: 'abc',
+			object: {
+				boolean: true,
+				number: 123,
+				string: 'abc',
+			},
+			array: [
+				true,
+				123,
+				'abc',
+				{
+					boolean: true,
+					number: 123,
+					string: 'abc',
+				},
+			],
+		});
+
+		expect(elements).toEqual([
+			{ id: 'boolean', type: 'checkbox', value: 'on', checked: true, placeholder: '' },
+			{ id: 'number', type: 'number', value: '123', checked: false, placeholder: '' },
+			{ id: 'string', type: 'text', value: 'abc', checked: false, placeholder: '' },
+			{ id: 'object.boolean', type: 'checkbox', value: 'on', checked: true, placeholder: '' },
+			{ id: 'object.number', type: 'number', value: '123', checked: false, placeholder: '' },
+			{ id: 'object.string', type: 'text', value: 'abc', checked: false, placeholder: '' },
+			{ id: 'array[0]', type: 'checkbox', value: 'on', checked: true, placeholder: '' },
+			{ id: 'array[1]', type: 'number', value: '123', checked: false, placeholder: '' },
+			{ id: 'array[2]', type: 'text', value: 'abc', checked: false, placeholder: '' },
+			{ id: 'array[3].boolean', type: 'checkbox', value: 'on', checked: true, placeholder: '' },
+			{ id: 'array[3].number', type: 'number', value: '123', checked: false, placeholder: '' },
+			{ id: 'array[3].string', type: 'text', value: 'abc', checked: false, placeholder: '' },
+		]);
+
+		const actual = extractData(form);
+
+		expect(actual).toEqual({
+			boolean: true,
+			number: 123,
+			string: 'abc',
+			object: {
+				boolean: true,
+				number: 123,
+				string: 'abc',
+			},
+			array: [
+				true,
+				123,
+				'abc',
+				{
+					boolean: true,
+					number: 123,
+					string: 'abc',
+				},
+			],
+		});
+	});
+});
 
 describe.skip('checkInput', () => {
 	it('accepts number within free range', () => {

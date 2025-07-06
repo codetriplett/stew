@@ -164,7 +164,8 @@ span.child-button {
 }
 
 .left-button,
-.right-button {
+.right-button,
+.edit-button {
     position: absolute;
     top: 10px;
     width: 30px;
@@ -172,8 +173,8 @@ span.child-button {
     margin: 0;
 	padding: 0;
 	border: 1px solid var(--button-border-color);
-    border-radius: 50%;
-    line-height: 30px;
+    border-radius: 25%;
+    font-size: 0;
 	color: var(--button-font-color);
     background: var(--button-background);
 
@@ -182,6 +183,22 @@ span.child-button {
 		color: var(--button-hover-font-color);
 		background: var(--button-hover-background);
 	}
+
+	&:after {
+		content: '';
+        display: block;
+        width: 18px;
+        height: 18px;
+        margin: 0 auto;
+        background: no-repeat url(/index.png);
+        background-position: 20.4px -1.6px;
+        background-size: auto 20.4px;
+	}
+}
+.edit-button {
+	margin-left: 2px;
+	border: none;
+	background: none;
 }
 .left-button {
     left: 10px;
@@ -189,44 +206,34 @@ span.child-button {
 .right-button {
     right: 10px;
 }
-.menu-button {
-	font-size: 26px;
-	line-height: 26px;
+
+.theme-button:after {
+	background-position-x: calc((0 * 16px + 1px) * -1.2);
 }
-.snips-button {
-	font-size: 23px;
+.light-theme .theme-button:after {
+	background-position-x: calc((1 * 16px + 1px) * -1.2);
 }
-.fullscreen-button {
-	font-size: 21px;
+.menu-button:after {
+	background-position-x: calc((2 * 16px + 1px) * -1.2);
 }
-.save-button {
-    font-size: 24px;
-    line-height: 27px;
-    font-weight: bold;
+.snips-button:after,
+.map-button:after {
+	background-position-x: calc((3 * 16px + 1px) * -1.2);
 }
-.preview-button {
-	font-size: 27px;
-    line-height: 27px;
+.close-button:after {
+	background-position-x: calc((4 * 16px + 1px) * -1.2);
 }
-.map-button {
-	font-size: 23px;
+.edit-button:after {
+	background-position-x: calc((5 * 16px + 1px) * -1.2);
 }
-.theme-button {
-    font-size: 21px;
+.preview-button:after {
+	background-position-x: calc((6 * 16px + 1px) * -1.2);
 }
-.light-theme .theme-button {
-	padding-left: 2px;
+.save-button:after {
+	background-position-x: calc((7 * 16px + 1px) * -1.2);
 }
-.close-button {
-    font-size: 17px;
-}
-.edit-button {
-    position: relative;
-    top: 2px;
-    border: none;
-	font-size: 21px;
-    color: var(--link-font-color);
-	background: none;
+.fullscreen-button:after {
+	background-position-x: calc((8 * 16px + 1px) * -1.2);
 }
 
 .breadcrumbs {

@@ -10,8 +10,9 @@ return ['', {},
 export default [category, {
     '': 'Category',
     page: '// Page',
-}, ['style', null,
-`nav {
+}, ['style', null, `
+nav {
     width: 240px;
     background: lightgray;
-}`]];
+}
+`]];
