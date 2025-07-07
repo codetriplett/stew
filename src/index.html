@@ -14,25 +14,26 @@
 		position: relative;
 		text-decoration: none;
 		color: var(--paper-font-color);
-	}
-	h1 a:only-child:hover:after,
-	h2 a:only-child:hover:after,
-	h3 a:only-child:hover:after,
-	h4 a:only-child:hover:after,
-	h5 a:only-child:hover:after,
-	h6 a:only-child:hover:after {
-		content: '#';
-		position: absolute;
-		left: calc(100% + 5px);
+
+		&:hover::after {
+			content: '#';
+			position: absolute;
+			left: calc(100% + 5px);
+		}
 	}
 	a {
 		color: var(--link-font-color);
+
+		&:visited {
+			color: var(--link-visited-font-color);
+		}
 	}
-	a:visited {
-		color: var(--link-visited-font-color);
-	}
-	code {
-		tab-size: 4;
+	pre {
+		overflow-x: auto;
+
+		> code {
+			tab-size: 4;
+		}
 	}
 	span[style="color:transparent"],
 	span[style="color:transparent;"],

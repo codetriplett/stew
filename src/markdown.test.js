@@ -1742,7 +1742,12 @@ abc <span>
 			]);
 		});
 
-		it('ignores strucutural markdown', () => {
+		// TOOD: allow markdown in html
+		// - add tags to stack instead of separate tags array
+		// - need to differentiate containers in stack that were opened by markdown symbols and html
+		// - only containers that were created by html can be closed by html
+		// - add attributes to props of html containers
+		it.skip('nests structural markdown', () => {
 			const actual = parse(`
 abc <span>
 - lmno
@@ -1752,7 +1757,11 @@ abc <span>
 			expect(actual).toEqual(['', null,
 				['p', null,
 					' abc ',
-					['span', null, ' - lmno '],
+					['span', null,
+						['ul', null,
+							['li', null, 'lmno'],
+						],
+					],
 					' xyz ',
 				],
 			]);

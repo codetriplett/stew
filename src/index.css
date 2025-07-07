@@ -307,16 +307,35 @@ label input[type="checkbox"] {
 		}
 		.main, .edit {
 			flex: 0 0 calc(100vw - 32px);
+			max-width: calc(100vw - 32px);
 		}
 		.snips {
 			flex: 0 0 calc(100vw - 86px);
+			max-width: calc(100vw - 86px);
 
 			.scroll-column {
 				width: 100%;
 			}
 		}
 	}
-	.snips-active #app {
-		float: right;
+	.left-button,
+	.right-button {
+		box-shadow: 0 0 8px 8px var(--paper-background);
+	}
+	.snips-active {
+		#app {
+			float: right;
+		}
+
+		.main .right-button {
+			position: fixed;
+			top: 26px;
+			left: 15px;
+		}
+	}
+	.menu-active:not(.snips-active) .main .left-button {
+		position: fixed;
+		top: 26px;
+		left: auto;
 	}
 }

@@ -2,15 +2,17 @@
 
 const { createServer } = require('http');
 const { readFile, writeFile, access, unlink, constants } = require('fs');
+const path = require('path');
 
 const { env, cwd, argv: [,, config = ''] } = process;
 const { PORT, LOG_PATH } = env;
 const [overrides, ...flagNames] = config.split('#');
-const [, portOverride, pathExtension] = overrides.match(/^(?::(.*?)(?:[\\\/]|$))?(?:[\\\/]*(.*?)\/*)$/);
-const port = PORT || Number(portOverride || '8080');
-const folder = `${cwd()}${pathExtension.replace(/^(?!\\|\/|$)|\//g, '\\').replace(/(\\|\/)$/, '')}`;
 const flags = Object.fromEntries(flagNames.map(name => [name, true]));
-const { readonly } = flags;
+const { '': fromdir, readonly } = flags;
+const [, portOverride, backtracks, pathExtension] = overrides.match(/^(?::(.*?)(?=[\\\/]|$))?(?:(?:[\\\/]|^)([\\\/]*)(.*?)\/*)$/);
+const port = PORT || Number(portOverride || '8080');
+let folder = path.join(fromdir ? path.join(__dirname, '..') : cwd(), ...Array(backtracks.length).fill('..'));
+folder += pathExtension.replace(/^(?!\\|\/|$)|\//g, '\\').replace(/(\\|\/)$/, '');
 
 const types = {
 	txt: 'text/plain',
