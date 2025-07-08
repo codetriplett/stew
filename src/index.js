@@ -174,18 +174,16 @@ async function save (names, ref, isCommit) {
 
 function fetchNote (path) {
 	path = `/${path}.md`;
-	const { readonly } = flags;
-	const file = localStorage.getItem(path) || readonly && '';
+	const file = localStorage.getItem(path);
 
-	return typeof file === 'string' ? file : fetch(path).then(res => {
+	return file || fetch(path).then(res => {
 		return res.ok ? res.text() : '';
 	});
 }
 
 function fetchData (path) {
 	path = `/${path}.json`;
-	const { readonly } = flags;
-	const file = localStorage.getItem(path) || readonly && '{}';
+	const file = localStorage.getItem(path);
 
 	return file ? JSON.parse(file) : fetch(path).then(res => {
 		return res.ok ? res.json() : {};
@@ -194,8 +192,7 @@ function fetchData (path) {
 
 function fetchCode (path) {
 	path = `/${path}.mjs`;
-	const { readonly } = flags;
-	const file = localStorage.getItem(path) || readonly && 'export default [(_, content) => content, {}];';
+	const file = localStorage.getItem(path);
 
 	return import(!file ? path : URL.createObjectURL(
 		new Blob([file], { type: 'application/javascript' }),
@@ -695,8 +692,8 @@ function Folder (folder, path = '/') {
 
 function Drafts ({ paths, isEligible }) {
 	const { settings } = state;
-	const { showFiles } = settings;
-	const filesActive = isEligible && showFiles;
+	const { showDrafts } = settings;
+	const filesActive = isEligible && showDrafts;
 	
 	stew(null, [filesActive], () => {
 		const { classList } = document.body;
@@ -708,13 +705,14 @@ function Drafts ({ paths, isEligible }) {
 		}
 	});
 
+	if (!showDrafts) {
+		sideColumns[0] = null
+		return;
+	}
+
 	const tree = stew(() => {
 		// TODO: create tree
 		const tree = { '': [] };
-		
-		if (!paths.length) {
-			return;
-		}
 
 		for (const path of paths) {
 			const names = path.slice(1).split('/');
@@ -735,11 +733,6 @@ function Drafts ({ paths, isEligible }) {
 
 		return alphabetizeFolder(tree);
 	}, []);
-
-	if (!tree) {
-		sideColumns[0] = null
-		return;
-	}
 
 	stew(null, [window.location.hash], updateWidths);
 	sideColumns[0] = [];
@@ -769,7 +762,7 @@ function Home () {
 	
 	return ['', {},
 		// TODO: render drafts in left menu
-		showDrafts && [Drafts, { paths, isEligible: includeDrafts }],
+		[Drafts, { paths, isEligible: includeDrafts }],
 		['div', {
 			className: 'main',
 		},
@@ -817,7 +810,7 @@ There is even a shader language for creating games that can be found in the [Web
 			// 		console.log('==== toggle hash map');
 			// 	},
 			// }, '#'],
-			['button', {
+			includeDrafts && ['button', {
 				type: 'button',
 				className: 'left-button files-button',
 				onclick: () => updateSettings({ showDrafts: !showDrafts }),
