@@ -12,7 +12,7 @@ const { '': fromdir, readonly } = flags;
 const [, portOverride, backtracks, pathExtension] = overrides.match(/^(?::(.*?)(?=[\\\/]|$))?(?:(?:[\\\/]|^)([\\\/]*)(.*?)\/*)$/);
 const port = PORT || Number(portOverride || '8080');
 let folder = path.join(fromdir ? path.join(__dirname, '..') : cwd(), ...Array(backtracks.length).fill('..'));
-folder += pathExtension.replace(/^(?!\\|\/|$)|\//g, '\\').replace(/(\\|\/)$/, '');
+folder += pathExtension.replace(/^(?!\\|\/|$)|\//g, '/').replace(/(\\|\/)$/, '');
 
 const types = {
 	txt: 'text/plain',
