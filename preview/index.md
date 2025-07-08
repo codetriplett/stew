@@ -4,12 +4,16 @@
 }
 ```
 
-# Formatter
+# Convert
 
 ```
-const [format, code] = arguments;
+const [{ tagName, children, ...props }] = arguments;
+return [tagName, props, ...children];
+```
 
-switch (format) {
-	case 'custom': return `CUSTOM\n${code}`;
-}
+## Custom
+
+```
+const [flags, code] = arguments;
+return `CUSTOM\n${code}`;
 ```

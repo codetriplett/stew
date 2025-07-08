@@ -35,10 +35,10 @@ const uiInfo = await build({
 	entryPoints: ['src/index.js'],
 	outfile: 'dist/index.min.js',
 	format: 'iife',
-	globalName: 'App',
-	footer: {
-		js: 'window.App=App.default',
-	},
+	// globalName: 'App',
+	// footer: {
+	// 	js: 'window.App=App.default',
+	// },
 	external: ['@triplett/stew'],
 	bundle: true,
 	minify: true,

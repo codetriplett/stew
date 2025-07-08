@@ -5,7 +5,7 @@ const { readFile, writeFile, access, unlink, constants } = require('fs');
 const path = require('path');
 
 const { env, cwd, argv: [,, config = ''] } = process;
-const { PORT, LOG_PATH } = env;
+const { PORT } = env;
 const [overrides, ...flagNames] = config.split('#');
 const flags = Object.fromEntries(flagNames.map(name => [name, true]));
 const { '': fromdir, readonly } = flags;
@@ -42,6 +42,12 @@ const manifest = new Set([
 	'stew.min.mjs',
 	'stew.min.mjs.LEGAL.txt',
 ]);
+
+const htmlPromise = new Promise(resolve => {
+	readFile(`${__dirname}/index.html`, { encoding: 'utf8' }, (err, content) => {
+		resolve(content.replace('<body>', `<body><script>const flags=${JSON.stringify(flags)};</script>`));
+	});
+});
 
 function send (res, content, extension) {
 	const headers = {};
@@ -101,19 +107,11 @@ createServer((req, res) => {
 	
 	if (method === 'GET') {
 		if (!extension) {
-			path = 'index.html';
-		}
-
-		if (LOG_PATH === 'true') {
-			console.log('var type: ', typeof LOG_PATH, '| path: ', `${folder}/${path}`);
+			htmlPromise.then(html => send(res, html, 'html'));
+			return;
 		}
 
 		readFile(`${manifest.has(path) ? __dirname : folder}/${path}`, ...options, (err, content) => {
-			if (!extension) {
-				content = content.replace('<body>', `<body><script>const flags=${JSON.stringify(flags)};</script>`);
-				extension = 'html';
-			}
-
 			send(res, content, extension);
 		});
 

@@ -106,6 +106,10 @@ Text can be displayed with monospaced font and no additional processing by inden
 	```
 	````
 
+## HTML
+
+HTML tags are only partially supported at this stage. They don't support attributes, and their content is taken as-is instead of being processed as markdown. I'd recommend using [Stew layouts](/stew) for now if you want to customize your notes further.
+
 # Formatting
 
 Text can be decorated further by wrapping symbols around what you want to see formatted.

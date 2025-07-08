@@ -8,7 +8,7 @@ let emoji, formatter;
 
 const state = stew({
 	focusedSection: hash.slice(1),
-	isEditing: pathname.endsWith('//'),
+	isEditing: false,
 	settings: {},
 	snips: [],
 	sessions: [],
@@ -53,7 +53,7 @@ function updateSettings (updates) {
 function addSnips (...newSnips) {
 	const { snips } = state;
 	let wasAdded = false;
-	updateSettings({ hideSnips: false });
+	updateSettings({ showSnips: true });
 
 	for (const snip of newSnips) {
 		const index = snips.indexOf(snip);
@@ -174,16 +174,18 @@ async function save (names, ref, isCommit) {
 
 function fetchNote (path) {
 	path = `/${path}.md`;
-	const file = localStorage.getItem(path);
+	const { readonly } = flags;
+	const file = localStorage.getItem(path) || readonly && '';
 
-	return file || fetch(path).then(res => {
+	return typeof file === 'string' ? file : fetch(path).then(res => {
 		return res.ok ? res.text() : '';
 	});
 }
 
 function fetchData (path) {
 	path = `/${path}.json`;
-	const file = localStorage.getItem(path);
+	const { readonly } = flags;
+	const file = localStorage.getItem(path) || readonly && '{}';
 
 	return file ? JSON.parse(file) : fetch(path).then(res => {
 		return res.ok ? res.json() : {};
@@ -192,7 +194,8 @@ function fetchData (path) {
 
 function fetchCode (path) {
 	path = `/${path}.mjs`;
-	const file = localStorage.getItem(path);
+	const { readonly } = flags;
+	const file = localStorage.getItem(path) || readonly && 'export default [(_, content) => content, {}];';
 
 	return import(!file ? path : URL.createObjectURL(
 		new Blob([file], { type: 'application/javascript' }),
@@ -215,6 +218,7 @@ function LeftMenuList (map, hashes) {
 			
 			return ['li', null,
 				['button', {
+					type: 'button',
 					className: `child-button ${name === hash.slice(1) ? 'child-button-active' : ''}`,
 					onclick: () => {
 						const { hash } = window.location;
@@ -248,20 +252,20 @@ function getText (node) {
 // - on hashchange check if id is for a focusedPage and update it, otherwise update focusedSection
 function LeftMenu ({ map = {}, root, isEligible }) {
 	const { focusedSection, settings, navigation } = state;
-	const { hideMenu } = settings;
-	const showMenu = isEligible && !hideMenu;
+	const { showMenu } = settings;
+	const menuActive = isEligible && showMenu;
 	
-	stew(null, [showMenu], () => {
+	stew(null, [menuActive], () => {
 		const { classList } = document.body;
 
-		if (showMenu) {
+		if (menuActive) {
 			classList.add('menu-active');
 		} else {
 			classList.remove('menu-active');
 		}
 	});
 
-	if (!showMenu) {
+	if (!menuActive) {
 		sideColumns[0] = null;
 		return;
 	}
@@ -289,6 +293,7 @@ function LeftMenu ({ map = {}, root, isEligible }) {
 
 					return ['li', null,
 						['button', {
+							type: 'button',
 							className: 'citation-button',
 							onclick: () => {
 								const [path, ...hashes] = href.split('#');
@@ -315,6 +320,7 @@ function Citation ({ snip }) {
 		className: 'snip',
 	},
 		['button', {
+			type: 'button',
 			className: 'right-button close-button',
 			onclick: () => {
 				const { snips } = state;
@@ -333,20 +339,20 @@ function Citation ({ snip }) {
 
 function RightMenu ({ isEligible }) {
 	const { snips, settings } = state;
-	const { hideSnips } = settings;
-	const showSnips = isEligible && !hideSnips;
+	const { showSnips } = settings;
+	const snipsActive = isEligible && showSnips;
 	
-	stew(null, [showSnips], () => {
+	stew(null, [snipsActive], () => {
 		const { classList } = document.body;
 
-		if (showSnips) {
+		if (snipsActive) {
 			classList.add('snips-active');
 		} else {
 			classList.remove('snips-active');
 		}
 	});
 
-	if (!showSnips) {
+	if (!snipsActive) {
 		sideColumns[1] = null;
 		return;
 	}
@@ -414,6 +420,7 @@ function Block ({ names, data, resources, breadcrumbs }, content) {
 					return ['li', null,
 						breadcrumb,
 						typeof breadcrumb === 'string' && ['button', {
+							type: 'button',
 							className: 'edit-button',
 							onclick: () => state.isEditing = true,
 						}, '🖉'],
@@ -499,6 +506,7 @@ function Editor ({ names, file }) {
 		],
 		// TODO: add a delete icon to replace save when file is empty
 		['button', {
+			type: 'button',
 			className: 'left-button save-button',
 			onclick: () => save(names, formRef, true),
 		}],
@@ -506,6 +514,7 @@ function Editor ({ names, file }) {
 		// - have save store add the committed draft to the state so it can be checked here
 		// - clear from local storage if draft is empty when previewing
 		['button', {
+			type: 'button',
 			className: 'right-button preview-button',
 			onclick: () => save(names, formRef),
 		}],
@@ -523,7 +532,7 @@ function Editor ({ names, file }) {
 
 function Page () {
 	const { isEditing, canvas, snips, settings, revision } = state;
-	const { hideMenu, hideSnips } = settings;
+	const { showMenu, showSnips } = settings;
 
 	const [names, fallback, ...paths] = stew(() => {
 		const { pathname } = window.location;
@@ -574,6 +583,9 @@ function Page () {
 	const content = stew(markdown, [path, emoji], null);
 	const map = content?.[1];
 
+	// TODO: if note is detected as a module, process it without passing params
+	// - components should check for props and provide an alternate, landing layout if its missing
+
 	// either map[''] or the array of its only child, with root links prepended
 	const root = stew(() => {
 		if (!map) {
@@ -612,9 +624,11 @@ function Page () {
 		},
 			Block({ names, breadcrumbs }, ['main', null, content]),
 			includeMenu ? ['button', {
+				type: 'button',
 				className: 'left-button menu-button',
-				onclick: () => updateSettings({ hideMenu: !hideMenu }),
+				onclick: () => updateSettings({ showMenu: !showMenu }),
 			}] : canvas && ['button', {
+				type: 'button',
 				className: 'left-button fullscreen-button',
 				onclick: () => canvas.requestFullscreen(),
 			}],
@@ -624,8 +638,9 @@ function Page () {
 			// - it also allows for a more focused view of the page while keeping the snips in teh background for quick reference
 			// - open the right nav whenever a new snip is added though
 			includeSnips && ['button', {
+				type: 'button',
 				className: 'right-button snips-button',
-				onclick: () => updateSettings({ hideSnips: !hideSnips }),
+				onclick: () => updateSettings({ showSnips: !showSnips }),
 			}],
 		],
 		// TODO: if on home page, have right menu show past sessions to resume
@@ -660,7 +675,7 @@ function Folder (folder, path = '/') {
 		...files.map(name => {
 			return ['li', null,
 				['a', {
-					href: `${path}${name}//`,
+					href: `${path}${name}`,
 					className: 'child-button',
 				}, name],
 			];
@@ -668,10 +683,23 @@ function Folder (folder, path = '/') {
 	];
 }
 
-function Drafts () {
+function Drafts ({ paths, isEligible }) {
+	const { settings } = state;
+	const { showFiles } = settings;
+	const filesActive = isEligible && showFiles;
+	
+	stew(null, [filesActive], () => {
+		const { classList } = document.body;
+
+		if (filesActive) {
+			classList.add('files-active');
+		} else {
+			classList.remove('files-active');
+		}
+	});
+
 	const tree = stew(() => {
 		// TODO: create tree
-		const paths = Object.keys(localStorage).filter(name => /^\/(?!\/).*\.(md|json)$/.test(name));
 		const tree = { '': [] };
 		
 		if (!paths.length) {
@@ -719,29 +747,48 @@ function Drafts () {
 
 function Home () {
 	const { settings, snips } = state;
-	const { theme } = settings;
+	const { theme, showDrafts } = settings;
 
-	console.log(snips);
+	// console.log(snips);
+
+	const paths = stew(() => {
+		return Object.keys(localStorage).filter(name => /^\/(?!\/).*\.(md|json)$/.test(name));
+	}, []);
+
+	const includeDrafts = paths.length > 0;
 	
 	return ['', {},
 		// TODO: render drafts in left menu
-		[Drafts],
+		showDrafts && [Drafts, { paths, isEligible: includeDrafts }],
 		['div', {
 			className: 'main',
 		},
 			stew(`
-# Write it down and bring it to life
+# Make a note. Build your vision.
 
-This site serves as a place to store and navigate through your notes. 
-Everything is stored locally in your browser, but an installable version will be available soon. 
-Notes support Markdown, and can be nested to create interactive sites and games. 
-Enter a URL to create a new note, or read on to learn more. 
+This site serves as a place to store and browse your notes. 
+It also supports embedded code to create web apps and games. 
+A version will be available soon to download and use offline. 
+Enter any URL to begin writing, or read on to learn more. 
 
-[Markdown notes](/markdown)  
+## Navigation
 
-[Stew components](/stew)  
+A left navigation will be created automatically from the headings in your notes. 
+It can be toggled using the icon menu in the upper left of those pages. 
+Clicking on headings in that list will focus in on their content, and clicking it again will open a snip. 
+Focused sections will also display the links to other notes, or sections if a hash is included, and clicking them will also open a snip. 
+Snips are sections of your notes that persist in the right panel as you browse. 
+They can be toggled using the hash icon in the upper right of your notes. 
+More info on creating links, and other formatting, can be found in the [Markdown guide](/markdown). 
 
-[WebGL games](/webgl)  
+## Building
+
+If you would like to experiment with 
+Notes with embedded code before the main heading, set using preformatted text, will be treated as modules. 
+Modules wrap their nested notes in additional functionality, and can even export their features to other modules. 
+The embedded code above the main heading will set the types of data it can accept, and styles to apply, while the code after the main heading will be used as the main layout component. 
+This feature is still being refined, but you can read more about how the layouts are defined in the [Stew guide](/stew). 
+There is even a shader language for creating games that can be found in the [WebGL guide](/webgl). 
 			`, ['/']),
 			// TODO: render active snips session here
 			// - display inactive ones to the side, along with a button to create a new session
@@ -762,6 +809,11 @@ Enter a URL to create a new note, or read on to learn more.
 			// }, '#'],
 			['button', {
 				type: 'button',
+				className: 'left-button files-button',
+				onclick: () => updateSettings({ showDrafts: !showDrafts }),
+			}],
+			['button', {
+				type: 'button',
 				className: 'right-button theme-button',
 				onclick: () => updateSettings({ theme: theme === 'dark' ? 'light' : 'dark' }),
 			}],
@@ -773,17 +825,9 @@ Enter a URL to create a new note, or read on to learn more.
 	];
 }
 
-export default function App () {
+function App () {
 	const { settings } = state;
 	const { theme } = settings;
-	const indexModule = stew(fetchCode, ['index'], null);
-
-	if (!indexModule) {
-		return;
-	}
-
-	[formatter, emoji] = indexModule.default;
-	emoji[''] = formatter;
 
 	stew(null, [theme], () => {
 		const { readonly } = flags;
@@ -792,3 +836,10 @@ export default function App () {
 
 	return [pathname === '/' ? Home : Page];
 }
+
+fetchCode('index').then(module => {
+	const { default: array, ...formatters } = module;
+	emoji = array[1];
+	emoji[''] = formatters;
+	stew('#app', { '': array[0] }, [App]);
+});

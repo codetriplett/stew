@@ -213,27 +213,33 @@ span.child-button {
 .light-theme .theme-button:after {
 	background-position-x: calc((1 * 16px + 1px) * -1.2);
 }
-.menu-button:after {
+.files-button:after {
 	background-position-x: calc((2 * 16px + 1px) * -1.2);
+}
+.close-button:after {
+	background-position-x: calc((3 * 16px + 1px) * -1.2);
+}
+.menu-button:after {
+	background-position-x: calc((4 * 16px + 1px) * -1.2);
 }
 .snips-button:after,
 .map-button:after {
-	background-position-x: calc((3 * 16px + 1px) * -1.2);
-}
-.close-button:after {
-	background-position-x: calc((4 * 16px + 1px) * -1.2);
-}
-.edit-button:after {
 	background-position-x: calc((5 * 16px + 1px) * -1.2);
 }
-.preview-button:after {
+.edit-button:after {
 	background-position-x: calc((6 * 16px + 1px) * -1.2);
 }
-.save-button:after {
+.preview-button:after {
 	background-position-x: calc((7 * 16px + 1px) * -1.2);
 }
-.fullscreen-button:after {
+.save-button:after {
 	background-position-x: calc((8 * 16px + 1px) * -1.2);
+}
+.delete-button:after {
+	background-position-x: calc((9 * 16px + 1px) * -1.2);
+}
+.fullscreen-button:after {
+	background-position-x: calc((10 * 16px + 1px) * -1.2);
 }
 
 .breadcrumbs {

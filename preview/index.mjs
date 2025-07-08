@@ -1,12 +1,14 @@
-export function formatter () {
-const [format, code] = arguments;
-
-switch (format) {
-	case 'custom': return `CUSTOM\n${code}`;
-}
+export function custom () {
+const [flags, code] = arguments;
+return `CUSTOM\n${code}`;
 }
 
-export default [formatter, {
-    '': 'Formatter',
-	smile: '🙂',
+export function convert () {
+const [{ tagName, children, ...props }] = arguments;
+return [tagName, props, ...children];
+}
+
+export default [convert, {
+    '': 'Convert',
+    smile: '🙂',
 }];

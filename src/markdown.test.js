@@ -624,24 +624,58 @@ describe('parse', () => {
 
 		it('tick formatting', () => {
 			const actual = parse('```\nabc\n```', '/', {
-				'': (type, code) => ['div', null, code],
+				'': {},
 			});
 
 			expect(actual).toEqual(['', { '': 'h:0' },
-				['div', null, 'abc'],
+				['pre', null,
+					['code', null, 'abc'],
+				],
 			]);
 		});
 
 		it('tick customized', () => {
 			const actual = parse('```capitalize\nabc\n```', '/', {
-				'': (type, code) => {
-					return type === 'capitalize' ? code.toUpperCase() : code;
+				'': {
+					capitalize: (flags, code) => {
+						const { onlyFirst } = flags;
+						return onlyFirst ? `${code[0].toUpperCase()}${code.slice(1)}` : code.toUpperCase();
+					},
 				},
 			});
 
 			expect(actual).toEqual(['', { '': 'h:0' },
 				['pre', null,
 					['code', null, 'ABC'],
+				],
+			]);
+		});
+
+		it('tick customized with flags', () => {
+			const actual = parse('```capitalize onlyFirst\nabc\n```', '/', {
+				'': {
+					capitalize: (flags, code) => {
+						const { onlyFirst } = flags;
+						return onlyFirst ? `${code[0].toUpperCase()}${code.slice(1)}` : code.toUpperCase();
+					},
+				},
+			});
+
+			expect(actual).toEqual(['', { '': 'h:0' },
+				['pre', null,
+					['code', null, 'Abc'],
+				],
+			]);
+		});
+
+		it('skips missing customizer', () => {
+			const actual = parse('```capitalize\nabc\n```', '/', {
+				'': {},
+			});
+
+			expect(actual).toEqual(['', { '': 'h:0' },
+				['pre', null,
+					['code', null, 'abc'],
 				],
 			]);
 		});

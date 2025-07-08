@@ -302,7 +302,7 @@ export default function parse (content, rootPath = '', customizations = {}) {
 	const main = ['', { spaced: true, indentation: 0 }];
 	const stack = [main];
 	const tags = [main];
-	const { '': formatter } = customizations;
+	const { '': formatters } = customizations;
 	const rootNames = trimmedPath ? trimmedPath.split('/') : [];
 	const links = [rootNames, ['h0', '']];
 	const headingStack = [links[1]];
@@ -602,12 +602,18 @@ export default function parse (content, rootPath = '', customizations = {}) {
 		}
 
 		if (format !== undefined) {
-			const node = formatter?.(format, container[2]);
+			const [type, ...names] = format.split(/\s+/);
+			const flags = Object.fromEntries(names.map(name => [name, true]));
+			const formatter = formatters?.[type];
 
-			if (Array.isArray(node)) {
-				wrapper.splice(0, 3, ...node);
-			} else if (node !== undefined) {
-				container[2] = node;
+			if (formatter) {
+				const node = formatter(flags, container[2]);
+
+				if (Array.isArray(node)) {
+					wrapper.splice(0, 3, ...node);
+				} else {
+					container[2] = node;
+				}
 			}
 		}
 	}
