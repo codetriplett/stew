@@ -528,7 +528,7 @@ export default function parse (content, rootPath = '', customizations = {}) {
 		} else if (headingStack.length === 1 && !scopes.has('')) {
 			main.splice(2, main.length - 3);
 			headingStack[0].splice(2);
-			map[''][0] = 'h0';
+			map[''][0] = map[''][0].replace(/:.*$/, ':');
 		}
 
 		const [type] = container;

@@ -699,6 +699,22 @@ describe('parse', () => {
 				],
 			]);
 		});
+
+		it('code indexes', () => {
+			const actual = parse('\tabc\n\n# lmno\n\n\txyz');
+
+			expect(actual).toEqual(['', {
+				'': 'h:#lmno',
+				lmno: ['h1:1', 'lmno'],
+			},
+				[1, { id: 'lmno' },
+					['a', { href: '#lmno' }, 'lmno'],
+				],
+				['pre', null,
+					['code', null, 'xyz'],
+				],
+			]);
+		});
 	});
 
 	describe('list', () => {

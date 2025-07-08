@@ -18,7 +18,13 @@ main {
 # Site
 
 ```
-const [{ category }, ...children] = arguments;
+const [props, ...children] = arguments;
+
+if (!props) {
+	return ['p', null, 'Site Landing'];
+}
+
+const { category } = props;
 
 return ['', {},
 	['header', {}, category],

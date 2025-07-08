@@ -309,7 +309,7 @@ function LeftMenu ({ map = {}, root, isEligible }) {
 
 function Citation ({ snip }) {
 	const [path] = snip.replace(/^\/+/, '').split('#');
-	const markdown = stew(fetchNote, [path], null);
+	const markdown = stew(fetchNote, [path], undefined);
 	let content = typeof markdown !== 'string' ? markdown : markdown ? stew(markdown, [snip, emoji], null) : ['p', null, `File not found: /${path}.md`];
 
 	if (content && Object.keys(content[1] || {}).length === 1) {
@@ -373,15 +373,15 @@ function RightMenu ({ isEligible }) {
 }
 
 function Block ({ names, data, resources, breadcrumbs }, content) {
-	const isStart = !!resources;
+	const isModule = !!resources;
 	const path = names.join('/');
 
-	if (isStart) {
+	if (isModule) {
 		const [Component, schema, ...blockResources] = stew(fetchCode, [path], {}).default || [];
-		content = Component && data ? Component(data, content) : undefined;
+		content = Component && data !== undefined ? Component(data, content) : undefined;
 		resources.unshift(...blockResources);
 
-		if (schema) {
+		if (schema && data !== null) {
 			const heading = schema[''];
 			breadcrumbs.unshift(['a', { href: `/${path}` }, heading]);
 		}
@@ -438,7 +438,7 @@ function Block ({ names, data, resources, breadcrumbs }, content) {
 	}
 
 	names = names.slice(0, -1);
-	data = stew(fetchData, [path, isStart && state.revision], null, {});
+	data = stew(fetchData, [path, isModule && state.revision], undefined);
 	return Block({ names, data, resources, breadcrumbs }, content);
 }
 
@@ -461,9 +461,9 @@ function Editor ({ names, file }) {
 
 	if (names.length > 1) {
 		schema = stew(fetchCode, [names.slice(0, -1).join('/')], {}).default?.[1];
-		data = stew(fetchData, [names.join('/'), state.revision], {});
+		data = stew(fetchData, [names.join('/'), state.revision], undefined);
 
-		if (!schema) {
+		if (!schema || !data) {
 			return;
 		}
 	}
@@ -568,7 +568,15 @@ function Page () {
 	}
 
 	const [path] = paths;
-	const markdown = stew(fetchNote, [path, revision], null);
+	const markdown = stew(fetchNote, [path, revision], undefined);
+
+	// TODO: have stew interrupt render by throwing some non-error value
+	// - hook will trigger rerender when promise resolves already
+	// - maybe build this into hook somehow (for undefined fallback)
+	// - or maybe use Promise as fallback value to indicate it should interrupt
+	if (markdown === undefined) {
+		return;
+	}
 
 	stew(null, [markdown], () => {
 		if (typeof markdown === 'string' && !/\S/.test(markdown)) {
@@ -582,6 +590,8 @@ function Page () {
 
 	const content = stew(markdown, [path, emoji], null);
 	const map = content?.[1];
+	const resources = map && map[''].indexOf(':') !== -1 ? [] : undefined;
+	const data = resources ? null : undefined;
 
 	// TODO: if note is detected as a module, process it without passing params
 	// - components should check for props and provide an alternate, landing layout if its missing
@@ -622,7 +632,7 @@ function Page () {
 		['div', {
 			className: 'main',
 		},
-			Block({ names, breadcrumbs }, ['main', null, content]),
+			Block({ names, breadcrumbs, resources, data }, ['main', null, content]),
 			includeMenu ? ['button', {
 				type: 'button',
 				className: 'left-button menu-button',

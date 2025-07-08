@@ -1,5 +1,11 @@
 export function category () {
-const [{ page }, ...children] = arguments;
+const [props, ...children] = arguments;
+
+if (!props) {
+    return ['p', null, 'Category Landing'];
+}
+
+const { page } = props;
 
 return ['', {},
     ['nav', {}, page],

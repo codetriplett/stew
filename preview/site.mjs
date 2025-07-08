@@ -1,5 +1,11 @@
 export function site () {
-const [{ category }, ...children] = arguments;
+const [props, ...children] = arguments;
+
+if (!props) {
+    return ['p', null, 'Site Landing'];
+}
+
+const { category } = props;
 
 return ['', {},
     ['header', {}, category],
@@ -10,8 +16,8 @@ return ['', {},
 export default [site, {
     '': 'Site',
     category: '// Category',
-}, ['style', null,
-`header {
+}, ['style', null, `
+header {
     height: 60px;
     color: white;
     background: dimgray;
@@ -21,4 +27,5 @@ export default [site, {
 }
 main {
     flex-grow: 1;
-}`]];
+}
+`]];
