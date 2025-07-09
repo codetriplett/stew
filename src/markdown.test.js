@@ -382,6 +382,14 @@ describe('parse', () => {
 		]);
 	});
 
+	it('paragraph with emoji', () => {
+		const actual = parse(':smile:', '/', { default: [() => null, { smile: ':)' }] });
+
+		expect(actual).toEqual(['', null,
+			['p', null, ':)'],
+		]);
+	});
+
 	it('paragraph separate', () => {
 		const actual = parse('Paragraph\n\nAdjacent');
 
@@ -525,7 +533,7 @@ describe('parse', () => {
 		it('tab indentation', () => {
 			const actual = parse('\tabc');
 
-			expect(actual).toEqual(['', { '': 'h:0' },
+			expect(actual).toEqual(['', null,
 				['pre', null,
 					['code', null, 'abc'],
 				],
@@ -535,7 +543,7 @@ describe('parse', () => {
 		it('space indentation', () => {
 			const actual = parse('    abc');
 
-			expect(actual).toEqual(['', { '': 'h:0' },
+			expect(actual).toEqual(['', null,
 				['pre', null,
 					['code', null, 'abc'],
 				],
@@ -545,7 +553,7 @@ describe('parse', () => {
 		it('indentation space overage', () => {
 			const actual = parse('\t  abc');
 
-			expect(actual).toEqual(['', { '': 'h:0' },
+			expect(actual).toEqual(['', null,
 				['pre', null,
 					['code', null, '  abc'],
 				],
@@ -555,7 +563,7 @@ describe('parse', () => {
 		it('indentation tab overage', () => {
 			const actual = parse('\t\tabc');
 
-			expect(actual).toEqual(['', { '': 'h:0' },
+			expect(actual).toEqual(['', null,
 				['pre', null,
 					['code', null, '    abc'],
 				],
@@ -565,7 +573,7 @@ describe('parse', () => {
 		it('multiple lines', () => {
 			const actual = parse('\tabc\n\txyz');
 
-			expect(actual).toEqual(['', { '': 'h:0' },
+			expect(actual).toEqual(['', null,
 				['pre', null,
 					['code', null, 'abc\nxyz'],
 				],
@@ -575,7 +583,7 @@ describe('parse', () => {
 		it('several newlines', () => {
 			const actual = parse('\tabc\n\n\n\txyz');
 
-			expect(actual).toEqual(['', { '': 'h:0' },
+			expect(actual).toEqual(['', null,
 				['pre', null,
 					['code', null, 'abc\n\n\nxyz'],
 				],
@@ -585,7 +593,7 @@ describe('parse', () => {
 		it('tick wrapped', () => {
 			const actual = parse('```\nabc\n```');
 
-			expect(actual).toEqual(['', { '': 'h:0' },
+			expect(actual).toEqual(['', null,
 				['pre', null,
 					['code', null, 'abc'],
 				],
@@ -595,7 +603,7 @@ describe('parse', () => {
 		it('tick space overage', () => {
 			const actual = parse('```\n  abc\n```');
 
-			expect(actual).toEqual(['', { '': 'h:0' },
+			expect(actual).toEqual(['', null,
 				['pre', null,
 					['code', null, '  abc'],
 				],
@@ -605,7 +613,7 @@ describe('parse', () => {
 		it('tick tab overage', () => {
 			const actual = parse('```\n\tabc\n```');
 
-			expect(actual).toEqual(['', { '': 'h:0' },
+			expect(actual).toEqual(['', null,
 				['pre', null,
 					['code', null, '    abc'],
 				],
@@ -615,7 +623,7 @@ describe('parse', () => {
 		it('nested ticks', () => {
 			const actual = parse('````\n```\nabc\n```\n````');
 
-			expect(actual).toEqual(['', { '': 'h:0' },
+			expect(actual).toEqual(['', null,
 				['pre', null,
 					['code', null, '```\nabc\n```'],
 				],
@@ -624,10 +632,10 @@ describe('parse', () => {
 
 		it('tick formatting', () => {
 			const actual = parse('```\nabc\n```', '/', {
-				'': {},
+				default: [() => {}, {}],
 			});
 
-			expect(actual).toEqual(['', { '': 'h:0' },
+			expect(actual).toEqual(['', null,
 				['pre', null,
 					['code', null, 'abc'],
 				],
@@ -636,15 +644,14 @@ describe('parse', () => {
 
 		it('tick customized', () => {
 			const actual = parse('```capitalize\nabc\n```', '/', {
-				'': {
-					capitalize: (flags, code) => {
-						const { onlyFirst } = flags;
-						return onlyFirst ? `${code[0].toUpperCase()}${code.slice(1)}` : code.toUpperCase();
-					},
+				default: [() => null, {}],
+				capitalize: (flags, code) => {
+					const { onlyFirst } = flags;
+					return onlyFirst ? `${code[0].toUpperCase()}${code.slice(1)}` : code.toUpperCase();
 				},
 			});
 
-			expect(actual).toEqual(['', { '': 'h:0' },
+			expect(actual).toEqual(['', null,
 				['pre', null,
 					['code', null, 'ABC'],
 				],
@@ -653,27 +660,44 @@ describe('parse', () => {
 
 		it('tick customized with flags', () => {
 			const actual = parse('```capitalize onlyFirst\nabc\n```', '/', {
-				'': {
-					capitalize: (flags, code) => {
-						const { onlyFirst } = flags;
-						return onlyFirst ? `${code[0].toUpperCase()}${code.slice(1)}` : code.toUpperCase();
-					},
+				default: [() => null, {}],
+				capitalize: (flags, code) => {
+					const { onlyFirst } = flags;
+					return onlyFirst ? `${code[0].toUpperCase()}${code.slice(1)}` : code.toUpperCase();
 				},
 			});
 
-			expect(actual).toEqual(['', { '': 'h:0' },
+			expect(actual).toEqual(['', null,
 				['pre', null,
 					['code', null, 'Abc'],
 				],
 			]);
 		});
 
-		it('skips missing customizer', () => {
-			const actual = parse('```capitalize\nabc\n```', '/', {
-				'': {},
+		it('tick default customized', () => {
+			function capitalize (flags, code) {
+				const { onlyFirst } = flags;
+				return onlyFirst ? `${code[0].toUpperCase()}${code.slice(1)}` : code.toUpperCase();
+			};
+			
+			const actual = parse('```default\nabc\n```', '/', {
+				default: [capitalize, {}],
+				capitalize,
 			});
 
-			expect(actual).toEqual(['', { '': 'h:0' },
+			expect(actual).toEqual(['', null,
+				['pre', null,
+					['code', null, 'ABC'],
+				],
+			]);
+		});
+
+		it('skips missing customizer', () => {
+			const actual = parse('```capitalize\nabc\n```', '/', {
+				default: [() => null, {}],
+			});
+
+			expect(actual).toEqual(['', null,
 				['pre', null,
 					['code', null, 'abc'],
 				],
@@ -683,7 +707,7 @@ describe('parse', () => {
 		it('interrupts nesting', () => {
 			const actual = parse('    - abc\n      - xyz');
 
-			expect(actual).toEqual(['', { '': 'h:0' },
+			expect(actual).toEqual(['', null,
 				['pre', null,
 					['code', null, '- abc\n  - xyz'],
 				],
@@ -693,7 +717,7 @@ describe('parse', () => {
 		it('interrupts heading', () => {
 			const actual = parse('    # abc');
 
-			expect(actual).toEqual(['', { '': 'h:0' },
+			expect(actual).toEqual(['', null,
 				['pre', null,
 					['code', null, '# abc'],
 				],
@@ -701,7 +725,7 @@ describe('parse', () => {
 		});
 
 		it('code indexes', () => {
-			const actual = parse('\tabc\n\n# lmno\n\n\txyz');
+			const actual = parse('```export\nabc\n```\n\n# lmno\n\n```export\nxyz\n```');
 
 			expect(actual).toEqual(['', {
 				'': 'h:#lmno',

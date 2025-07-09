@@ -13,7 +13,7 @@ const renderPrograms = () => {};
 const data = {};
 const state = {};
 const info = {};
-let context;
+let customModule;
 
 beforeEach(() => {
 	jest.clearAllMocks();
@@ -21,7 +21,7 @@ beforeEach(() => {
 	processMemo.mockReturnValue(data);
 	createState.mockReturnValue(state);
 	render.mockReturnValue(info);
-	context = { '': expect.any(Function) };
+	customModule = { default: [() => null] };
 });
 
 describe('hotSwapStep', () => {
@@ -87,7 +87,7 @@ describe('stew', () => {
 	it('creates impulse', () => {
 		const callback = () => {};
 		const actual = stew(callback);
-		expect(render).toHaveBeenCalledWith([callback, {}], context, undefined, [], ['', {}], 0, {});
+		expect(render).toHaveBeenCalledWith([callback, {}], { '': {} }, undefined, [], ['', {}], 0, {});
 		expect(actual).toEqual(expect.any(Function));
 	});
 
@@ -95,7 +95,7 @@ describe('stew', () => {
 		const callback = () => {};
 		const props = { lmno: 456 };
 		const actual = stew(callback, props, 'lmno');
-		expect(render).toHaveBeenCalledWith([callback, props, 'lmno'], context, undefined, [], ['', {}], 0, {});
+		expect(render).toHaveBeenCalledWith([callback, props, 'lmno'], { '': props }, undefined, [], ['', {}], 0, {});
 		expect(actual).toEqual(expect.any(Function));
 	});
 
@@ -137,31 +137,31 @@ describe('stew', () => {
 
 	it('renders within node', () => {
 		const node = {};
-		const actual = stew(node, context, 'lmno');
-		expect(render).toHaveBeenCalledWith([node, {}, 'lmno'], context, stew, [], ['', {}], 0, {});
+		const actual = stew(node, customModule, 'lmno');
+		expect(render).toHaveBeenCalledWith([node, null, 'lmno'], { '': customModule }, stew, [], ['', {}], 0, {});
 		expect(actual).toEqual(expect.any(Function));
 	});
 
 	it('renders fragment', () => {
-		const actual = stew('', context, 'lmno');
-		expect(render).toHaveBeenCalledWith([expect.any(Object), {}, 'lmno'], context, stew, [], ['', {}], 0, {});
+		const actual = stew('', customModule, 'lmno');
+		expect(render).toHaveBeenCalledWith([expect.any(Object), null, 'lmno'], { '': customModule }, stew, [], ['', {}], 0, {});
 		expect(actual).toEqual(expect.any(Object));
 	});
 
 	it('renders within queried node', () => {
-		const actual = stew('body', context, 'lmno');
-		expect(render).toHaveBeenCalledWith([expect.any(Object), {}, 'lmno'], context, stew, [], ['', {}], 0, {});
+		const actual = stew('body', customModule, 'lmno');
+		expect(render).toHaveBeenCalledWith([expect.any(Object), null, 'lmno'], { '': customModule }, stew, [], ['', {}], 0, {});
 		expect(actual).toEqual(expect.any(Object));
 	});
 
 	it('renders virtual fragment', () => {
-		const actual = stew(stew, context, 'lmno');
-		expect(render).toHaveBeenCalledWith([expect.any(Object), {}, 'lmno'], context, stew, [], ['', {}], 0, {});
+		const actual = stew(stew, customModule, 'lmno');
+		expect(render).toHaveBeenCalledWith([expect.any(Object), null, 'lmno'], { '': customModule }, stew, [], ['', {}], 0, {});
 		expect(actual).toEqual(expect.any(Object));
 	});
 
 	it('rejects missing node', () => {
-		const actual = stew(null, context, 'lmno');
+		const actual = stew(null, customModule, 'lmno');
 		expect(render).not.toHaveBeenCalled();
 		expect(actual).toEqual(undefined);
 	});

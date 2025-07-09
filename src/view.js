@@ -85,10 +85,9 @@ export default function render (layout, context, document, nodes, container, i, 
 					break;
 				}
 
-				// object is essentially a new temporary context. custom render fn can wrap in impulse if it needs to.
-				const convert = context[''];
-				const { '': key, ...props } = layout;
 				// TODO: use key to get and store to a different info object
+				const [convert = () => null] = context[''].default || [];
+				const { '': key, ...props } = layout;
 				context = props;
 				layout = nodes[0].tagName === 'CANVAS' ? renderProgram : convert;
 			}

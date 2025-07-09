@@ -8,7 +8,7 @@ beforeEach(() => {
 describe('extractCode', () => {
 	it('extracts code', () => {
 		const actual = extractCode(`
-\`\`\`
+\`\`\`export
 /style.css
 /script.mjs
 {
@@ -25,14 +25,14 @@ describe('extractCode', () => {
 [Alias](/path#lm#no# "ml on mlon")
 [Barrel](/path "onml")
 
-\`\`\`
+\`\`\`export
 const [place] = arguments;
 return \`Hello \${place}\`;
 \`\`\`
 
 ## State
 
-\`\`\`
+\`\`\`export
 {
 	number: 123,
 	string: 'abc',
@@ -71,13 +71,13 @@ export default [component, {
 
 	it('minimal code', () => {
 		const actual = extractCode(`
-\`\`\`
+\`\`\`export
 {}
 \`\`\`
 
 # Component
 
-\`\`\`
+\`\`\`export
 return 'Hello World';
 \`\`\`
 		`);
@@ -92,5 +92,21 @@ export default [component, {
 }];
 `
 		);
+	});
+
+	it('no code', () => {
+		const actual = extractCode(`
+\`\`\`
+{}
+\`\`\`
+
+# Component
+
+\`\`\`
+return 'Hello World';
+\`\`\`
+		`);
+
+		expect(actual).toEqual(undefined);
 	});
 });

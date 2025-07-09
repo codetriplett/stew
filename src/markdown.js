@@ -290,10 +290,13 @@ function getText (node) {
 	return node[0] === 'br' ? ' ' : node.slice(2).map(getText).join('');
 }
 
-export default function parse (content, rootPath = '', customizations = {}) {
+export default function parse (content, rootPath = '', customModule) {
 	if (!content) {
 		return;
 	}
+
+	const { default: [defaultFormatter, library] = [() => null, {}], ...formatters } = customModule || {};
+	formatters.default = defaultFormatter;
 
 	const [, trimmedPath, hash] = rootPath.match(/^\/?(.*?)\/?(?:#+(.*))?$/);
 	const scopes = new Set(hash?.split?.(/#+/) || []);
@@ -302,7 +305,6 @@ export default function parse (content, rootPath = '', customizations = {}) {
 	const main = ['', { spaced: true, indentation: 0 }];
 	const stack = [main];
 	const tags = [main];
-	const { '': formatters } = customizations;
 	const rootNames = trimmedPath ? trimmedPath.split('/') : [];
 	const links = [rootNames, ['h0', '']];
 	const headingStack = [links[1]];
@@ -329,7 +331,7 @@ export default function parse (content, rootPath = '', customizations = {}) {
 				line = line.replace(/^\s*>\s*/, '');
 			}
 
-			parseInline(` ${line.trim()} `, tags, links, customizations);
+			parseInline(` ${line.trim()} `, tags, links, library);
 			newlines = -1;
 			continue;
 		} else if (tickCount) {
@@ -412,7 +414,7 @@ export default function parse (content, rootPath = '', customizations = {}) {
 				const newlines = Math.max(0, oldlines) + (node[2] ? 1 : 0);
 				node[2] += `${'\n'.repeat(newlines)}${string}`;
 				continue;
-			} else if (stack.length < 3) {
+			} else if (format === 'export' && stack.length < 3) {
 				links[1][0] += `:${main.length - 2}`;
 			}
 
@@ -473,7 +475,7 @@ export default function parse (content, rootPath = '', customizations = {}) {
 				while (remainder && i--) {
 					const textAlign = alignments?.[cells.length];
 					const node = ['td', textAlign ? { style: { textAlign } } : null];
-					remainder = parseInline(remainder, [node], links, customizations);
+					remainder = parseInline(remainder, [node], links, library);
 					cells.push(node);
 				}
 
@@ -517,9 +519,9 @@ export default function parse (content, rootPath = '', customizations = {}) {
 					tags.splice(0, tags.length, previous);
 				}
 
-				parseInline(` ${string} `, tags, links, customizations);
+				parseInline(` ${string} `, tags, links, library);
 			} else {
-				parseInline(string, [container], links, customizations);
+				parseInline(string, [container], links, library);
 			}
 		}
 
@@ -604,9 +606,17 @@ export default function parse (content, rootPath = '', customizations = {}) {
 		if (format !== undefined) {
 			const [type, ...names] = format.split(/\s+/);
 			const flags = Object.fromEntries(names.map(name => [name, true]));
-			const formatter = formatters?.[type];
+			const formatter = formatters[type];
 
-			if (formatter) {
+			if (!formatter) {
+				if (type && type !== 'export') {
+					console.error(`Format not recognized:`, type);
+				}
+
+				continue;
+			}
+
+			try {
 				const node = formatter(flags, container[2]);
 
 				if (Array.isArray(node)) {
@@ -614,6 +624,8 @@ export default function parse (content, rootPath = '', customizations = {}) {
 				} else {
 					container[2] = node;
 				}
+			} catch (err) {
+				console.error(err);
 			}
 		}
 	}

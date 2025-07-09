@@ -22,7 +22,7 @@
  */
 
 import { isServer } from './document';
-import { effects, processEffects, processMemo } from './impulse';
+import { effects, processEffects, processMemo, setModule } from './impulse';
 import createState, { queue, schedule } from './state';
 import { compile } from './program';
 import render from './view';
@@ -55,7 +55,7 @@ export default function stew (...layout) {
 	}
 
 	const [original] = layout;
-	let [node, object] = layout;
+	let [node, object = {}] = layout;
 	let document;
 
 	if (Array.isArray(node)) {
@@ -67,7 +67,10 @@ export default function stew (...layout) {
 		node = '';
 	}
 
-	if (typeof node !== 'function') {
+	if (typeof node === 'function') {
+		const { '': _, ...props } = object;
+		layout[1] = props;
+	} else {
 		if (layout.length === 1) {
 			return createState(node);
 		}
@@ -84,12 +87,12 @@ export default function stew (...layout) {
 		}
 
 		layout[0] = node;
+		layout[1] = null;
 	}
-	
-	const { '': callback = () => {}, ...props } = object || {};
-	const context = { '': callback };
-	layout[1] = props;
-	const info = render(layout, context, document, [], ['', {}], 0, {});
+
+	setModule(object);
+	const info = render(layout, { '': object }, document, [], ['', {}], 0, {});
+	setModule(undefined);
 	processEffects();
 
 	return node !== original ? node : manifest => {

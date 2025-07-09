@@ -4,8 +4,14 @@ return `CUSTOM\n${code}`;
 }
 
 export function convert () {
-const [{ tagName, children, ...props }] = arguments;
-return [tagName, props, ...children];
+const [props] = arguments;
+
+if (!props) {
+    return ['p', null, 'Index landing'];
+}
+
+const { tagName, children, ...attributes } = props;
+return [tagName, attributes, ...children];
 }
 
 export default [convert, {

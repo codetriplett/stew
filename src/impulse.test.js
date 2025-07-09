@@ -1,18 +1,19 @@
 import { track, check, text, fragment, element } from './validate';
 import stew from './stew';
-import renderImpulse, { impulses, prevMemos, processMemo, processFollowups, useEffect } from './impulse';
+import renderImpulse, { impulses, prevMemos, processMemo, processFollowups, useEffect, setModule } from './impulse';
 
 let context, node, nodes, callback, layout, impulse, unsubscribe;
 
 beforeEach(() => {
 	jest.clearAllMocks();
 	globalThis.requestAnimationFrame = setTimeout;
-	impulses.push([() => {}, new Set()]);
+	impulses.splice(0, impulses.length, [() => {}, new Set()]);
 	context = {};
 	node = stew.createElement('div');
 	nodes = [node];
 	layout = undefined;
 	impulse = undefined;
+	setModule(undefined);
 	
 	callback = (props, ...children) => {
 		[impulse] = impulses[0];
@@ -31,7 +32,7 @@ beforeEach(() => {
 
 describe('processMemo', () => {
 	it('processes markdown', () => {
-		const actual = processMemo('# lmno', []);
+		const actual = processMemo('# lmno\n:smile:', ['/', { default: [() => null, { smile: ':)' }] }]);
 
 		expect(actual).toEqual(['', {
 			'': 'h#lmno',
@@ -40,6 +41,22 @@ describe('processMemo', () => {
 			[1, { id: 'lmno' },
 				['a', { href: '#lmno' }, 'lmno'],
 			],
+			['p', null, ':)'],
+		]);
+	});
+
+	it('uses active module', () => {
+		setModule({ default: [() => null, { smile: ':)' }] });
+		const actual = processMemo('# lmno\n:smile:', ['/']);
+
+		expect(actual).toEqual(['', {
+			'': 'h#lmno',
+			lmno: ['h1', 'lmno'],
+		},
+			[1, { id: 'lmno' },
+				['a', { href: '#lmno' }, 'lmno'],
+			],
+			['p', null, ':)'],
 		]);
 	});
 });

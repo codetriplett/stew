@@ -1,6 +1,5 @@
-```
+```export
 {
-	'': 'Test',
 	boolean: '/ Boolean',
 	number: '/.. Number',
 	string: '// String',
@@ -17,7 +16,7 @@
 
 # Test
 
-```
+```export
 const [data] = arguments;
 console.log(data);
 ```

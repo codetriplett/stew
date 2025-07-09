@@ -1,5 +1,27 @@
 // TODO: use dynamic import to load this and all Editor features
 // - just deliver what is needed to render a page at first
+
+const reserved = new Set([
+	'abstract', 'arguments', 'await', 'boolean',
+	'break', 'byte', 'case', 'catch',
+	'char', 'class', 'const', 'continue',
+	'debugger', 'default', 'delete', 'do',
+	'double', 'else', 'enum', 'eval',
+	'export', 'extends', 'false', 'final',
+	'finally', 'float', 'for', 'function',
+	'goto', 'if', 'implements', 'import',
+	'in', 'instanceof', 'int', 'interface',
+	'let', 'long', 'native', 'new',
+	'null', 'package', 'private', 'protected',
+	'public', 'return', 'short', 'static',
+	'super', 'switch', 'synchronized', 'this',
+	'throw', 'throws', 'transient', 'true',
+	'try', 'typeof', 'var', 'void',
+	'volatile', 'while', 'with', 'yield',
+]);
+
+// TODO: only treat note as module if it has a preformatted text above first heading that uses the 'default' format
+// - default is an array in the file that is created, so it is not allowed as a custom formatter anyway
 export function extractCode (file) {
 	const summary = stew(file, ['/#']);
 	const layout = stew(file, ['/']);
@@ -27,7 +49,10 @@ export function extractCode (file) {
 		const [hash,, ...links] = section;
 		const [type, index] = hash.split('#')[0].split(':');
 
-		if (type[1] > 2) {
+		if (reserved.has(formattedName)) {
+			console.error(`${formattedName} is a reserved word.`);
+			continue;
+		} else if (type[1] > 2) {
 			continue;
 		}
 
@@ -102,7 +127,7 @@ export function extractCode (file) {
 	const heading = sections[name]?.[1] || '';
 	const definition = summary[Number(index) + 3]?.[2]?.[2];
 	const schemaStart = definition.indexOf('{');
-	let schemaFinish = definition.search(/[\{\n]\s*\}/);
+	let schemaFinish = definition.search(/(\{\s*|\n)\}/);
 	schemaFinish = definition.indexOf('}', schemaFinish);
 	const resources = definition.slice(0, schemaStart).trim();
 	const styles = definition.slice(schemaFinish + 1).trim();

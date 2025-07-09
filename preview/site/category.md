@@ -1,4 +1,4 @@
-```
+```export
 {
 	page: '// Page',
 }
@@ -10,7 +10,7 @@ nav {
 
 # Category
 
-```
+```export
 const [props, ...children] = arguments;
 
 if (!props) {

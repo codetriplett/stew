@@ -6,7 +6,14 @@ import parse from './markdown';
 export const impulses = [];
 export const effects = [];
 export let prevMemos = [];
-let activeInfo;
+let activeInfo, activeModule;
+
+// TODO: check if this can be incorporated into the effects array
+// - maybe first item can be for hook context, and then spliced out before processing effects
+// - could be used both by stew and impulse code
+export function setModule (customModule) {
+	activeModule = customModule;
+}
 
 export function execute (callback, ...params) {
 	try {
@@ -47,6 +54,10 @@ export function processMemo (callback, ...rest) {
 	if (typeof callback === 'string') {
 		deps = [callback, ...deps];
 		callback = parse;
+
+		if (deps.length < 3) {
+			deps[2] = activeModule;
+		}
 	}
 
 	// TODO: can there be a way to omit mount from effect, and just process updates?
@@ -88,7 +99,7 @@ export function processMemo (callback, ...rest) {
 
 export default function renderImpulse (info, object, children, context, document, nodes) {
 	if (!info[1]) {
-		info[1] = [, new Set(), ...impulses.slice(0, -1)];
+		info[1] = [, new Set(), ...impulses];
 	}
 
 	// TODO: rename ref params throughout code base
@@ -106,7 +117,9 @@ export default function renderImpulse (info, object, children, context, document
 		impulses.unshift(impulse);
 		prevMemos = info.splice(3);
 		activeInfo = info;
+		setModule(context['']);
 		const layout = execute(callback, props, ...children);
+		setModule(undefined);
 
 		if (document) {
 			const proxy = render(layout || '', context, document, nodes, info, -1, {});

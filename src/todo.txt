@@ -3,3 +3,26 @@ Index Pages
 - child page nav will be embedded under its nav item from parent list
 - clicking top level items in nav will open that child page
 - store these in schema under '' prop like so ['heading', null, 'child-1', 'child-2', etc...]
+
+
+
+Document and test schema types
+/*
+
+/ Boolean
+
+/.. Any Number
+/0.. Any Positive Number
+/..0 Any Negative Number
+/0..5 Number Between 0 and 5
+
+// Any String
+/\w+/ Any String with pattern
+//0..5 Any String with minlength and maxlength
+/\w+/0..5 Any String with pattern, minlength, and maxlength
+
+/path/\w+/ Reference (saves as { '': '/path/name', ...overrides })
+
+path/path/\w+/
+
+*/

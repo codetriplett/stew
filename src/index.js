@@ -4,7 +4,6 @@ import { extractCode } from './code';
 const { localStorage, location } = window;
 const { pathname, hash } = location;
 const styles = document.querySelector('#styles').textContent;
-let emoji, formatter;
 
 const state = stew({
 	focusedSection: hash.slice(1),
@@ -307,7 +306,7 @@ function LeftMenu ({ map = {}, root, isEligible }) {
 function Citation ({ snip }) {
 	const [path] = snip.replace(/^\/+/, '').split('#');
 	const markdown = stew(fetchNote, [path], undefined);
-	let content = typeof markdown !== 'string' ? markdown : markdown ? stew(markdown, [snip, emoji], null) : ['p', null, `File not found: /${path}.md`];
+	let content = typeof markdown !== 'string' ? markdown : markdown ? stew(markdown, [snip], null) : ['p', null, `File not found: /${path}.md`];
 
 	if (content && Object.keys(content[1] || {}).length === 1) {
 		content = ['p', null, `Section not found: ${snip}`];
@@ -374,13 +373,20 @@ function Block ({ names, data, resources, breadcrumbs }, content) {
 	const path = names.join('/');
 
 	if (isModule) {
-		const [Component, schema, ...blockResources] = stew(fetchCode, [path], {}).default || [];
-		content = Component && data !== undefined ? Component(data, content) : undefined;
-		resources.unshift(...blockResources);
+		try {
+			const [Component, schema, ...blockResources] = stew(fetchCode, [path], {}).default || [];
+			content = Component && data !== undefined ? Component(data, content) : undefined;
+			resources.unshift(...blockResources);
 
-		if (schema && data !== null) {
-			const heading = schema[''];
-			breadcrumbs.unshift(['a', { href: `/${path}` }, heading]);
+			if (schema && data !== null) {
+				const heading = schema[''];
+				breadcrumbs.unshift(['a', { href: `/${path}` }, heading]);
+			}
+		} catch (err) {
+			// TODO: render error with red text (another theme color var?)
+			// - do the same for failed markdown formatters
+			content = null;
+			console.error(err);
 		}
 	} else {
 		resources = [];
@@ -567,10 +573,9 @@ function Page () {
 	const [path] = paths;
 	const markdown = stew(fetchNote, [path, revision], undefined);
 
-	// TODO: have stew interrupt render by throwing some non-error value
-	// - hook will trigger rerender when promise resolves already
-	// - maybe build this into hook somehow (for undefined fallback)
-	// - or maybe use Promise as fallback value to indicate it should interrupt
+	// TODO: consider having stew interrupt render by throwing some non-error value
+	// - how would this work, it would need some kind of wrapper that adds a try/catch
+	// - I'm guessing its better the way I have it, with an initial and fallback value instead, and a custom check to return early
 	if (markdown === undefined) {
 		return;
 	}
@@ -585,7 +590,7 @@ function Page () {
 		return typeof markdown === 'string' ? [Editor, { names, file: markdown }] : fallback;
 	}
 
-	const content = stew(markdown, [path, emoji], null);
+	const content = stew(markdown, [path], null);
 	const map = content?.[1];
 	const resources = map && map[''].indexOf(':') !== -1 ? [] : undefined;
 	const data = resources ? null : undefined;
@@ -748,6 +753,8 @@ function Drafts ({ paths, isEligible }) {
 	];
 }
 
+// TODO: add a link in the breadcrumb area with the current date
+// - clicking on it will take you to the note for the current day, e.g. 20250709
 function Home () {
 	const { settings, snips } = state;
 	const { theme, showDrafts } = settings;
@@ -840,9 +847,6 @@ function App () {
 	return [pathname === '/' ? Home : Page];
 }
 
-fetchCode('index').then(module => {
-	const { default: array, ...formatters } = module;
-	emoji = array[1];
-	emoji[''] = formatters;
-	stew('#app', { '': array[0] }, [App]);
+fetchCode('index').then(customModule => {
+	stew('#app', customModule, [App]);
 });

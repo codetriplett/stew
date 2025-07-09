@@ -4,10 +4,11 @@ import { impulses } from './impulse';
 import render, { remove, reconcile } from './view';
 
 const convert = ({ text }) => text;
-let context, parentNode, nodes, container, map;
+let customModule, context, parentNode, nodes, container, map;
 
 beforeEach(() => {
-	context = { '': convert };
+	customModule = { default: [convert] };
+	context = { '': customModule };
 	parentNode = {};
 	nodes = [parentNode];
 	container = ['', {}];
@@ -40,7 +41,7 @@ describe('render', () => {
 			const actual = render(callback, context, stew, nodes, container, -1, map);
 			expect(actual).toEqual({ ...text, nodeValue: 'callback' });
 			expect(container).toEqual(['', {}, actual]);
-			expect(callback).toHaveBeenCalledWith({ '': expect.any(Function), lmno: 456 }, parentNode);
+			expect(callback).toHaveBeenCalledWith({ '': customModule, lmno: 456 }, parentNode);
 		});
 
 		it('fragment', () => {
