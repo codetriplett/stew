@@ -92,6 +92,7 @@ body.dark-theme {
 }
 .nav {
 	flex: 0 0 270px;
+	max-width: 270px;
 }
 .snips {
 	flex: 0 0.666666 640px;
@@ -306,22 +307,26 @@ label input[type="checkbox"] {
 	margin-right: 5px;
 }
 
-@media (max-width: 1080px) {
-	.page {
-		#app {
-			float: left;
-		}
-		.main, .edit {
-			flex: 0 0 calc(100vw - 32px);
-			max-width: calc(100vw - 32px);
-		}
-		.snips {
-			flex: 0 0 calc(100vw - 86px);
-			max-width: calc(100vw - 86px);
+.date-link {
+	display: block;
+	font-size: 21px;
+	text-align: center;
+}
 
-			.scroll-column {
-				width: 100%;
-			}
+@media (max-width: 1080px) {
+	#app {
+		float: left;
+	}
+	.main, .edit {
+		flex: 0 0 calc(100vw - 32px);
+		max-width: calc(100vw - 32px);
+	}
+	.snips {
+		flex: 0 0 calc(100vw - 86px);
+		max-width: calc(100vw - 86px);
+
+		.scroll-column {
+			width: 100%;
 		}
 	}
 	.left-button,

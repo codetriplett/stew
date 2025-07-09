@@ -765,6 +765,16 @@ function Home () {
 		return Object.keys(localStorage).filter(name => /^\/(?!\/).*\.(md|json)$/.test(name));
 	}, []);
 
+	const dateLink = stew(() => {
+		const date = new Date();
+		const dateText = date.toDateString();
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 101);
+		const day = String(date.getDate() + 100);
+		const datePath = `/${year}${month.slice(1)}${day.slice(1)}`;
+		return ['a', { href: datePath, className: 'date-link' }, dateText];
+	}, []);
+
 	const includeDrafts = paths.length > 0;
 	
 	return ['', {},
@@ -773,15 +783,25 @@ function Home () {
 		['div', {
 			className: 'main',
 		},
+			dateLink,
 			stew(`
-# Make a note. Build your vision.
+Make a note.  
+Explore and build something new.
+===
 
 This site serves as a place to store and browse your notes. 
 It also supports embedded code to create web apps and games. 
 A version will be available soon to download and use offline. 
-Enter any URL to begin writing, or read on to learn more. 
 
-## Navigation
+## Make
+
+Notes are created by navigating to any URL you wish. 
+Everything on this demo site is stored in your browser cache, so avoid clearing it if you want to keep them. 
+A shortcut to the current day's note can be found at the top of this page, and a menu of all your other notes can be toggled using the icon to its left. 
+Emoji and formatters can be set by editing the [index note](/index). 
+Learn more about what features are available in the [Markdown guide](/markdown). 
+
+## Explore
 
 A left navigation will be created automatically from the headings in your notes. 
 It can be toggled using the icon menu in the upper left of those pages. 
@@ -789,15 +809,14 @@ Clicking on headings in that list will focus in on their content, and clicking i
 Focused sections will also display the links to other notes, or sections if a hash is included, and clicking them will also open a snip. 
 Snips are sections of your notes that persist in the right panel as you browse. 
 They can be toggled using the hash icon in the upper right of your notes. 
-More info on creating links, and other formatting, can be found in the [Markdown guide](/markdown). 
 
-## Building
+## Build (in development)
 
-If you would like to experiment with 
-Notes with embedded code before the main heading, set using preformatted text, will be treated as modules. 
+Notes with embedded code before the main heading will be treated as modules. 
 Modules wrap their nested notes in additional functionality, and can even export their features to other modules. 
 The embedded code above the main heading will set the types of data it can accept, and styles to apply, while the code after the main heading will be used as the main layout component. 
-This feature is still being refined, but you can read more about how the layouts are defined in the [Stew guide](/stew). 
+Code is set using preformatted text, but only ones that use the \`export\` format. 
+You can read more about how the layouts are defined in the [Stew guide](/stew). 
 There is even a shader language for creating games that can be found in the [WebGL guide](/webgl). 
 			`, ['/']),
 			// TODO: render active snips session here
