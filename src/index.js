@@ -462,7 +462,7 @@ function resizeTextarea (ref) {
 function Editor ({ names, file }) {
 	let schema, data;
 
-	if (names.length > 1) {
+	if (names.length > 2 || names.length === 2 && names[0] !== 'index') {
 		schema = stew(fetchCode, [names.slice(0, -1).join('/')], {}).default?.[1];
 		data = stew(fetchData, [names.join('/'), state.revision], undefined);
 
@@ -771,7 +771,7 @@ function Home () {
 		const year = date.getFullYear();
 		const month = String(date.getMonth() + 101);
 		const day = String(date.getDate() + 100);
-		const datePath = `/${year}${month.slice(1)}${day.slice(1)}`;
+		const datePath = `/index/${year}${month.slice(1)}${day.slice(1)}`;
 		return ['a', { href: datePath, className: 'date-link' }, dateText];
 	}, []);
 
@@ -785,9 +785,7 @@ function Home () {
 		},
 			dateLink,
 			stew(`
-Make a note.  
-Explore and build something new.
-===
+# Make\u00A0a\u00A0note. Build\u00A0your\u00A0space.
 
 This site serves as a place to store and browse your notes. 
 It also supports embedded code to create web apps and games. 
@@ -868,4 +866,7 @@ function App () {
 
 fetchCode('index').then(customModule => {
 	stew('#app', customModule, [App]);
+}).catch(err => {
+	console.error(err);
+	stew('#app', {}, [App]);
 });

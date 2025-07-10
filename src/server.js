@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const { createServer } = require('http');
-const { readFile, writeFile, access, unlink, constants } = require('fs');
+const { readFile, writeFile, readdir, access, unlink, constants } = require('fs');
 const path = require('path');
 
 const { env, cwd, argv: [,, config = ''] } = process;
@@ -107,7 +107,30 @@ createServer((req, res) => {
 	
 	if (method === 'GET') {
 		if (!extension) {
-			htmlPromise.then(html => send(res, html, 'html'));
+			if (url.endsWith('//')) {
+				// TODO: support more '/' to indicate deep search
+				// - e.g. /site/// will return { category: ['page'] }
+				// - put some limit on the number of notes it can return
+				if (url.endsWith('///')) {
+					send(res, 'Deep directory data not yet supported.', 404);
+					return;
+				}
+
+				readdir(`${folder}/${path}`, (err, files = []) => {
+					const notes = [];
+					
+					for (const file of files) {
+						if (file.endsWith('.md')) {
+							notes.push(file.slice(0, -3));
+						}
+					}
+
+					send(res, JSON.stringify(notes), 'json');
+				});
+			} else {
+				htmlPromise.then(html => send(res, html, 'html'));
+			}
+
 			return;
 		}
 

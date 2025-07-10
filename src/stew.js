@@ -22,7 +22,7 @@
  */
 
 import { isServer } from './document';
-import { effects, processEffects, processMemo, setModule } from './impulse';
+import { effects, processEffects, processMemo, stack } from './impulse';
 import createState, { queue, schedule } from './state';
 import { compile } from './program';
 import render from './view';
@@ -90,9 +90,9 @@ export default function stew (...layout) {
 		layout[1] = null;
 	}
 
-	setModule(object);
+	stack.unshift([,,,, object]);
 	const info = render(layout, { '': object }, document, [], ['', {}], 0, {});
-	setModule(undefined);
+	stack.shift();
 	processEffects();
 
 	return node !== original ? node : manifest => {

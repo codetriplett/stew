@@ -1,5 +1,5 @@
 import { isServer } from './document';
-import { impulses, processEffects } from './impulse';
+import { stack, processEffects } from './impulse';
 
 export const queue = new Set();
 
@@ -48,8 +48,8 @@ export default function createState (state) {
 
 		Object.defineProperty(state, name, {
 			get () {
-				if (impulses.length) {
-					const [impulse] = impulses;
+				if (stack.length) {
+					const impulse = stack[0][1];
 					subscriptions.add(impulse);
 					impulse[1].add(subscriptions); // this is what allows impulses to unsub themselves
 				}

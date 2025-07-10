@@ -277,7 +277,9 @@ span.child-button {
 	background: none;
 	resize: none;
 	color: var(--paper-font-color);
-	overflow: hidden;
+	white-space: nowrap;
+	overflow-x: auto;
+	overflow-y: hidden;
 }
 .editor:focus {
 	outline: none;
@@ -309,6 +311,7 @@ label input[type="checkbox"] {
 
 .date-link {
 	display: block;
+	margin: 0 48px;
 	font-size: 21px;
 	text-align: center;
 }

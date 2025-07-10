@@ -3,17 +3,8 @@ import render, { remove, reconcile } from './view';
 import createState, { schedule } from './state';
 import parse from './markdown';
 
-export const impulses = [];
+export const stack = [];
 export const effects = [];
-export let prevMemos = [];
-let activeInfo, activeModule;
-
-// TODO: check if this can be incorporated into the effects array
-// - maybe first item can be for hook context, and then spliced out before processing effects
-// - could be used both by stew and impulse code
-export function setModule (customModule) {
-	activeModule = customModule;
-}
 
 export function execute (callback, ...params) {
 	try {
@@ -47,17 +38,14 @@ export function processEffects () {
 //   - in both cases clearing the variable that holds the suspend/resume/swap will allow it to garbage collect the tree
 export function processMemo (callback, ...rest) {
 	let [deps = [], intermediate, fallback] = rest;
-	const memo = prevMemos.shift() || [undefined];
+	const [info = [,,, []]] = stack;
+	const memo = info[3].shift() || [undefined];
 	let value = memo[1];
-	activeInfo?.push?.(memo);
+	info.push(memo);
 
 	if (typeof callback === 'string') {
 		deps = [callback, ...deps];
 		callback = parse;
-
-		if (deps.length < 3) {
-			deps[2] = activeModule;
-		}
 	}
 
 	// TODO: can there be a way to omit mount from effect, and just process updates?
@@ -76,10 +64,15 @@ export function processMemo (callback, ...rest) {
 	}
 
 	// if memo should be updated
-	if (typeof callback === 'function') {
-		value = callback(...deps);
-	} else {
-		value = createState(callback);
+	switch (typeof callback) {
+		case 'function': {
+			value = callback(...deps);
+			break;
+		}
+		case 'object': {
+			value = createState(callback);
+			break;
+		}
 	}
 
 	if (rest.length > 1 && value instanceof Promise) {
@@ -89,7 +82,7 @@ export function processMemo (callback, ...rest) {
 			schedule(new Set([impulse]));
 		});
 
-		const [impulse] = impulses;
+		const impulse = stack[0]?.[1];
 		value = memo.length === 1 ? intermediate : memo[1];
 	}
 
@@ -99,12 +92,11 @@ export function processMemo (callback, ...rest) {
 
 export default function renderImpulse (info, object, children, context, document, nodes) {
 	if (!info[1]) {
-		info[1] = [, new Set(), ...impulses];
+		info[1] = [, new Set(), ...stack.map(info => info[1])];
 	}
 
 	// TODO: rename ref params throughout code base
 	const { ref, ...props } = object;
-	const [, impulse] = info;
 	const [parentNode] = nodes;
 	const refIndex = ref?.length;
 	const nodeIndex = nodes.length;
@@ -112,14 +104,10 @@ export default function renderImpulse (info, object, children, context, document
 
 	const update = () => {
 		const [callback,, prevProxy] = info;
-		const activeInfoBackup = activeInfo;
 		const sibling = prevNodes?.[prevNodes?.length - 1]?.nextSibling;
-		impulses.unshift(impulse);
-		prevMemos = info.splice(3);
-		activeInfo = info;
-		setModule(context['']);
+		stack.unshift(info);
+		info.push(info.splice(3), context['']);
 		const layout = execute(callback, props, ...children);
-		setModule(undefined);
 
 		if (document) {
 			const proxy = render(layout || '', context, document, nodes, info, -1, {});
@@ -144,11 +132,10 @@ export default function renderImpulse (info, object, children, context, document
 			info[2] = layout;
 		}
 
-		activeInfo = activeInfoBackup;
-		prevMemos.splice(0);
-		impulses.shift();
+		info.splice(3, 2);
+		stack.shift();
 	};
 
-	impulse[0] = update;
+	info[1][0] = update;
 	update();
 }

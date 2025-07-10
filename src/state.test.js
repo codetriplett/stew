@@ -1,4 +1,4 @@
-import { impulses } from './impulse';
+import { stack } from './impulse';
 import createState from './state';
 
 jest.mock('./document', () => ({ isServer: false }));
@@ -29,9 +29,9 @@ describe('createState', () => {
 		const actual = createState({ lmno: 123 });
 		const subscriptions = new Set();
 		const update = jest.fn();
-		impulses.unshift([update, subscriptions]);
+		stack.unshift([, [update, subscriptions]]);
 		actual.lmno;
-		impulses.shift();
+		stack.shift();
 		expect(subscriptions).toEqual(new Set([expect.any(Set)]));
 		actual.lmno = 789;
 		await new Promise(resolve => setTimeout(resolve, 10));

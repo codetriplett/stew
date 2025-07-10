@@ -108,7 +108,7 @@ Text can be displayed with monospaced font and no additional processing by inden
 
 ## HTML
 
-HTML tags are only partially supported at this stage. They don't support attributes, and their content is taken as-is instead of being processed as markdown. I'd recommend using [Stew layouts](/stew) for now if you want to customize your notes further.
+HTML tags are only partially supported at this stage. The angle brackets for each tag must exist on the same line, and their content is taken as-is instead of being processed as markdown. These limitations will be fixed in a future update. I'd recommend using [Stew layouts](/stew) for now if you want to customize your notes further.
 
 # Formatting
 

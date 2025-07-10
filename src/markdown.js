@@ -1,4 +1,5 @@
 import { selfClosingTags } from './document';
+import { stack } from './impulse';
 
 // TODO: close previous paragrah if any of these are used
 // - open new paragraph when they are closed
@@ -133,8 +134,23 @@ export function parseInline (string, stack, links, customizations) {
 			node = [tagName, attributes];
 
 			for (const string of rest) {
-				const [name, value] = string.split(/\s*=\s*['"]?(.*)/s);
-				attributes[name] = value === undefined ? true : value.replace(/['"]$/, '');
+				const [name, value] = string.split(/['"]|\s*=\s*['"]?/);
+
+				if (name !== 'style' && name !== 'dataset') {
+					attributes[name] = value ?? true;
+					continue;
+				} else if (!value) {
+					continue;
+				}
+
+				const object = {};
+				const entries = value.trim().split(/\s*;\s*/);
+				attributes[name] = object;
+
+				for (const entry of entries) {
+					const [name, value] = entry.split(/\s*:\s*/);
+					object[name] = value ?? '';
+				}
 			}
 
 			if (!selfClosingTags.has(tagName) && !open.endsWith('/')) {
@@ -290,7 +306,7 @@ function getText (node) {
 	return node[0] === 'br' ? ' ' : node.slice(2).map(getText).join('');
 }
 
-export default function parse (content, rootPath = '', customModule) {
+export default function parse (content, rootPath = '', customModule = stack[0]?.[4]) {
 	if (!content) {
 		return;
 	}

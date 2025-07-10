@@ -1,6 +1,5 @@
 import { print, text, fragment, element } from './validate';
 import stew from './stew';
-import { impulses } from './impulse';
 import render, { remove, reconcile } from './view';
 
 const convert = ({ text }) => text;

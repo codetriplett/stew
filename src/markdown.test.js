@@ -1,4 +1,5 @@
 import parse, { parseInline } from './markdown';
+import { stack as impulseStack } from './impulse';
 
 let stack, links;
 
@@ -383,6 +384,15 @@ describe('parse', () => {
 	});
 
 	it('paragraph with emoji', () => {
+		impulseStack[0] = [,,,, { default: [() => null, { smile: ':)' }] }];
+		const actual = parse(':smile:', '/');
+
+		expect(actual).toEqual(['', null,
+			['p', null, ':)'],
+		]);
+	});
+
+	it('paragraph with emoji override', () => {
 		const actual = parse(':smile:', '/', { default: [() => null, { smile: ':)' }] });
 
 		expect(actual).toEqual(['', null,
