@@ -45,7 +45,7 @@ function unpackSettingsAndSessions () {
 
 function updateSettings (updates) {
 	const { settings } = state;
-	state.settings = { ...Object.assign(settings, updates) };
+	state.settings = Object.assign({}, settings, updates);
 	packSettingsAndSessions();
 }
 
@@ -306,7 +306,7 @@ function LeftMenu ({ map = {}, root, isEligible }) {
 function Citation ({ snip }) {
 	const [path] = snip.replace(/^\/+/, '').split('#');
 	const markdown = stew(fetchNote, [path], undefined);
-	let content = typeof markdown !== 'string' ? markdown : markdown ? stew(markdown, [snip], null) : ['p', null, `File not found: /${path}.md`];
+	let content = typeof markdown !== 'string' ? markdown : markdown ? stew(markdown, [snip]) : ['p', null, `File not found: /${path}.md`];
 
 	if (content && Object.keys(content[1] || {}).length === 1) {
 		content = ['p', null, `Section not found: ${snip}`];
@@ -454,6 +454,14 @@ function resizeTextarea (ref) {
 	window.scrollTo(scrollX, scrollY);
 }
 
+function insert (ref, symbol) {
+	const textarea = ref[1];
+	const { value, selectionStart, selectionEnd } = textarea;
+	textarea.focus();
+	textarea.value = `${value.slice(0, selectionStart)}${symbol}${value.slice(selectionEnd)}`;
+	textarea.selectionStart = textarea.selectionEnd = selectionStart + 1;
+}
+
 // TODO: have close button be preview button when change is detected
 // - this will save it to local storage and return you to the rendered note
 // - have left nav on Home Page show all drafts that haven't been saved
@@ -474,9 +482,54 @@ function Editor ({ names, file }) {
 	const formRef = [];
 	stew(null, [], () => resizeTextarea(formRef));
 
+	// TODO: add toolbar for quick access to common markdown symbols
+	// - #, -, `, link (adds [](/)), |, *, :
 	return ['div', {
 		className: 'edit',
 	},
+		['div', {
+			className: 'toolbar',
+		},
+			['div', {
+				className: 'toolbar-centered',
+			},
+				['button', {
+					type: 'button',
+					className: 'toolbar-button',
+					onclick: () => insert(formRef, '#'),
+				}, '#'],
+				['button', {
+					type: 'button',
+					className: 'toolbar-button',
+					onclick: () => insert(formRef, '-'),
+				}, '-'],
+				['button', {
+					type: 'button',
+					className: 'toolbar-button',
+					onclick: () => insert(formRef, '`'),
+				}, '`'],
+				['button', {
+					type: 'button',
+					className: 'toolbar-button',
+					onclick: () => insert(formRef, '[](/)'),
+				}, '/'],
+				['button', {
+					type: 'button',
+					className: 'toolbar-button',
+					onclick: () => insert(formRef, '|'),
+				}, '|'],
+				['button', {
+					type: 'button',
+					className: 'toolbar-button',
+					onclick: () => insert(formRef, '*'),
+				}, '*'],
+				['button', {
+					type: 'button',
+					className: 'toolbar-button',
+					onclick: () => insert(formRef, ':'),
+				}, ':'],
+			],
+		],
 		['form', {
 			ref: formRef,
 			onsubmit: event => event.preventDefault(),
@@ -534,6 +587,10 @@ function Editor ({ names, file }) {
 // TODO: clean up UI now that MD MJS and JSON return empty content instead of 404
 
 function Page () {
+	// TODO: check why this sometimes doesn't rerender when isEditing changes
+	// - I noticed it when the Block component rendered with an error, but is in try/catch
+	// - when it happens, the impulse become unresponsive to any change
+	// - it's almost like it fails to subscribe on a render and loses its ability to refresh (how could that happen?)
 	const { isEditing, canvas, snips, settings, revision } = state;
 	const { showMenu, showSnips } = settings;
 
@@ -580,7 +637,7 @@ function Page () {
 		return;
 	}
 
-	stew(null, [markdown], () => {
+	stew(null, [], () => {
 		if (typeof markdown === 'string' && !/\S/.test(markdown)) {
 			state.isEditing = true;
 		}
@@ -590,13 +647,21 @@ function Page () {
 		return typeof markdown === 'string' ? [Editor, { names, file: markdown }] : fallback;
 	}
 
-	const content = stew(markdown, [path], null);
+	const content = stew(markdown, [path]);
 	const map = content?.[1];
 	const resources = map && map[''].indexOf(':') !== -1 ? [] : undefined;
 	const data = resources ? null : undefined;
 
 	// TODO: if note is detected as a module, process it without passing params
 	// - components should check for props and provide an alternate, landing layout if its missing
+
+	stew(null, [markdown], () => {
+		if (names.length === 2 && names[0] === 'index') {
+			const index = markdown.search(/[\r\n]/);
+			const text = markdown.slice(0, index > 0 ? index : markdown.length).trim();
+			updateSettings({ [names[1]]: text });
+		}
+	});
 
 	// either map[''] or the array of its only child, with root links prepended
 	const root = stew(() => {
@@ -620,11 +685,7 @@ function Page () {
 
 	const includeMenu = root[0].indexOf('#') !== -1;
 	const includeSnips = snips.length > 0;
-	const breadcrumbs = [];
-
-	if (content) {
-		breadcrumbs.push(root[1] || names[names.length - 1]);
-	}
+	const breadcrumbs = [root[1] || names[names.length - 1]];
 
 	return ['', {},
 		// TODO: store array in state for index links that could wrap the left menu links

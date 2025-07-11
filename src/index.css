@@ -197,6 +197,8 @@ span.child-button {
 	}
 }
 .edit-button {
+	position: relative;
+	top: -14px;
 	margin-left: 2px;
 	border: none;
 	background: none;
@@ -206,6 +208,34 @@ span.child-button {
 }
 .right-button {
     right: 10px;
+}
+
+.toolbar {
+	position: fixed;
+	left: 0;
+	width: 100dvw;
+	margin-top: -3px;
+	text-align: center;
+}
+.toolbar-centered {
+	display: inline-block;
+	background: var(--paper-background);
+}
+.toolbar-button {
+    width: 24px;
+    height: 24px;
+    margin: 0 2px;
+	padding: 0;
+	border: 1px solid var(--button-border-color);
+    border-radius: 25%;
+	color: var(--button-font-color);
+    background: var(--button-background);
+
+	&:hover {
+		border-color: var(--button-hover-border-color);
+		color: var(--button-hover-font-color);
+		background: var(--button-hover-background);
+	}
 }
 
 .theme-button:after {
@@ -261,7 +291,7 @@ span.child-button {
 
 .edit {
 	form {
-		margin-top: 32px;
+		margin-top: 24px;
 	}
 
 	textarea {
@@ -293,8 +323,8 @@ span.child-button {
 	padding-left: 16px;
 	border-left: 1px solid var(--paper-font-color);
 }
-.edit > ul {
-	margin: -10px 0 16px;
+.edit > form > ul {
+	margin: 42px 0 0;
 	padding-left: 0;
 	border-left: none;
 }
@@ -333,7 +363,8 @@ label input[type="checkbox"] {
 		}
 	}
 	.left-button,
-	.right-button {
+	.right-button,
+	.toolbar-centered {
 		box-shadow: 0 0 8px 8px var(--paper-background);
 	}
 	.snips-active {

@@ -56,7 +56,7 @@ export function processMemo (callback, ...rest) {
 	} else if (!callback) {
 		if (intermediate && !isServer) {
 			// if effect should be scheduled
-			memo[0] = intermediate;
+			memo.splice(0, memo.length, intermediate, memo[1], ...deps);
 			effects.push(memo);
 		}
 
