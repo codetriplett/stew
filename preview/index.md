@@ -4,7 +4,7 @@
 }
 ```
 
-# Convert
+# Calendar
 
 ```export
 const [props, name] = arguments;

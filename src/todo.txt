@@ -26,3 +26,24 @@ Document and test schema types
 path/path/\w+/
 
 */
+
+
+
+// TODO: maybe use 2 Joker cards to represent half a year each
+// - Jokers can also hold the leftover days of the year in their leftover columns
+// - e.g. Fall/Winter rows: JUL AUG SEP OCT NOV DEC DAY_365 (Spring/Summer will hold other months, plus DAY_366 on leap years)
+// - names with length between 4 and 6 will be for months, which will display their joker card
+
+
+// TODO: render card for that week with the day of the week highlighted that the note is for
+// - render the markdown note as-is in the main area
+// - figure out how to put the card at the bottom in the left nav, below its heading links
+//   - navigation from arguments should be the shadow dom container inserted below other left nav content
+// - the card is a good way to visualize the week alongside the day
+
+
+// TODO: render webGL card UI
+// - render one season quadrant at a time, with cards display sequentially 1-K to show the week # of the season.
+// - have empty space next to JQK hold a prev and next button to move to adjacent seasons.
+// - Past and future cards can be clicked to bring them into focus, and then a row can be clicked to open the note for that day.
+// - Focused cards also provide a link to edit the note for that week /index/yyyyww

@@ -14,17 +14,26 @@ export function getDay (name) {
     return Math.floor((date - new Date(0)) / (24 * 60 * 60 * 1000)) + 1;
 }
 
+export function getText (node) {
+	if (typeof node === 'string') {
+		return node;
+	}
+
+	return node[0] === 'br' ? ' ' : node.slice(2).map(getText).join('');
+}
+
 export function getQuests (name, count = 7) {
-    const allQuests = {};
+    const cards = [];
     const year = name.slice(0, 4);
     const start = getDay(year);
     let index = getDay(name);
     index -= (index - start) % 7;
-    let week = Math.floor((index - start) / 7) + 1;
+    let week = Math.floor((index - start) / 7);
 
     for (let i = 0; i < count; i += 7) {
-        const weekQuests = [];
-        allQuests[`${year}${week < 10 ? '0' : ''}${week++}`] = weekQuests;
+        const card = ['ul', { className: `card season-${Math.floor(week / 13)} week-${week % 13}` }];
+        cards.push(card);
+        week++;
 
         for (let j = 0; j < 7; j++) {
             const date = new Date(index * 24 * 60 * 60 * 1000);
@@ -34,16 +43,119 @@ export function getQuests (name, count = 7) {
             const name = `${year}${month < 10 ? '0' : ''}${month}${day < 10 ? '0' : ''}${day}`;
             const href = `/index/${name}`;
             const [, quest] = (localStorage.getItem(`${href}.md`) || '').match(/^\s*(.*?)\s*(?=#+\s|\r|\n|$)/);
-            const style = { color: quest ? 'var(--paper-font-color)' : 'var(--button-font-color)' };
-            weekQuests.push(['a', { href, style }, quest || date.toLocaleDateString()]);
+            const content = stew(quest, [href]);
+            const text = getText(content?.[2] || '');
             index++;
+            
+            card.push(['li', null,
+                ['span', null, day],
+                ['a', { href },
+                    ['span', null, text],
+                ],
+            ]);
         }
     }
 
-    return allQuests;
+    return ['', null,
+        ['style', null, `
+            .cards-scaled {
+                width: 216px;
+            }
+            .cards-scaled .card {
+                transform: scale(1.5);
+            }
+            .card {
+                float: left;
+                position: relative;
+                box-sizing: border-box;
+                width: 144px;
+                height: 204px;
+                padding: 12px;
+                margin: 0;
+                text-align: center;
+                list-style: none;
+                transform-origin: 0 0;
+                z-index: 9;
+            }
+            .card li {
+                display: flex;
+                gap: 4px;
+                height: 24px;
+            }
+            .card li + li {
+                margin-top: 2px;
+            }
+            .card li > span {
+                flex: 0 0 24px;
+                font-weight: bold;
+                font-size: 12px;
+                line-height: 24px;
+            }
+            .card a {
+                flex: 1 1 0;
+                position: relative;
+            }
+            .card a span {
+                position: absolute;
+                left: 50%;
+                top: 50%;
+                display: block;
+                width: 100%;
+                max-height: 30px;
+                font-size: 13px;
+                line-height: 11px;
+                transform: translate(-50%, -50%);
+                overflow: hidden;
+                -webkit-line-clamp: 2;
+                text-overflow: ellipsis;
+            }
+            .card li:nth-child(4) > span {
+                display: none;
+            }
+            .card li:nth-child(n + 5) {
+                flex-direction: row-reverse;
+            }
+            .card li:nth-child(-n + 2) > span,
+            .card li:nth-child(n + 6) > span {
+                visibility: hidden;
+            }
+            .card:before {
+                content: '';
+                position: absolute;
+                left: 0;
+                right: 0;
+                top: 0;
+                bottom: 0;
+                display: block;
+                border-radius: 12px;
+                background-size: 720px 552px;
+                image-rendering: pixelated;
+                transform-origin: 0 0;
+                z-index: -1;
+            }
+            .season-0:before { background-image: url(/winter-cards.png); }
+            .season-1:before { background-image: url(/spring-cards.png); }
+            .season-2:before { background-image: url(/summer-cards.png); }
+            .season-3:before { background-image: url(/autumn-cards.png); }
+            .week-0:before { background-position: calc(-0 * 144px) calc(-0 * 204px); }
+            .week-1:before { background-position: calc(-1 * 144px) calc(-0 * 204px); }
+            .week-2:before { background-position: calc(-2 * 144px) calc(-0 * 204px); }
+            .week-3:before { background-position: calc(-3 * 144px) calc(-0 * 204px); }
+            .week-4:before { background-position: calc(-4 * 144px) calc(-0 * 204px); }
+            .week-5:before { background-position: calc(-0 * 144px) calc(-1 * 204px); }
+            .week-6:before { background-position: calc(-1 * 144px) calc(-1 * 204px); }
+            .week-7:before { background-position: calc(-2 * 144px) calc(-1 * 204px); }
+            .week-8:before { background-position: calc(-3 * 144px) calc(-1 * 204px); }
+            .week-9:before { background-position: calc(-4 * 144px) calc(-1 * 204px); }
+            .week-10:before { background-position: calc(-0 * 204px) calc(-2 * 204px); }
+            .week-11:before { background-position: calc(-1 * 204px) calc(-2 * 204px); }
+            .week-12:before { background-position: calc(-2 * 204px) calc(-2 * 204px); }
+        `],
+        ['div', { className: 'cards' }, ...cards],
+    ];
 }
 
-export function convert () {
+export function calendar () {
     const [props, content, navigation] = arguments;
     const date = new Date();
     let sessions, settings;
@@ -57,64 +169,14 @@ export function convert () {
     }
 
     if (props) {
-        // TODO: maybe use 2 Joker cards to represent half a year each
-        // - Jokers can also hold the leftover days of the year in their leftover columns
-        // - e.g. Fall/Winter rows: JUL AUG SEP OCT NOV DEC DAY_365 (Spring/Summer will hold other months, plus DAY_366 on leap years)
-        // - names with length between 4 and 6 will be for months, which will display their joker card
-
         const name = window.location.pathname.replace(/\/+$/, '').split('/').pop();
 
         if (navigation && name.length > 6) {
-            const quests = stew(getQuests, [name]);
-            const weekQuests = Object.values(quests)[0];
-
-            const vertexes = [
-                -0.5, -0.5, 0.5, -0.5, 0.5, 0.5,
-                0.5, 0.5, -0.5, 0.5, -0.5, -0.5,
-            ];
-            
-            const color = [1, 0.75, 0.75];
-
-            navigation.push(
-                ['style', null, `
-                    .container {
-                        position: relative;
-                    }
-                    canvas {
-                        position: absolute;
-                        left: 0;
-                        right: 0;
-                        top: 0;
-                        width: 100%;
-                        aspect-ratio: 0.8;
-                    }
-                `],
-                ['div', { className: 'container' },
-                    ['canvas', null, stew`
-                        ${gl => {
-                            gl.clearColor(0.0, 0.0, 0.0, 0.0);
-                            gl.clear(gl.COLOR_BUFFER_BIT);
-                        }}
-                        FLOAT vec2 aVertex ${vertexes}
-                        gl_Position = vec4(aVertex, 0.0, 1.0)
-                        gl_PointSize = 4.0
-                        ${gl => gl.drawArrays(gl.POINTS, 0, 12)}
-                        vec3 uColor ${color}
-                        gl_FragColor = vec4(uColor, 1.0)
-                        ${() => 16}
-                    `],
-                    ['ul', null,
-                        ...weekQuests.map(link => ['li', null, link]),
-                    ],
-                ],
-            );
+            const cards = stew(getQuests, [name]);
+            cards[3][1].className += ' cards-scaled';
+            navigation.push(cards);
         }
-        
-        // TODO: render card for that week with the day of the week highlighted that the note is for
-        // - render the markdown note as-is in the main area
-        // - figure out how to put the card at the bottom in the left nav, below its heading links
-        //   - navigation from arguments should be the shadow dom container inserted below other left nav content
-        // - the card is a good way to visualize the week alongside the day
+
         return content
     }
 
@@ -125,14 +187,28 @@ export function convert () {
     const { seasonOffset } = state;
 
     const startName = stew(() => {
-        const year = date.getFullYear();
+        let year = date.getFullYear();
         let month = date.getMonth() + seasonOffset * 3;
+        year += Math.floor(month / 12);
+        month = month % 12;
+        month += month < 0 ? 12 : 0;
         month = month - (month % 3) + 1;
         return `${year}${month < 10 ? '0' : ''}${month}01`;
     }, [seasonOffset]);
 
-    const quests = stew(getQuests, [startName, 91]);
+    const cards = stew(getQuests, [startName, 98]);
+    const container = cards[3];
+    const [season] = container[3][1].className.match(/(?:^|\s)season-.*?(?:\s|$)/);
 
+    // TODO: see if these can be handled in getQuest when startName is yyyymm
+    // - needs to find a day name that lies in the first week card of that month
+    if (container[2][1].className.indexOf(season) === -1) {
+        container.splice(2, 1);
+    } else if (container.length > 15 && container[15][1].className.indexOf(season) === -1) {
+        container.splice(15, 1);
+    }
+
+    // display cards in rows of 2, 3, or 5. leaves remainder of 1, 2, and 2
     return ['', null,
         ['button', {
             type: 'button',
@@ -140,23 +216,18 @@ export function convert () {
         }, 'Prev'],
         ['button', {
             type: 'button',
+            disabled: seasonOffset === 0,
+            onclick: () => state.seasonOffset = 0,
+        }, 'Current'],
+        ['button', {
+            type: 'button',
             onclick: () => state.seasonOffset += 1,
         }, 'Next'],
-        Object.values(quests).map(weekQuests => {
-            return ['ul', null,
-                ...weekQuests.map(link => ['li', null, link]),
-            ];
-        }),
+        cards,
     ];
-
-    // TODO: render webGL card UI
-    // - render one season quadrant at a time, with cards display sequentially 1-K to show the week # of the season.
-    // - have empty space next to JQK hold a prev and next button to move to adjacent seasons.
-    // - Past and future cards can be clicked to bring them into focus, and then a row can be clicked to open the note for that day.
-    // - Focused cards also provide a link to edit the note for that week /index/yyyyww
 }
 
-export default [convert, {
-    '': 'Convert',
+export default [calendar, {
+    '': 'Calendar',
     smile: '🙂',
 }];

@@ -692,7 +692,7 @@ function Page () {
 	const breadcrumbs = [root[1] || names[names.length - 1]];
 	const navigation = ['', null];
 	const blockContent = Block({ names, breadcrumbs, resources, data, navigation }, ['main', null, content]);
-	const includeMenu = root[0].indexOf('#') !== -1 || navigation.length > 2;
+	const includeMenu = path !== 'index' && (root[0].indexOf('#') !== -1 || navigation.length > 2);
 
 	return ['', {},
 		// TODO: store array in state for index links that could wrap the left menu links
