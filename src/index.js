@@ -175,7 +175,7 @@ function fetchNote (path) {
 	path = `/${path}.md`;
 	const file = localStorage.getItem(path);
 
-	return file || fetch(path).then(res => {
+	return file ? Promise.resolve(file) : fetch(path).then(res => {
 		return res.ok ? res.text() : '';
 	});
 }
@@ -184,7 +184,7 @@ function fetchData (path) {
 	path = `/${path}.json`;
 	const file = localStorage.getItem(path);
 
-	return file ? JSON.parse(file) : fetch(path).then(res => {
+	return file ? Promise.resolve(JSON.parse(file)) : fetch(path).then(res => {
 		return res.ok ? res.json() : {};
 	});
 }
@@ -246,8 +246,8 @@ function getText (node) {
 // TODO: if map is for a navigation node (all links), show the nav items for the currently active page
 // - need to add a focusedPage in addition to focused section
 // - on hashchange check if id is for a focusedPage and update it, otherwise update focusedSection
-function LeftMenu ({ map = {}, root, isEligible }) {
-	const { focusedSection, settings, navigation } = state;
+function LeftMenu ({ map = {}, root, isEligible }, navigation) {
+	const { focusedSection, settings } = state;
 	const { showMenu } = settings;
 	const menuActive = isEligible && showMenu;
 	
@@ -298,6 +298,9 @@ function LeftMenu ({ map = {}, root, isEligible }) {
 						}, text],
 					];
 				}),
+			],
+			navigation.length > 2 && ['div', null,
+				['template', { shadowrootmode: 'open' }, navigation],
 			],
 		],
 	];
@@ -368,14 +371,14 @@ function RightMenu ({ isEligible }) {
 	];
 }
 
-function Block ({ names, data, resources, breadcrumbs }, content) {
+function Block ({ names, data, resources, breadcrumbs, navigation }, content) {
 	const isModule = !!resources;
 	const path = names.join('/');
 
 	if (isModule) {
 		try {
 			const [Component, schema, ...blockResources] = stew(fetchCode, [path], {}).default || [];
-			content = Component && data !== undefined ? Component(data, content) : undefined;
+			content = Component && data !== undefined ? Component(data, content, navigation) : undefined;
 			resources.unshift(...blockResources);
 
 			if (schema && data !== null) {
@@ -442,7 +445,7 @@ function Block ({ names, data, resources, breadcrumbs }, content) {
 
 	names = names.slice(0, -1);
 	data = stew(fetchData, [path, isModule && state.revision], undefined);
-	return Block({ names, data, resources, breadcrumbs }, content);
+	return Block({ names, data, resources, breadcrumbs, navigation }, content);
 }
 
 function resizeTextarea (ref) {
@@ -482,8 +485,6 @@ function Editor ({ names, file }) {
 	const formRef = [];
 	stew(null, [], () => resizeTextarea(formRef));
 
-	// TODO: add toolbar for quick access to common markdown symbols
-	// - #, -, `, link (adds [](/)), |, *, :
 	return ['div', {
 		className: 'edit',
 	},
@@ -495,39 +496,39 @@ function Editor ({ names, file }) {
 			},
 				['button', {
 					type: 'button',
-					className: 'toolbar-button',
+					className: 'toolbar-button hash-button',
 					onclick: () => insert(formRef, '#'),
-				}, '#'],
+				}],
 				['button', {
 					type: 'button',
-					className: 'toolbar-button',
+					className: 'toolbar-button dash-button',
 					onclick: () => insert(formRef, '-'),
-				}, '-'],
+				}],
 				['button', {
 					type: 'button',
-					className: 'toolbar-button',
+					className: 'toolbar-button tick-button',
 					onclick: () => insert(formRef, '`'),
-				}, '`'],
+				}],
 				['button', {
 					type: 'button',
-					className: 'toolbar-button',
+					className: 'toolbar-button link-button',
 					onclick: () => insert(formRef, '[](/)'),
-				}, '/'],
+				}],
 				['button', {
 					type: 'button',
-					className: 'toolbar-button',
+					className: 'toolbar-button pipe-button',
 					onclick: () => insert(formRef, '|'),
-				}, '|'],
+				}],
 				['button', {
 					type: 'button',
-					className: 'toolbar-button',
+					className: 'toolbar-button star-button',
 					onclick: () => insert(formRef, '*'),
-				}, '*'],
+				}],
 				['button', {
 					type: 'button',
-					className: 'toolbar-button',
+					className: 'toolbar-button colon-button',
 					onclick: () => insert(formRef, ':'),
-				}, ':'],
+				}],
 			],
 		],
 		['form', {
@@ -561,7 +562,12 @@ function Editor ({ names, file }) {
 			}, file],
 		],
 		// TODO: add a delete icon to replace save when file is empty
-		['button', {
+		// TODO: add a sync icon if there aren't any changes made yet
+		// - will use another domain to POST and get (configured on home page)
+		// - GET with // appended to path to get info (put timestamp on '' prop), then either POST if this version is newer, or update localStorage with newer one
+		// - provide warning that newer version will overwrite your draft
+		// - similar warnings should be given for save and delete if your version is newer than the one it finds
+		!flags.readonly && ['button', {
 			type: 'button',
 			className: 'left-button save-button',
 			onclick: () => save(names, formRef, true),
@@ -594,7 +600,7 @@ function Page () {
 	const { isEditing, canvas, snips, settings, revision } = state;
 	const { showMenu, showSnips } = settings;
 
-	const [names, fallback, ...paths] = stew(() => {
+	const [names, ...paths] = stew(() => {
 		const { pathname } = window.location;
 		const names = [];
 
@@ -607,11 +613,9 @@ function Page () {
 			paths.unshift(names[names.length - 1]);
 		}
 
-		const heading = names[names.length - 1].replace(/-+/g, ' ').trim();
-		const fallback = `# ${heading.replace(/(^|\s)[a-z]/g, m => m.toUpperCase())}`;
 		paths[0] = `./${paths[0]}`;
 
-		return [names, fallback, ...paths.map(path => {
+		return [names, ...paths.map(path => {
 			const [dots, ...rest] = path.split('/');
 			const { length } = dots;
 			names.splice(-length, length, ...rest);
@@ -644,7 +648,8 @@ function Page () {
 	});
 
 	if (isEditing) {
-		return typeof markdown === 'string' ? [Editor, { names, file: markdown }] : fallback;
+		console.log(markdown);
+		return [Editor, { names, file: markdown }];
 	}
 
 	const content = stew(markdown, [path]);
@@ -655,13 +660,13 @@ function Page () {
 	// TODO: if note is detected as a module, process it without passing params
 	// - components should check for props and provide an alternate, landing layout if its missing
 
-	stew(null, [markdown], () => {
-		if (names.length === 2 && names[0] === 'index') {
-			const index = markdown.search(/[\r\n]/);
-			const text = markdown.slice(0, index > 0 ? index : markdown.length).trim();
-			updateSettings({ [names[1]]: text });
-		}
-	});
+	// stew(null, [markdown], () => {
+	// 	if (names.length === 2 && names[0] === 'index') {
+	// 		const index = markdown.search(/[\r\n]/);
+	// 		const text = markdown.slice(0, index > 0 ? index : markdown.length).trim();
+	// 		updateSettings({ [names[1]]: text });
+	// 	}
+	// });
 
 	// either map[''] or the array of its only child, with root links prepended
 	const root = stew(() => {
@@ -683,19 +688,21 @@ function Page () {
 	// - set formRef on textarea
 	// - see how stew code would look with '' serving as ref if array is passed [id, ...refs]
 
-	const includeMenu = root[0].indexOf('#') !== -1;
 	const includeSnips = snips.length > 0;
 	const breadcrumbs = [root[1] || names[names.length - 1]];
+	const navigation = ['', null];
+	const blockContent = Block({ names, breadcrumbs, resources, data, navigation }, ['main', null, content]);
+	const includeMenu = root[0].indexOf('#') !== -1 || navigation.length > 2;
 
 	return ['', {},
 		// TODO: store array in state for index links that could wrap the left menu links
 		// - these are ones that the parents might store in schema['']
 		// - allows for creating left nav links that expand to show content for child pages
-		[LeftMenu, { map, root, isEligible: includeMenu }],
+		[LeftMenu, { map, root, isEligible: includeMenu }, navigation],
 		['div', {
 			className: 'main',
 		},
-			Block({ names, breadcrumbs, resources, data }, ['main', null, content]),
+			blockContent,
 			includeMenu ? ['button', {
 				type: 'button',
 				className: 'left-button menu-button',
@@ -826,15 +833,27 @@ function Home () {
 		return Object.keys(localStorage).filter(name => /^\/(?!\/).*\.(md|json)$/.test(name));
 	}, []);
 
-	const dateLink = stew(() => {
+	const quest = stew(async () => {
 		const date = new Date();
 		const dateText = date.toDateString();
 		const year = date.getFullYear();
 		const month = String(date.getMonth() + 101);
 		const day = String(date.getDate() + 100);
-		const datePath = `/index/${year}${month.slice(1)}${day.slice(1)}`;
-		return ['a', { href: datePath, className: 'date-link' }, dateText];
-	}, []);
+		const path = `/index/${year}${month.slice(1)}${day.slice(1)}`;
+		const markdown = await fetchNote(path.slice(1));
+		const summary = stew(markdown, [`${path}#`]) || ['', null];
+		
+		if (typeof summary[2]?.[0] === 'number') {
+			summary.splice(2, 1);
+		}
+
+		if (summary.length > 2) {
+			summary.push(['hr']);
+		}
+
+		summary.splice(2, 0, ['a', { href: path, className: 'date-link' }, dateText]);
+		return summary;
+	}, [], null);
 
 	const includeDrafts = paths.length > 0;
 	
@@ -844,7 +863,7 @@ function Home () {
 		['div', {
 			className: 'main',
 		},
-			dateLink,
+			quest,
 			stew(`
 # Make\u00A0a\u00A0note. Build\u00A0your\u00A0space.
 

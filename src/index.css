@@ -166,7 +166,8 @@ span.child-button {
 
 .left-button,
 .right-button,
-.edit-button {
+.edit-button,
+.toolbar-button {
     position: absolute;
     top: 10px;
     width: 30px;
@@ -214,7 +215,7 @@ span.child-button {
 	position: fixed;
 	left: 0;
 	width: 100dvw;
-	margin-top: -3px;
+	margin-top: -6px;
 	text-align: center;
 }
 .toolbar-centered {
@@ -222,20 +223,8 @@ span.child-button {
 	background: var(--paper-background);
 }
 .toolbar-button {
-    width: 24px;
-    height: 24px;
-    margin: 0 2px;
-	padding: 0;
-	border: 1px solid var(--button-border-color);
-    border-radius: 25%;
-	color: var(--button-font-color);
-    background: var(--button-background);
-
-	&:hover {
-		border-color: var(--button-hover-border-color);
-		color: var(--button-hover-font-color);
-		background: var(--button-hover-background);
-	}
+    position: static;
+	margin: 0 3px;
 }
 
 .theme-button:after {
@@ -271,6 +260,27 @@ span.child-button {
 }
 .fullscreen-button:after {
 	background-position-x: calc((10 * 16px + 1px) * -1.2);
+}
+.hash-button:after {
+	background-position-x: calc((11 * 16px + 1px) * -1.2);
+}
+.dash-button:after {
+	background-position-x: calc((12 * 16px + 1px) * -1.2);
+}
+.tick-button:after {
+	background-position-x: calc((13 * 16px + 1px) * -1.2);
+}
+.link-button:after {
+	background-position-x: calc((14 * 16px + 1px) * -1.2);
+}
+.pipe-button:after {
+	background-position-x: calc((15 * 16px + 1px) * -1.2);
+}
+.star-button:after {
+	background-position-x: calc((16 * 16px + 1px) * -1.2);
+}
+.colon-button:after {
+	background-position-x: calc((17 * 16px + 1px) * -1.2);
 }
 
 .breadcrumbs {

@@ -50,8 +50,8 @@ const state = stew({
 });
 
 export function component () {
-const [place] = arguments;
-return \`Hello \${place}\`;
+	const [place] = arguments;
+	return \`Hello \${place}\`;
 }
 
 export default [component, {
@@ -84,7 +84,7 @@ return 'Hello World';
 
 		expect(actual).toEqual(
 `export function component () {
-return 'Hello World';
+	return 'Hello World';
 }
 
 export default [component, {

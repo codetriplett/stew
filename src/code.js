@@ -85,7 +85,7 @@ export function extractCode (file) {
 		if (innerCode[0] === '{') {
 			string = `\nconst ${formattedName} = stew(${innerCode});`;
 		} else {
-			string = `\nexport function ${formattedName} () {\n${innerCode || ''}\n}`;
+			string = `\nexport function ${formattedName} () {\n\t${innerCode.replace(/[\r\n](?=[^\r\n])/g, m => `${m}\t`) || ''}\n}`;
 		}
 
 		if (type === 'h2') {
