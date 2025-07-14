@@ -1,16 +1,16 @@
 export function site () {
-const [props, ...children] = arguments;
+	const [props, ...children] = arguments;
 
-if (!props) {
-    return ['p', null, 'Site Landing'];
-}
+	if (!props) {
+	    return ['p', null, 'Site Landing'];
+	}
 
-const { category } = props;
+	const { category } = props;
 
-return ['', {},
-    ['header', {}, category],
-    ['div', { className: 'container' }, ...children],
-];
+	return ['', {},
+	    ['header', {}, category],
+	    ['div', { className: 'container' }, ...children],
+	];
 }
 
 export default [site, {

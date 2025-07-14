@@ -76,10 +76,10 @@ body.dark-theme {
 	color: var(--paper-font-color);
 }
 .main {
-	flex: 0 1 1048px;
+	flex: 0 1 1200px;
 }
 .edit {
-	flex: 0 1 1048px;
+	flex: 0 1 1200px;
 }
 .snip + .snip {
 	margin-top: 16px;
@@ -92,10 +92,12 @@ body.dark-theme {
 }
 .nav {
 	flex: 0 0 270px;
+	position: relative;
 	max-width: 270px;
 }
 .snips {
 	flex: 0 0.666666 640px;
+	position: relative;
 }
 .scroll-column {
 	position: fixed;
@@ -103,7 +105,7 @@ body.dark-theme {
 	height: 100dvh;
 	margin: 0;
 	padding: 16px 8px;
-	overflow-x: hidden;
+	overflow-x: visible;
 	overflow-y: auto;
 }
 .nav .scroll-column {
@@ -153,7 +155,7 @@ span.child-button {
 	border-top: 1px solid var(--divider-color);
 }
 .nav span,
-.nav button {
+.nav button:not(.left-button) {
 	display: block;
 	border: none;
 	background: none;
@@ -162,6 +164,10 @@ span.child-button {
 .nav .citation-button-active {
 	padding-left: 12px;
 	background: var(--reference-active-background);
+}
+
+.side-wrapper {
+	position: relative;
 }
 
 .left-button,
@@ -179,6 +185,7 @@ span.child-button {
     font-size: 0;
 	color: var(--button-font-color);
     background: var(--button-background);
+	z-index: 9;
 
 	&:hover {
 		border-color: var(--button-hover-border-color);
@@ -205,10 +212,20 @@ span.child-button {
 	background: none;
 }
 .left-button {
-    left: 10px;
+	left: 10px;
+}
+.nav > .left-button {
+    top: 18px;
+    right: -48px;
+	left: auto;
 }
 .right-button {
-    right: 10px;
+	right: 10px;
+}
+.snips > .right-button {
+    top: 18px;
+    left: -48px;
+	right: auto;
 }
 
 .toolbar {
@@ -377,20 +394,7 @@ label input[type="checkbox"] {
 	.toolbar-centered {
 		box-shadow: 0 0 8px 8px var(--paper-background);
 	}
-	.snips-active {
-		#app {
-			float: right;
-		}
-
-		.main .right-button {
-			position: fixed;
-			top: 26px;
-			left: 15px;
-		}
-	}
-	.menu-active:not(.snips-active) .main .left-button {
-		position: fixed;
-		top: 26px;
-		left: auto;
+	.snips-active #app {
+		float: right;
 	}
 }

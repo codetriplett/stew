@@ -58,6 +58,12 @@ export function getQuests (name, count = 7) {
 
     return ['', null,
         ['style', null, `
+            .cards {
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: space-between;
+                gap: 4px;
+            }
             .cards-nav {
                 width: 216px;
             }

@@ -1,16 +1,16 @@
 export function category () {
-const [props, ...children] = arguments;
+	const [props, ...children] = arguments;
 
-if (!props) {
-    return ['p', null, 'Category Landing'];
-}
+	if (!props) {
+	    return ['p', null, 'Category Landing'];
+	}
 
-const { page } = props;
+	const { page } = props;
 
-return ['', {},
-    ['nav', {}, page],
-    ...children,
-];
+	return ['', {},
+	    ['nav', {}, page],
+	    ...children,
+	];
 }
 
 export default [category, {

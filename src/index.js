@@ -103,18 +103,21 @@ const sideColumns = [];
 
 function updateWidths () {
 	sideColumns.map((column, i) => {
-		if (!column) {
+		if (!column?.length) {
 			return;
 		}
 
 		const [flexContainer, scrollContainer] = column;
 
-		if (i) {
+		if (!i || !scrollContainer) {
+			const width = scrollContainer?.offsetWidth || 0;
+			flexContainer.style.flexBasis = `${width}px`;
+			flexContainer.style.width = `${width}px`;
+		} else {
+			flexContainer.style.flexBasis = '';
+			flexContainer.style.width = '';
 			const width = flexContainer.clientWidth;
 			scrollContainer.style.width = `${width}px`;
-		} else {
-			const width = scrollContainer.clientWidth;
-			flexContainer.style.flexBasis = `${width}px`;
 		}
 	});
 }
@@ -246,9 +249,10 @@ function getText (node) {
 // TODO: if map is for a navigation node (all links), show the nav items for the currently active page
 // - need to add a focusedPage in addition to focused section
 // - on hashchange check if id is for a focusedPage and update it, otherwise update focusedSection
-function LeftMenu ({ map = {}, root, childFiles, isEligible }, navigation) {
-	const { focusedSection, settings } = state;
+function LeftMenu ({ map = {}, root, childFiles }, navigation) {
+	const { focusedSection, settings, canvas } = state;
 	const { showMenu } = settings;
+	const isEligible = childFiles ? childFiles.length > 0 : root[0].indexOf('#') !== -1 || navigation.length > 2;
 	const menuActive = isEligible && showMenu;
 	
 	stew(null, [menuActive], () => {
@@ -261,12 +265,7 @@ function LeftMenu ({ map = {}, root, childFiles, isEligible }, navigation) {
 		}
 	});
 
-	if (!menuActive) {
-		sideColumns[0] = null;
-		return;
-	}
-
-	stew(null, [window.location.hash], updateWidths);
+	stew(null, [window.location.hash, menuActive], updateWidths);
 	const citations = focusedSection && map[focusedSection]?.slice?.(2) || [];
 	const [rootHash] = root;
 	sideColumns[0] = [];
@@ -275,7 +274,7 @@ function LeftMenu ({ map = {}, root, childFiles, isEligible }, navigation) {
 		className: 'nav',
 		ref: sideColumns[0],
 	},
-		['div', {
+		menuActive && ['div', {
 			className: 'scroll-column',
 			ref: sideColumns[0],
 		},
@@ -314,15 +313,24 @@ function LeftMenu ({ map = {}, root, childFiles, isEligible }, navigation) {
 				['template', { shadowrootmode: 'open' }, navigation],
 			],
 		],
+		isEligible ? ['button', {
+			type: 'button',
+			className: 'left-button menu-button',
+			onclick: () => updateSettings({ showMenu: !showMenu }),
+		}] : canvas && ['button', {
+			type: 'button',
+			className: 'left-button fullscreen-button',
+			onclick: () => canvas.requestFullscreen(),
+		}],
 	];
 }
 
 function Citation ({ snip }) {
 	const [path] = snip.replace(/^\/+/, '').split('#');
 	const markdown = stew(fetchNote, [path], undefined);
-	let content = typeof markdown !== 'string' ? markdown : markdown ? stew(markdown, [snip]) : ['p', null, `File not found: /${path}.md`];
+	let content = markdown ? stew(markdown, [snip]) : markdown === undefined ? null : ['p', null, `File not found: /${path}.md`];
 
-	if (content && Object.keys(content[1] || {}).length === 1) {
+	if (content && content.length < 3) {
 		content = ['p', null, `Section not found: ${snip}`];
 	}
 
@@ -347,13 +355,15 @@ function Citation ({ snip }) {
 	];
 }
 
-function RightMenu ({ isEligible }) {
+function RightMenu () {
 	const { snips, settings } = state;
 	const { showSnips } = settings;
+	const isEligible = snips.length > 0;
 	const snipsActive = isEligible && showSnips;
 	
 	stew(null, [snipsActive], () => {
 		const { classList } = document.body;
+		updateWidths();
 
 		if (snipsActive) {
 			classList.add('snips-active');
@@ -364,21 +374,24 @@ function RightMenu ({ isEligible }) {
 
 	if (!snipsActive) {
 		sideColumns[1] = null;
-		return;
 	}
 
 	const content = snips.map(snip => [Citation, { '': snip, snip }]);
-	stew(null, [], updateWidths);
 	sideColumns[1] = [];
 
 	return ['div', {
 		className: 'snips',
 		ref: sideColumns[1],
 	},
-		['div', {
+		snipsActive && ['div', {
 			className: 'scroll-column',
 			ref: sideColumns[1],
-		}, ...content]
+		}, ...content],
+		isEligible && ['button', {
+			type: 'button',
+			className: 'right-button snips-button',
+			onclick: () => updateSettings({ showSnips: !showSnips }),
+		}],
 	];
 }
 
@@ -703,15 +716,19 @@ function Page () {
 		const res = await fetch(`${folder}//`);
 		const childFiles = await res.json();
 
-		for (const name in localStorage) {
-			const index = name.lastIndexOf('/');
+		for (const path in localStorage) {
+			const index = path.lastIndexOf('/');
 
-			if (name.startsWith(folder) && name.endsWith('.md') && index >= folder.length) {
-				childFiles.push(name.slice(folder.length + 1, -3));
+			if (path.startsWith(folder) && path.endsWith('.md') && index === folder.length) {
+				const name = path.slice(folder.length + 1, -3);
+
+				if (childFiles.indexOf(name) === -1) {
+					childFiles.push(name);
+				}
 			}
 		}
 
-		return childFiles.map(file => {
+		return childFiles.sort().map(file => {
 			const text = file.replace(/-+/g, ' ').trim().replace(/( |^)./g, m => m.toUpperCase());
 			return [`/${path}/${file}`, text];
 		});
@@ -721,46 +738,21 @@ function Page () {
 	// - set formRef on textarea
 	// - see how stew code would look with '' serving as ref if array is passed [id, ...refs]
 
-	const includeSnips = snips.length > 0;
 	const breadcrumbs = [root[1] || names[names.length - 1]];
 	const navigation = ['', null];
 	const blockContent = Block({ names, breadcrumbs, resources, data, navigation }, ['main', null, content]);
-	const includeMenu = childFiles ? childFiles.length > 0 : root[0].indexOf('#') !== -1 || navigation.length > 2;
 
 	return ['', {},
 		// TODO: store array in state for index links that could wrap the left menu links
 		// - these are ones that the parents might store in schema['']
 		// - allows for creating left nav links that expand to show content for child pages
-		[LeftMenu, { map, root, childFiles, isEligible: includeMenu }, navigation],
-		['div', {
-			className: 'main',
-		},
-			blockContent,
-			includeMenu ? ['button', {
-				type: 'button',
-				className: 'left-button menu-button',
-				onclick: () => updateSettings({ showMenu: !showMenu }),
-			}] : canvas && ['button', {
-				type: 'button',
-				className: 'left-button fullscreen-button',
-				onclick: () => canvas.requestFullscreen(),
-			}],
-			// TODO: have this be a toggle for snips
-			// - put edit button next to name in final breadcrumb (just pencil without filled in circle)
-			// - this works better for how mobile will have the left and right content slide in from the side when these buttons are pressed
-			// - it also allows for a more focused view of the page while keeping the snips in teh background for quick reference
-			// - open the right nav whenever a new snip is added though
-			includeSnips && ['button', {
-				type: 'button',
-				className: 'right-button snips-button',
-				onclick: () => updateSettings({ showSnips: !showSnips }),
-			}],
-		],
+		[LeftMenu, { map, root, childFiles }, navigation],
+		['div', { className: 'main' }, blockContent],
 		// TODO: if on home page, have right menu show past sessions to resume
 		// - first link will be for the page to navigate to, remaining links will be for snips to load
 		// - include option to clone active session
 		// - also show files that have been changed but not yet saved
-		[RightMenu, { isEligible: includeSnips }],
+		[RightMenu],
 	];
 }
 
