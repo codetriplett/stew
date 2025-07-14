@@ -45,7 +45,7 @@ export function extractCode (file) {
 	let defaultString = '';
 
 	for (const [name, section] of Object.entries(sections)) {
-		const formattedName = name.replace(/-./g, m => m.slice(1).toUppercase());
+		const formattedName = name.replace(/^-+|-+$/g, '').replace(/-+./g, m => m.slice(-1).toUpperCase());
 		const [hash,, ...links] = section;
 		const [type, index] = hash.split('#')[0].split(':');
 
@@ -123,7 +123,7 @@ export function extractCode (file) {
 	}
 
 	let code = strings.join('\n');
-	const formattedName = name.replace(/-./g, m => m.slice(1).toUppercase());
+	const formattedName = name.replace(/^-+|-+$/g, '').replace(/-+./g, m => m.slice(-1).toUpperCase());
 	const heading = sections[name]?.[1] || '';
 	const definition = summary[Number(index) + 3]?.[2]?.[2];
 	const schemaStart = definition.indexOf('{');

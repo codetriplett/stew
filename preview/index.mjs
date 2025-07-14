@@ -58,10 +58,10 @@ export function getQuests (name, count = 7) {
 
     return ['', null,
         ['style', null, `
-            .cards-scaled {
+            .cards-nav {
                 width: 216px;
             }
-            .cards-scaled .card {
+            .cards-nav .card {
                 transform: scale(1.5);
             }
             .card {
@@ -171,9 +171,9 @@ export function calendar () {
     if (props) {
         const name = window.location.pathname.replace(/\/+$/, '').split('/').pop();
 
-        if (navigation && name.length > 6) {
+        if (navigation && /^\d{6}$/.test(name)) {
             const cards = stew(getQuests, [name]);
-            cards[3][1].className += ' cards-scaled';
+            cards[3][1].className += ' cards-nav';
             navigation.push(cards);
         }
 

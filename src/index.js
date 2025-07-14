@@ -246,7 +246,7 @@ function getText (node) {
 // TODO: if map is for a navigation node (all links), show the nav items for the currently active page
 // - need to add a focusedPage in addition to focused section
 // - on hashchange check if id is for a focusedPage and update it, otherwise update focusedSection
-function LeftMenu ({ map = {}, root, isEligible }, navigation) {
+function LeftMenu ({ map = {}, root, childFiles, isEligible }, navigation) {
 	const { focusedSection, settings } = state;
 	const { showMenu } = settings;
 	const menuActive = isEligible && showMenu;
@@ -279,7 +279,18 @@ function LeftMenu ({ map = {}, root, isEligible }, navigation) {
 			className: 'scroll-column',
 			ref: sideColumns[0],
 		},
-			LeftMenuList(map, rootHash),
+			!childFiles ? LeftMenuList(map, rootHash) : ['ul', {
+				className: 'children',
+			},
+				...childFiles.map(([href, text]) => {
+					return ['li', null,
+						['a', {
+							href,
+							className: 'child-button',
+						}, text],
+					];
+				}),
+			],
 			citations.length > 0 && ['ul', {
 				className: 'citations',
 			},
@@ -648,7 +659,6 @@ function Page () {
 	});
 
 	if (isEditing) {
-		console.log(markdown);
 		return [Editor, { names, file: markdown }];
 	}
 
@@ -684,6 +694,29 @@ function Page () {
 		return sections[children[0]];
 	}, [map]);
 
+	const childFiles = stew(async () => {
+		if (!resources) {
+			return;
+		}
+
+		const folder = `/${path}`;
+		const res = await fetch(`${folder}//`);
+		const childFiles = await res.json();
+
+		for (const name in localStorage) {
+			const index = name.lastIndexOf('/');
+
+			if (name.startsWith(folder) && name.endsWith('.md') && index >= folder.length) {
+				childFiles.push(name.slice(folder.length + 1, -3));
+			}
+		}
+
+		return childFiles.map(file => {
+			const text = file.replace(/-+/g, ' ').trim().replace(/( |^)./g, m => m.toUpperCase());
+			return [`/${path}/${file}`, text];
+		});
+	}, [path, !!resources], resources ? [] : undefined);
+
 	// TODO: have content be a textarea with the markdown file as value while in editing mode
 	// - set formRef on textarea
 	// - see how stew code would look with '' serving as ref if array is passed [id, ...refs]
@@ -692,13 +725,13 @@ function Page () {
 	const breadcrumbs = [root[1] || names[names.length - 1]];
 	const navigation = ['', null];
 	const blockContent = Block({ names, breadcrumbs, resources, data, navigation }, ['main', null, content]);
-	const includeMenu = path !== 'index' && (root[0].indexOf('#') !== -1 || navigation.length > 2);
+	const includeMenu = childFiles ? childFiles.length > 0 : root[0].indexOf('#') !== -1 || navigation.length > 2;
 
 	return ['', {},
 		// TODO: store array in state for index links that could wrap the left menu links
 		// - these are ones that the parents might store in schema['']
 		// - allows for creating left nav links that expand to show content for child pages
-		[LeftMenu, { map, root, isEligible: includeMenu }, navigation],
+		[LeftMenu, { map, root, childFiles, isEligible: includeMenu }, navigation],
 		['div', {
 			className: 'main',
 		},
