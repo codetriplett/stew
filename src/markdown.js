@@ -57,7 +57,7 @@ const tags = {
 	'||': 'span',
 };
 
-export function parseInline (string, stack, links, customizations) {
+export function parseInline (string, stack, links, library) {
 	const [container] = stack;
 	const root = stack[stack.length - 1];
 	const formatting = new Set();
@@ -82,7 +82,7 @@ export function parseInline (string, stack, links, customizations) {
 			node = [image ? 'img' : 'a', null];
 
 			if (!image) {
-				parseInline(text, [node], links, customizations);
+				parseInline(text, [node], links, library);
 				links[1].push(node);
 			}
 
@@ -107,7 +107,7 @@ export function parseInline (string, stack, links, customizations) {
 				}
 			}
 		} else if (emoji) {
-			node = customizations[emoji];
+			node = library[emoji];
 		} else if (container[0] === symbol && populated) {
 			stack.shift();
 		} else if (container[0] === symbol?.[0] && populated) {
@@ -306,13 +306,10 @@ function getText (node) {
 	return node[0] === 'br' ? ' ' : node.slice(2).map(getText).join('');
 }
 
-export default function parse (content, rootPath = '', customModule = stack[0]?.[4]) {
+export default function parse (content, rootPath = '', library = stack[0]?.[4] || {}) {
 	if (!content) {
 		return;
 	}
-
-	const { default: [defaultFormatter, library] = [() => null, {}], ...formatters } = customModule || {};
-	formatters.default = defaultFormatter;
 
 	const [, trimmedPath, hash] = rootPath.match(/^\/?(.*?)\/?(?:#+(.*))?$/);
 	const scopes = new Set(hash?.split?.(/#+/) || []);
@@ -622,7 +619,7 @@ export default function parse (content, rootPath = '', customModule = stack[0]?.
 		if (format !== undefined) {
 			const [type, ...names] = format.split(/\s+/);
 			const flags = Object.fromEntries(names.map(name => [name, true]));
-			const formatter = formatters[type];
+			const formatter = library?.['']?.[type];
 
 			if (!formatter) {
 				if (type && type !== 'export') {

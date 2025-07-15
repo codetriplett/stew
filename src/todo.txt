@@ -5,6 +5,11 @@ Index Pages
 - store these in schema under '' prop like so ['heading', null, 'child-1', 'child-2', etc...]
 
 
+composite pages
+- have chain slashes to backtrack to include other pages
+- display only the sections from the first page that are also included in the other pages
+- content for each section will be displayed in a columns, with the heading of each section from the first page centered above each row
+
 
 Document and test schema types
 /*

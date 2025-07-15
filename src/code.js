@@ -20,11 +20,31 @@ const reserved = new Set([
 	'volatile', 'while', 'with', 'yield',
 ]);
 
+export function format (value, indentation = '') {
+	if (typeof value !== 'object') {
+		return typeof value === 'string' ? `'${value}'` : String(value);
+	} else if (Array.isArray(value)) {
+		return `[${value.map(item => format(item, indentation)).join(', ')}]`;
+	}
+
+	const { '': meta, ...props } = value;
+	const entries = Object.entries(props);
+	indentation += '    ';
+
+	if (meta) {
+		entries.unshift(['\'\'', meta]);
+	}
+
+	return !entries.length ? '{}' : `{\n${entries.map(([name, value]) => {
+		return `${indentation}${name}: ${format(value, indentation)}`
+	}).join(',\n')},\n${indentation.slice(4)}}`;
+}
+
 // TODO: only treat note as module if it has a preformatted text above first heading that uses the 'default' format
 // - default is an array in the file that is created, so it is not allowed as a custom formatter anyway
-export function extractCode (file) {
-	const summary = stew(file, ['/#']);
-	const layout = stew(file, ['/']);
+export function extractCode (file, library) {
+	const summary = stew(file, ['/#', library]);
+	const layout = stew(file, ['/', library]);
 
 	if (!summary || !summary[1] || !layout || !layout[1]) {
 		return;
@@ -134,14 +154,19 @@ export function extractCode (file) {
 	let schema = definition.slice(schemaStart, schemaFinish + 1).trim();
 
 	try {
-		new Function(`return ${schema}`)();
+		// TODO: reformat schema and inject '' prop with title and any emojis it had
+		// - insert new schema string directly into code
+		// - have arrays include its string on single line, but have objects print with each prop on new line
+		const object = new Function(`return ${schema}`)();
+		const emoji = object[''] || {};
+		object[''] = { ...emoji, '': heading };
+		schema = format(object);
 	} catch (err) {
 		console.error(`Schema syntax error: ${err.message}`);
 		schema = '{}';
 	}
 
-	schema = schema.replace(/^\{[\r\n]*|[\r\n]*\}$/g, '');
-	code += `\n\nexport default [${formattedName || 'null'}, {\n    '': '${heading}',${schema ? `\n${schema}` : ''}\n}${!styles ? '' : `, ['style', null, \`\n${styles}\n\`]`}`;
+	code += `\n\nexport default [${formattedName || 'null'}, ${schema}${!styles ? '' : `, ['style', null, \`\n${styles}\n\`]`}`;
 
 	for (const url of resources.split(/\s*\n+\s*/)) {
 		if (!url.startsWith('/')) {

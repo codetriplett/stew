@@ -4,10 +4,12 @@ import { extractCode } from './code';
 const { localStorage, location } = window;
 const { pathname, hash } = location;
 const styles = document.querySelector('#styles').textContent;
+let library = { '': {} };
 
 const state = stew({
 	focusedSection: hash.slice(1),
 	isEditing: false,
+	data: {},
 	settings: {},
 	snips: [],
 	sessions: [],
@@ -15,6 +17,13 @@ const state = stew({
 	sessionIndex: 0,
 	revision: 0,
 });
+
+function setTheme () {
+	const { settings } = state;
+	const { theme } = settings;
+	const { readonly } = flags;
+	document.body.className = `${theme}-theme ${pathname === '/' ? 'home' : 'page'} ${readonly ? 'readonly' : ''}`;
+}
 
 function packSettingsAndSessions () {
 	const { snips, settings, sessions, sessionIndex } = state;
@@ -41,6 +50,7 @@ function unpackSettingsAndSessions () {
 	const session = sessions[sessionIndex] || [];
 	const snips = session.slice(2);
 	Object.assign(state, { snips, settings, sessions, sessionIndex });
+	setTheme();
 }
 
 function updateSettings (updates) {
@@ -99,6 +109,10 @@ window.addEventListener('hashchange', () => {
 	scrollTo(hash, 'smooth');
 });
 
+function formatHeading (name) {
+	return name.replace(/-+/g, ' ').trim().replace(/( |^)./g, m => m.toUpperCase());
+}
+
 const sideColumns = [];
 
 function updateWidths () {
@@ -147,13 +161,12 @@ function clear (path) {
 	localStorage.removeItem(`/${path}.json`);
 }
 
-async function save (names, ref, isCommit) {
+async function save (path, ref, isCommit) {
 	const { readonly } = flags;
 	const [form, textarea] = ref;
 	const file = textarea.value;
-	const code = extractCode(file);
+	const code = extractCode(file, library);
 	const data = extractData(form);
-	const path = names.join('/');
 
 	if (!data) {
 		return;
@@ -171,6 +184,7 @@ async function save (names, ref, isCommit) {
 		clear(path);
 	}
 
+	state.data = data; // should this just be updated on sequence[0], since it has to reprocess that anyway?
 	state.revision++;
 }
 
@@ -249,10 +263,10 @@ function getText (node) {
 // TODO: if map is for a navigation node (all links), show the nav items for the currently active page
 // - need to add a focusedPage in addition to focused section
 // - on hashchange check if id is for a focusedPage and update it, otherwise update focusedSection
-function LeftMenu ({ map = {}, root, childFiles }, navigation) {
+function LeftMenu ({ map = {}, root, directory }, navigation) {
 	const { focusedSection, settings, canvas } = state;
 	const { showMenu } = settings;
-	const isEligible = childFiles ? childFiles.length > 0 : root[0].indexOf('#') !== -1 || navigation.length > 2;
+	const isEligible = directory ? directory.length > 0 : root[0].indexOf('#') !== -1 || navigation.length > 2;
 	const menuActive = isEligible && showMenu;
 	
 	stew(null, [menuActive], () => {
@@ -278,10 +292,13 @@ function LeftMenu ({ map = {}, root, childFiles }, navigation) {
 			className: 'scroll-column',
 			ref: sideColumns[0],
 		},
-			!childFiles ? LeftMenuList(map, rootHash) : ['ul', {
+			navigation.length > 2 && ['div', null,
+				['template', { shadowrootmode: 'open' }, navigation],
+			],
+			!directory ? LeftMenuList(map, rootHash) : ['ul', {
 				className: 'children',
 			},
-				...childFiles.map(([href, text]) => {
+				...directory.map(([href, text]) => {
 					return ['li', null,
 						['a', {
 							href,
@@ -308,9 +325,6 @@ function LeftMenu ({ map = {}, root, childFiles }, navigation) {
 						}, text],
 					];
 				}),
-			],
-			navigation.length > 2 && ['div', null,
-				['template', { shadowrootmode: 'open' }, navigation],
 			],
 		],
 		isEligible ? ['button', {
@@ -395,83 +409,6 @@ function RightMenu () {
 	];
 }
 
-function Block ({ names, data, resources, breadcrumbs, navigation }, content) {
-	const isModule = !!resources;
-	const path = names.join('/');
-
-	if (isModule) {
-		try {
-			const [Component, schema, ...blockResources] = stew(fetchCode, [path], {}).default || [];
-			content = Component && data !== undefined ? Component(data, content, navigation) : undefined;
-			resources.unshift(...blockResources);
-
-			if (schema && data !== null) {
-				const heading = schema[''];
-				breadcrumbs.unshift(['a', { href: `/${path}` }, heading]);
-			}
-		} catch (err) {
-			// TODO: render error with red text (another theme color var?)
-			// - do the same for failed markdown formatters
-			content = null;
-			console.error(err);
-		}
-	} else {
-		resources = [];
-	}
-
-	if (names.length < 2) {
-		if (content) {
-			const ref = [];
-
-			stew(null, [], () => {
-				scrollTo(hash, 'instant');
-				state.canvas = ref[0] || null;
-			});
-
-			if (content[2]?.[0] === 'canvas') {
-				if (content[0] === '') {
-					content[0] = 'div';
-				}
-
-				if (!content[1]) {
-					content[1] = {};
-				}
-
-				content[1].ref = ref;
-			}
-		}
-
-		return ['', null,
-			['ul', { className: 'breadcrumbs' }, 
-				['li', null,
-					['a', { href: '/' }, 'Home'],
-				],
-				...breadcrumbs.map(breadcrumb => {
-					return ['li', null,
-						breadcrumb,
-						typeof breadcrumb === 'string' && ['button', {
-							type: 'button',
-							className: 'edit-button',
-							onclick: () => state.isEditing = true,
-						}, '🖉'],
-					];
-				}),
-			],
-			['div', null,
-				['template', { shadowrootmode: 'open' },
-					['style', null, styles],
-					...resources,
-					content,
-				],
-			],
-		];
-	}
-
-	names = names.slice(0, -1);
-	data = stew(fetchData, [path, isModule && state.revision], undefined);
-	return Block({ names, data, resources, breadcrumbs, navigation }, content);
-}
-
 function resizeTextarea (ref) {
 	const { scrollX, scrollY } = window;
 	const [, textarea] = ref;
@@ -494,18 +431,8 @@ function insert (ref, symbol) {
 // - have left nav on Home Page show all drafts that haven't been saved
 // - have save button clear it from local storage but not return you to rendered note
 // - maybe have save button show download link that opens stew NPM page in new tab when in readonly mode
-function Editor ({ names, file }) {
-	let schema, data;
-
-	if (names.length > 2 || names.length === 2 && names[0] !== 'index') {
-		schema = stew(fetchCode, [names.slice(0, -1).join('/')], {}).default?.[1];
-		data = stew(fetchData, [names.join('/'), state.revision], undefined);
-
-		if (!schema || !data) {
-			return;
-		}
-	}
-
+function Editor ({ path, file, schema }) {
+	const { data } = state;
 	const formRef = [];
 	stew(null, [], () => resizeTextarea(formRef));
 
@@ -594,7 +521,7 @@ function Editor ({ names, file }) {
 		!flags.readonly && ['button', {
 			type: 'button',
 			className: 'left-button save-button',
-			onclick: () => save(names, formRef, true),
+			onclick: () => save(path, formRef, true),
 		}],
 		// TODO: only store to localStorage if it differs from what last saved
 		// - have save store add the committed draft to the state so it can be checked here
@@ -602,7 +529,7 @@ function Editor ({ names, file }) {
 		['button', {
 			type: 'button',
 			className: 'right-button preview-button',
-			onclick: () => save(names, formRef),
+			onclick: () => save(path, formRef),
 		}],
 	];
 }
@@ -616,138 +543,49 @@ function Editor ({ names, file }) {
 
 // TODO: clean up UI now that MD MJS and JSON return empty content instead of 404
 
-function Page () {
-	// TODO: check why this sometimes doesn't rerender when isEditing changes
-	// - I noticed it when the Block component rendered with an error, but is in try/catch
-	// - when it happens, the impulse become unresponsive to any change
-	// - it's almost like it fails to subscribe on a render and loses its ability to refresh (how could that happen?)
+function Page ({ path, map, root, breadcrumbs, markdown, directory, schema, canvasRef }, ...children) {
 	const { isEditing, canvas, snips, settings, revision } = state;
-	const { showMenu, showSnips } = settings;
-
-	const [names, ...paths] = stew(() => {
-		const { pathname } = window.location;
-		const names = [];
-
-		const paths = pathname.replace(/^\/+|\/+$/g, '').replace(/\/{2,}/g, m => {
-			return `/${Array(m.length - 1).fill('.').join('')}/`
-		}).split(/\/(?=\.+\/)/);
-
-		if (!pathname.startsWith('//')) {
-			names.push(...paths.shift().split('/'));
-			paths.unshift(names[names.length - 1]);
-		}
-
-		paths[0] = `./${paths[0]}`;
-
-		return [names, ...paths.map(path => {
-			const [dots, ...rest] = path.split('/');
-			const { length } = dots;
-			names.splice(-length, length, ...rest);
-			return names.join('/');
-		})];
-	}, []);
-
-	const isComposite = paths.length > 1;
-
-	if (isComposite) {
-		// TODO: if composite fetch and process all columns and combine into one
-		// - merge sections across documents into rows if they share the same id (and parents share the same ids)
-		// - maybe don't allow editing for composite, and make breadcrumbs list all column names as last item
-	}
-
-	const [path] = paths;
-	const markdown = stew(fetchNote, [path, revision], undefined);
-
-	// TODO: consider having stew interrupt render by throwing some non-error value
-	// - how would this work, it would need some kind of wrapper that adds a try/catch
-	// - I'm guessing its better the way I have it, with an initial and fallback value instead, and a custom check to return early
-	if (markdown === undefined) {
-		return;
-	}
-
-	stew(null, [], () => {
-		if (typeof markdown === 'string' && !/\S/.test(markdown)) {
-			state.isEditing = true;
-		}
-	});
 
 	if (isEditing) {
-		return [Editor, { names, file: markdown }];
+		return [Editor, { path, file: markdown, schema }];
 	}
-
-	const content = stew(markdown, [path]);
-	const map = content?.[1];
-	const resources = map && map[''].indexOf(':') !== -1 ? [] : undefined;
-	const data = resources ? null : undefined;
-
-	// TODO: if note is detected as a module, process it without passing params
-	// - components should check for props and provide an alternate, landing layout if its missing
-
-	// stew(null, [markdown], () => {
-	// 	if (names.length === 2 && names[0] === 'index') {
-	// 		const index = markdown.search(/[\r\n]/);
-	// 		const text = markdown.slice(0, index > 0 ? index : markdown.length).trim();
-	// 		updateSettings({ [names[1]]: text });
-	// 	}
-	// });
-
-	// either map[''] or the array of its only child, with root links prepended
-	const root = stew(() => {
-		if (!map) {
-			return [''];
-		}
-
-		const { '': hash, ...sections } = map;
-		const children = hash.split('#').slice(1);
-
-		if (children.length !== 1) {
-			return [hash, ''];
-		}
-
-		return sections[children[0]];
-	}, [map]);
-
-	const childFiles = stew(async () => {
-		if (!resources) {
-			return;
-		}
-
-		const folder = `/${path}`;
-		const res = await fetch(`${folder}//`);
-		const childFiles = await res.json();
-
-		for (const path in localStorage) {
-			const index = path.lastIndexOf('/');
-
-			if (path.startsWith(folder) && path.endsWith('.md') && index === folder.length) {
-				const name = path.slice(folder.length + 1, -3);
-
-				if (childFiles.indexOf(name) === -1) {
-					childFiles.push(name);
-				}
-			}
-		}
-
-		return childFiles.sort().map(file => {
-			const text = file.replace(/-+/g, ' ').trim().replace(/( |^)./g, m => m.toUpperCase());
-			return [`/${path}/${file}`, text];
-		});
-	}, [path, !!resources], resources ? [] : undefined);
-
-	// TODO: have content be a textarea with the markdown file as value while in editing mode
-	// - set formRef on textarea
-	// - see how stew code would look with '' serving as ref if array is passed [id, ...refs]
-
-	const breadcrumbs = [root[1] || names[names.length - 1]];
+	
+	stew(null, [], () => {
+		scrollTo(hash, 'instant');
+		state.canvas = canvasRef?.[0] || null;
+	});
+	
+	const { showMenu, showSnips } = settings;
 	const navigation = ['', null];
-	const blockContent = Block({ names, breadcrumbs, resources, data, navigation }, ['main', null, content]);
 
 	return ['', {},
 		// TODO: store array in state for index links that could wrap the left menu links
 		// - these are ones that the parents might store in schema['']
 		// - allows for creating left nav links that expand to show content for child pages
-		[LeftMenu, { map, root, childFiles }, navigation],
-		['div', { className: 'main' }, blockContent],
+		[LeftMenu, { map, root, directory }, navigation],
+		['div', { className: 'main' },
+			['ul', { className: 'breadcrumbs' }, 
+				['li', null,
+					['a', { href: '/' }, 'Home'],
+				],
+				...breadcrumbs.map(breadcrumb => {
+					return ['li', null,
+						breadcrumb,
+						typeof breadcrumb === 'string' && ['button', {
+							type: 'button',
+							className: 'edit-button',
+							onclick: () => state.isEditing = true,
+						}, '🖉'],
+					];
+				}),
+			],
+			['div', null,
+				['template', { shadowrootmode: 'open' },
+					['style', null, styles],
+					...children,
+				],
+			],
+		],
 		// TODO: if on home page, have right menu show past sessions to resume
 		// - first link will be for the page to navigate to, remaining links will be for snips to load
 		// - include option to clone active session
@@ -851,6 +689,7 @@ function Drafts ({ paths, isEligible }) {
 function Home () {
 	const { settings, snips } = state;
 	const { theme, showDrafts } = settings;
+	stew(null, [theme], setTheme);
 
 	// console.log(snips);
 
@@ -969,9 +808,143 @@ function App () {
 	return [pathname === '/' ? Home : Page];
 }
 
-fetchCode('index').then(customModule => {
-	stew('#app', customModule, [App]);
-}).catch(err => {
-	console.error(err);
-	stew('#app', {}, [App]);
+// MD
+// MJS, MD+DATA
+// MJS, MJS+DATA, MD+DATA
+// !!! fetch MJS instead of MD at final level if MD render shows it as a module
+// - replace MD with MJS and insert new item with empty content
+// [content, { ...module, '': data }, { ...module }]
+
+const names = pathname.replace(/\/\/.*|\/+$/g, '').split('/').slice(1);
+const promises = [];
+const paths = [];
+let name, path = '';
+
+while (names.length) {
+	name = names.shift();
+	path += name;
+	paths.unshift(path);
+
+	if (promises.length) {
+		promises.unshift(fetchData(path));
+	}
+
+	if (names.length) {
+		promises.unshift(fetchCode(path));
+		path += '/';
+	} else {
+		promises.unshift(fetchNote(path));
+	}
+}
+
+unpackSettingsAndSessions();
+
+function extract (object, library, breadcrumbs, path) {
+	const { default: meta = [], ...exports } = object;
+	const [, props] = meta;
+	const { '': { '': heading = 'Unknown', ...emoji } = {}, ...schema } = props;
+	Object.assign(library[''], exports);
+	Object.assign(library, emoji);
+	breadcrumbs.push(path ? ['a', { href: `/${path}` }, heading] : heading);
+	return schema;
+}
+
+Promise.all(promises).then(async sequence => {
+	if (!sequence.length) {
+		stew('#app', {}, [Home]);
+		return;
+	}
+
+	const markdown = sequence.shift();
+	const breadcrumbs = [];
+	const resources = [];
+	let schema, directory, canvasRef;
+	state.data = sequence[0];
+
+	for (let i = sequence.length - 1; i > 0; i -= 2) {
+		schema = extract(sequence[i], library, breadcrumbs, paths.pop());
+	}
+
+	let content = stew(markdown, [`/${path}`, library]);
+	const map = content?.[1];
+	let root = [''];
+	
+	if (map && map[''].indexOf(':') >= 0) {
+		content = null;
+		extract(await fetchCode(path), library, breadcrumbs);
+
+		const folder = `/${path}`;
+		const res = await fetch(`${folder}//`);
+		const names = await res.json();
+
+		for (const path in localStorage) {
+			const index = path.lastIndexOf('/');
+
+			if (path.startsWith(folder) && path.endsWith('.md') && index === folder.length) {
+				const name = path.slice(folder.length + 1, -3);
+
+				if (names.indexOf(name) === -1) {
+					names.push(name);
+				}
+			}
+		}
+
+		names.sort().map(file => {
+			const text = formatHeading(file);
+			return [`/${path}/${file}`, text];
+		});
+	} else {
+		if (content) {
+			content[0] = 'main';
+
+			if (map) {
+				const { '': hash, ...sections } = map;
+				const children = hash.split('#').slice(1);
+				root = children.length !== 1 ? [hash, ''] : sections[children[0]];
+			}
+
+			if (content[2]?.[0] === 'canvas') {
+				if (!map) {
+					content[1] = {};
+				}
+
+				canvasRef = [];
+				content[1].ref = canvasRef;
+			}
+		}
+
+		breadcrumbs.push(root[1] || formatHeading(name));
+	}
+
+	// TODO: move this into Page, and have it run on mount and whenver revision changes
+	// - have save() store new data in sequence[0]
+	// - it needs to handle cases where the note turns to a landing page and back (the code above this)
+	// - maybe move it all to that hook
+	// - do the check here to see if the MJS file needs to be awaited first
+	// - if note changes to a module, keep the draft version in memory so it can be loaded synchronously
+	// - change fetch functions to syncronous if they are using local storage values (don't wrap in Promise.resolve)
+	for (let i = 0; i < sequence.length; i += 2) {
+		const data = sequence[i];
+		const exports = sequence[i + 1];
+		const [component,, ...rest] = exports.default || [];
+		resources.unshift(...rest);
+
+		try {
+			content = component ? component(data, content) : content;
+		} catch (err) {
+			content = null;
+			console.error(err);
+		}
+	}
+
+	stew('#app', library, [Page, {
+		path,
+		map,
+		root,
+		breadcrumbs,
+		markdown,
+		directory,
+		schema,
+		canvasRef,
+	}, ...resources, content]);
 });

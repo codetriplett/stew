@@ -384,7 +384,7 @@ describe('parse', () => {
 	});
 
 	it('paragraph with emoji', () => {
-		impulseStack[0] = [,,,, { default: [() => null, { smile: ':)' }] }];
+		impulseStack[0] = [,,,, { smile: ':)' }];
 		const actual = parse(':smile:', '/');
 
 		expect(actual).toEqual(['', null,
@@ -393,7 +393,7 @@ describe('parse', () => {
 	});
 
 	it('paragraph with emoji override', () => {
-		const actual = parse(':smile:', '/', { default: [() => null, { smile: ':)' }] });
+		const actual = parse(':smile:', '/', { smile: ':)' });
 
 		expect(actual).toEqual(['', null,
 			['p', null, ':)'],
@@ -642,7 +642,7 @@ describe('parse', () => {
 
 		it('tick formatting', () => {
 			const actual = parse('```\nabc\n```', '/', {
-				default: [() => {}, {}],
+				'': {}
 			});
 
 			expect(actual).toEqual(['', null,
@@ -654,10 +654,11 @@ describe('parse', () => {
 
 		it('tick customized', () => {
 			const actual = parse('```capitalize\nabc\n```', '/', {
-				default: [() => null, {}],
-				capitalize: (flags, code) => {
-					const { onlyFirst } = flags;
-					return onlyFirst ? `${code[0].toUpperCase()}${code.slice(1)}` : code.toUpperCase();
+				'': {
+					capitalize: (flags, code) => {
+						const { onlyFirst } = flags;
+						return onlyFirst ? `${code[0].toUpperCase()}${code.slice(1)}` : code.toUpperCase();
+					},
 				},
 			});
 
@@ -670,10 +671,11 @@ describe('parse', () => {
 
 		it('tick customized with flags', () => {
 			const actual = parse('```capitalize onlyFirst\nabc\n```', '/', {
-				default: [() => null, {}],
-				capitalize: (flags, code) => {
-					const { onlyFirst } = flags;
-					return onlyFirst ? `${code[0].toUpperCase()}${code.slice(1)}` : code.toUpperCase();
+				'': {
+					capitalize: (flags, code) => {
+						const { onlyFirst } = flags;
+						return onlyFirst ? `${code[0].toUpperCase()}${code.slice(1)}` : code.toUpperCase();
+					},
 				},
 			});
 
@@ -684,27 +686,9 @@ describe('parse', () => {
 			]);
 		});
 
-		it('tick default customized', () => {
-			function capitalize (flags, code) {
-				const { onlyFirst } = flags;
-				return onlyFirst ? `${code[0].toUpperCase()}${code.slice(1)}` : code.toUpperCase();
-			};
-			
-			const actual = parse('```default\nabc\n```', '/', {
-				default: [capitalize, {}],
-				capitalize,
-			});
-
-			expect(actual).toEqual(['', null,
-				['pre', null,
-					['code', null, 'ABC'],
-				],
-			]);
-		});
-
 		it('skips missing customizer', () => {
 			const actual = parse('```capitalize\nabc\n```', '/', {
-				default: [() => null, {}],
+				'': {},
 			});
 
 			expect(actual).toEqual(['', null,

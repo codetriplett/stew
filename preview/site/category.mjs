@@ -14,7 +14,10 @@ export function category () {
 }
 
 export default [category, {
-    '': 'Category',
+    '': {
+		'': 'Category',
+		frown: ':(',
+	},
     page: '// Page',
 }, ['style', null, `
 nav {

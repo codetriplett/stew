@@ -1,8 +1,53 @@
 import stew from './stew';
-import { extractCode } from './code';
+import { format, extractCode } from './code';
 
 beforeEach(() => {
 	globalThis.stew = stew;
+});
+
+describe('format', () => {
+	it('array', () => {
+		const actual = format([123, '123']);
+		expect(actual).toEqual('[123, \'123\']');
+	});
+
+	it('object', () => {
+		const actual = format({
+			abc: 123,
+			'': {},
+			xyz: '789',
+		});
+
+		expect(actual).toEqual(
+`{
+    '': {},
+    abc: 123,
+    xyz: '789',
+}`
+		);
+	});
+
+	it('mix', () => {
+		const actual = format({
+			'': {
+				abc: 'abc',
+			},
+			lmno: ['lmno', {
+				xyz: 'xyz',
+			}],
+		});
+
+		expect(actual).toEqual(
+`{
+    '': {
+        abc: 'abc',
+    },
+    lmno: ['lmno', {
+        xyz: 'xyz',
+    }],
+}`
+		);
+	});
 });
 
 describe('extractCode', () => {
@@ -55,7 +100,9 @@ export function component () {
 }
 
 export default [component, {
-    '': 'Component',
+    '': {
+        '': 'Component',
+    },
     place: '// Place',
 }, ['style', null, \`
 * {
@@ -88,7 +135,9 @@ return 'Hello World';
 }
 
 export default [component, {
-    '': 'Component',
+    '': {
+        '': 'Component',
+    },
 }];
 `
 		);
