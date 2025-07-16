@@ -394,7 +394,15 @@ label input[type="checkbox"] {
 	.toolbar-centered {
 		box-shadow: 0 0 8px 8px var(--paper-background);
 	}
-	.snips-active #app {
+	.nav .scroll-column,
+	.snips .scroll-column {
+		display: none;
+	}
+	.show-menu .nav .scroll-column,
+	.show-snips .snips .scroll-column {
+		display: block;
+	}
+	.show-snips #app {
 		float: right;
 	}
 }

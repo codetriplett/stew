@@ -16,9 +16,10 @@ export function execute (callback, ...params) {
 
 export function processEffects () {
 	for (const effect of effects.splice(0)) {
-		const [followup, teardown] = effect;
-		const param = typeof teardown === 'function' ? execute(teardown) : undefined;
-		effect.splice(0, 2, undefined, execute(followup, param));
+		const [teardown, followup, ...deps] = effect;
+		const [callback, ...prev] = followup;
+		const param = typeof teardown === 'function' ? execute(teardown, ...prev) : teardown;
+		effect.splice(0, 2, execute(callback, param, ...deps), undefined);
 	}
 }
 
@@ -39,8 +40,8 @@ export function processEffects () {
 export function processMemo (callback, ...rest) {
 	let [deps = [], intermediate, fallback] = rest;
 	const [info = [,,, []]] = stack;
-	const memo = info[3].shift() || [undefined];
-	let value = memo[1];
+	const memo = info[3].shift() || [];
+	let [value,, ...prev] = memo;
 	info.push(memo);
 
 	if (typeof callback === 'string') {
@@ -49,14 +50,14 @@ export function processMemo (callback, ...rest) {
 	}
 
 	// TODO: can there be a way to omit mount from effect, and just process updates?
-	if (memo.length > 1 && deps.every((value, i) => value === memo[i + 2])) {
+	if (memo.length > 1 && deps.every((value, i) => value === prev[i])) {
 		// if memo should remain the same
 		memo.splice(deps.length + 2);
 		return value;
 	} else if (!callback) {
 		if (intermediate && !isServer) {
 			// if effect should be scheduled
-			memo.splice(0, memo.length, intermediate, memo[1], ...deps);
+			memo.splice(0, memo.length, value, [intermediate, ...prev], ...deps);
 			effects.push(memo);
 		}
 
@@ -78,15 +79,15 @@ export function processMemo (callback, ...rest) {
 	if (rest.length > 1 && value instanceof Promise) {
 		// if it is async
 		value.catch(() => fallback ?? intermediate).then(value => {
-			memo[1] = value;
+			memo[0] = value;
 			schedule(new Set([impulse]));
 		});
 
 		const impulse = stack[0]?.[1];
-		value = memo.length === 1 ? intermediate : memo[1];
+		value = !memo.length ? intermediate : memo[0];
 	}
 
-	memo.splice(0, memo.length, undefined, value, ...deps);
+	memo.splice(0, memo.length, value, undefined, ...deps);
 	return value;
 }
 

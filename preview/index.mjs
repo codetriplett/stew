@@ -21,11 +21,11 @@ export function getText () {
 }
 
 export function getQuests () {
-	const [name, count = 7] = arguments;
+	const [todayName, startName, count = 7] = arguments;
 	const cards = [];
-	const year = name.slice(0, 4);
+	const year = startName.slice(0, 4);
 	const start = getDay(year);
-	let index = getDay(name);
+	let index = getDay(startName);
 	index -= (index - start) % 7;
 	let week = Math.floor((index - start) / 7);
 
@@ -46,7 +46,7 @@ export function getQuests () {
 	        const text = getText(content?.[2] || '');
 	        index++;
 
-	        card.push(['li', null,
+	        card.push(['li', name === todayName ? { className: 'today' } : null,
 	            ['span', null, day],
 	            ['a', { href },
 	                ['span', null, text],
@@ -85,6 +85,9 @@ export function getQuests () {
 	            transform-origin: 0 0;
 	            z-index: 9;
 	        }
+			.today {
+				box-shadow: inset 0 0 4px 2px black;
+			}
 	        .card li {
 	            display: flex;
 	            gap: 4px;
@@ -189,12 +192,12 @@ export function calendar () {
 	    const name = window.location.pathname.replace(/\/+$/, '').split('/').pop();
 
 	    if (navigation && /^\d{8}$/.test(name)) {
-	        const cards = stew(getQuests, [name]);
+	        const cards = stew(getQuests, [name, name]);
 	        cards[3][1].className += ' cards-nav';
 	        navigation.push(cards);
 	    }
 
-	    return content
+	    return content;
 	}
 
 	const state = stew({
@@ -203,17 +206,20 @@ export function calendar () {
 
 	const { seasonOffset } = state;
 
-	const startName = stew(() => {
+	const [todayName, startName] = stew(() => {
 	    let year = date.getFullYear();
-	    let month = date.getMonth() + seasonOffset * 3;
+	    let month = date.getMonth();
+		const day = date.getDate();
+		const todayName = `${year}${month < 9 ? '0' : ''}${month + 1}${day < 10 ? '0' : ''}${day}`;
+		month += seasonOffset * 3;
 	    year += Math.floor(month / 12);
 	    month = month % 12;
 	    month += month < 0 ? 12 : 0;
 	    month = month - (month % 3) + 1;
-	    return `${year}${month < 10 ? '0' : ''}${month}01`;
+	    return [todayName, `${year}${month < 10 ? '0' : ''}${month}01`];
 	}, [seasonOffset]);
 
-	const cards = stew(getQuests, [startName, 98]);
+	const cards = stew(getQuests, [todayName, startName, 98]);
 	const container = cards[3];
 	const [season] = container[3][1].className.match(/(?:^|\s)season-.*?(?:\s|$)/);
 

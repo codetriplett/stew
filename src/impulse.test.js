@@ -48,6 +48,8 @@ describe('processMemo', () => {
 		const actual = processMemo({ lmno: 456 }, []);
 		expect(actual).toEqual({ lmno: 456 });
 	});
+	
+	// TODO: add more tests, especially for effect and promise after the latest changes
 });
 
 describe('processFollowups', () => {
