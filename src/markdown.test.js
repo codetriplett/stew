@@ -28,9 +28,15 @@ describe('parseInline', () => {
 	});
 
 	it('adds emoji', () => {
-		const actual = parseInline(':smile:', stack, links, { smile: ':)' });
+		const actual = parseInline(':smile:', stack, links, { '': ':|', smile: ':)' });
 		expect(actual).toEqual('');
 		expect(stack).toEqual([['', null, ':)']]);
+	});
+
+	it('uses fallback emoji', () => {
+		const actual = parseInline(':frown:', stack, links, { '': ':|', smile: ':)' });
+		expect(actual).toEqual('');
+		expect(stack).toEqual([['', null, ':|']]);
 	});
 
 	it('adds preset', () => {
@@ -384,7 +390,7 @@ describe('parse', () => {
 	});
 
 	it('paragraph with emoji', () => {
-		impulseStack[0] = [,,,, { smile: ':)' }];
+		impulseStack[0] = [,,,, { default: { smile: ':)' } }];
 		const actual = parse(':smile:', '/');
 
 		expect(actual).toEqual(['', null,
@@ -393,7 +399,7 @@ describe('parse', () => {
 	});
 
 	it('paragraph with emoji override', () => {
-		const actual = parse(':smile:', '/', { smile: ':)' });
+		const actual = parse(':smile:', '/', { default: { smile: ':)' } });
 
 		expect(actual).toEqual(['', null,
 			['p', null, ':)'],
@@ -654,11 +660,9 @@ describe('parse', () => {
 
 		it('tick customized', () => {
 			const actual = parse('```capitalize\nabc\n```', '/', {
-				'': {
-					capitalize: (flags, code) => {
-						const { onlyFirst } = flags;
-						return onlyFirst ? `${code[0].toUpperCase()}${code.slice(1)}` : code.toUpperCase();
-					},
+				capitalize: (flags, code) => {
+					const { onlyFirst } = flags;
+					return onlyFirst ? `${code[0].toUpperCase()}${code.slice(1)}` : code.toUpperCase();
 				},
 			});
 
@@ -671,11 +675,9 @@ describe('parse', () => {
 
 		it('tick customized with flags', () => {
 			const actual = parse('```capitalize onlyFirst\nabc\n```', '/', {
-				'': {
-					capitalize: (flags, code) => {
-						const { onlyFirst } = flags;
-						return onlyFirst ? `${code[0].toUpperCase()}${code.slice(1)}` : code.toUpperCase();
-					},
+				capitalize: (flags, code) => {
+					const { onlyFirst } = flags;
+					return onlyFirst ? `${code[0].toUpperCase()}${code.slice(1)}` : code.toUpperCase();
 				},
 			});
 

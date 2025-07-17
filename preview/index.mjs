@@ -1,3 +1,8 @@
+export function custom () {
+	const [flags, code] = arguments;
+	return `CUSTOM\n${code}`;
+}
+
 export function getDay () {
 	const [name] = arguments;
 	let date = new Date();

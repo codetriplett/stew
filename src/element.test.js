@@ -125,7 +125,7 @@ describe('renderElement', () => {
 
 			check(
 				'<div xyz="789">xyz</div>',
-				['div', { '': new Set(['', 'ref', 'xyz']) }, true, true],
+				['div', { '': new Set(['', 'xyz']) }, true, true],
 			);
 		});
 
@@ -144,7 +144,7 @@ describe('renderElement', () => {
 
 			check(
 				'<div>abc</div>',
-				['div', { '': new Set(['', 'ref']) }, true, true],
+				['div', { '': new Set(['']) }, true, true],
 			);
 		});
 	});

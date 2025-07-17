@@ -1,5 +1,5 @@
 import Editor from './editor';
-import state, { fetchNote, updateSettings, packSettingsAndSessions, scrollTo, sideColumns, updateWidths } from '.';
+import state, { fetchNote, updateSettings, packSettingsAndSessions, scrollTo, updateWidth } from '.';
 
 const styles = document.querySelector('#styles').textContent;
 
@@ -82,16 +82,16 @@ function LeftMenu ({ map = {}, ref, directory }, navigation) {
 	const isEligible = directory ? directory.length > 0 : !!hashes || navigation.length > 2;
 	const menuActive = isEligible && showMenu;
 	const citations = focusedSection && map[focusedSection]?.slice?.(2) || [];
-	stew(null, [window.location.hash, menuActive], updateWidths);
-	sideColumns[0] = [];
+	stew(null, [window.location.hash, menuActive], () => updateWidth(navRef, scrollRef));
+	let navRef, scrollRef;
 
-	return ['div', {
+	return ['div', navRef = {
+		'': 'nav',
 		className: 'nav',
-		ref: sideColumns[0],
 	},
-		menuActive && ['div', {
+		menuActive && ['div', scrollRef = {
+			'': 'scroll',
 			className: 'scroll-column',
-			ref: sideColumns[0],
 		},
 			navigation.length > 2 && ['div', null,
 				['template', { shadowrootmode: 'open' }, navigation],
@@ -133,7 +133,7 @@ function LeftMenu ({ map = {}, ref, directory }, navigation) {
 			className: 'left-button menu-button',
 			onclick: () => {
 				const { classList } = document.body;
-				const [, container] = sideColumns[0];
+				const container = scrollRef?.[''];
 				classList.remove('show-snips');
 
 				// TODO: only add show class if in small view and container was hidden
@@ -142,7 +142,7 @@ function LeftMenu ({ map = {}, ref, directory }, navigation) {
 
 				if (classList.contains('show-menu') || container && getComputedStyle(container).display === 'none') {
 					classList.toggle('show-menu');
-					updateWidths();
+					updateWidth(navRef, scrollRef);
 				} else {
 					classList.add('show-menu');
 					updateSettings({ showMenu: !showMenu });
@@ -192,28 +192,28 @@ function RightMenu () {
 	const isEligible = snips.length > 0;
 	const snipsActive = isEligible && showSnips;
 	const content = snips.map(snip => [Citation, { '': snip, snip }]);
-	stew(null, [document.body.className, snipsActive], updateWidths);
-	sideColumns[1] = [];
+	stew(null, [document.body.className, snipsActive], () => updateWidth(snipsRef, scrollRef, true));
+	let snipsRef, scrollRef;
 
-	return ['div', {
+	return ['div', snipsRef = {
+		'': 'snips',
 		className: 'snips',
-		ref: sideColumns[1],
 	},
-		snipsActive && ['div', {
+		snipsActive && ['div', scrollRef = {
+			'': 'scroll',
 			className: 'scroll-column',
-			ref: sideColumns[1],
 		}, ...content],
 		isEligible && ['button', {
 			type: 'button',
 			className: 'right-button snips-button',
 			onclick: () => {
 				const { classList } = document.body;
-				const [, container] = sideColumns[1]
+				const container = scrollRef?.[''];
 				classList.remove('show-menu');
 
 				if (classList.contains('show-snips') || container && getComputedStyle(container).display === 'none') {
 					classList.toggle('show-snips');
-					updateWidths();
+					updateWidth(snipsRef, scrollRef, true);
 				} else {
 					classList.add('show-snips');
 					updateSettings({ showSnips: !showSnips });
@@ -231,6 +231,14 @@ function RightMenu () {
 // - can also use resources section to impore React if people prefer
 
 // TODO: clean up UI now that MD MJS and JSON return empty content instead of 404
+
+
+
+
+// generalize sidebar components
+// - left nav will be used by drafts, navigation, and form
+// - right nav will be used by snips and preview
+// - left nav will only fill its own width, while right nav will share space with main area (but less)
 
 export default function Page ({ path, map, ref, breadcrumbs, heading, markdown, directory, schema, navigation }, ...children) {
 	const { isEditing } = state;

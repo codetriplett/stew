@@ -3,7 +3,6 @@ import Page from './page';
 
 const { localStorage, location } = window;
 const { pathname, hash } = location;
-let library = { '': {} };
 
 const state = stew({
 	focusedSection: hash.slice(1),
@@ -79,32 +78,29 @@ export function scrollTo (hash, behavior) {
     window.scrollTo({ top, behavior });
 }
 
-export const sideColumns = [];
+export function updateWidth (flexRef, scrollRef, grow) {
+	const flexContainer = flexRef?.[''];
+	const scrollContainer = scrollRef?.[''];
 
-export function updateWidths () {
-	sideColumns.map((column, i) => {
-		if (!column?.length) {
-			return;
-		}
+	if (!flexContainer) {
+		return;
+	}
 
-		const [flexContainer, scrollContainer] = column;
-
-		if (!i || !scrollContainer) {
-			const width = scrollContainer?.offsetWidth || 0;
-			flexContainer.style.flexBasis = `${width}px`;
-			flexContainer.style.width = `${width}px`;
-		} else {
-			flexContainer.style.flexBasis = '';
-			flexContainer.style.width = '';
-			const width = flexContainer.clientWidth;
-			scrollContainer.style.width = `${width}px`;
-		}
-	});
+	if (!grow || !scrollContainer) {
+		const width = scrollContainer?.offsetWidth || 0;
+		flexContainer.style.flexBasis = `${width}px`;
+		flexContainer.style.width = `${width}px`;
+	} else {
+		flexContainer.style.flexBasis = '';
+		flexContainer.style.width = '';
+		const width = flexContainer.clientWidth;
+		scrollContainer.style.width = `${width}px`;
+	}
 }
 
 window.addEventListener('pageshow', () => {
 	unpackSettingsAndSessions();
-	updateWidths();
+	// updateWidth();
 });
 
 window.addEventListener('hashchange', () => {
@@ -113,7 +109,7 @@ window.addEventListener('hashchange', () => {
 	scrollTo(hash, 'smooth');
 });
 
-window.addEventListener('resize', updateWidths);
+window.addEventListener('resize', updateWidth);
 
 export function fetchNote (path) {
 	path = `/${path}.md`;
@@ -177,9 +173,12 @@ while (names.length) {
 	}
 }
 
-Promise.all(promises).then(async sequence => {
+Promise.all([...promises, fetchCode('index')]).then(async sequence => {
+	const library = { ...sequence.pop() };
+	library.default = { ...library.default?.[1]?.[''], '': '□' };
+
 	if (sequence.length < 2 && !name) {
-		stew('#app', {}, [Home]);
+		stew('#app', library, [Home]);
 		return;
 	}
 
@@ -190,12 +189,15 @@ Promise.all(promises).then(async sequence => {
 	state.data = sequence[0];
 
 	for (let i = sequence.length - 1; i > 0; i -= 2) {
-		const { default: meta = [], ...exports } = sequence[i];
-		const [, props] = meta;
-		const { '': { '': heading = 'Unknown', ...emoji } = {}, ...rest } = props;
-		Object.assign(library[''], exports);
-		Object.assign(library, emoji);
-		breadcrumbs.push(['a', { href: `/${paths.pop()}` }, heading]);
+		let { '': heading, ...rest } = sequence[i].default?.[1];
+
+		if (typeof heading === 'object') {
+			const { '': string, ...rest } = heading;
+			Object.assign(library.default, rest);
+			heading = string;
+		}
+
+		breadcrumbs.push(['a', { href: `/${paths.pop()}` }, heading || 'Unknown']);
 		schema = rest;
 	}
 

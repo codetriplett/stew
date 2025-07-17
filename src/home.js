@@ -1,4 +1,4 @@
-import state, { fetchNote, updateSettings, setTheme, sideColumns, updateWidths } from '.';
+import state, { fetchNote, updateSettings, setTheme, updateWidth } from '.';
 
 function alphabetizeFolder (folder) {
 	const { '': files, ...folders } = folder;
@@ -48,7 +48,6 @@ function Drafts ({ paths, isEligible }) {
 	});
 
 	if (!showDrafts) {
-		sideColumns[0] = null
 		return;
 	}
 
@@ -76,16 +75,16 @@ function Drafts ({ paths, isEligible }) {
 		return alphabetizeFolder(tree);
 	}, []);
 
-	stew(null, [window.location.hash], updateWidths);
-	sideColumns[0] = [];
+	stew(null, [window.location.hash], () => updateWidth(navRef?.[''], scrollRef?.['']));
+	let navRef, scrollRef;
 
-	return ['div', {
+	return ['div', navRef = {
+		'': 'nav',
 		className: 'nav',
-		ref: sideColumns[0],
 	},
-		['div', {
+		['div', scrollRef = {
+			'': 'scroll',
 			className: 'scroll-column',
-			ref: sideColumns[0],
 		}, Folder(tree)],
 	];
 }

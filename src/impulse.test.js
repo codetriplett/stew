@@ -31,7 +31,7 @@ beforeEach(() => {
 
 describe('processMemo', () => {
 	it('processes markdown', () => {
-		const actual = processMemo('# lmno\n:smile:', ['/', { smile: ':)' }]);
+		const actual = processMemo('# lmno\n:smile:', ['/', { default: { smile: ':)' } }]);
 
 		expect(actual).toEqual(['', {
 			'': 'h#lmno',

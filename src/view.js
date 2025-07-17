@@ -98,9 +98,6 @@ export default function render (layout, context, document, nodes, container, i, 
 		}
 	} else {
 		let [tagName, object, ...children] = layout;
-		// TODO: maybe rename '' to key officially
-		// - people would have opinions about using ''
-		// - key is safe to use, and ref is already implemented
 		const { '': key, ...props } = object || {};
 		let callback = renderElement;
 		let node;
@@ -109,7 +106,6 @@ export default function render (layout, context, document, nodes, container, i, 
 		switch (typeof tagName) {
 			case 'object': {
 				if (Array.isArray(tagName)) {
-					object = null;
 					children = layout;
 				} else if (tagName) {
 					// just handle portal, promise didn't really work well with multiple impulse renders
@@ -140,13 +136,13 @@ export default function render (layout, context, document, nodes, container, i, 
 				info = [tagName,, node];
 			}
 		}
+
+		callback(info, props, children, context, document, nodes);
 	
 		if (key) {
 			map[key] = info;
+			object[''] = info[2];
 		}
-
-
-		callback(info, props, children, context, document, nodes);
 	}
 
 	return container[i + 3] = info;

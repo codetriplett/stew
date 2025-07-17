@@ -46,20 +46,7 @@ function updateAttributes (node, attributes, prevNames, nextNames = new Set()) {
 	return nextNames;
 }
 
-function overrideAttributes (node, map, attributes, overrides) {
-	const { '': prevNames } = map;
-
-	if (prevNames.has('ref')) {
-		return;
-	}
-
-	const nextNames = updateAttributes(node, { ...attributes, ...overrides }, prevNames);
-	map[''] = nextNames;
-	return nextNames;
-}
-
-export default function renderElement (info, object, children, context, document, nodes) {
-	const { ref, ...props } = object;
+export default function renderElement (info, props, children, context, document, nodes) {
 	let [tagName, map, node] = info;
 
 	if (!node && tagName !== '') {
@@ -85,8 +72,7 @@ export default function renderElement (info, object, children, context, document
 			nodes.push(node);
 		}
 
-		let { onhover, ...attributes } = props;
-		const { onclick } = attributes;
+		const { onclick } = props;
 		const { '': prevNames = new Set() } = map || {};
 		const nextNames = new Set();
 		map = { '': nextNames };
@@ -94,47 +80,20 @@ export default function renderElement (info, object, children, context, document
 
 		if (prevNames.has('')) {
 			nextNames.add('');
-
-			if (prevNames.has('ref')) {
-				nextNames.add('ref');
-				attributes = onclick;
-			} else {
-				attributes = onhover;
-			}
-		} else if (onclick || onhover) {
-			if (typeof onclick === 'object') {
-				attributes.onclick = () => {
-					const nextNames = overrideAttributes(node, map, onclick);
-					nextNames?.add?.('')?.add?.('ref');
-				};
-			}
-
-			if (typeof onhover === 'object') {
-				Object.assign(attributes, {
-					onmouseenter: () => {
-						const nextNames = overrideAttributes(node, map, onhover);
-						nextNames?.add?.('');
-					},
-					onmouseleave: () => {
-						const nextNames = overrideAttributes(node, map, attributes);
-						nextNames?.delete?.('');
-					},
-				});
-			}
+			props = onclick || {};
+		} else if (typeof onclick === 'object') {
+			props.onclick = () => {
+				map[''] = updateAttributes(node, onclick, nextNames).add('');
+			};
 		}
 
-		if (Array.isArray(ref)) {
-			ref.push(node);
-		}
-
-		updateAttributes(node, attributes, prevNames, nextNames);
+		updateAttributes(node, props, prevNames, nextNames);
 	} else {
 		context = { ...context, ...props };
 		map = {};
 	}
 
 	const [parentNode] = nodes;
-	const refIndex = nodes.length;
 	const removeInfos = new Set(info.slice(3));
 
 	for (const [i, childLayout] of children.entries()) {
@@ -157,7 +116,5 @@ export default function renderElement (info, object, children, context, document
 
 	if (node) {
 		reconcile(parentNode, nodes.slice(1), [...parentNode.childNodes]);
-	} else if (Array.isArray(ref)) {
-		ref.push(nodes.slice(refIndex));
 	}
 }

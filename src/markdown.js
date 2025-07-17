@@ -57,7 +57,7 @@ const tags = {
 	'||': 'span',
 };
 
-export function parseInline (string, stack, links, library) {
+export function parseInline (string, stack, links, emoji) {
 	const [container] = stack;
 	const root = stack[stack.length - 1];
 	const formatting = new Set();
@@ -65,7 +65,7 @@ export function parseInline (string, stack, links, library) {
 
 	while (string) {
 		let [,
-			before, symbol, ticks, emoji, close, url, open,
+			before, symbol, ticks, name, close, url, open,
 			image, text, href, title, key, remainder,
 		] = string.match(inlineRegex);
 
@@ -82,7 +82,7 @@ export function parseInline (string, stack, links, library) {
 			node = [image ? 'img' : 'a', null];
 
 			if (!image) {
-				parseInline(text, [node], links, library);
+				parseInline(text, [node], links, emoji);
 				links[1].push(node);
 			}
 
@@ -106,8 +106,8 @@ export function parseInline (string, stack, links, library) {
 					props.title = title.slice(1, -1);
 				}
 			}
-		} else if (emoji) {
-			node = library[emoji];
+		} else if (name) {
+			node = emoji[name] ?? emoji[''] ?? '';
 		} else if (container[0] === symbol && populated) {
 			stack.shift();
 		} else if (container[0] === symbol?.[0] && populated) {
@@ -311,6 +311,7 @@ export default function parse (content, rootPath = '', library = stack[0]?.[4] |
 		return;
 	}
 
+	const { default: emoji = {} } = library;
 	const [, trimmedPath, hash] = rootPath.match(/^\/?(.*?)\/?(?:#+(.*))?$/);
 	const scopes = new Set(hash?.split?.(/#+/) || []);
 	const headingPath = scopes.size ? `/${trimmedPath}` : '';
@@ -344,7 +345,7 @@ export default function parse (content, rootPath = '', library = stack[0]?.[4] |
 				line = line.replace(/^\s*>\s*/, '');
 			}
 
-			parseInline(` ${line.trim()} `, tags, links, library);
+			parseInline(` ${line.trim()} `, tags, links, emoji);
 			newlines = -1;
 			continue;
 		} else if (tickCount) {
@@ -488,7 +489,7 @@ export default function parse (content, rootPath = '', library = stack[0]?.[4] |
 				while (remainder && i--) {
 					const textAlign = alignments?.[cells.length];
 					const node = ['td', textAlign ? { style: { textAlign } } : null];
-					remainder = parseInline(remainder, [node], links, library);
+					remainder = parseInline(remainder, [node], links, emoji);
 					cells.push(node);
 				}
 
@@ -532,9 +533,9 @@ export default function parse (content, rootPath = '', library = stack[0]?.[4] |
 					tags.splice(0, tags.length, previous);
 				}
 
-				parseInline(` ${string} `, tags, links, library);
+				parseInline(` ${string} `, tags, links, emoji);
 			} else {
-				parseInline(string, [container], links, library);
+				parseInline(string, [container], links, emoji);
 			}
 		}
 
@@ -619,9 +620,9 @@ export default function parse (content, rootPath = '', library = stack[0]?.[4] |
 		if (format !== undefined) {
 			const [type, ...names] = format.split(/\s+/);
 			const flags = Object.fromEntries(names.map(name => [name, true]));
-			const formatter = library?.['']?.[type];
+			const formatter = library[type];
 
-			if (!formatter) {
+			if (typeof formatter !== 'function') {
 				if (type && type !== 'export') {
 					console.error(`Format not recognized:`, type);
 				}
