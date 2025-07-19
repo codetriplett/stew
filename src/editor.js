@@ -1,5 +1,6 @@
 import { extractData, FormField } from './form';
 import { extractCode } from './code';
+import Sidebar from './sidebar';
 import state from '.';
 
 async function putFile (path, body, isCommit) {
@@ -25,9 +26,10 @@ function clear (path) {
 	localStorage.removeItem(`/${path}.json`);
 }
 
-async function save (path, ref, isCommit) {
+async function save (path, formRef, textareaRef, isCommit) {
 	const { readonly } = flags;
-	const [form, textarea] = ref;
+	const [form] = formRef;
+	const [textarea] = textareaRef;
 	const file = textarea.value;
 	const code = extractCode(file, library);
 	const data = extractData(form);
@@ -54,7 +56,7 @@ async function save (path, ref, isCommit) {
 
 function resizeTextarea (ref) {
 	const { scrollX, scrollY } = window;
-	const [, textarea] = ref;
+	const [textarea] = ref;
 	textarea.style.height = '0px';
 	const { scrollHeight } = textarea;
 	textarea.style.height = `${scrollHeight}px`;
@@ -76,41 +78,18 @@ function insert (ref, symbol) {
 // - maybe have save button show download link that opens stew NPM page in new tab when in readonly mode
 export default function Editor ({ path, file, schema }) {
 	const { data } = state;
-	const formRef = [];
-	stew(null, [], () => resizeTextarea(formRef));
+	let formRef, textareaRef;
+	stew(null, [], () => resizeTextarea(textareaRef));
 
 	return ['', null,
-		
-		// ['form', {
-		// 	ref: formRef,
-		// 	onsubmit: event => event.preventDefault(),
-		// },
-		// 	schema && FormField(schema, data),
-		// 	['textarea', {
-		// 		ref: formRef,
-		// 		className: 'editor',
-		// 		placeholder: '(empty)',
-		// 		spellcheck: false,
-		// 		onkeydown: event => {
-		// 			const { key } = event;
-
-		// 			if (key === 'Tab') {
-		// 				event.preventDefault();
-		// 				const [, textarea] = formRef;
-		// 				const { value, selectionStart, selectionEnd } = textarea;
-		// 				textarea.value = `${value.slice(0, selectionStart)}\t${value.slice(selectionEnd)}`;
-		// 				textarea.selectionStart = textarea.selectionEnd = selectionStart + 1;
-		// 			}
-
-		// 			resizeTextarea(formRef);
-		// 			// state.isChanged = true;
-		// 		},
-		// 		onkeyup: () => {
-		// 			resizeTextarea(formRef);
-		// 			// state.isChanged = true;
-		// 		},
-		// 	}, file],
-		// ],
+		[Sidebar, { icon: 'menu' },
+			schema && (formRef = ['form', {
+				'': 'form',
+				onsubmit: event => event.preventDefault(),
+			},
+				FormField(schema, data),
+			]),
+		],
 		['div', {
 			className: 'edit',
 		},
@@ -123,58 +102,82 @@ export default function Editor ({ path, file, schema }) {
 					['button', {
 						type: 'button',
 						className: 'toolbar-button hash-button',
-						onclick: () => insert(formRef, '#'),
+						onclick: () => insert(textareaRef, '#'),
 					}],
 					['button', {
 						type: 'button',
 						className: 'toolbar-button dash-button',
-						onclick: () => insert(formRef, '-'),
+						onclick: () => insert(textareaRef, '-'),
 					}],
 					['button', {
 						type: 'button',
 						className: 'toolbar-button tick-button',
-						onclick: () => insert(formRef, '`'),
+						onclick: () => insert(textareaRef, '`'),
 					}],
 					['button', {
 						type: 'button',
 						className: 'toolbar-button link-button',
-						onclick: () => insert(formRef, '[](/)'),
+						onclick: () => insert(textareaRef, '[](/)'),
 					}],
 					['button', {
 						type: 'button',
 						className: 'toolbar-button pipe-button',
-						onclick: () => insert(formRef, '|'),
+						onclick: () => insert(textareaRef, '|'),
 					}],
 					['button', {
 						type: 'button',
 						className: 'toolbar-button star-button',
-						onclick: () => insert(formRef, '*'),
+						onclick: () => insert(textareaRef, '*'),
 					}],
 					['button', {
 						type: 'button',
 						className: 'toolbar-button colon-button',
-						onclick: () => insert(formRef, ':'),
+						onclick: () => insert(textareaRef, ':'),
 					}],
 				],
 			],
+			textareaRef = ['textarea', {
+				'': 'textarea',
+				className: 'editor',
+				placeholder: '(empty)',
+				spellcheck: false,
+				onkeydown: event => {
+					const { key } = event;
+
+					if (key === 'Tab') {
+						event.preventDefault();
+						const [, textarea] = textareaRef;
+						const { value, selectionStart, selectionEnd } = textarea;
+						textarea.value = `${value.slice(0, selectionStart)}\t${value.slice(selectionEnd)}`;
+						textarea.selectionStart = textarea.selectionEnd = selectionStart + 1;
+					}
+
+					resizeTextarea(textareaRef);
+					// state.isChanged = true;
+				},
+				onkeyup: () => {
+					resizeTextarea(textareaRef);
+					// state.isChanged = true;
+				},
+			}, file],
 			// TODO: add a delete icon to replace save when file is empty
 			// TODO: add a sync icon if there aren't any changes made yet
 			// - will use another domain to POST and get (configured on home page)
 			// - GET with // appended to path to get info (put timestamp on '' prop), then either POST if this version is newer, or update localStorage with newer one
 			// - provide warning that newer version will overwrite your draft
 			// - similar warnings should be given for save and delete if your version is newer than the one it finds
-			!flags.readonly && ['button', {
-				type: 'button',
-				className: 'left-button save-button',
-				onclick: () => save(path, formRef, true),
-			}],
+			// !flags.readonly && ['button', {
+			// 	type: 'button',
+			// 	className: 'left-button save-button',
+			// 	onclick: () => save(path, formRef, textareaRef, true),
+			// }],
 			// TODO: only store to localStorage if it differs from what last saved
 			// - have save store add the committed draft to the state so it can be checked here
 			// - clear from local storage if draft is empty when previewing
 			['button', {
 				type: 'button',
 				className: 'right-button preview-button',
-				onclick: () => save(path, formRef),
+				onclick: () => save(path, formRef, textareaRef),
 			}],
 		],
 	];

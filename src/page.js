@@ -1,5 +1,7 @@
-import Editor from './editor';
+
 import state, { fetchNote, updateSettings, packSettingsAndSessions, scrollTo, updateWidth } from '.';
+import Editor from './editor';
+import Sidebar from './sidebar';
 
 const styles = document.querySelector('#styles').textContent;
 
@@ -74,85 +76,44 @@ function getText (node) {
 // TODO: if map is for a navigation node (all links), show the nav items for the currently active page
 // - need to add a focusedPage in addition to focused section
 // - on hashchange check if id is for a focusedPage and update it, otherwise update focusedSection
-function LeftMenu ({ map = {}, ref, directory }, navigation) {
-	const { focusedSection, settings } = state;
-	const { showMenu } = settings;
+function LeftMenu ({ map = {}, ref, directory }, widget) {
+	const { focusedSection } = state;
 	const root = map['']?.split?.('#')?.[1];
 	const hashes = map[root]?.[0];
-	const isEligible = directory ? directory.length > 0 : !!hashes || navigation.length > 2;
-	const menuActive = isEligible && showMenu;
 	const citations = focusedSection && map[focusedSection]?.slice?.(2) || [];
-	stew(null, [window.location.hash, menuActive], () => updateWidth(navRef, scrollRef));
-	let navRef, scrollRef;
 
-	return ['div', navRef = {
-		'': 'nav',
-		className: 'nav',
-	},
-		menuActive && ['div', scrollRef = {
-			'': 'scroll',
-			className: 'scroll-column',
+	return [Sidebar, { icon: 'menu', toggleProp: 'showMenu', widget },
+		!directory ? LeftMenuList(map, hashes) : ['ul', {
+			className: 'children',
 		},
-			navigation.length > 2 && ['div', null,
-				['template', { shadowrootmode: 'open' }, navigation],
-			],
-			!directory ? LeftMenuList(map, hashes) : ['ul', {
-				className: 'children',
-			},
-				...directory.map(([href, text]) => {
-					return ['li', null,
-						['a', {
-							href,
-							className: 'child-button',
-						}, text],
-					];
-				}),
-			],
-			citations.length > 0 && ['ul', {
-				className: 'citations',
-			},
-				citations.map(citation => {
-					const { href } = citation[1];
-					const text = getText(citation);
-
-					return ['li', null,
-						['button', {
-							type: 'button',
-							className: 'citation-button',
-							onclick: () => {
-								const [path, ...hashes] = href.split('#');
-								addSnips(...hashes.map(hash => `${path}#${hash}`));
-							},
-						}, text],
-					];
-				}),
-			],
+			...directory.map(([href, text]) => {
+				return ['li', null,
+					['a', {
+						href,
+						className: 'child-button',
+					}, text],
+				];
+			}),
 		],
-		isEligible ? ['button', {
-			type: 'button',
-			className: 'left-button menu-button',
-			onclick: () => {
-				const { classList } = document.body;
-				const container = scrollRef?.[''];
-				classList.remove('show-snips');
+		citations.length > 0 && ['ul', {
+			className: 'citations',
+		},
+			citations.map(citation => {
+				const { href } = citation[1];
+				const text = getText(citation);
 
-				// TODO: only add show class if in small view and container was hidden
-				// - otherwise add or clear it according to showMenu
-				// - button has no effect if show-menu is active when returning to large view right now
-
-				if (classList.contains('show-menu') || container && getComputedStyle(container).display === 'none') {
-					classList.toggle('show-menu');
-					updateWidth(navRef, scrollRef);
-				} else {
-					classList.add('show-menu');
-					updateSettings({ showMenu: !showMenu });
-				}
-			},
-		}] : ref && ['button', {
-			type: 'button',
-			className: 'left-button fullscreen-button',
-			onclick: () => ref[0].requestFullscreen(),
-		}],
+				return ['li', null,
+					['button', {
+						type: 'button',
+						className: 'citation-button',
+						onclick: () => {
+							const [path, ...hashes] = href.split('#');
+							addSnips(...hashes.map(hash => `${path}#${hash}`));
+						},
+					}, text],
+				];
+			}),
+		],
 	];
 }
 
@@ -186,43 +147,6 @@ function Citation ({ snip }) {
 	];
 }
 
-function RightMenu () {
-	const { snips, settings } = state;
-	const { showSnips } = settings;
-	const isEligible = snips.length > 0;
-	const snipsActive = isEligible && showSnips;
-	const content = snips.map(snip => [Citation, { '': snip, snip }]);
-	stew(null, [document.body.className, snipsActive], () => updateWidth(snipsRef, scrollRef, true));
-	let snipsRef, scrollRef;
-
-	return ['div', snipsRef = {
-		'': 'snips',
-		className: 'snips',
-	},
-		snipsActive && ['div', scrollRef = {
-			'': 'scroll',
-			className: 'scroll-column',
-		}, ...content],
-		isEligible && ['button', {
-			type: 'button',
-			className: 'right-button snips-button',
-			onclick: () => {
-				const { classList } = document.body;
-				const container = scrollRef?.[''];
-				classList.remove('show-menu');
-
-				if (classList.contains('show-snips') || container && getComputedStyle(container).display === 'none') {
-					classList.toggle('show-snips');
-					updateWidth(snipsRef, scrollRef, true);
-				} else {
-					classList.add('show-snips');
-					updateSettings({ showSnips: !showSnips });
-				}
-			},
-		}],
-	];
-}
-
 // TODO: have index.md hold emoji nad formatter
 // - emoji are already stored in index.json, so index.md should be how that gets authored
 // - don't use index.json as schema, like it does for all other pages
@@ -241,7 +165,7 @@ function RightMenu () {
 // - left nav will only fill its own width, while right nav will share space with main area (but less)
 
 export default function Page ({ path, map, ref, breadcrumbs, heading, markdown, directory, schema, navigation }, ...children) {
-	const { isEditing } = state;
+	const { isEditing, snips } = state;
 
 	if (isEditing) {
 		return [Editor, { path, file: markdown, schema }];
@@ -273,10 +197,8 @@ export default function Page ({ path, map, ref, breadcrumbs, heading, markdown, 
 				],
 			],
 		],
-		// TODO: if on home page, have right menu show past sessions to resume
-		// - first link will be for the page to navigate to, remaining links will be for snips to load
-		// - include option to clone active session
-		// - also show files that have been changed but not yet saved
-		[RightMenu],
+		[Sidebar, { isRight: true, icon: 'snips', toggleProp: 'showSnips' },
+			...snips.map(snip => [Citation, { '': snip, snip }]),
+		],
 	];
 }

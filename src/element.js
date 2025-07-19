@@ -49,7 +49,7 @@ function updateAttributes (node, attributes, prevNames, nextNames = new Set()) {
 export default function renderElement (info, props, children, context, document, nodes) {
 	let [tagName, map, node] = info;
 
-	if (!node && tagName !== '') {
+	if (!node && tagName) {
 		const { shadowrootmode } = props;
 
 		// TODO: don't require shadowroot to be in template (followup feature)

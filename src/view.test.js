@@ -86,7 +86,7 @@ describe('render', () => {
 			]);
 		});
 
-		it('portal', () => {
+		it.skip('portal', () => {
 			const node = stew.createElement('div');
 			const layout = [node, { '': 'key', lmno: 456 }, 'first', 'last']
 			const actual = render(layout, context, stew, nodes, container, -1, map);

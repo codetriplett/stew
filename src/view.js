@@ -58,7 +58,7 @@ export function reconcile (node, nextNodes, prevNodes, sibling) {
 }
 
 export default function render (layout, context, document, nodes, container, i, map) {
-	let info = container[i + 3] || [];
+	let info = container[i + 3];
 
 	if (!Array.isArray(layout)) {
 		switch (typeof layout) {
@@ -70,7 +70,7 @@ export default function render (layout, context, document, nodes, container, i, 
 				layout = String(layout);
 			}
 			case 'string': {
-				if (info.nodeValue === undefined) {
+				if (info?.nodeValue === undefined) {
 					info = document.createTextNode(layout);
 				} else if (layout !== info.nodeValue) {
 					info.nodeValue = layout;
@@ -98,29 +98,40 @@ export default function render (layout, context, document, nodes, container, i, 
 		}
 	} else {
 		let [tagName, object, ...children] = layout;
-		const { '': key, ...props } = object || {};
+
+		if (!object) {
+			object = {};
+		}
+
+		const { '': key, ...props } = object;
 		let callback = renderElement;
-		let node;
-		info = container[1]?.[key] || info;
+		let node = null;
+		info = (key ? container[1]?.[key] : info) || [];
 	
 		switch (typeof tagName) {
 			case 'object': {
-				if (Array.isArray(tagName)) {
-					children = layout;
-				} else if (tagName) {
-					// just handle portal, promise didn't really work well with multiple impulse renders
-					// - this should be all that's needed since new ref resembles an element that was already been set up, but not added to parent
-					node = tagName;
-					nodes = [node];
+				// if (tagName) {
+					// TODO: check that this will still work for portals
+					// - layout[0] will be replaced by the rendered node for elements
+					// - if layout[0] was an object from the start, it should skip the step where it creates and appends the new element
+					// info[0] = info[2] = tagName;
+
+					if (tagName === info[2]) {
+						info[0] = tagName;
+					} else {
+						info = tagName;
+						tagName = info.tagName;
+					}
+
 					break;
-				}
+				// }
 			}
 			case 'undefined':
 			case 'boolean': {
 				// TODO: have [true, {}, ...] indicate static content
 				// - nodes will be shallow hydrated, only pick node without processing children
 				// - can also be used client side to memoize and keep previous content (boolean is result of memo check)
-				tagName = '';
+				tagName = null;
 				break;
 			}
 			case 'function': {
@@ -132,6 +143,7 @@ export default function render (layout, context, document, nodes, container, i, 
 		if (tagName !== info[0]) {
 			if (!node && info.tagName && tagName.toUpperCase() === info.tagName) {
 				info = [tagName,, info, ...info.childNodes];
+				// TODO: make sure comment nodes don't mess up the hydration order (I think it skips over mismatches)
 			} else {
 				info = [tagName,, node];
 			}
@@ -141,7 +153,10 @@ export default function render (layout, context, document, nodes, container, i, 
 	
 		if (key) {
 			map[key] = info;
-			object[''] = info[2];
+
+			if (callback !== renderImpulse) {
+				layout[0] = info[2];
+			}
 		}
 	}
 

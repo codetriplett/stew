@@ -7,6 +7,8 @@ const { pathname, hash } = location;
 const state = stew({
 	focusedSection: hash.slice(1),
 	isEditing: false,
+	showLeft: false,
+	showRight: false,
 	data: {},
 	settings: {},
 	snips: [],

@@ -1,4 +1,5 @@
 import state, { fetchNote, updateSettings, setTheme, updateWidth } from '.';
+import Sidebar from './sidebar';
 
 function alphabetizeFolder (folder) {
 	const { '': files, ...folders } = folder;
@@ -32,25 +33,7 @@ function Folder (folder, path = '/') {
 	];
 }
 
-function Drafts ({ paths, isEligible }) {
-	const { settings } = state;
-	const { showDrafts } = settings;
-	const filesActive = isEligible && showDrafts;
-	
-	stew(null, [filesActive], () => {
-		const { classList } = document.body;
-
-		if (filesActive) {
-			classList.add('files-active');
-		} else {
-			classList.remove('files-active');
-		}
-	});
-
-	if (!showDrafts) {
-		return;
-	}
-
+function Drafts ({ paths }) {
 	const tree = stew(() => {
 		// TODO: create tree
 		const tree = { '': [] };
@@ -73,19 +56,10 @@ function Drafts ({ paths, isEligible }) {
 		}
 
 		return alphabetizeFolder(tree);
-	}, []);
+	}, [paths]);
 
-	stew(null, [window.location.hash], () => updateWidth(navRef?.[''], scrollRef?.['']));
-	let navRef, scrollRef;
-
-	return ['div', navRef = {
-		'': 'nav',
-		className: 'nav',
-	},
-		['div', scrollRef = {
-			'': 'scroll',
-			className: 'scroll-column',
-		}, Folder(tree)],
+	return [Sidebar, { icon: 'files' },
+		Folder(tree),
 	];
 }
 
@@ -123,12 +97,10 @@ export default function Home () {
 		summary.splice(2, 0, ['a', { href: path, className: 'date-link' }, dateText]);
 		return summary;
 	}, [], null);
-
-	const includeDrafts = paths.length > 0;
 	
 	return ['', {},
+		[Drafts, { paths }],
 		// TODO: render drafts in left menu
-		[Drafts, { paths, isEligible: includeDrafts }],
 		['div', {
 			className: 'main',
 		},
@@ -183,11 +155,6 @@ There is even a shader language for creating games that can be found in the [Web
 			// 		console.log('==== toggle hash map');
 			// 	},
 			// }, '#'],
-			includeDrafts && ['button', {
-				type: 'button',
-				className: 'left-button files-button',
-				onclick: () => updateSettings({ showDrafts: !showDrafts }),
-			}],
 			['button', {
 				type: 'button',
 				className: 'right-button theme-button',
