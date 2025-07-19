@@ -111,10 +111,8 @@ export default function renderImpulse (info, object, children, context, document
 		const layout = execute(callback, props, ...children);
 
 		if (document) {
-			// TODO: the info might need to be restructured so map is on info[1], right now key can't be set on root item in layout
-			// - info[1][''] can hold what was there before (subscriptions)? (similar to attribute Map used on element infos)
-			// - or should key just be removed from layout[1] (can wrap in fragment to get that functionality, which is mostly to capture ref)
-			// - may want to capture node on layout without having to set key anyway
+			// TODO: check that info is really thing thing to pass in here
+			// - info[2] seems to store the layout, not the info, so it might not be reusing the previous render properly
 			const proxy = render(layout || '', context, document, nodes, info, -1, {});
 
 			if (prevNodes) {

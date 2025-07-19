@@ -100,12 +100,10 @@ export default function Home () {
 	
 	return ['', {},
 		[Drafts, { paths }],
-		// TODO: render drafts in left menu
-		['div', {
-			className: 'main',
-		},
-			quest,
-			stew(`
+		['div', { className: 'main' },
+			['div', { className: 'paper' },
+				quest,
+				stew(`
 # Make\u00A0a\u00A0note. Build\u00A0your\u00A0space.
 
 This site serves as a place to store and browse your notes. 
@@ -137,29 +135,30 @@ The embedded code above the main heading will set the types of data it can accep
 Code is set using preformatted text, but only ones that use the \`export\` format. 
 You can read more about how the layouts are defined in the [Stew guide](/stew). 
 There is even a shader language for creating games that can be found in the [WebGL guide](/webgl). 
-			`, ['/']),
-			// TODO: render active snips session here
-			// - display inactive ones to the side, along with a button to create a new session
-			// - ones to the side can be clicked to make active or closed
-			// - Include a field to rename the active session when it is active, and a close button
+				`, ['/']),
+				// TODO: render active snips session here
+				// - display inactive ones to the side, along with a button to create a new session
+				// - ones to the side can be clicked to make active or closed
+				// - Include a field to rename the active session when it is active, and a close button
 
-			// TODO: toggle between info and hashmap mode
-			// - store references in .txt file that matches name of .md file
-			// - lines that start with # mark the sections within the note
-			// - lines that start with / are links within the section
-			// - one link for each unique path, with composite hash of all sections it points to
-			// ['button', {
-			// 	type: 'button',
-			// 	className: 'left-button map-button',
-			// 	onclick: () => {
-			// 		console.log('==== toggle hash map');
-			// 	},
-			// }, '#'],
-			['button', {
-				type: 'button',
-				className: 'right-button theme-button',
-				onclick: () => updateSettings({ theme: theme === 'dark' ? 'light' : 'dark' }),
-			}],
+				// TODO: toggle between info and hashmap mode
+				// - store references in .txt file that matches name of .md file
+				// - lines that start with # mark the sections within the note
+				// - lines that start with / are links within the section
+				// - one link for each unique path, with composite hash of all sections it points to
+				// ['button', {
+				// 	type: 'button',
+				// 	className: 'left-button map-button',
+				// 	onclick: () => {
+				// 		console.log('==== toggle hash map');
+				// 	},
+				// }, '#'],
+				['button', {
+					type: 'button',
+					className: 'right-button theme-button',
+					onclick: () => updateSettings({ theme: theme === 'dark' ? 'light' : 'dark' }),
+				}],
+			],
 		],
 		// TODO: have right menu show past sessions to resume
 		// - first link will be for the page to navigate to, remaining links will be for snips to load

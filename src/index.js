@@ -3,6 +3,7 @@ import Page from './page';
 
 const { localStorage, location } = window;
 const { pathname, hash } = location;
+export const library = {};
 
 const state = stew({
 	focusedSection: hash.slice(1),
@@ -61,7 +62,7 @@ export function updateSettings (updates) {
 }
 
 export function scrollTo (hash, behavior) {
-	const container = document.querySelector('.main > div');
+	const container = document.querySelector('.main > .paper > div');
 	let top = 0;
 
 	if (!container) {
@@ -176,7 +177,7 @@ while (names.length) {
 }
 
 Promise.all([...promises, fetchCode('index')]).then(async sequence => {
-	const library = { ...sequence.pop() };
+	Object.assign(library, sequence.pop());
 	library.default = { ...library.default?.[1]?.[''], '': '□' };
 
 	if (sequence.length < 2 && !name) {
@@ -218,6 +219,7 @@ Promise.all([...promises, fetchCode('index')]).then(async sequence => {
 		const folder = `/${path}`;
 		const res = await fetch(`${folder}/`);
 		const names = await res.json();
+		breadcrumbs[breadcrumbs.length - 1][1].href = folder.slice(0, -1);
 
 		for (const path in localStorage) {
 			const index = path.lastIndexOf('/');
@@ -258,7 +260,7 @@ Promise.all([...promises, fetchCode('index')]).then(async sequence => {
 
 	stew('#app', library, [Page, {
 		path,
-		map,
+		map: map || {},
 		ref,
 		breadcrumbs,
 		heading,

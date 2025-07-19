@@ -1,6 +1,8 @@
 ```export
 {
-    smile: '🙂',
+    '': {
+        smile: '🙂',
+    },
 }
 ```
 
@@ -23,12 +25,12 @@ if (props) {
     const name = window.location.pathname.replace(/\/+$/, '').split('/').pop();
 
     if (navigation && /^\d{8}$/.test(name)) {
-        const cards = stew(getQuests, [name]);
+        const cards = stew(getQuests, [name, name]);
         cards[3][1].className += ' cards-nav';
         navigation.push(cards);
     }
 
-    return content
+    return content;
 }
 
 const state = stew({
@@ -37,17 +39,20 @@ const state = stew({
 
 const { seasonOffset } = state;
 
-const startName = stew(() => {
+const [todayName, startName] = stew(() => {
     let year = date.getFullYear();
-    let month = date.getMonth() + seasonOffset * 3;
+    let month = date.getMonth();
+    const day = date.getDate();
+    const todayName = `${year}${month < 9 ? '0' : ''}${month + 1}${day < 10 ? '0' : ''}${day}`;
+    month += seasonOffset * 3;
     year += Math.floor(month / 12);
     month = month % 12;
     month += month < 0 ? 12 : 0;
     month = month - (month % 3) + 1;
-    return `${year}${month < 10 ? '0' : ''}${month}01`;
+    return [todayName, `${year}${month < 10 ? '0' : ''}${month}01`];
 }, [seasonOffset]);
 
-const cards = stew(getQuests, [startName, 98]);
+const cards = stew(getQuests, [todayName, startName, 98]);
 const container = cards[3];
 const [season] = container[3][1].className.match(/(?:^|\s)season-.*?(?:\s|$)/);
 
@@ -59,21 +64,44 @@ if (container[2][1].className.indexOf(season) === -1) {
     container.splice(15, 1);
 }
 
-// display cards in rows of 2, 3, or 5. leaves remainder of 1, 2, and 2
+const currentButton = ['button', {
+    type: 'button',
+    disabled: seasonOffset === 0,
+    onclick: () => state.seasonOffset = 0,
+}, 'Current'];
+
+// TODO: Shift months so Decmber is part of winter
+// - The actual change in season occurs near the end of the first month in each
+// - these also feel a little more natural
+// - need to find a new reference point than Jan 1st
+// - maybe stick to ISO week days, but shift season boundaries by 4 weeks (e.g. winter is weeks 49, 50, 51, 52, 1, 2, 3, 4, ...)
+// - basically just need add 4 to zero-indexed month and % 12 when calculating the season number
+const labels = [
+    ['Winter', 'December', 'January', 'February'],
+    ['Spring', 'March', 'April', 'May'],
+    ['Summer', 'June', 'July', 'August'],
+    ['Autumn', 'September', 'October', 'November'],
+][Math.floor(startName.slice(4, 6) / 3)];
+
+// TODO: rework cards so the symbols line up with the season (also maybe shorten heart a little vertically)
+// - winter: blue diamond
+// - spring: green clover (clubs)
+// - summer: red heart
+// - autumn: orange leaf (spade)
 return ['', null,
-    ['button', {
-        type: 'button',
-        onclick: () => state.seasonOffset -= 1,
-    }, 'Prev'],
-    ['button', {
-        type: 'button',
-        disabled: seasonOffset === 0,
-        onclick: () => state.seasonOffset = 0,
-    }, 'Current'],
-    ['button', {
-        type: 'button',
-        onclick: () => state.seasonOffset += 1,
-    }, 'Next'],
+    ['div', { className: 'header' },
+        seasonOffset > 0 && currentButton
+        ['button', {
+            type: 'button',
+            onclick: () => state.seasonOffset -= 1,
+        }, 'Prev'],
+
+        ['button', {
+            type: 'button',
+            onclick: () => state.seasonOffset += 1,
+        }, 'Next'],
+        seasonOffset < 0 && currentButton,
+    ],
     cards,
 ];
 ```
@@ -114,11 +142,11 @@ return node[0] === 'br' ? ' ' : node.slice(2).map(getText).join('');
 ## Get Quests
 
 ```export 
-const [name, count = 7] = arguments;
+const [todayName, startName, count = 7] = arguments;
 const cards = [];
-const year = name.slice(0, 4);
+const year = startName.slice(0, 4);
 const start = getDay(year);
-let index = getDay(name);
+let index = getDay(startName);
 index -= (index - start) % 7;
 let week = Math.floor((index - start) / 7);
 
@@ -138,8 +166,8 @@ for (let i = 0; i < count; i += 7) {
         const content = stew(quest, [href]);
         const text = getText(content?.[2] || '');
         index++;
-        
-        card.push(['li', null,
+
+        card.push(['li', name === todayName ? { className: 'today' } : null,
             ['span', null, day],
             ['a', { href },
                 ['span', null, text],
@@ -160,7 +188,7 @@ return ['', null,
             display: block;
             width: 216px;
             height: 306px;
-            margin-bottom: 8px;
+            margin: 8px auto;
         }
         .cards-nav .card {
             transform: scale(1.5);
@@ -177,6 +205,9 @@ return ['', null,
             list-style: none;
             transform-origin: 0 0;
             z-index: 9;
+        }
+        .today {
+            box-shadow: inset 0 0 4px 2px black;
         }
         .card li {
             display: flex;

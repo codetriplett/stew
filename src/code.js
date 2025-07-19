@@ -1,3 +1,5 @@
+import { library } from '.';
+
 // TODO: use dynamic import to load this and all Editor features
 // - just deliver what is needed to render a page at first
 
@@ -42,7 +44,7 @@ export function format (value, indentation = '') {
 
 // TODO: only treat note as module if it has a preformatted text above first heading that uses the 'default' format
 // - default is an array in the file that is created, so it is not allowed as a custom formatter anyway
-export function extractCode (file, library) {
+export function extractCode (file) {
 	const summary = stew(file, ['/#', library]);
 	const layout = stew(file, ['/', library]);
 

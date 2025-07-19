@@ -76,7 +76,7 @@ function getText (node) {
 // TODO: if map is for a navigation node (all links), show the nav items for the currently active page
 // - need to add a focusedPage in addition to focused section
 // - on hashchange check if id is for a focusedPage and update it, otherwise update focusedSection
-function LeftMenu ({ map = {}, ref, directory }, widget) {
+function LeftMenu ({ map, ref, directory }, widget) {
 	const { focusedSection } = state;
 	const root = map['']?.split?.('#')?.[1];
 	const hashes = map[root]?.[0];
@@ -179,21 +179,23 @@ export default function Page ({ path, map, ref, breadcrumbs, heading, markdown, 
 		// - allows for creating left nav links that expand to show content for child pages
 		[LeftMenu, { map, ref, directory }, navigation],
 		['div', { className: 'main' },
-			['ul', { className: 'breadcrumbs' }, 
-				['li', null,
-					['a', { href: '/' }, 'Home'],
+			['div', { className: 'paper' },
+				['ul', { className: 'breadcrumbs' }, 
+					['li', null,
+						['a', { href: '/' }, 'Home'],
+					],
+					...breadcrumbs.map(breadcrumb => ['li', null, breadcrumb]),
+					heading && ['li', null, heading, ['button', {
+						type: 'button',
+						className: 'edit-button',
+						onclick: () => state.isEditing = true,
+					}, '🖉']],
 				],
-				...breadcrumbs.map(breadcrumb => ['li', null, breadcrumb]),
-				heading && ['li', null, heading, ['button', {
-					type: 'button',
-					className: 'edit-button',
-					onclick: () => state.isEditing = true,
-				}, '🖉']],
-			],
-			['div', null,
-				['template', { shadowrootmode: 'open' },
-					['style', null, styles],
-					...children,
+				['div', null,
+					['template', { shadowrootmode: 'open' },
+						['style', null, styles],
+						...children,
+					],
 				],
 			],
 		],

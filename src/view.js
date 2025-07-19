@@ -106,25 +106,18 @@ export default function render (layout, context, document, nodes, container, i, 
 		const { '': key, ...props } = object;
 		let callback = renderElement;
 		let node = null;
-		info = (key ? container[1]?.[key] : info) || [];
+		info = container[1]?.[key] || info || [];
 	
 		switch (typeof tagName) {
 			case 'object': {
-				// if (tagName) {
-					// TODO: check that this will still work for portals
-					// - layout[0] will be replaced by the rendered node for elements
-					// - if layout[0] was an object from the start, it should skip the step where it creates and appends the new element
-					// info[0] = info[2] = tagName;
+				if (tagName === info[2]) {
+					info[0] = tagName;
+				} else if (tagName) {
+					info = tagName;
+					tagName = info.tagName;
+				}
 
-					if (tagName === info[2]) {
-						info[0] = tagName;
-					} else {
-						info = tagName;
-						tagName = info.tagName;
-					}
-
-					break;
-				// }
+				break;
 			}
 			case 'undefined':
 			case 'boolean': {
@@ -141,7 +134,7 @@ export default function render (layout, context, document, nodes, container, i, 
 		}
 		
 		if (tagName !== info[0]) {
-			if (!node && info.tagName && tagName.toUpperCase() === info.tagName) {
+			if (!node && info.tagName && tagName?.toUpperCase?.() === info.tagName) {
 				info = [tagName,, info, ...info.childNodes];
 				// TODO: make sure comment nodes don't mess up the hydration order (I think it skips over mismatches)
 			} else {
@@ -150,13 +143,13 @@ export default function render (layout, context, document, nodes, container, i, 
 		}
 
 		callback(info, props, children, context, document, nodes);
+		
+		if (callback !== renderImpulse) {
+			layout[0] = info[2];
+		}
 	
 		if (key) {
 			map[key] = info;
-
-			if (callback !== renderImpulse) {
-				layout[0] = info[2];
-			}
 		}
 	}
 

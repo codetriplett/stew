@@ -1,91 +1,94 @@
 import state, { updateSettings } from '.';
 
-function updateWidth (flexContainer, scrollContainer, isRight) {
-	if (!flexContainer) {
-		return;
-	}
+// function updateWidth (flexContainer, scrollContainer, isRight) {
+// 	if (isRight) {
+// 		const { classList } = document.body;
 
-	if (!isRight || !scrollContainer) {
-		const width = scrollContainer?.offsetWidth || 0;
-		flexContainer.style.flexBasis = `${width}px`;
-		flexContainer.style.width = `${width}px`;
-	} else {
-		flexContainer.style.flexBasis = '';
-		flexContainer.style.width = '';
-		const width = flexContainer.clientWidth;
-		scrollContainer.style.width = `${width}px`;
-	}
-}
+// 		if (scrollContainer) {
+// 			classList.add('right-active');
+// 		} else {
+// 			classList.remove('right-active');
+// 		}
+// 	}
 
-function updateSideWidth (side) {
-	const { classList } = document.body;
-	const flexContainer = document.querySelector(`.sidebar-${side}`);
-	const scrollContainer = classList.contains(`show-${side}`) ? flexContainer.querySelector('.scroll') : null;
-	updateWidth(flexContainer, scrollContainer, side === 'right');
-}
+// 	if (!flexContainer) {
+// 		return;
+// 	}
+
+// 	if (!isRight || !scrollContainer) {
+// 		const width = scrollContainer?.offsetWidth || 0;
+// 		flexContainer.style.flexBasis = `${width}px`;
+// 		flexContainer.style.width = `${width}px`;
+// 	} else {
+// 		flexContainer.style.flexBasis = '';
+// 		flexContainer.style.width = '';
+// 		const width = flexContainer.clientWidth;
+// 		scrollContainer.style.width = `${width}px`;
+// 	}
+// }
+
+// function updateWidths () {
+// 	const app = document.querySelector('#app');
+// 	const isSmall = getComputedStyle(app).float !== 'none';
+// 	const { classList } = document.body;
+
+// 	for (const side of ['left', 'right']) {
+// 		const flexContainer = document.querySelector(`.sidebar-${side}`);
+// 		const scrollContainer = isSmall && !classList.contains(`show-${side}`) ? null : flexContainer.querySelector('.scroll');
+// 		updateWidth(flexContainer, scrollContainer, side === 'right');
+// 	}
+// }
 
 // have snips sidebar have a set width instead of a flex one
 // - then left and right can share the same behavior
 // - width will depend on breakpoint and will be calc(100dvw - spaceForButton) at mobile breakpoint
-export default function Sidebar ({ isRight, icon, toggleProp, widget }, ...children) {
+export default function Sidebar ({ isRight = false, hideContent = false, icon, toggleProp, widget }, ...children) {
 	if (widget?.length > 2) {
 		children.unshift(['div', null,
 			['template', { shadowrootmode: 'open' }, widget],
 		]);
 	}
 
-	stew(null, [], () => {
-		window.addEventListener('resize', () => {
-			updateWidth(sidebarRef[0], scrollRef?.[0], isRight);
-		});
-	});
-
 	const { settings } = state;
+	const side = isRight ? 'right' : 'left';
 	const sideProp = isRight ? 'showRight' : 'showLeft';
 	const show = toggleProp ? settings[toggleProp] : state[sideProp];
 	const { classList } = document.body;
-	const toggleClass = `show-${isRight ? 'right' : 'left'}`;
+	const toggleClass = `show-${side}`;
 	const eligible = children.some(child => child);
 	const active = show && eligible;
-	let sidebarRef, scrollRef;
+	// stew(null, [], () => window.addEventListener('resize', updateWidths));
+	// stew(null, [isRight || state.focusedSection, active], updateWidths);
 
-	stew(null, [isRight || state.focusedSection, active], () => {
-		updateWidth(sidebarRef[0], scrollRef?.[0], isRight);
-	});
-
-	return ['', null, sidebarRef = ['div', {
-		'': 'sidebar',
-		className: `sidebar sidebar-${isRight ? 'right' : 'left'} ${active ? '': 'sidebar-hidden'}`,
+	return ['div', {
+		className: `sidebar sidebar-${side} ${active ? '': 'sidebar-hidden'}`,
 	},
-		active && (scrollRef = ['div', {
-			'': 'scroll',
-			className: `scroll scroll-${isRight ? 'right' : 'left'}`,
-		}, ...children]),
+		(active || hideContent) && ['div', {
+			className: `scroll scroll-${side}`,
+		}, ...children],
 		eligible && ['button', {
 			type: 'button',
 			className: `toggle ${icon}-button`,
 			onclick: () => {
-				const [scrollContainer] = scrollRef || [];
 				classList.remove(`show-${isRight ? 'left' : 'right'}`);
 
-				if (scrollContainer && getComputedStyle(document.querySelector('#app')).float !== 'none') {
+				if (active && getComputedStyle(document.querySelector('#app')).float !== 'none') {
 					classList.toggle(toggleClass);
-					updateSideWidth('left');
-					updateSideWidth('right');
+					return;
+				}
+
+				if (toggleProp) {
+					updateSettings({ [toggleProp]: !show });
 				} else {
-					if (toggleProp) {
-						updateSettings({ [toggleProp]: !show });
-					} else {
-						state[sideProp] = !show;
-					}
-					
-					if (show) {
-						classList.remove(toggleClass);
-					} else {
-						classList.add(toggleClass);
-					}
+					state[sideProp] = !show;
+				}
+
+				if (show) {
+					classList.remove(toggleClass);
+				} else {
+					classList.add(toggleClass);
 				}
 			},
 		}],
-	]];
+	];
 }

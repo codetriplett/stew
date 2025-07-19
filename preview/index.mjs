@@ -72,7 +72,7 @@ export function getQuests () {
 				display: block;
 	            width: 216px;
 				height: 306px;
-				margin-bottom: 8px;
+				margin: 8px auto;
 	        }
 	        .cards-nav .card {
 	            transform: scale(1.5);
