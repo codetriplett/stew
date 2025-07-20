@@ -689,9 +689,7 @@ describe('parse', () => {
 		});
 
 		it('skips missing customizer', () => {
-			const actual = parse('```capitalize\nabc\n```', '/', {
-				'': {},
-			});
+			const actual = parse('```capitalize\nabc\n```', '/', {});
 
 			expect(actual).toEqual(['', null,
 				['pre', null,

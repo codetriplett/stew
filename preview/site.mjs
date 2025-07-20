@@ -1,8 +1,3 @@
-export function custom () {
-	const [flags, code] = arguments;
-	return `CUSTOM\n${code}`;
-}
-
 export function site () {
 	const [props, ...children] = arguments;
 
@@ -20,9 +15,9 @@ export function site () {
 
 export default [site, {
     '': {
-		'': 'Site',
-		smile: ':)',
-	},
+        '': 'Site',
+        smile: ':)',
+    },
     category: '// Category',
 }, ['style', null, `
 header {

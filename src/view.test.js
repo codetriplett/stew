@@ -46,7 +46,7 @@ describe('render', () => {
 		it('fragment', () => {
 			const layout = ['', { '': 'key', lmno: 456 }, 'first', 'last']
 			const actual = render(layout, context, stew, nodes, container, -1, map);
-			expect(actual).toEqual(['', {}, undefined, { ...text, nodeValue: 'first' }, { ...text, nodeValue: 'last' }]);
+			expect(actual).toEqual(['', {}, null, { ...text, nodeValue: 'first' }, { ...text, nodeValue: 'last' }]);
 			expect(container).toEqual(['', {}, actual]);
 			expect(map).toEqual({ key: actual });
 			expect(print(actual)).toEqual('firstlast');

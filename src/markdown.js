@@ -623,10 +623,6 @@ export default function parse (content, rootPath = '', library = stack[0]?.[4] |
 			const formatter = library[type];
 
 			if (typeof formatter !== 'function') {
-				if (type && type !== 'export') {
-					console.error(`Format not recognized:`, type);
-				}
-
 				continue;
 			}
 

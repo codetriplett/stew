@@ -1,5 +1,8 @@
 ```export
 {
+	'': {
+		frown: ':(',
+	},
 	page: '// Page',
 }
 nav {
@@ -23,4 +26,11 @@ return ['', {},
 	['nav', {}, page],
 	...children,
 ];
+```
+
+## Custom Two
+
+```export
+const [flags, code] = arguments;
+return `CUSTOM TWO\n${code}`;
 ```

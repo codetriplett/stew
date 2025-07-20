@@ -1,7 +1,7 @@
 import { extractData, FormField } from './form';
 import { extractCode } from './code';
 import Sidebar from './sidebar';
-import state from '.';
+import state, { library } from '.';
 
 async function putFile (path, body, isCommit) {
 	const method = /\S/.test(body) ? 'PUT' : 'DELETE';
@@ -26,10 +26,10 @@ function clear (path) {
 	localStorage.removeItem(`/${path}.json`);
 }
 
-async function save (path, formRef, textareaRef, isCommit) {
+async function save (path, formRef, textareaRef, isCommit, skipReload) {
 	const { readonly } = flags;
 	const file = textareaRef[0].value;
-	const code = extractCode(file);
+	const code = extractCode(file, library);
 	const data = formRef ? extractData(formRef[0]) : {};
 
 	if (!data) {
@@ -44,13 +44,16 @@ async function save (path, formRef, textareaRef, isCommit) {
 
 	if (!isCommit) {
 		state.isEditing = false;
-		window.location.reload();
 	} else if (!readonly) {
 		clear(path);
 	}
 
 	state.data = data; // should this just be updated on sequence[0], since it has to reprocess that anyway?
 	state.revision++;
+
+	if (!skipReload) {
+		window.location.reload();
+	}
 }
 
 function resizeTextarea (ref) {
@@ -63,11 +66,66 @@ function resizeTextarea (ref) {
 }
 
 function insert (ref, symbol) {
-	const textarea = ref[1];
-	const { value, selectionStart, selectionEnd } = textarea;
+	const [textarea] = ref;
+	let { value, selectionStart, selectionEnd } = textarea;
+	let [, before, slice, after] = value.slice(selectionStart, selectionEnd).match(/^(\s*)([\s\S]*?)(\s*)$/);
+	before = `${value.slice(0, selectionStart)}${before}`;
+	after += value.slice(selectionEnd);
 	textarea.focus();
-	textarea.value = `${value.slice(0, selectionStart)}${symbol}${value.slice(selectionEnd)}`;
-	textarea.selectionStart = textarea.selectionEnd = selectionStart + 1;
+
+	if (!slice) {
+		slice = `${symbol}${slice}`;
+		selectionStart = selectionEnd += 1;
+		symbol = '';
+	}
+
+	switch (symbol) {
+		case '#':
+		case '-': {
+			if (slice[0] !== symbol) {
+				slice = ` ${slice}`;
+				selectionEnd += 1;
+			} else if (symbol === '-') {
+				const [, dashes, space, text] = slice.match(/^-(-*)(\s*)(.*?)$/);
+
+				if (text) {
+					slice = `~~${dashes}${text}~~`;
+					selectionEnd += 3 - space.length;
+				} else {
+					slice += '-';
+					selectionStart = selectionEnd += 1;
+				}
+
+				break;
+			}
+
+			slice = `${symbol}${slice}`;
+			selectionEnd += 1;
+			break;
+		}
+		case '`': {
+			if (slice.indexOf('\n') !== -1) {
+				slice = `\`\`\`\n${slice}\n\`\`\``;
+				selectionEnd = selectionStart += 3;
+				break;
+			}
+		}
+		case '|':
+		case '*':
+		case ':': {
+			slice = `${symbol}${slice}${symbol}`;
+			selectionEnd += symbol.length * 2;
+			break;
+		}
+		case '[](/)': {
+			slice = `[${slice}](/)`;
+			selectionStart = selectionEnd += 4;
+			break;
+		}
+	}
+
+	value = `${before}${slice}${after}`;
+	Object.assign(textarea, { value, selectionStart, selectionEnd });
 }
 
 export default function Editor ({ path, file, schema }) {
@@ -134,14 +192,18 @@ export default function Editor ({ path, file, schema }) {
 					placeholder: '(empty)',
 					spellcheck: false,
 					onkeydown: event => {
-						const { key } = event;
+						const { key, ctrlKey } = event;
 
 						if (key === 'Tab') {
 							event.preventDefault();
-							const [, textarea] = textareaRef;
+							const [textarea] = textareaRef;
 							const { value, selectionStart, selectionEnd } = textarea;
 							textarea.value = `${value.slice(0, selectionStart)}\t${value.slice(selectionEnd)}`;
 							textarea.selectionStart = textarea.selectionEnd = selectionStart + 1;
+						} else if (key === 's' && ctrlKey) {
+							event.preventDefault();
+							save(path, formRef, textareaRef, !flags.readonly, true);
+							return;
 						}
 
 						resizeTextarea(textareaRef);
@@ -155,7 +217,7 @@ export default function Editor ({ path, file, schema }) {
 				['button', {
 					type: 'button',
 					className: 'right-button save-button',
-					onclick: () => save(path, formRef, textareaRef),
+					onclick: () => save(path, formRef, textareaRef, !flags.readonly),
 				}],
 				// NOTE: the version of save that pushes to server will exist on the home page
 				// - it will resemble staging changes for commit like GIT

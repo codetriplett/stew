@@ -1,3 +1,8 @@
+export function customTwo () {
+	const [flags, code] = arguments;
+	return `CUSTOM TWO\n${code}`;
+}
+
 export function category () {
 	const [props, ...children] = arguments;
 
@@ -15,9 +20,9 @@ export function category () {
 
 export default [category, {
     '': {
-		'': 'Category',
-		frown: ':(',
-	},
+        '': 'Category',
+        frown: ':(',
+    },
     page: '// Page',
 }, ['style', null, `
 nav {

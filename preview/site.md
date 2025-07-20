@@ -1,5 +1,8 @@
 ```export
 {
+	'': {
+		smile: ':)',
+	},
 	category: '// Category',
 }
 header {

@@ -69,10 +69,10 @@ export function getQuests () {
 	            gap: 4px;
 	        }
 	        .cards-nav {
-				display: block;
+	            display: block;
 	            width: 216px;
-				height: 306px;
-				margin: 8px auto;
+	            height: 306px;
+	            margin: 8px auto;
 	        }
 	        .cards-nav .card {
 	            transform: scale(1.5);
@@ -90,9 +90,9 @@ export function getQuests () {
 	            transform-origin: 0 0;
 	            z-index: 9;
 	        }
-			.today {
-				box-shadow: inset 0 0 4px 2px black;
-			}
+	        .today {
+	            box-shadow: inset 0 0 4px 2px black;
+	        }
 	        .card li {
 	            display: flex;
 	            gap: 4px;
@@ -214,9 +214,9 @@ export function calendar () {
 	const [todayName, startName] = stew(() => {
 	    let year = date.getFullYear();
 	    let month = date.getMonth();
-		const day = date.getDate();
-		const todayName = `${year}${month < 9 ? '0' : ''}${month + 1}${day < 10 ? '0' : ''}${day}`;
-		month += seasonOffset * 3;
+	    const day = date.getDate();
+	    const todayName = `${year}${month < 9 ? '0' : ''}${month + 1}${day < 10 ? '0' : ''}${day}`;
+	    month += seasonOffset * 3;
 	    year += Math.floor(month / 12);
 	    month = month % 12;
 	    month += month < 0 ? 12 : 0;
@@ -237,11 +237,11 @@ export function calendar () {
 	}
 
 	const currentButton = ['button', {
-		type: 'button',
-		disabled: seasonOffset === 0,
-		onclick: () => state.seasonOffset = 0,
+	    type: 'button',
+	    disabled: seasonOffset === 0,
+	    onclick: () => state.seasonOffset = 0,
 	}, 'Current'];
-	
+
 	// TODO: Shift months so Decmber is part of winter
 	// - The actual change in season occurs near the end of the first month in each
 	// - these also feel a little more natural
@@ -249,10 +249,10 @@ export function calendar () {
 	// - maybe stick to ISO week days, but shift season boundaries by 4 weeks (e.g. winter is weeks 49, 50, 51, 52, 1, 2, 3, 4, ...)
 	// - basically just need add 4 to zero-indexed month and % 12 when calculating the season number
 	const labels = [
-		['Winter', 'December', 'January', 'February'],
-		['Spring', 'March', 'April', 'May'],
-		['Summer', 'June', 'July', 'August'],
-		['Autumn', 'September', 'October', 'November'],
+	    ['Winter', 'December', 'January', 'February'],
+	    ['Spring', 'March', 'April', 'May'],
+	    ['Summer', 'June', 'July', 'August'],
+	    ['Autumn', 'September', 'October', 'November'],
 	][Math.floor(startName.slice(4, 6) / 3)];
 
 	// TODO: rework cards so the symbols line up with the season (also maybe shorten heart a little vertically)
@@ -261,31 +261,26 @@ export function calendar () {
 	// - summer: red heart
 	// - autumn: orange leaf (spade)
 	return ['', null,
-		['div', { className: 'header' },
-			seasonOffset > 0 && currentButton
-			['button', {
-				type: 'button',
-				onclick: () => state.seasonOffset -= 1,
-			}, 'Prev'],
+	    ['div', { className: 'header' },
+	        seasonOffset > 0 && currentButton
+	        ['button', {
+	            type: 'button',
+	            onclick: () => state.seasonOffset -= 1,
+	        }, 'Prev'],
 
-			['button', {
-				type: 'button',
-				onclick: () => state.seasonOffset += 1,
-			}, 'Next'],
-			seasonOffset < 0 && currentButton,
-		],
+	        ['button', {
+	            type: 'button',
+	            onclick: () => state.seasonOffset += 1,
+	        }, 'Next'],
+	        seasonOffset < 0 && currentButton,
+	    ],
 	    cards,
 	];
 }
 
-// TODO: allow fields here
-// - use static fields (ones that aren't strings, or no / in them as emoji)
-// - maybe allow other wrapper pages to override emoji and exports
-// - it would need to fetch all the modules upfront and merge them before calling first stew though
-// - it would be nice to create partitions that can experiment with different formatters though
 export default [calendar, {
     '': {
-		'': 'Calendar',
-    	smile: '🙂',
-	},
+        '': 'Calendar',
+        smile: '🙂',
+    },
 }];
