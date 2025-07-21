@@ -86,10 +86,10 @@ export default function render (layout, context, document, nodes, container, i, 
 				}
 
 				// TODO: use key to get and store to a different info object
-				const [convert = () => null] = context[''].default || [];
+				const { '': convert } = context['']?.default || {};
 				const { '': key, ...props } = layout;
 				context = props;
-				layout = nodes[0].tagName === 'CANVAS' ? renderProgram : convert;
+				layout = nodes[0].tagName === 'CANVAS' ? renderProgram : convert || (() => {});
 			}
 			case 'function': {
 				layout = layout(context, nodes[0]);
@@ -143,10 +143,7 @@ export default function render (layout, context, document, nodes, container, i, 
 		}
 
 		callback(info, props, children, context, document, nodes);
-		
-		if (callback !== renderImpulse) {
-			layout[0] = info[2];
-		}
+		layout[0] = info[2];
 	
 		if (key) {
 			map[key] = info;

@@ -178,7 +178,8 @@ while (names.length) {
 
 Promise.all([...promises, fetchCode('index')]).then(async sequence => {
 	Object.assign(library, sequence.pop());
-	library.default = { ...library.default?.[1]?.[''], '': '□' };
+	const [defaultExport, defaultSchema] = library.default || [];
+	library.default = { ...defaultSchema?.[''], '': defaultExport };
 
 	if (sequence.length < 2 && !name) {
 		stew('#app', library, [Home]);
@@ -249,11 +250,12 @@ Promise.all([...promises, fetchCode('index')]).then(async sequence => {
 	for (let i = 0; i < sequence.length; i += 2) {
 		const data = sequence[i];
 		const exports = sequence[i + 1];
-		const [component,, ...rest] = exports.default || [];
+		const [Component,, ...rest] = exports.default || [];
 		resources.unshift(...rest);
 
 		try {
-			content = component ? component(data, content, navigation) : content;
+			// TODO: figure out how to respond to navigation widget changes
+			content = Component ? [Component, data, content, navigation] : content;
 		} catch (err) {
 			content = null;
 			console.error(err);

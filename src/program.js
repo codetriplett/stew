@@ -145,6 +145,9 @@ export function createShader (gl, index, stack) {
 	return shader;
 }
 
+// TODO: check if this can be simplified
+// - maybe rewrite so stew`...` returns a callback (gl, duration) => {...}
+// - that callback is used as key to link unique shader chain to create program from
 export function parse (strings) {
 	const sequence = [];
 	let comment, definition, shader;
@@ -387,18 +390,20 @@ function schedule (gl, child, props) {
 	queue.add(gl);
 }
 
+function Program (props, canvas) {
+	const { ref, label } = props;
+
+	processMemo(null, [props], () => {
+		const gl = canvas.getContext('webgl');
+		const [child] = ref;
+		schedule(gl, child, props);
+		return () => schedule(gl, child);
+	});
+
+	return label;
+}
+
 export default function renderProgram (props, canvas) {
-	const { label } = props;
-	const gl = canvas.getContext('webgl');
-	const ref = [];
-
-	return [() => {
-		processMemo(null, [props], () => {
-			const [child] = ref[0];
-			schedule(gl, child, props);
-			return () => schedule(gl, child);
-		});
-
-		return label;
-	}, { ref }];
+	const ref = [Program, props, canvas];
+	return props.ref = ref;
 }

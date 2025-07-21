@@ -91,15 +91,12 @@ export function processMemo (callback, ...rest) {
 	return value;
 }
 
-export default function renderImpulse (info, object, children, context, document, nodes) {
+export default function renderImpulse (info, props, children, context, document, nodes) {
 	if (!info[1]) {
 		info[1] = [, new Set(), ...stack.map(info => info[1])];
 	}
 
-	// TODO: rename ref params throughout code base
-	const { ref, ...props } = object;
 	const [parentNode] = nodes;
-	const refIndex = ref?.length;
 	const nodeIndex = nodes.length;
 	let prevNodes;
 
@@ -126,10 +123,6 @@ export default function renderImpulse (info, object, children, context, document
 			
 			if (proxy !== prevProxy) {
 				remove(prevProxy, parentNode);
-			}
-
-			if (Array.isArray(ref)) {
-				ref[refIndex] = [...prevNodes];
 			}
 		} else {
 			info[2] = layout;

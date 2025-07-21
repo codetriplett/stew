@@ -1,58 +1,49 @@
 const state = stew({
-    isPaused: false,
+    objects: [],
 });
 
 export function stewtube () {
 	const [props, description] = arguments;
+	const state = stew({ objects: [] }, []);
+	const { objects } = state;
 
-	if (!props) {
-	    return ['p', null, 'Landing page'];
-	}
-
-	const { width, title, duration, shouldRepeat, objects } = props;
-	const { isPaused } = state;
-	const aspect = [width / 270, 0, 0, 1];
-
-	stew(() => {
-	    window.addEventListener('keydown', ({ key }) => {
-	        if (key === ' ') {
-	            state.isPause = !state.isPaused;
-	        }
-	    });
-
-	    // TODO: add touch controls 
-	}, []);
-
-	const vertexes = stew(() => {
-	    return objects.map(({ points }) => {
-	        // TODO: generate custom x:y points and center
-	        // - also return an elements array to define faces
-
-	        return [
-	            -0.5, -0.5, 0.5, -0.5, 0.5, 0.5,
-	            0.5, 0.5, -0.5, 0.5, -0.5, -0.5,
-	        ];
-	    });
-	}, [objects]);
-
-	// just use this for now
-	const color = [0.5, 0.25, 0.75];
+	stew(null, [], () => {
+		window.addEventListener('keydown', ({ key }) => {
+			if (key === ' ') {
+				state.objects = [...state.objects, {
+					position: [Math.random() - 0.5, Math.random() - 0.5],
+					color: [Math.random(), Math.random(), Math.random()],
+					rotation: [Math.random() * Math.PI * 2 / 1000, Math.random() / 1000, 0],
+					matrix: [1, 0, 0, 1],
+				}];
+			}
+		});
+	});
 
 	return ['', null,
-	    ['canvas', { width, height: 270 }, stew`
+	    ['canvas', { width: 480, height: 270 }, stew`
 	        ${gl => {
 	            gl.clearColor(0.0, 0.0, 0.0, 1.0);
 	            gl.clear(gl.COLOR_BUFFER_BIT);
 	        }}
-	        mat2 uAspect = ${aspect}
-	        ${objects.map(({ radius, rpm, color }, i) => stew`
-	            FLOAT vec2 aVertex ${vertexes}
-	            gl_Position = vec4(aVertex, 0.0, 1.0)
-	            ${gl => gl.drawArrays(gl.POINTS, 0, 12)}
-	            vec3 uColor ${color}
-	            gl_FragColor = vec4(uColor, 1.0)
-	        `)}
-	        ${() => fps}
+			FLOAT vec2 aVertex ${new Float32Array([-0.5, 0.5, -0.5, -0.5, 0.5, -0.5])}
+			mat2 uAspect ${[270 / 480, 0, 0, 1]}
+			gl_Position = vec4(uAspect * uMatrix * aVertex + uPosition, 0.0, 1.0)
+			${objects.map(({ position, rotation, matrix, color }) => stew`
+				${(gl, duration) => {
+					rotation[1] += rotation[2] * duration;
+					const angle = rotation[0] += rotation[1] * duration;
+					const cos = Math.cos(angle);
+					const sin = Math.sin(angle);
+					matrix.splice(0, 4, cos, sin, -sin, cos);
+				}}
+				vec2 uPosition ${position}
+				mat2 uMatrix ${matrix}
+				${gl => gl.drawArrays(gl.TRIANGLES, 0, 3)}
+				vec3 uColor ${color}
+			`)}
+			gl_FragColor = vec4(uColor, 1.0)
+	        ${() => 16}
 	    `],
 	    description,
 	];
