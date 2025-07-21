@@ -61,14 +61,13 @@ export function track (ref) {
 }
 
 export const text = {
-	nextSibling: null,
+	insertBefore: expect.any(Function),
 	toString: expect.any(Function),
 };
 
 export const fragment = {
 	...text,
 	appendChild: expect.any(Function),
-	insertBefore: expect.any(Function),
 	removeChild: expect.any(Function),
 	querySelector: expect.any(Function),
 	querySelectorAll: expect.any(Function),
@@ -76,7 +75,6 @@ export const fragment = {
 
 export const element = {
 	...fragment,
-	nextSibling: null,
 	style: expect.any(Object),
 	dataset: expect.any(Object),
 };

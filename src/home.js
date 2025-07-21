@@ -58,7 +58,7 @@ function Drafts ({ paths }) {
 		return alphabetizeFolder(tree);
 	}, [paths]);
 
-	return [Sidebar, { icon: 'files' },
+	return [Sidebar, { icon: 'files', toggleProp: 'showDrafts' },
 		Folder(tree),
 	];
 }
@@ -67,10 +67,9 @@ function Drafts ({ paths }) {
 // - clicking on it will take you to the note for the current day, e.g. 20250709
 export default function Home () {
 	const { settings, snips } = state;
-	const { theme, showDrafts } = settings;
+	const { theme } = settings;
+	stew(null, [], () => state.hasMounted = true);
 	stew(null, [theme], setTheme);
-
-	// console.log(snips);
 
 	const paths = stew(() => {
 		return Object.keys(localStorage).filter(name => /^\/(?!\/).*\.(md|json)$/.test(name));

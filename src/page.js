@@ -83,7 +83,7 @@ function LeftMenu ({ map, ref, directory }, widget) {
 	const citations = focusedSection && map[focusedSection]?.slice?.(2) || [];
 
 	return [Sidebar, { icon: 'menu', toggleProp: 'showMenu', widget },
-		!directory ? LeftMenuList(map, hashes) : ['ul', {
+		!directory ? LeftMenuList(map, hashes) : directory.length > 0 && ['ul', {
 			className: 'children',
 		},
 			...directory.map(([href, text]) => {
@@ -164,20 +164,24 @@ function Citation ({ snip }) {
 // - right nav will be used by snips and preview
 // - left nav will only fill its own width, while right nav will share space with main area (but less)
 
-export default function Page ({ path, map, ref, breadcrumbs, heading, markdown, directory, schema, navigation }, ...children) {
+export default function Page ({ path, map, ref, breadcrumbs, heading, markdown, directory, schema, widget }, ...children) {
 	const { isEditing, snips } = state;
 
 	if (isEditing) {
-		return [Editor, { path, file: markdown, schema }];
+		// TODO: figure out why reconcile doesn't replace DOM when fragment isn't used
+		return ['', null, [Editor, { path, file: markdown, schema }]];
 	}
 
-	stew(null, [], () => scrollTo(window.location.hash, 'instant'));
+	stew(null, [], () => {
+		scrollTo(window.location.hash, 'instant');
+		state.hasMounted = true;
+	});
 
 	return ['', {},
 		// TODO: store array in state for index links that could wrap the left menu links
 		// - these are ones that the parents might store in schema['']
 		// - allows for creating left nav links that expand to show content for child pages
-		[LeftMenu, { map, ref, directory }, navigation],
+		[LeftMenu, { map, ref, directory }, widget],
 		['div', { className: 'main' },
 			['div', { className: 'paper' },
 				['ul', { className: 'breadcrumbs' }, 
@@ -185,7 +189,7 @@ export default function Page ({ path, map, ref, breadcrumbs, heading, markdown, 
 						['a', { href: '/' }, 'Home'],
 					],
 					...breadcrumbs.map(breadcrumb => ['li', null, breadcrumb]),
-					heading && ['li', null, heading, ['button', {
+					heading && ['li', null, ['a', { href: `${path}/` }, heading], ['button', {
 						type: 'button',
 						className: 'edit-button',
 						onclick: () => state.isEditing = true,

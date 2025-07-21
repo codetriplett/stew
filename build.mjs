@@ -11,7 +11,7 @@ const config = {
 		js: `//@triplett/stew@v${version}`,
 	},
 	bundle: true,
-	minify: true,
+	// minify: true,
 	metafile: true,
 };
 

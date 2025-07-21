@@ -39,8 +39,8 @@ export function processEffects () {
 //   - in both cases clearing the variable that holds the suspend/resume/swap will allow it to garbage collect the tree
 export function processMemo (callback, ...rest) {
 	let [deps = [], intermediate, fallback] = rest;
-	const [info = [,,, []]] = stack;
-	const memo = info[3].shift() || [];
+	const [info = [,,,,, []]] = stack;
+	const memo = info[5].shift() || [];
 	let [value,, ...prev] = memo;
 	info.push(memo);
 
@@ -93,42 +93,49 @@ export function processMemo (callback, ...rest) {
 
 export default function renderImpulse (info, props, children, context, document, nodes) {
 	if (!info[1]) {
-		info[1] = [, new Set(), ...stack.map(info => info[1])];
+		info.splice(1, 4, [, new Set(), ...stack.map(info => info[1])], info[2], null, null);
 	}
 
-	const [parentNode] = nodes;
-	const nodeIndex = nodes.length;
-	let prevNodes;
-
 	const update = () => {
-		const [callback,, prevProxy] = info;
-		const sibling = prevNodes?.[prevNodes?.length - 1]?.nextSibling;
+		let [callback,, prevProxy, before, after] = info;
 		stack.unshift(info);
-		info.push(info.splice(3), context['']);
+		info.push(info.splice(5), context['']);
 		const layout = execute(callback, props, ...children);
 
 		if (document) {
-			// TODO: check that info is really thing thing to pass in here
-			// - info[2] seems to store the layout, not the info, so it might not be reusing the previous render properly
-			const proxy = render(layout || '', context, document, nodes, info, -1, {});
+			const [parentNode] = nodes;
+			let beforeIndex = nodes.indexOf(before) + 1;
+			let afterIndex = nodes.indexOf(after);
 
-			if (prevNodes) {
-				const nextNodes = nodes.splice(1);
-				reconcile(parentNode, nextNodes, prevNodes, sibling);
-				prevNodes = nextNodes;
-			} else {
-				prevNodes = nodes.slice(nodeIndex);
-				nodes = [parentNode];
+			if (!beforeIndex) {
+				before = info[3] = document.createTextNode('');
+				nodes.push(before);
+				beforeIndex = nodes.length;
 			}
 			
-			if (proxy !== prevProxy) {
-				remove(prevProxy, parentNode);
+			const siblings = afterIndex === -1 ? [] : nodes.splice(afterIndex);
+			const length = nodes.length - beforeIndex;
+			const proxy = render(layout, context, document, nodes, info, -1, {});
+			const nextNodes = nodes.slice(beforeIndex);
+			const prevNodes = nextNodes.splice(0, length);
+
+			if (after) {
+				reconcile(parentNode, nextNodes, prevNodes, after);
+				
+				if (proxy !== prevProxy) {
+					remove(prevProxy, parentNode);
+				}
+			} else {
+				after = info[4] = document.createTextNode('');
+				nodes.push(after);
 			}
+
+			nodes.push(...siblings);
 		} else {
 			info[2] = layout;
 		}
 
-		info.splice(3, 2);
+		info.splice(5, 2);
 		stack.shift();
 	};
 

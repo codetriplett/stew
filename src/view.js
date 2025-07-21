@@ -12,7 +12,7 @@ export function remove (info, parentNode) {
 		return;
 	}
 
-	const [, impulse, proxy, ...children] = info;
+	const [, impulse, proxy,,, ...children] = info;
 
 	if (Array.isArray(impulse)) {
 		unsubscribe(impulse);
@@ -63,7 +63,7 @@ export default function render (layout, context, document, nodes, container, i, 
 	if (!Array.isArray(layout)) {
 		switch (typeof layout) {
 			default: {
-				info = undefined;
+				info = null;
 				break
 			}
 			case 'number': {
@@ -98,12 +98,7 @@ export default function render (layout, context, document, nodes, container, i, 
 		}
 	} else {
 		let [tagName, object, ...children] = layout;
-
-		if (!object) {
-			object = {};
-		}
-
-		const { '': key, ...props } = object;
+		let { '': key, ...props } = object || {};
 		let callback = renderElement;
 		let node = null;
 		info = container[1]?.[key] || info || [];
@@ -128,6 +123,10 @@ export default function render (layout, context, document, nodes, container, i, 
 				break;
 			}
 			case 'function': {
+				if (!object) {
+					props = object;
+				}
+
 				callback = renderImpulse;
 				break;
 			}

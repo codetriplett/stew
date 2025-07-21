@@ -189,6 +189,8 @@ createServer((req, res) => {
 			return;
 		}
 
+		// TODO: create folders that don't exist to be able to save file
+
 		writeFile(filepath, body, ...options, err => {
 			if (err) {
 				send(res, err.message, 500);

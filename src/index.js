@@ -7,9 +7,11 @@ export const library = {};
 
 const state = stew({
 	focusedSection: hash.slice(1),
+	hasMounted: false,
 	isEditing: false,
 	showLeft: false,
 	showRight: false,
+	showDrafts: false,
 	data: {},
 	settings: {},
 	snips: [],
@@ -207,7 +209,7 @@ Promise.all([...promises, fetchCode('index')]).then(async sequence => {
 		schema = rest;
 	}
 
-	const navigation = ['', null];
+	const widget = ['', null];
 	let content = stew(markdown, [`/${path}`, library]);
 	
 	if (name) {
@@ -255,7 +257,7 @@ Promise.all([...promises, fetchCode('index')]).then(async sequence => {
 
 		try {
 			// TODO: figure out how to respond to navigation widget changes
-			content = Component ? [Component, data, content, navigation] : content;
+			content = Component ? [Component, data, content, widget] : content;
 		} catch (err) {
 			content = null;
 			console.error(err);
@@ -271,6 +273,6 @@ Promise.all([...promises, fetchCode('index')]).then(async sequence => {
 		markdown,
 		directory,
 		schema,
-		navigation,
+		widget,
 	}, ...resources, content]);
 });

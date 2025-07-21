@@ -62,6 +62,7 @@ function writeChildNodes (childNodes, tagName) {
 	const allChildNodes = [];
 	let wasTextNode = false;
 
+	// TODO: see if the empty text nodes that wrap impulses can be ignored
 	for (const node of childNodes) {
 		const isTextNode = 'nodeValue' in node;
 		if (wasTextNode && isTextNode) allChildNodes.push('<!---->');
@@ -81,7 +82,12 @@ Object.assign(stew, {
 	createTextNode (nodeValue) {
 		return {
 			nodeValue,
-			nextSibling: null,
+			insertBefore (child, sibling) {
+				const { childNodes } = this;
+				this.removeChild(child);
+				const index = childNodes.indexOf(sibling);
+				childNodes.splice(index, 0, child);
+			},
 			toString () {
 				return this.nodeValue.replace(/\&/, '&amp;').replace(/</, '&lt;').replace(/>/g, '&gt;');
 			}
@@ -90,18 +96,15 @@ Object.assign(stew, {
 	createDocumentFragment () {
 		return {
 			childNodes: [],
-			nextSibling: null,
 			appendChild (child) {
 				this.removeChild(child);
 				this.childNodes.push(child);
-				child.nextSibling = null;
 			},
 			insertBefore (child, sibling) {
 				const { childNodes } = this;
 				this.removeChild(child);
 				const index = childNodes.indexOf(sibling);
 				childNodes.splice(index, 0, child);
-				child.nextSibling = sibling;
 			},
 			removeChild (child) {
 				const { childNodes } = this;
@@ -109,7 +112,6 @@ Object.assign(stew, {
 
 				if (index !== -1) {
 					childNodes.splice(index, 1);
-					child.nextSibling = null;
 				}
 			},
 			querySelector (selector) {
