@@ -39,8 +39,8 @@ export function processEffects () {
 //   - in both cases clearing the variable that holds the suspend/resume/swap will allow it to garbage collect the tree
 export function processMemo (callback, ...rest) {
 	let [deps = [], intermediate, fallback] = rest;
-	const [info = [,,,,, []]] = stack;
-	const memo = info[5].shift() || [];
+	const [info = [,,,, []]] = stack;
+	const memo = info[4].shift() || [];
 	let [value,, ...prev] = memo;
 	info.push(memo);
 
@@ -92,53 +92,49 @@ export function processMemo (callback, ...rest) {
 }
 
 export default function renderImpulse (info, props, children, context, document, nodes) {
-	if (!info[1]) {
-		info.splice(1, 4, [, new Set(), ...stack.map(info => info[1])], info[2], null, null);
+	if (info[1]) {
+		const [update] = info[1];
+		return update(props, ...children);
 	}
 
-	const update = () => {
-		let [callback,, prevProxy, before, after] = info;
-		stack.unshift(info);
-		info.push(info.splice(5), context['']);
-		const layout = execute(callback, props, ...children);
+	// TODO: have fragments maintain the same context and delete props when needed so this will have same reference
+	// - store Set of names set on context, like what is done for element, to speed up processing
+	let [callback,, anchor] = info;
+	let prevParams, prevNodes, siblings;
 
-		if (document) {
-			const [parentNode] = nodes;
-			let beforeIndex = nodes.indexOf(before) + 1;
-			let afterIndex = nodes.indexOf(after);
-
-			if (!beforeIndex) {
-				before = info[3] = document.createTextNode('');
-				nodes.push(before);
-				beforeIndex = nodes.length;
-			}
-			
-			const siblings = afterIndex === -1 ? [] : nodes.splice(afterIndex);
-			const length = nodes.length - beforeIndex;
-			const proxy = render(layout, context, document, nodes, info, -1, {});
-			const nextNodes = nodes.slice(beforeIndex);
-			const prevNodes = nextNodes.splice(0, length);
-
-			if (after) {
-				reconcile(parentNode, nextNodes, prevNodes, after);
-				
-				if (proxy !== prevProxy) {
-					remove(prevProxy, parentNode);
-				}
-			} else {
-				after = info[4] = document.createTextNode('');
-				nodes.push(after);
-			}
-
-			nodes.push(...siblings);
+	const update = (...params) => {
+		if (params.length) {
+			prevParams = params;
+			prevNodes = undefined;
 		} else {
-			info[2] = layout;
+			params = prevParams;
+			siblings = nodes.splice(nodes.indexOf(anchor) + 1).splice(prevNodes.length);
 		}
 
-		info.splice(5, 2);
+		stack.unshift(info);
+		info.push(info.splice(4), context['']);
+		const layout = execute(callback, ...params);
+		const prevProxy = info[3];
+		const { length } = nodes;
+		const proxy = render(layout, context, document, nodes, info, 0, {});
+		nextNodes = nodes.slice(length);
+
+		if (prevNodes) {
+			const [parentNode] = nodes;
+			reconcile(parentNode, nextNodes, prevNodes, siblings[0]);
+			nodes.push(...siblings);
+
+			if (proxy !== prevProxy) {
+				remove(prevProxy, parentNode);
+			}
+		}
+
+		info.splice(4, 2);
 		stack.shift();
+		return prevNodes = nextNodes;
 	};
 
-	info[1][0] = update;
-	update();
+	info[1] = [update, new Set(), ...stack.map(info => info[1])];
+	info[3] = null;
+	return update(props, ...children);
 }

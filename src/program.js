@@ -395,7 +395,7 @@ function Program (props, canvas) {
 
 	processMemo(null, [props], () => {
 		const gl = canvas.getContext('webgl');
-		const [child] = ref;
+		const [child] = ref[0];
 		schedule(gl, child, props);
 		return () => schedule(gl, child);
 	});

@@ -89,10 +89,14 @@ export default function renderElement (info, props, children, context, document,
 
 		updateAttributes(node, props, prevNames, nextNames);
 	} else {
+		// TODO: store context on info[2] and Object.assign new props
+		// - this is so impulses can get updates now that they avoid rebuilding update function
+		// - need to store prevNames on '' of map and delete the names that are no longer present
 		context = { ...context, ...props };
 		map = {};
 	}
 
+	const { length } = nodes;
 	const [parentNode] = nodes;
 	const removeInfos = new Set(info.slice(3));
 
@@ -116,5 +120,8 @@ export default function renderElement (info, props, children, context, document,
 
 	if (node) {
 		reconcile(parentNode, nodes.slice(1), [...parentNode.childNodes]);
+		return node;
 	}
+
+	return nodes.slice(length);
 }

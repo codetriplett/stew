@@ -12,13 +12,13 @@ export function remove (info, parentNode) {
 		return;
 	}
 
-	const [, impulse, proxy,,, ...children] = info;
+	const [, impulse, node, proxy,, ...children] = info;
 
 	if (Array.isArray(impulse)) {
 		unsubscribe(impulse);
 		remove(proxy, parentNode);
 
-		for (const [, teardown] of children) {
+		for (const [teardown] of children) {
 			if (typeof teardown === 'function') {
 				execute(teardown);
 			}
@@ -26,8 +26,8 @@ export function remove (info, parentNode) {
 	} else {
 		info[1] = undefined;
 
-		if (proxy && parentNode) {
-			parentNode.removeChild(proxy);
+		if (node && parentNode) {
+			parentNode.removeChild(node);
 			parentNode = undefined;
 		}
 
@@ -128,6 +128,15 @@ export default function render (layout, context, document, nodes, container, i, 
 				}
 
 				callback = renderImpulse;
+				node = container[i + 3];
+
+				if (node?.nodeValue === undefined) {
+					node = document.createTextNode('');
+				} else if (node.nodeValue) {
+					node.nodeValue = '';
+				}
+
+				nodes.push(node);
 				break;
 			}
 		}
@@ -141,8 +150,7 @@ export default function render (layout, context, document, nodes, container, i, 
 			}
 		}
 
-		callback(info, props, children, context, document, nodes);
-		layout[0] = info[2];
+		layout[0] = callback(info, props, children, context, document, nodes);
 	
 		if (key) {
 			map[key] = info;

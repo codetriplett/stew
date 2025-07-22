@@ -56,7 +56,7 @@ export default function stew (...layout) {
 
 	const [original] = layout;
 	let [node, object = {}] = layout;
-	let document;
+	let document = isServer ? stew : globalThis.document || {};
 
 	if (Array.isArray(node)) {
 		return compile(...layout);
@@ -74,8 +74,6 @@ export default function stew (...layout) {
 		if (layout.length === 1) {
 			return createState(node);
 		}
-
-		document = isServer ? stew : globalThis.document;
 		
 		if (typeof node === 'string') {
 			node = node ? document.querySelector(node) : document.createDocumentFragment();
