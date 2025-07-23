@@ -5,7 +5,6 @@ const shaderTypes = ['VERTEX_SHADER', 'FRAGMENT_SHADER'];
 export const sequenceMap = new WeakMap();
 export const rootMap = new WeakMap();
 export const nodeMap = new WeakMap();
-const instanceMap = new WeakMap();
 
 function getStored (map, key, callback) {
 	if (map.has(key)) {
@@ -145,9 +144,6 @@ export function createShader (gl, index, stack) {
 	return shader;
 }
 
-// TODO: check if this can be simplified
-// - maybe rewrite so stew`...` returns a callback (gl, duration) => {...}
-// - that callback is used as key to link unique shader chain to create program from
 export function parse (strings) {
 	const sequence = [];
 	let comment, definition, shader;
@@ -177,7 +173,77 @@ export function parse (strings) {
 	return sequence;
 }
 
-export function compile (strings, ...values) {
+const animations = new Map();
+let animationActive = false;
+// const queue = new Set();
+
+function draw (timestamp) {
+	for (const [gl, array] of animations) {
+		const [prevTimestamp, nextTimestamp, ...programs] = array;
+		let param;
+
+		if (nextTimestamp > timestamp) {
+			continue;
+		}
+		
+		const duration = prevTimestamp === undefined ? 0 : timestamp - prevTimestamp;
+		array[0] = timestamp;
+
+		for (const { program, callbacks } of programs) {
+			if (program) {
+				gl.useProgram(program);
+			}
+
+			for (const callback of callbacks) {
+				param = callback(gl, duration, param);
+			}
+		}
+
+		if (param > 0) {
+			array[1] += param;
+		} else {
+			animations.delete(gl);
+		}
+	}
+
+	if (animations.size) {
+		requestAnimationFrame(draw);
+	} else {
+		animationActive = false;
+	}
+}
+
+function Program ({ gl }, ...objects) {
+	processMemo(null, [objects], () => {
+		const programs = getStored(animations, gl, () => [undefined, 0]);
+		programs.push(...objects);
+
+		if (!animationActive) {
+			animationActive = true;
+			requestAnimationFrame(draw);
+		}
+
+		return () => {
+			for (const object of objects) {
+				const index = programs.indexOf(object);
+
+				if (index === -1) {
+					continue;
+				}
+
+				programs.splice(index, 1);
+				
+				if (programs.length < 3) {
+					animations.delete(gl);
+				}
+			}
+		};
+	});
+
+	return ['', null, ...objects.map(({ label }) => label)];
+}
+
+export default function compile (strings, ...values) {
 	if (isServer) {
 		return;
 	}
@@ -303,107 +369,8 @@ export function compile (strings, ...values) {
 			programs.push([, [], ...values]);
 		}
 
-		if (!isRoot) {
-			return programs;
-		}
-
-		const objects = programs.map(([program, labels, ...callbacks]) => {
+		return !isRoot ? programs : [Program, { gl }, ...programs.map(([program, labels, ...callbacks]) => {
 			return { program, callbacks, label: [...labels].join(', ') };
-		});
-
-		return ['', {}, ...objects];
+		})];
 	};
-}
-
-const animations = new Map();
-const queue = new Set();
-
-function draw (timestamp) {
-	for (const [gl, array] of animations) {
-		const [prevTimestamp, nextTimestamp, ...programs] = array;
-		let param;
-
-		if (nextTimestamp > timestamp) {
-			continue;
-		}
-		
-		const duration = prevTimestamp === undefined ? 0 : timestamp - prevTimestamp;
-		array[0] = timestamp;
-
-		for (const { program, callbacks } of programs) {
-			if (program) {
-				gl.useProgram(program);
-			}
-
-			for (const callback of callbacks) {
-				param = callback(gl, duration, param);
-			}
-		}
-
-		if (param > 0) {
-			array[1] += param;
-		} else {
-			animations.delete(gl);
-		}
-	}
-
-	if (animations.size) {
-		requestAnimationFrame(draw);
-	}
-}
-
-function schedule (gl, child, props) {
-	if (props) {
-		instanceMap.set(child, props);
-	} else {
-		instanceMap.delete(child);
-	}
-
-	if (!queue.size) {
-		requestAnimationFrame(timestamp => {
-			const prevSize = animations.size;
-
-			for (const gl of queue) {
-				const programs = getStored(animations, gl, () => [timestamp, 0]);
-				programs.splice(2);
-
-				for (const childNode of gl.canvas.childNodes) {
-					if (instanceMap.has(childNode)) {
-						const props = instanceMap.get(childNode);
-						programs.push(props);
-					}
-				}
-
-				if (!programs.length) {
-					animations.delete(gl);
-				}
-			}
-			
-			queue.clear();
-
-			if (animations.size && !prevSize) {
-				draw(timestamp);	
-			}
-		});
-	}
-
-	queue.add(gl);
-}
-
-function Program (props, canvas) {
-	const { ref, label } = props;
-
-	processMemo(null, [props], () => {
-		const gl = canvas.getContext('webgl');
-		const [child] = ref[0];
-		schedule(gl, child, props);
-		return () => schedule(gl, child);
-	});
-
-	return label;
-}
-
-export default function renderProgram (props, canvas) {
-	const ref = [Program, props, canvas];
-	return props.ref = ref;
 }

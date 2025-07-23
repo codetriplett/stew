@@ -1,6 +1,5 @@
 import renderElement from './element';
 import renderImpulse, { execute } from './impulse';
-import renderProgram from './program';
 import { unsubscribe } from './state';
 
 export function remove (info, parentNode) {
@@ -81,7 +80,7 @@ export default function render (layout, context, document, nodes, container, i, 
 			}
 			case 'object': {
 				if (!layout) {
-					info = undefined;
+					info = null;
 					break;
 				}
 
@@ -89,7 +88,7 @@ export default function render (layout, context, document, nodes, container, i, 
 				const { '': convert } = context['']?.default || {};
 				const { '': key, ...props } = layout;
 				context = props;
-				layout = nodes[0].tagName === 'CANVAS' ? renderProgram : convert || (() => {});
+				layout = convert || (() => {});
 			}
 			case 'function': {
 				layout = layout(context, nodes[0]);
@@ -105,49 +104,45 @@ export default function render (layout, context, document, nodes, container, i, 
 	
 		switch (typeof tagName) {
 			case 'object': {
-				if (tagName === info[2]) {
-					info[0] = tagName;
-				} else if (tagName) {
-					info = tagName;
-					tagName = info.tagName;
+				// This is reserved for portals only
+				// - elements no longer set their ref, only fragments do since they are non-destructive
+				// - overriding tagName led to issues when layouts were reused (e.g. passed as children to impulses)
+				if (tagName && !Array.isArray(tagName)) {
+					node = tagName;
+					tagName = info[0] || '';
+					break;
 				}
-
-				break;
 			}
 			case 'undefined':
 			case 'boolean': {
 				// TODO: have [true, {}, ...] indicate static content
 				// - nodes will be shallow hydrated, only pick node without processing children
 				// - can also be used client side to memoize and keep previous content (boolean is result of memo check)
-				tagName = null;
+				tagName = '';
 				break;
 			}
 			case 'function': {
+				// TODO: consider if memoized impulse should be set up if no props were provided
+				// - these won't update if their parent updates, only if changes are made to state props it uses
+				// - would need to have contexts keep their references on update for this to work, instead of rebuilding themselves
+				// - that would require deleting old props as well
 				if (!object) {
 					props = object;
 				}
 
 				callback = renderImpulse;
-				node = container[i + 3];
-
-				if (node?.nodeValue === undefined) {
-					node = document.createTextNode('');
-				} else if (node.nodeValue) {
-					node.nodeValue = '';
-				}
-
-				nodes.push(node);
 				break;
 			}
 		}
-		
+
 		if (tagName !== info[0]) {
-			if (!node && info.tagName && tagName?.toUpperCase?.() === info.tagName) {
-				info = [tagName,, info, ...info.childNodes];
-				// TODO: make sure comment nodes don't mess up the hydration order (I think it skips over mismatches)
-			} else {
+			// TODO: fix hydration
+			// if (!node && info.tagName && tagName?.toUpperCase?.() === info.tagName) {
+			// 	info = [tagName,, info, ...info.childNodes];
+			// 	// TODO: make sure comment nodes don't mess up the hydration order (I think it skips over mismatches)
+			// } else {
 				info = [tagName,, node];
-			}
+			// }
 		}
 
 		layout[0] = callback(info, props, children, context, document, nodes);

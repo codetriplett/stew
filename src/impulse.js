@@ -131,10 +131,16 @@ export default function renderImpulse (info, props, children, context, document,
 
 		info.splice(4, 2);
 		stack.shift();
-		return prevNodes = nextNodes;
+		prevNodes = nextNodes;
+		return callback;
 	};
+	
+	if (!anchor) {
+		anchor = info[2] = document.createTextNode('');
+	}
 
 	info[1] = [update, new Set(), ...stack.map(info => info[1])];
 	info[3] = null;
+	nodes.push(anchor);
 	return update(props, ...children);
 }

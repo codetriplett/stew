@@ -1,6 +1,6 @@
 import state, { updateSettings } from '.';
 
-export default function Sidebar ({ isRight = false, hideContent = false, icon, toggleProp, widget }, ...children) {
+export default function Sidebar ({ isRight = false, hideContent = false, icon, toggleProp, widget, Component }, ...children) {
 	if (widget?.length > 2) {
 		children.unshift(['div', null,
 			['template', { shadowrootmode: 'open' }, widget],
@@ -15,6 +15,13 @@ export default function Sidebar ({ isRight = false, hideContent = false, icon, t
 	const toggleClass = `show-${side}`;
 	const eligible = children.some(child => child);
 	const active = show && eligible;
+
+	// TODO: prevent these from loading in small view if menu is active but hidden
+	// - maybe detect small view whenever this renders, and empty children array if not visible, even if state shows it as active
+	// - this isn't a big deal for now with everything in local storage, but it does add more processing
+	if (Component) {
+		children = children.map(value => [Component, { '': value }, value]);
+	}
 
 	return hasMounted && ['div', {
 		className: `sidebar sidebar-${side} ${active ? '': 'sidebar-hidden'}`,

@@ -180,6 +180,9 @@ export function getQuests () {
 	];
 }
 
+// TODO: render cube when year note is viewed
+// - blocks will be filled in when weeks have enough quests checked off
+// - color blocks in darker the closer to the edge they are (using original aVertex values)
 export function calendar () {
 	const [props, content, navigation] = arguments;
 	const date = new Date();

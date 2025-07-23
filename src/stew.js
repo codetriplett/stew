@@ -24,7 +24,7 @@
 import { isServer } from './document';
 import { effects, processEffects, processMemo, stack } from './impulse';
 import createState, { queue, schedule } from './state';
-import { compile } from './program';
+import compile from './program';
 import render from './view';
 
 export function hotSwapStep (info, manifest, subscriptions) {

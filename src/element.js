@@ -57,7 +57,7 @@ export default function renderElement (info, props, children, context, document,
 		// - have client side attach and use shadowRoot in its place to reconcile children
 		// - the actual DOM element that wraps the shadowRoot should be added to nodes for parent's reconciliation
 		// - how to we store both wrapper element and shadow node in info array? try not to add extra checks. 
-		if (!isServer && shadowrootmode && tagName?.toUpperCase?.() === 'TEMPLATE') {
+		if (!isServer && shadowrootmode && tagName.toLowerCase?.() === 'template') {
 			const [parentNode] = nodes;
 			node = parentNode.shadowRoot || parentNode.attachShadow({ mode: shadowrootmode });
 		} else {
@@ -68,7 +68,7 @@ export default function renderElement (info, props, children, context, document,
 	}
 
 	if (node) {
-		if ('tagName' in node) {
+		if (tagName && ('tagName' in node)) {
 			nodes.push(node);
 		}
 
@@ -89,9 +89,6 @@ export default function renderElement (info, props, children, context, document,
 
 		updateAttributes(node, props, prevNames, nextNames);
 	} else {
-		// TODO: store context on info[2] and Object.assign new props
-		// - this is so impulses can get updates now that they avoid rebuilding update function
-		// - need to store prevNames on '' of map and delete the names that are no longer present
 		context = { ...context, ...props };
 		map = {};
 	}
@@ -119,8 +116,8 @@ export default function renderElement (info, props, children, context, document,
 	info.splice(children.length + 3);
 
 	if (node) {
-		reconcile(parentNode, nodes.slice(1), [...parentNode.childNodes]);
-		return node;
+		reconcile(node, nodes.slice(1), [...node.childNodes]);
+		return tagName;
 	}
 
 	return nodes.slice(length);

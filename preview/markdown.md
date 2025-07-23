@@ -137,4 +137,3 @@ Custom emoji can be used by wrapping the name in `:` symbols. The list of availa
 Text can be hidden until clicked by wrapping it in double `|` symbols. For this reason, it is good practice to include at least one space between cells in your tables.
 
 	Click to reveal the ||spoiler text||
-	

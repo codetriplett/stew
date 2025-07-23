@@ -3,8 +3,9 @@
 
 ## Elements
 
-	['', { ...context }, ...children]
+	['', { state }, ...children]
 	['div', { className: 'container' }, ...children]
+	[Component, ]
 
 ## Impulses
 

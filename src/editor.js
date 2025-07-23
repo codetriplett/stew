@@ -28,9 +28,9 @@ function clear (path) {
 
 async function save (path, formRef, textareaRef, isCommit, skipReload) {
 	const { readonly } = flags;
-	const file = textareaRef[0].value;
+	const file = textareaRef[0][0].value;
 	const code = extractCode(file, library);
-	const data = formRef ? extractData(formRef[0]) : {};
+	const data = formRef ? extractData(formRef[0][0]) : {};
 
 	if (!data) {
 		return;
@@ -58,7 +58,7 @@ async function save (path, formRef, textareaRef, isCommit, skipReload) {
 
 function resizeTextarea (ref) {
 	const { scrollX, scrollY } = window;
-	const [textarea] = ref;
+	const [textarea] = ref[0];
 	textarea.style.height = '0px';
 	const { scrollHeight } = textarea;
 	textarea.style.height = `${scrollHeight}px`;
@@ -66,7 +66,7 @@ function resizeTextarea (ref) {
 }
 
 function insert (ref, symbol) {
-	const [textarea] = ref;
+	const [textarea] = ref[0];
 	let { value, selectionStart, selectionEnd } = textarea;
 	let [, before, slice, after] = value.slice(selectionStart, selectionEnd).match(/^(\s*)([\s\S]*?)(\s*)$/);
 	before = `${value.slice(0, selectionStart)}${before}`;
@@ -135,12 +135,12 @@ export default function Editor ({ path, file, schema }) {
 
 	return ['', null,
 		[Sidebar, { icon: 'menu', hideContent: true },
-			!!schema && Object.keys(schema).length > 0 && (formRef = ['form', {
+			!!schema && Object.keys(schema).length > 0 && (formRef = ['', null, ['form', {
 				'': 'form',
 				onsubmit: event => event.preventDefault(),
 			},
 				FormField(schema, data),
-			]),
+			]]),
 		],
 		['div', { className: 'main' },
 			['div', { className: 'paper' },
@@ -187,7 +187,7 @@ export default function Editor ({ path, file, schema }) {
 						}],
 					],
 				],
-				textareaRef = ['textarea', {
+				textareaRef = ['', null, ['textarea', {
 					'': 'textarea',
 					placeholder: '(empty)',
 					spellcheck: false,
@@ -196,7 +196,7 @@ export default function Editor ({ path, file, schema }) {
 
 						if (key === 'Tab') {
 							event.preventDefault();
-							const [textarea] = textareaRef;
+							const [textarea] = textareaRef[0];
 							const { value, selectionStart, selectionEnd } = textarea;
 							textarea.value = `${value.slice(0, selectionStart)}\t${value.slice(selectionEnd)}`;
 							textarea.selectionStart = textarea.selectionEnd = selectionStart + 1;
@@ -213,7 +213,7 @@ export default function Editor ({ path, file, schema }) {
 						resizeTextarea(textareaRef);
 						// state.isChanged = true;
 					},
-				}, file],
+				}, file]],
 				['button', {
 					type: 'button',
 					className: 'right-button save-button',
