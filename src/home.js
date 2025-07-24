@@ -14,9 +14,14 @@ function alphabetizeFolder (folder) {
 
 function Folder (folder, path = '/') {
 	const { '': files, ...folders } = folder;
+	const folderEntries = Object.entries(folders);
+
+	if (!files.length && !folderEntries.length) {
+		return;
+	}
 
 	return ['ul', { className: 'children' },
-		...Object.entries(folders).map(([name, folder]) => {
+		...folderEntries.map(([name, folder]) => {
 			return ['li', null,
 				['span', { className: 'child-button' }, `${name}/`],
 				Folder(folder, `${path}${name}/`),

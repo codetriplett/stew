@@ -9,9 +9,6 @@ function addSnips (...newSnips) {
 	const { classList } = document.body;
 	const { snips } = state;
 	let wasAdded = false;
-	updateSettings({ showSnips: true });
-	classList.remove('show-menu');
-	classList.add('show-snips');
 
 	for (const snip of newSnips) {
 		const index = snips.indexOf(snip);
@@ -22,10 +19,15 @@ function addSnips (...newSnips) {
 		}
 	}
 
-	if (wasAdded) {
-		state.snips = [...snips];
-		packSettingsAndSessions();
+	if (!wasAdded) {
+		return;
 	}
+
+	state.snips = [...snips];
+	packSettingsAndSessions();
+	updateSettings({ showSnips: true });
+	classList.remove('show-left');
+	classList.add('show-right');
 }
 
 function LeftMenuList (map, hashes) {
@@ -136,10 +138,16 @@ function Citation ({ snip }) {
 				const { snips } = state;
 				const index = snips.indexOf(snip);
 
-				if (index !== -1) {
-					snips.splice(index, 1);
-					state.snips = [...snips];
-					packSettingsAndSessions();
+				if (index === -1) {
+					return;
+				}
+
+				snips.splice(index, 1);
+				state.snips = [...snips];
+				packSettingsAndSessions();
+
+				if (!snips.length) {
+					document.body.classList.remove('show-right')
 				}
 			},
 		}],
@@ -168,8 +176,11 @@ export default function Page ({ path, map, ref, breadcrumbs, heading, markdown, 
 	const { isEditing, snips } = state;
 
 	if (isEditing) {
-		// TODO: figure out why reconcile doesn't replace DOM when fragment isn't used
-		return ['', null, [Editor, { path, file: markdown, schema }]];
+		// TODO: figure out why it fails when this is wrapped in a fragment
+		// - the Page impulse seems to have a mismatch between its nodes array and the actual childNodes in the DOM
+		// - this is causing it to choose the wrong sibling for reconcile()
+		// - Page would be sharing teh same proxy between this and its other one, but the prevNodes should still exist when reconcile runs. prevNodes are only removed afterward
+		return [Editor, { path, file: markdown, schema }];
 	}
 
 	stew(null, [], () => {

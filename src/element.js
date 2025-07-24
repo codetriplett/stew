@@ -6,7 +6,7 @@ function updateAttributes (node, attributes, prevNames, nextNames = new Set()) {
 		prevNames.delete(name);
 		nextNames.add(name);
 
-		if (name === 'style' || name === 'dataset') {
+		if (value && (name === 'style' || name === 'dataset')) {
 			const object = node[name];
 
 			for (const [valueName, string] of Object.entries(value)) {

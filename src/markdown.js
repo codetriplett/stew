@@ -631,6 +631,8 @@ export default function parse (content, rootPath = '', library = stack[0]?.[4] |
 
 				if (Array.isArray(node)) {
 					wrapper.splice(0, 3, ...node);
+				} else if (typeof node !== 'string') {
+					wrapper.splice(0, 3, '', null, node);
 				} else {
 					container[2] = node;
 				}

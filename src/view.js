@@ -11,9 +11,14 @@ export function remove (info, parentNode) {
 		return;
 	}
 
-	const [, impulse, node, proxy,, ...children] = info;
+	const [, impulse, node, ...children] = info;
 
 	if (Array.isArray(impulse)) {
+		if (parentNode) {
+			parentNode.removeChild(node);
+		}
+
+		const proxy = children.shift();
 		unsubscribe(impulse);
 		remove(proxy, parentNode);
 

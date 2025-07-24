@@ -39,8 +39,8 @@ export function processEffects () {
 //   - in both cases clearing the variable that holds the suspend/resume/swap will allow it to garbage collect the tree
 export function processMemo (callback, ...rest) {
 	let [deps = [], intermediate, fallback] = rest;
-	const [info = [,,,, []]] = stack;
-	const memo = info[4].shift() || [];
+	const [info = [,,,,, []]] = stack;
+	const memo = info[5].shift() || [];
 	let [value,, ...prev] = memo;
 	info.push(memo);
 
@@ -112,7 +112,7 @@ export default function renderImpulse (info, props, children, context, document,
 		}
 
 		stack.unshift(info);
-		info.push(info.splice(4), context['']);
+		info.push(context[''], info.splice(4));
 		const layout = execute(callback, ...params);
 		const prevProxy = info[3];
 		const { length } = nodes;

@@ -65,11 +65,13 @@ body.dark-theme {
 	display: flex;
 	justify-content: center;
 	padding: 0 4px;
+	max-width: 100dvw;
 }
 
 .main {
 	flex: 1 0 0;
 	max-width: min(1200px, calc(100dvw - 8px - var(--left-sidebar-width) - var(--right-sidebar-width)));
+	overflow-x: auto;
 
 	h1 {
 		text-align: center;
@@ -214,12 +216,12 @@ body.dark-theme {
 }
 .sidebar-left > .toggle {
     top: 18px;
-    right: -48px;
+    right: -46px;
 	left: auto;
 }
 .sidebar-right > .toggle {
     top: 18px;
-    left: -48px;
+    left: -46px;
 	right: auto;
 }
 
@@ -386,9 +388,11 @@ label input[type="checkbox"] {
 
 	#app {
 		float: left;
+		max-width: none;
 	}
 	.main {
 		width: 100dvw;
+		overflow-x: visible;
 	}
 	body:not(.show-left) .sidebar-left,
 	body:not(.show-right) .sidebar-right {
@@ -399,8 +403,15 @@ label input[type="checkbox"] {
 			display: none;
 		}
 	}
-	.show-left .toolbar {
-		display: none;
+	.show-left {
+		.toolbar {
+			display: none;
+		}
+		.menu-button {
+			position: fixed;
+			top: 18px;
+			left: 260px;
+		}
 	}
 	.show-right {
 		#app {
@@ -414,6 +425,11 @@ label input[type="checkbox"] {
 			.scroll {
 				width: var(--right-sidebar-expanded-width);
 			}
+		}
+		.snips-button {
+			position: fixed;
+			top: 18px;
+			left: 6px;
 		}
 	}
 	.toggle,
