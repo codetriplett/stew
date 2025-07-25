@@ -43,7 +43,7 @@ async function save (path, formRef, textareaRef, isCommit, skipReload) {
 	]);
 
 	if (!isCommit) {
-		state.isEditing = false;
+		// state.isEditing = false;
 	} else if (!readonly) {
 		clear(path);
 	}

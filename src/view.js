@@ -45,7 +45,7 @@ export function reconcile (node, nextNodes, prevNodes, sibling) {
 	let nodeIndex = prevNodes.length - 1;
 	let prevNode = prevNodes[nodeIndex];
 
-	for (let i = nextNodes.length - 1; i >=0; i--) {
+	for (let i = nextNodes.length - 1; i >= 0; i--) {
 		const nextNode = nextNodes[i];
 
 		if (nextNode === prevNode) {
@@ -150,7 +150,11 @@ export default function render (layout, context, document, nodes, container, i, 
 			// }
 		}
 
-		layout[0] = callback(info, props, children, context, document, nodes);
+		const refs = callback(info, props, children, context, document, nodes);
+
+		if (!tagName) {
+			layout[0] = refs;
+		}
 	
 		if (key) {
 			map[key] = info;

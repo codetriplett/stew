@@ -115,10 +115,9 @@ export default function renderElement (info, props, children, context, document,
 	info[1] = map;
 	info.splice(children.length + 3);
 
-	if (node) {
-		reconcile(node, nodes.slice(1), [...node.childNodes]);
-		return tagName;
+	if (!node) {
+		return nodes.slice(length);
 	}
-
-	return nodes.slice(length);
+	
+	reconcile(node, nodes.slice(1), [...node.childNodes]);
 }

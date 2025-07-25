@@ -97,50 +97,48 @@ export default function renderImpulse (info, props, children, context, document,
 		return update(props, ...children);
 	}
 
-	// TODO: have fragments maintain the same context and delete props when needed so this will have same reference
-	// - store Set of names set on context, like what is done for element, to speed up processing
-	let [callback,, anchor] = info;
-	let prevParams, prevNodes, siblings;
+	const [callback] = info;
+	const [parentNode] = nodes;
+	let anchor, prevParams, prevNodes;
 
+	// TODO: put anchor at the end of slice
+	// - store nodes[nodes.length - 1] to find the start of slice (in case impulses before this one have updated)
+	// - that stored node will never change, since impulses are the only ones that do and always end with their anchor
+	// - anchor can always be used as sibling during reconciliation
 	const update = (...params) => {
-		if (params.length) {
-			prevParams = params;
-			prevNodes = undefined;
-		} else {
+		let siblings;
+		info.push(context[''], info.splice(4));
+		stack.unshift(info);
+
+		if (!params.length) {
+			const index = nodes.indexOf(anchor);
+			siblings = nodes.splice(index - prevNodes.length);
 			params = prevParams;
-			siblings = nodes.splice(nodes.indexOf(anchor) + 1).splice(prevNodes.length);
 		}
 
-		stack.unshift(info);
-		info.push(context[''], info.splice(4));
 		const layout = execute(callback, ...params);
 		const prevProxy = info[3];
 		const { length } = nodes;
 		const proxy = render(layout, context, document, nodes, info, 0, {});
-		nextNodes = nodes.slice(length);
+		const nextNodes = nodes.slice(length);
 
-		if (prevNodes) {
-			const [parentNode] = nodes;
-			reconcile(parentNode, nextNodes, prevNodes, siblings[0]);
+		if (proxy !== prevProxy) {
+			remove(prevProxy, parentNode);
+		}
+	
+		if (siblings) {
 			nodes.push(...siblings);
-
-			if (proxy !== prevProxy) {
-				remove(prevProxy, parentNode);
-			}
+			reconcile(parentNode, nextNodes, prevNodes, anchor);
 		}
 
-		info.splice(4, 2);
 		stack.shift();
+		info.splice(4, 2);
+		prevParams = params;
 		prevNodes = nextNodes;
-		return callback;
 	};
-	
-	if (!anchor) {
-		anchor = info[2] = document.createTextNode('');
-	}
 
-	info[1] = [update, new Set(), ...stack.map(info => info[1])];
-	info[3] = null;
-	nodes.push(anchor);
-	return update(props, ...children);
+	anchor = document.createTextNode('');
+	info.splice(1, 3, [update, new Set(), ...stack.map(info => info[1])], anchor, null);
+	update(props, ...children);
+	nodes.push(...prevNodes, anchor);
 }

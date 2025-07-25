@@ -12,25 +12,25 @@ export function demo () {
 	const [{ markdown }, code] = arguments;
 
 	const lines = markdown ? [code] : code.split(/\r\n|\r|\n/).map(line => {
-		const [, text, comment] = line.match(/^(.*?)(?:\s*\/\/\s*([+-]))?\s*$/);
+	    const [, text, comment] = line.match(/^(.*?)(?:\s*\/\/\s*([+-]))?\s*$/);
 
-		return ['div', {
-			style: comment && { backgroundColor: comment === '-' ? 'rgba(191, 63, 63, 0.125)' : 'rgba(63, 191, 63, 0.125)' },
-		}, text || ' '];
+	    return ['div', {
+	        style: comment && { backgroundColor: comment === '-' ? 'rgba(191, 63, 63, 0.125)' : 'rgba(63, 191, 63, 0.125)' },
+	    }, text || ' '];
 	});
 
 	return ['div', {
-		className: 'stew-demo',
-		style: { display: 'flex', gap: '16px' },
+	    className: 'stew-demo',
+	    style: { display: 'flex', gap: '16px' },
 	},
-		['div', {
-			style: { flex: '3 1 0', overflowX: 'auto', fontFamily: 'monospace', whiteSpace: 'pre' },
-		},
-			...lines,
-		],
-		['div', {
-			style: { flex: '2 1 0', overflowX: 'auto', padding: '16px', background: 'var(--page-background)' },
-		}, markdown ? stew(code) : new Function(code)],
+	    ['div', {
+	        style: { flex: '3 1 0', overflowX: 'auto', fontFamily: 'monospace', whiteSpace: 'pre' },
+	    },
+	        ...lines,
+	    ],
+	    ['div', {
+	        style: { flex: '2 1 0', overflowX: 'auto', padding: '16px', background: 'var(--page-background)' },
+	    }, markdown ? stew(code) : new Function(code)],
 	];
 }
 
