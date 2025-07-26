@@ -191,7 +191,7 @@ Promise.all([...promises, fetchCode('index')]).then(async sequence => {
 	const markdown = sequence.shift();
 	const breadcrumbs = [];
 	const resources = [];
-	let map, ref, heading, schema, directory;
+	let map, ref, heading, isModule, schema, directory;
 	state.data = sequence[0];
 
 	for (let i = sequence.length - 1; i > 0; i -= 2) {
@@ -211,15 +211,16 @@ Promise.all([...promises, fetchCode('index')]).then(async sequence => {
 
 	const widget = ['', null];
 	let content = stew(markdown, [`/${path}`, library]);
-	
+
 	if (name) {
 		if (content) {
 			ref = content[2]?.[0] === 'canvas' ? [] : undefined;
 			[, map] = content.splice?.(0, 2, 'main', ref ? { ref } : null);
 		}
 
-		const root = map?.['']?.split?.('#')?.[1];
-		heading = map?.[root]?.[1] || formatHeading(name);
+		const [meta, child] = map?.['']?.split?.('#') || [];
+		heading = map?.[child]?.[1] || formatHeading(name);
+		isModule = meta?.indexOf(':') !== -1;
 	} else {
 		const folder = `/${path}`;
 		const res = await fetch(`${folder}/`);
@@ -270,6 +271,7 @@ Promise.all([...promises, fetchCode('index')]).then(async sequence => {
 		ref,
 		breadcrumbs,
 		heading,
+		isModule,
 		markdown,
 		directory,
 		schema,

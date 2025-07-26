@@ -172,7 +172,7 @@ function Citation ({ snip }) {
 // - right nav will be used by snips and preview
 // - left nav will only fill its own width, while right nav will share space with main area (but less)
 
-export default function Page ({ path, map, ref, breadcrumbs, heading, markdown, directory, schema, widget }, ...children) {
+export default function Page ({ path, map, ref, breadcrumbs, heading, isModule, markdown, directory, schema, widget }, ...children) {
 	const { isEditing, snips } = state;
 
 	if (isEditing) {
@@ -200,11 +200,14 @@ export default function Page ({ path, map, ref, breadcrumbs, heading, markdown, 
 						['a', { href: '/' }, 'Home'],
 					],
 					...breadcrumbs.map(breadcrumb => ['li', null, breadcrumb]),
-					heading && ['li', null, ['a', { href: `${path}/` }, heading], ['button', {
-						type: 'button',
-						className: 'edit-button',
-						onclick: () => state.isEditing = true,
-					}, '🖉']],
+					heading && ['li', null,
+						isModule ? ['a', { href: `/${path}/` }, heading] : heading,
+						['button', {
+							type: 'button',
+							className: 'edit-button',
+							onclick: () => state.isEditing = true,
+						}, '🖉'],
+					],
 				],
 				['div', null,
 					['template', { shadowrootmode: 'open' },

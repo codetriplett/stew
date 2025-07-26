@@ -616,6 +616,16 @@ describe('parse', () => {
 			]);
 		});
 
+		it('edge newlines', () => {
+			const actual = parse('```\n\nabc\n\n```');
+
+			expect(actual).toEqual(['', null,
+				['pre', null,
+					['code', null, '\nabc\n'],
+				],
+			]);
+		});
+
 		it('tick space overage', () => {
 			const actual = parse('```\n  abc\n```');
 

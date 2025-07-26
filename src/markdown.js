@@ -333,7 +333,9 @@ export default function parse (content, rootPath = '', library = stack[0]?.[4] |
 	let alignments, reference, format;
 
 	for (let line of lines) {
-		if (!/\S/.test(line)) {
+		if (tickCount) {
+			line = `\t${line}`;
+		} else if (!/\S/.test(line)) {
 			newlines += newlines < 0 ? 2 : 1;
 			continue;
 		} else if (tags.length > 1) {
@@ -348,8 +350,6 @@ export default function parse (content, rootPath = '', library = stack[0]?.[4] |
 			parseInline(` ${line.trim()} `, tags, links, emoji);
 			newlines = -1;
 			continue;
-		} else if (tickCount) {
-			line = `\t${line}`;
 		}
 
 		let [,
@@ -425,7 +425,7 @@ export default function parse (content, rootPath = '', library = stack[0]?.[4] |
 				format = undefined;
 				continue;
 			} else if (!nodes.length) {
-				const newlines = Math.max(0, oldlines) + (node[2] ? 1 : 0);
+				const newlines = Math.max(0, oldlines) + (tickCount || node[2] ? 1 : 0);
 				node[2] += `${'\n'.repeat(newlines)}${string}`;
 				continue;
 			} else if (format === 'export' && stack.length < 3) {
