@@ -551,7 +551,7 @@ export default function parse (content, rootPath = '', library = stack[0]?.[4] |
 		const text = getText(container).trim().replace(/^\s+$/, ' ');
 
 		if (!id) {
-			id = text.toLowerCase().replace(/[^a-z]+/g, '-').replace(/^-|-$/g, '');
+			id = text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 			if (!id || /^[a-z]-\d+$/.test(id)) {
 				id = `h-${Object.keys(map).length - 1}`;

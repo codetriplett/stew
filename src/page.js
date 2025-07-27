@@ -180,7 +180,7 @@ export default function Page ({ path, map, ref, breadcrumbs, heading, isModule, 
 		// - the Page impulse seems to have a mismatch between its nodes array and the actual childNodes in the DOM
 		// - this is causing it to choose the wrong sibling for reconcile()
 		// - Page would be sharing teh same proxy between this and its other one, but the prevNodes should still exist when reconcile runs. prevNodes are only removed afterward
-		return [Editor, { path, file: markdown, schema }];
+		return [Editor, { path, file: markdown, schema, isModule }];
 	}
 
 	stew(null, [], () => {

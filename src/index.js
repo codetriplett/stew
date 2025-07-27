@@ -218,9 +218,10 @@ Promise.all([...promises, fetchCode('index')]).then(async sequence => {
 			[, map] = content.splice?.(0, 2, 'main', ref ? { ref } : null);
 		}
 
-		const [meta, child] = map?.['']?.split?.('#') || [];
-		heading = map?.[child]?.[1] || formatHeading(name);
-		isModule = meta?.indexOf(':') !== -1;
+		const [, child] = map && map[''].split('#') || [];
+		const [hash, mainHeading] = map?.[child] || [];
+		heading = mainHeading || formatHeading(name);
+		isModule = !hash ? false : hash.split('#')[0].indexOf(':') !== -1;
 	} else {
 		const folder = `/${path}`;
 		const res = await fetch(`${folder}/`);
@@ -253,12 +254,13 @@ Promise.all([...promises, fetchCode('index')]).then(async sequence => {
 	for (let i = 0; i < sequence.length; i += 2) {
 		const data = sequence[i];
 		const exports = sequence[i + 1];
-		const [Component,, ...rest] = exports.default || [];
+		const defaultExport = exports.default;
+		const [Component,, ...rest] = Array.isArray(defaultExport) ? defaultExport : [defaultExport];
 		resources.unshift(...rest);
 
 		try {
 			// TODO: figure out how to respond to navigation widget changes
-			content = Component ? [Component, data, content, widget] : content;
+			content = typeof Component === 'function' ? [Component, data, content, widget] : content;
 		} catch (err) {
 			content = null;
 			console.error(err);

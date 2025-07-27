@@ -5,6 +5,7 @@ const shaderTypes = ['VERTEX_SHADER', 'FRAGMENT_SHADER'];
 export const sequenceMap = new WeakMap();
 export const rootMap = new WeakMap();
 export const nodeMap = new WeakMap();
+const varyingMap = new Map();
 
 function getStored (map, key, callback) {
 	if (map.has(key)) {
@@ -81,7 +82,7 @@ function createUniformSetter (gl, program, subname, name, type, subtype) {
 	}
 	
 	const setterName = setterNames[type];
-	
+
 	if (/^mat[2-4]$/.test(type)) {
 		return value => gl[setterName](location, false, subname ? value[subname] : value);
 	} else if (setterName) {
@@ -104,7 +105,7 @@ function createOtherSetter (gl, subname, name) {
 	}
 }
 
-export function createShader (gl, index, stack) {
+export function createShader (gl, index, stack, varyings = []) {
 	const type = shaderTypes[index];
 	const allCode = [];
 	const allVars = [];
@@ -124,13 +125,26 @@ export function createShader (gl, index, stack) {
 		headerCode.unshift('precision mediump float;');
 	}
 
+	const processedCode = allCode.map(line => {
+		const match = line.match(/^varying\s+(\S+)\s+(\S+)(\s*=\s*.*)$/);
+
+		if (!match) {
+			return line;
+		}
+
+		const [, type, name, remainder] = match;
+		varyings.push(`varying ${type} ${name};`);
+		return `${name}${remainder}`;
+	});
+
 	const code = [
 		...headerCode,
 		...allVars.map(([, name, type, subtype]) => {
 			const category = !subtype || type === 'sampler2D' ? 'uniform' : 'attribute';
 			return `${category} ${type} ${name};`;
 		}),
-		'void main() {', ...allCode, '}',
+		...varyings,
+		'void main() {', ...processedCode, '}',
 	].join('\n');
 
 	const shader = gl.createShader(gl[type]);
@@ -139,6 +153,10 @@ export function createShader (gl, index, stack) {
 
 	if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
 		console.error(gl.getShaderInfoLog(shader));
+	}
+	
+	if (index === 0) {
+		varyingMap.set(shader, varyings);
 	}
 
 	return shader;
@@ -150,7 +168,7 @@ export function parse (strings) {
 
 	for (const string of strings) {
 		const lines = string.split(/\s*[\n\r]+\s*/);
-		comment = lines.shift().trim();
+		comment = lines.shift().split('//')[0].trim();
 
 		if (definition) {
 			shader.push([comment, ...definition.trim().split(/\s+/).reverse()]);
@@ -162,7 +180,7 @@ export function parse (strings) {
 		}
 
 		definition = lines.pop();
-		shader[1].push(...lines.map(line => line.replace(/;?$/, ';')));
+		shader[1].push(...lines.map(line => line.replace(/;?(?=\s*\/\/.*|$)/, ';')));
 	}
 
 	if (shader.length < 3 && !shader[1].length) {
@@ -185,7 +203,7 @@ function draw (timestamp) {
 		if (nextTimestamp > timestamp) {
 			continue;
 		}
-		
+
 		const duration = prevTimestamp === undefined ? 0 : timestamp - prevTimestamp;
 		array[0] = timestamp;
 
@@ -294,7 +312,8 @@ export default function compile (strings, ...values) {
 						map.set(vertexInfo, vertexShader);
 					}
 
-					const fragmentShader = createShader(gl, 1, stack);
+					const varyings = varyingMap.get(vertexShader);
+					const fragmentShader = createShader(gl, 1, stack, varyings);
 
 					if (!vertexShader || !fragmentShader) {
 						return;

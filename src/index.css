@@ -84,11 +84,13 @@ body.dark-theme {
 		background: none;
 		resize: none;
 		color: var(--paper-font-color);
-		white-space: nowrap;
 		overflow-x: auto;
 		overflow-y: hidden;
 		min-height: 186px;
 		tab-size: 4;
+	}
+	.textarea-code {
+		white-space: nowrap;
 	}
 	textarea:focus {
 		outline: none;

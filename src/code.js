@@ -46,19 +46,14 @@ export function extractCode (file, library = {}) {
 	const summary = stew(file, ['/#', library]);
 	const layout = stew(file, ['/', library]);
 
-	if (!summary || !summary[1] || !layout || !layout[1]) {
+	if (!layout || !layout[1]) {
 		return;
 	}
 
 	const [, map, ...content] = layout;
-	const { '': root, ...sections } = map;
+	const { '': root, ...sections } = map || {};
 	const [, name] = root.split('#');
-	const [, index] = summary[1][''].split(':');
-
-	if (!index) {
-		return;
-	}
-
+	const [, index] = summary[1]?.['']?.split?.(':') || [];
 	const claimed = new Set();
 	const imports = {};
 	const strings = [];
@@ -69,7 +64,9 @@ export function extractCode (file, library = {}) {
 		const [hash,, ...links] = section;
 		const [type, index] = hash.split('#')[0].split(':');
 
-		if (reserved.has(formattedName)) {
+		if (index === undefined) {
+			continue;
+		} else if (reserved.has(formattedName)) {
 			console.error(`${formattedName} is a reserved word.`);
 			continue;
 		} else if (type[1] > 2) {
@@ -142,9 +139,20 @@ export function extractCode (file, library = {}) {
 		strings.unshift(string);
 	}
 
-	let code = strings.join('\n');
+	let code = strings.join('\n').replace(/^[\r\n]+/, '');
 	const formattedName = name.replace(/^-+|-+$/g, '').replace(/-+./g, m => m.slice(-1).toUpperCase());
 	const heading = sections[name]?.[1] || '';
+
+	if (!index) {
+		if (!code && !defaultString) {
+			return;
+		} else if (defaultString) {
+			code += `${code ? '\n\n' : ''}export default ${formattedName};`;
+		}
+
+		return `${code}\n`;
+	}
+
 	const definition = summary[Number(index) + 3]?.[2]?.[2];
 	const schemaStart = definition.indexOf('{');
 	let schemaFinish = definition.search(/(\{\s*|\n)\}/);
@@ -152,11 +160,9 @@ export function extractCode (file, library = {}) {
 	const resources = definition.slice(0, schemaStart).trim();
 	const styles = definition.slice(schemaFinish + 1).trim();
 	let schema = definition.slice(schemaStart, schemaFinish + 1).trim();
+	code += `${code ? '\n\n' : ''}export default [${defaultString && formattedName || 'null'}, `;
 
 	try {
-		// TODO: reformat schema and inject '' prop with title and any emojis it had
-		// - insert new schema string directly into code
-		// - have arrays include its string on single line, but have objects print with each prop on new line
 		const object = new Function(`return ${schema}`)();
 		const emoji = object[''] || {};
 		object[''] = { ...emoji, '': heading };
@@ -166,7 +172,7 @@ export function extractCode (file, library = {}) {
 		schema = '{}';
 	}
 
-	code += `\n\nexport default [${formattedName || 'null'}, ${schema}${!styles ? '' : `, ['style', null, \`\n${styles}\n\`]`}`;
+	code += `${schema}${!styles ? '' : `, ['style', null, \`\n${styles}\n\`]`}`;
 
 	for (const url of resources.split(/\s*\n+\s*/)) {
 		if (!url.startsWith('/')) {
@@ -180,6 +186,5 @@ export function extractCode (file, library = {}) {
 		}
 	}
 
-	code += `${resources ? ',\n' : ''}];\n`;
-	return code.replace(/^\n/, '');
+	return `${code}${resources ? ',\n' : ''}];\n`;
 }

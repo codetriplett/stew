@@ -128,7 +128,7 @@ function insert (ref, symbol) {
 	Object.assign(textarea, { value, selectionStart, selectionEnd });
 }
 
-export default function Editor ({ path, file, schema }) {
+export default function Editor ({ path, file, schema, isModule }) {
 	const { data } = state;
 	let formRef, textareaRef;
 	stew(null, [], () => resizeTextarea(textareaRef));
@@ -189,6 +189,7 @@ export default function Editor ({ path, file, schema }) {
 				],
 				textareaRef = ['', null, ['textarea', {
 					'': 'textarea',
+					className: isModule ? 'textarea-code' : '',
 					placeholder: '(empty)',
 					spellcheck: false,
 					onkeydown: event => {

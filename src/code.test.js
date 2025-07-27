@@ -143,6 +143,52 @@ export default [component, {
 		);
 	});
 
+	it('no summary', () => {
+		const actual = extractCode(`
+\`\`\`
+{}
+\`\`\`
+
+# Component
+
+\`\`\`export
+return 'Hello World';
+\`\`\`
+		`);
+
+		expect(actual).toEqual(
+`export function component () {
+	return 'Hello World';
+}
+
+export default component;
+`
+		);
+	});
+
+	it('no default', () => {
+		const actual = extractCode(`
+\`\`\`export
+{}
+\`\`\`
+
+# Component
+
+\`\`\`
+return 'Hello World';
+\`\`\`
+		`);
+
+		expect(actual).toEqual(
+`export default [null, {
+    '': {
+        '': 'Component',
+    },
+}];
+`
+		);
+	});
+
 	it('no code', () => {
 		const actual = extractCode(`
 \`\`\`
