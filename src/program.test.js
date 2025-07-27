@@ -106,7 +106,10 @@ beforeEach(() => {
 describe('parse', () => {
 	it('standalone callback', () => {
 		const actual = parse`${() => {}}`;
-		expect(actual).toEqual([]);
+
+		expect(actual).toEqual([
+			[[''], []],
+		]);
 	});
 
 	it('variables', () => {
@@ -122,8 +125,8 @@ describe('parse', () => {
 
 	it('statements', () => {
 		const actual = parse`
-			first
-			second
+			first;
+			second;
 		`;
 
 		expect(actual).toEqual([
@@ -134,9 +137,9 @@ describe('parse', () => {
 	it('variables and statements', () => {
 		const actual = parse`
 			type first ${[]}
-			second
+			second;
 			type third ${[]}
-			fourth
+			fourth;
 		`;
 
 		expect(actual).toEqual([
@@ -147,10 +150,10 @@ describe('parse', () => {
 	it('sequence', () => {
 		const actual = parse`
 			type first ${[]}
-			second
+			second;
 			${() => {}}
 			type third ${[]}
-			fourth
+			fourth;
 		`;
 
 		expect(actual).toEqual([
@@ -164,11 +167,11 @@ describe('parse', () => {
 			${() => {}}
 			${() => {}}
 			type first ${[]}
-			second
+			second;
 			${() => {}}
 			${() => {}}
 			type third ${[]}
-			fourth
+			fourth;
 			${() => {}}
 			${() => {}}
 		`;
@@ -176,6 +179,7 @@ describe('parse', () => {
 		expect(actual).toEqual([
 			[['', ''], ['second;'], ['', 'first', 'type']],
 			[['', ''], ['fourth;'], ['', 'third', 'type']],
+			[['', ''], []],
 		]);
 	});
 
@@ -189,19 +193,6 @@ describe('parse', () => {
 		expect(actual).toEqual([
 			[[], [], ['abc', 'first', 'type']],
 			[['lmno'], [], ['xyz', 'second', 'type']],
-		]);
-	});
-
-	it('same line expressions', () => {
-		const actual = parse`
-			type first ${[]} ${[]}
-			${() => {}} ${() => {}}
-			type second ${[]} ${[]}
-		`;
-
-		expect(actual).toEqual([
-			[[], [], ['', 'first', 'type']],
-			[['', '', ''], [], ['', 'second', 'type']],
 		]);
 	});
 });

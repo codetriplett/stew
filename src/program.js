@@ -167,8 +167,18 @@ export function parse (strings) {
 	let comment, definition, shader;
 
 	for (const string of strings) {
-		const lines = string.split(/\s*[\n\r]+\s*/);
-		comment = lines.shift().split('//')[0].trim();
+		const statements = string.split(/[\r\n\s]*;(?:\s*\/\/.*?)?[\r\n\s]+/);
+		const [first] = statements;
+		const newline = first.search(/[\r\n]/);
+
+		if (newline === -1) {
+			comment = statements.shift();
+		} else {
+			comment = first.slice(0, newline);
+			statements[0] = first.slice(comment.length).trim();
+		}
+
+		comment = comment.trim();
 
 		if (definition) {
 			shader.push([comment, ...definition.trim().split(/\s+/).reverse()]);
@@ -179,12 +189,8 @@ export function parse (strings) {
 			shader[0].push(comment);
 		}
 
-		definition = lines.pop();
-		shader[1].push(...lines.map(line => line.replace(/;?(?=\s*\/\/.*|$)/, ';')));
-	}
-
-	if (shader.length < 3 && !shader[1].length) {
-		sequence.pop();
+		definition = statements.pop();
+		shader[1].push(...statements.map(statement => `${statement};`));
 	}
 
 	sequence[0]?.[0]?.shift?.();
@@ -213,7 +219,7 @@ function draw (timestamp) {
 			}
 
 			for (const callback of callbacks) {
-				param = callback(gl, duration, param);
+				param = callback(gl, duration, param) ?? param;
 			}
 		}
 

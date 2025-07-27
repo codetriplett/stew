@@ -1,7 +1,7 @@
 const state = stew({
     camera: {
 		tilt: [0.707, 0, 0],
-		rotation: [0.707, 0, 0],
+		rotation: [-0.707, 0, 0],
 		spin: [0, 0, 0],
 		matrix: [1, 0, 0, 0, 1, 0, 0, 0, 1],
 	},
@@ -145,20 +145,26 @@ export function cube () {
 				gl.cullFace(gl.BACK);
 				gl.enable(gl.DEPTH_TEST);
 				gl.depthFunc(gl.LESS);
+
+				return 16;
 	        }}
-	        mat3 uAspect ${aspect} // comment
+	        mat3 uAspect ${aspect}
 			mat3 uCamera ${camera} matrix
 			FLOAT vec3 aVertex ${vertexes}
 			elements ${elements}
-			gl_Position = vec4(uAspect * uCamera * uMatrix * aVertex * 0.998, 1.0)
-			varying vec3 vNormal = aVertex // TODO: create initializer and remove 'varying <type>' when including in main function
+			varying vec3 vNormal = aVertex;
+			gl_Position = vec4(uAspect * uCamera * uMatrix * vNormal, 1.0);
 	        ${cubes.map(cube => stew`
 				mat3 uMatrix ${cube} matrix
 	            ${gl => gl.drawElements(gl.TRIANGLES, 36, gl.UNSIGNED_SHORT, 0)}
-	            // fragment
 	        `)}
-			gl_FragColor = vec4(vNormal, 1.0)
-	        ${() => 16}
+			// TODO: also only add the face is on outside of larger cube
+			gl_FragColor = vec4(
+				vNormal.z >= 1.0 || vNormal.x <= -1.0 || vNormal.y <= -1.0 ? 0.8 : 0.2,
+				vNormal.y >= 1.0 || vNormal.z <= -1.0 || vNormal.x <= -1.0 ? 0.8 : 0.2,
+				vNormal.x >= 1.0 || vNormal.y <= -1.0 || vNormal.z <= -1.0 ? 0.8 : 0.2,
+				1.0
+			);
 	    `],
 	    description,
 	];
