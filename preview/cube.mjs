@@ -1,15 +1,16 @@
 const state = stew({
     camera: {
-		tilt: [0.707, 0, 0],
-		rotation: [-0.707, 0, 0],
+		tilt: [-Math.PI / 6, 0, 0],
+		rotation: [Math.PI / 4, 0, 0],
 		spin: [0, 0, 0],
 		matrix: [1, 0, 0, 0, 1, 0, 0, 0, 1],
 	},
-    cubes: Array(26).fill(null).map(() => ({
+    cubes: Array(27).fill(null).map((_, i) => ({
 		// have matrix be of the face in motion the face is grouped inside of
 		// store origin props to apply XYZ translate before matrix
 		// these origin props and matrix props are updated whenever the cube becomes a part of a different face that initiated its spin
 		matrix: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+		offset: [Math.floor(i / 9) * 2 - 2, (Math.floor(i / 3) % 3) * 2 - 2, (i % 3) * 2 - 2],
 	})),
 });
 
@@ -122,16 +123,29 @@ export function cube () {
 		// - hold right + tap left: spin whole cube along right side axis
 	}, []);
 
+	const vertexes = new Float32Array([
+		-1, -1, -1,    1, -1, -1,    -1, 1, -1,    1, 1, -1,
+		-1, -1, 1,     1, -1, 1,     -1, 1, 1,     1, 1, 1
+	]);
+	
+	const elements = new Uint16Array([
+		2, 0, 1,    1, 3, 2,    5, 1, 0,    0, 4, 5,
+		0, 2, 6,    6, 4, 0,    7, 5, 4,    4, 6, 7,
+		6, 2, 3,    3, 7, 6,    3, 1, 5,    5, 7, 3
+	]);
+	
 	const { camera, cubes } = state;
-	const vertexes = new Float32Array([-1, -1, -1, 1, -1, -1, -1, 1, -1, 1, 1, -1, -1, -1, 1, 1, -1, 1, -1, 1, 1, 1, 1, 1]);
-	const elements = new Uint16Array([1, 0, 2, 2, 3, 1, 0, 1, 5, 5, 4, 0, 6, 2, 0, 0, 4, 6, 4, 5, 7, 7, 6, 4, 3, 2, 6, 6, 7, 3, 5, 1, 3, 3, 7, 5]);
-	const aspect = [0.5 * 270 / 480, 0, 0, 0, 0.5, 0, 0, 0, 0.5];
-	// TODO: add normals array and derive colors from that (+X -> R, +Y -> G, -X -> GB)
-	// - maybe add effect that puts scenery behind each color (e.g. red -> fire, blue -> ocean, green -> forest)
+	const aspect = [0.167 * 270 / 480, 0, 0, 0, 0.167, 0, 0, 0, 0.167];
 
 	return ['', null,
 	    ['canvas', { width: 960, height: 540 }, stew`
-	        ${(gl, duration) => {
+	        mat3 uAspect ${aspect}
+			mat3 uCamera ${camera} matrix
+			FLOAT vec3 aVertex ${vertexes}
+			elements ${elements}
+			gl_Position = vec4(uAspect * uCamera * uMatrix * (aVertex + uOffset), 1.0);
+			varying vec3 vVertex = aVertex;
+			${(gl, duration) => {
 				const { tilt, rotation, spin, matrix } = camera;
 				const tiltAngle = updateMotion(tilt, duration);
 				const rotationAngle = updateMotion(rotation, duration);
@@ -148,23 +162,22 @@ export function cube () {
 
 				return 16;
 	        }}
-	        mat3 uAspect ${aspect}
-			mat3 uCamera ${camera} matrix
-			FLOAT vec3 aVertex ${vertexes}
-			elements ${elements}
-			varying vec3 vNormal = aVertex;
-			gl_Position = vec4(uAspect * uCamera * uMatrix * vNormal, 1.0);
-	        ${cubes.map(cube => stew`
-				mat3 uMatrix ${cube} matrix
+	        ${cubes.map(({ matrix, offset }) => stew`
+				mat3 uMatrix ${matrix}
+				vec3 uOffset ${offset}
 	            ${gl => gl.drawElements(gl.TRIANGLES, 36, gl.UNSIGNED_SHORT, 0)}
 	        `)}
 			// TODO: also only add the face is on outside of larger cube
-			gl_FragColor = vec4(
-				vNormal.z >= 1.0 || vNormal.x <= -1.0 || vNormal.y <= -1.0 ? 0.8 : 0.2,
-				vNormal.y >= 1.0 || vNormal.z <= -1.0 || vNormal.x <= -1.0 ? 0.8 : 0.2,
-				vNormal.x >= 1.0 || vNormal.y <= -1.0 || vNormal.z <= -1.0 ? 0.8 : 0.2,
-				1.0
-			);
+			if (min(min(abs(vVertex.x), abs(vVertex.y)), abs(vVertex.z)) > 0.75) {
+				gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+			} else {
+				gl_FragColor = vec4(
+					vVertex.z >= 1.0 || vVertex.x <= -1.0 || vVertex.y <= -1.0 ? 0.8 : 0.2,
+					vVertex.y >= 1.0 || vVertex.z <= -1.0 || vVertex.x <= -1.0 ? 0.8 : 0.2,
+					vVertex.x >= 1.0 || vVertex.y <= -1.0 || vVertex.z <= -1.0 ? 0.8 : 0.2,
+					1.0
+				);
+			}
 	    `],
 	    description,
 	];
