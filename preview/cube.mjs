@@ -1,7 +1,9 @@
+const identityMatrix = [1, 0, 0, 0, 1, 0, 0, 0, 1];
+
 const state = stew({
-    camera: {
-		tilt: [-Math.PI / 6, 0, 0],
-		rotation: [Math.PI / 4, 0, 0],
+	group: {
+		tilt: [0, 0, 0],
+		rotation: [0, 0, 0],
 		spin: [0, 0, 0],
 		matrix: [1, 0, 0, 0, 1, 0, 0, 0, 1],
 	},
@@ -9,9 +11,9 @@ const state = stew({
 		// have matrix be of the face in motion the face is grouped inside of
 		// store origin props to apply XYZ translate before matrix
 		// these origin props and matrix props are updated whenever the cube becomes a part of a different face that initiated its spin
-		matrix: [1, 0, 0, 0, 1, 0, 0, 0, 1],
 		offset: [Math.floor(i / 9) * 2 - 2, (Math.floor(i / 3) % 3) * 2 - 2, (i % 3) * 2 - 2],
 	})),
+	indexes: new Set(),
 });
 
 export function add () {
@@ -78,7 +80,7 @@ export function createMatrix () {
 
 export function updateMotion (motion, duration) {
 	if (motion.length > 4) {
-		motion[1] = Math.max(Math.min(motion[0] - motion[3], motion[4] - motion[0]), (motion[4] - motion[3]) * 0.1) * 0.01;
+		motion[1] = Math.max(Math.min(motion[0] - motion[3], motion[4] - motion[0]), (motion[4] - motion[3]) * 0.1) * 0.02;
 	}
 
 	motion[1] += motion[2] * duration;
@@ -91,6 +93,60 @@ export function updateMotion (motion, duration) {
 	return motion[0];
 }
 
+const sideState = { left: false, right: false };
+const tiltIndexes = new Set([18, 19, 20, 21, 22, 23, 24, 25, 26]);
+const spinIndexes = new Set([0, 3, 6, 9, 12, 15, 18, 21, 24]);
+const fullIndexes = new Set(Array(27).fill(0).map((_, i) => i));
+let prevMotion;
+
+// TODO: add touch controls
+// - tap left: spin left side CW
+// - tap right: spin right side CCW
+// - hold left + tap right: spin whole cube along left side axis
+// - hold right + tap left: spin whole cube along right side axis
+function handleAction (side, held) {
+	const { group, cubes, indexes } = state;
+	const { tilt, spin } = group;
+	let newIndexes, motion;
+	sideState[side] = held;
+
+	if (prevMotion?.length > 3) {
+		return;
+	} else if (sideState[side === 'left' ? 'right' : 'left']) {
+		motion = side === 'left' ? tilt : spin;
+		newIndexes = fullIndexes;
+	} else if (held) {
+		return;
+	} else if (indexes === fullIndexes) {
+		newIndexes = new Set();
+	} else {
+		motion = side === 'left' ? spin : tilt;
+		newIndexes = motion === spin ? spinIndexes : tiltIndexes;
+	}
+
+	if (newIndexes !== indexes || motion !== prevMotion) {
+		const { matrix } = group;
+
+		for (const index of indexes) {
+			const cube = cubes[index];
+			const { offset } = cube;
+			// TODO: figure out why this isn't applying the matrix like the shader does
+			// cube.offset = multiply(offset, matrix);
+		}
+
+		spin.splice(0, 5, 0, 0, 0);
+		tilt.splice(0, 5, 0, 0, 0);
+		matrix.splice(0, 9, ...identityMatrix);
+		state.indexes = newIndexes;
+	}
+
+	if (motion) {
+		motion[3] = motion[0];
+		motion[4] = motion[0] - Math.PI / 2;
+		prevMotion = motion;
+	}
+}
+
 export function cube () {
 	const [props, description] = arguments;
 
@@ -101,26 +157,52 @@ export function cube () {
 	    // - no JSON to save. URL holds the orientations
 	}
 
-	stew(() => {
-	    window.addEventListener('keydown', ({ key }) => {
-	        if (key === ' ') {
-				const { camera } = state;
-				const { rotation } = camera;
+	const cameraMatrix = stew(() => {
+	    window.addEventListener('keydown', ({ key, repeat }) => {
+			if (repeat) {
+				return;
+			}
 
-				if (rotation.length > 3) {
-					return;
+	        switch (key) {
+				case 'f': {
+					handleAction('left', true);
+					break;
 				}
-
-				rotation[3] = rotation[0];
-				rotation[4] = rotation[0] + Math.PI / 2;
-	        }
+				case 'j': {
+					handleAction('right', true);
+					break;
+				}
+			}
 	    });
 
-	    // TODO: add touch controls
-		// - tap left: spin left side CW
-		// - tap right: spin right side CCW
-		// - hold left + tap right: spin whole cube along left side axis
-		// - hold right + tap left: spin whole cube along right side axis
+	    window.addEventListener('keyup', ({ key }) => {
+	        switch (key) {
+				case 'f': {
+					handleAction('left', false);
+					break;
+				}
+				case 'j': {
+					handleAction('right', false);
+					break;
+				}
+			}
+	    });
+
+		window.addEventListener('touchstart', ({ changedTouches }) => {
+			for (const { identifier, pageX, pageY } of changedTouches) {
+				handleAction(pageX < window.innerWidth / 2 ? 'left' : 'right', true);
+			}
+		});
+
+		window.addEventListener('touchend', ({ changedTouches }) => {
+			for (const { identifier, pageX, pageY } of changedTouches) {
+				handleAction(pageX < window.innerWidth / 2 ? 'left' : 'right', false);
+			}
+		});
+
+		const aspectMatrix = [0.167 * 270 / 480, 0, 0, 0, 0.167, 0, 0, 0, 0.167];
+		const compositeMatrix = createMatrix(-Math.PI / 6, Math.PI / 4, 0);
+		return multiply(compositeMatrix, aspectMatrix);
 	}, []);
 
 	const vertexes = new Float32Array([
@@ -134,19 +216,18 @@ export function cube () {
 		6, 2, 3,    3, 7, 6,    3, 1, 5,    5, 7, 3
 	]);
 	
-	const { camera, cubes } = state;
-	const aspect = [0.167 * 270 / 480, 0, 0, 0, 0.167, 0, 0, 0, 0.167];
+	const { group, cubes, indexes } = state;
+	const { matrix } = group;
 
 	return ['', null,
 	    ['canvas', { width: 960, height: 540 }, stew`
-	        mat3 uAspect ${aspect}
-			mat3 uCamera ${camera} matrix
+			mat3 uCamera ${cameraMatrix}
 			FLOAT vec3 aVertex ${vertexes}
 			elements ${elements}
-			gl_Position = vec4(uAspect * uCamera * uMatrix * (aVertex + uOffset), 1.0);
-			varying vec3 vVertex = aVertex;
+			gl_Position = vec4(uCamera * uMatrix * (aVertex + uOffset), 1.0);
+			*vec3 vPos = aVertex;
 			${(gl, duration) => {
-				const { tilt, rotation, spin, matrix } = camera;
+				const { tilt, rotation, spin, matrix } = group;
 				const tiltAngle = updateMotion(tilt, duration);
 				const rotationAngle = updateMotion(rotation, duration);
 				const spinAngle = updateMotion(spin, duration);
@@ -162,22 +243,24 @@ export function cube () {
 
 				return 16;
 	        }}
-	        ${cubes.map(({ matrix, offset }) => stew`
-				mat3 uMatrix ${matrix}
+	        ${cubes.map(({ offset }, i) => stew`
+				mat3 uMatrix ${indexes.has(i) ? matrix : identityMatrix}
 				vec3 uOffset ${offset}
 	            ${gl => gl.drawElements(gl.TRIANGLES, 36, gl.UNSIGNED_SHORT, 0)}
 	        `)}
-			// TODO: also only add the face is on outside of larger cube
-			if (min(min(abs(vVertex.x), abs(vVertex.y)), abs(vVertex.z)) > 0.75) {
-				gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
-			} else {
-				gl_FragColor = vec4(
-					vVertex.z >= 1.0 || vVertex.x <= -1.0 || vVertex.y <= -1.0 ? 0.8 : 0.2,
-					vVertex.y >= 1.0 || vVertex.z <= -1.0 || vVertex.x <= -1.0 ? 0.8 : 0.2,
-					vVertex.x >= 1.0 || vVertex.y <= -1.0 || vVertex.z <= -1.0 ? 0.8 : 0.2,
-					1.0
-				);
-			}
+			vec3 absPos = abs(vPos);
+			float xEdge = max(absPos.y, absPos.z);
+			float yEdge = max(absPos.x, absPos.z);
+			float zEdge = max(absPos.x, absPos.y);
+			bool xBack = -vPos.x - xEdge > 0.125;
+			bool yBack = -vPos.y - yEdge > 0.125;
+			bool zBack = vPos.z - zEdge > 0.125;
+			gl_FragColor = vec4(
+				vPos.x - xEdge > 0.125 || yBack || zBack ? 1.0 : 0.0,
+				vPos.y - yEdge > 0.125 || xBack || zBack ? 1.0 : 0.0,
+				-vPos.z - zEdge > 0.125 || xBack || yBack ? 1.0 : 0.0,
+				1.0
+			);
 	    `],
 	    description,
 	];

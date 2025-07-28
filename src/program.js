@@ -129,7 +129,7 @@ export function createShader (gl, index, stack, varyings = []) {
 	}
 
 	const processedCode = allCode.map(line => {
-		const match = line.match(/^varying\s+(\S+)\s+(\S+)(\s*=\s*.*)$/);
+		const match = line.match(/^\*\s*(\S+)\s+(\S+)(\s*=\s*.*)$/);
 
 		if (!match) {
 			return line;
