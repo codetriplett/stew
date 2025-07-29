@@ -1,5 +1,6 @@
 import { isServer } from './document';
 import { processMemo } from './impulse';
+import { animations, schedule } from './state';
 
 const shaderTypes = ['VERTEX_SHADER', 'FRAGMENT_SHADER'];
 export const sequenceMap = new WeakMap();
@@ -194,71 +195,28 @@ export function parse (strings) {
 	return sequence;
 }
 
-const animations = new Map();
-let animationActive = false;
-// const queue = new Set();
-
-function draw (timestamp) {
-	for (const [gl, array] of animations) {
-		const [prevTimestamp, nextTimestamp, ...programs] = array;
-		let param;
-
-		if (nextTimestamp > timestamp) {
-			continue;
-		}
-
-		const duration = prevTimestamp === undefined ? 0 : timestamp - prevTimestamp;
-		array[0] = timestamp;
-
-		for (const { program, callbacks } of programs) {
-			if (program) {
-				gl.useProgram(program);
-			}
-
-			for (const callback of callbacks) {
-				param = callback(gl, duration, param) ?? param;
-			}
-		}
-
-		if (param > 0) {
-			array[1] += param;
-		} else {
-			animations.delete(gl);
-		}
-	}
-
-	if (animations.size) {
-		requestAnimationFrame(draw);
-	} else {
-		animationActive = false;
-	}
-}
-
 export function Program ({ gl }, ...objects) {
-	processMemo(null, [objects], () => {
+	const programs = processMemo(() => {
 		const programs = getStored(animations, gl, () => [undefined, 0]);
 		programs.push(...objects);
+		schedule();
+		return programs;
+	}, [objects]);
 
-		if (!animationActive) {
-			animationActive = true;
-			requestAnimationFrame(draw);
-		}
+	processMemo(null, [objects], () => () => {
+		for (const object of objects) {
+			const index = programs.indexOf(object);
 
-		return () => {
-			for (const object of objects) {
-				const index = programs.indexOf(object);
-
-				if (index === -1) {
-					continue;
-				}
-
-				programs.splice(index, 1);
-				
-				if (programs.length < 3) {
-					animations.delete(gl);
-				}
+			if (index === -1) {
+				continue;
 			}
-		};
+
+			programs.splice(index, 1);
+			
+			if (programs.length < 3) {
+				animations.delete(gl);
+			}
+		}
 	});
 
 	return ['', null, objects.map(({ label }) => label).join(', ')];

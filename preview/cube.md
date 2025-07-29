@@ -1,5 +1,8 @@
 ```export
 {}
+canvas {
+    width: 100%;
+}
 ```
 
 # Cube
@@ -7,45 +10,111 @@
 ```export
 const [props, description] = arguments;
 
-return ['p', null, 'This will be a demo of 3d graphics support, which is still in development.'];
+const cameraMatrix = stew(() => {
+	window.addEventListener('keydown', ({ key, repeat }) => {
+		if (repeat) {
+			return;
+		}
 
-if (props) {
-	// TODO: update the cube matrixes according to the orientations
-	// - no JSON to save. URL holds the orientations
-}
-
-stew(() => {
-	window.addEventListener('keydown', ({ key }) => {
-		if (key === ' ') {
-			console.log('================');
+		switch (key) {
+			case 'f': {
+				handleAction('left', true);
+				break;
+			}
+			case 'j': {
+				handleAction('right', true);
+				break;
+			}
 		}
 	});
 
-	// TODO: add touch controls
+	window.addEventListener('keyup', ({ key }) => {
+		switch (key) {
+			case 'f': {
+				handleAction('left', false);
+				break;
+			}
+			case 'j': {
+				handleAction('right', false);
+				break;
+			}
+		}
+	});
+
+	window.addEventListener('touchstart', ({ changedTouches }) => {
+		for (const { identifier, pageX, pageY } of changedTouches) {
+			handleAction(pageX < window.innerWidth / 2 ? 'left' : 'right', true);
+		}
+	});
+
+	window.addEventListener('touchend', ({ changedTouches }) => {
+		for (const { identifier, pageX, pageY } of changedTouches) {
+			handleAction(pageX < window.innerWidth / 2 ? 'left' : 'right', false);
+		}
+	});
+
+	const aspectMatrix = [0.167 * 270 / 480, 0, 0, 0, 0.167, 0, 0, 0, 0.167];
+	const compositeMatrix = createMatrix(-Math.PI / 6, Math.PI / 4, 0);
+	return multiply(compositeMatrix, aspectMatrix);
 }, []);
 
-const { camera, cubes } = state;
-const vertexes = [-1, -1, -1, 1, -1, -1, -1, 1, -1, 1, 1, -1, -1, -1, 1, 1, -1, 1, -1, 1, 1, 1, 1, 1];
-const elements = [1, 0, 2, 2, 3, 1, 0, 1, 5, 5, 4, 9, 6, 2, 0, 0, 4, 6, 4, 5, 7, 7, 6, 4, 3, 2, 6, 6, 7, 3, 5, 1, 3, 3, 7, 5];
-const color = [0.5, 0.25, 0.75]; // set these by face (e.g. -z, -x, +z, etc)
-const aspect = [480 / 270, 0, 0, 1];
+const vertexes = new Float32Array([
+	-1, -1, -1,    1, -1, -1,    -1, 1, -1,    1, 1, -1,
+	-1, -1, 1,     1, -1, 1,     -1, 1, 1,     1, 1, 1
+]);
+
+const elements = new Uint16Array([
+	2, 0, 1,    1, 3, 2,    5, 1, 0,    0, 4, 5,
+	0, 2, 6,    6, 4, 0,    7, 5, 4,    4, 6, 7,
+	6, 2, 3,    3, 7, 6,    3, 1, 5,    5, 7, 3
+]);
+
+const { group, cubes, indexes } = state;
+const groupMatrix = group.matrix;
 
 return ['', null,
-	['canvas', { width: 480, height: 270 }, stew`
-		${gl => {
+	['canvas', { width: 960, height: 540 }, stew`
+		mat3 uCamera ${cameraMatrix}
+		FLOAT vec3 aVertex ${vertexes}
+		elements ${elements}
+		gl_Position = vec4(uCamera * uGroup * (uMatrix * aVertex + uOffset), 1.0);
+		*vec3 vPos = aVertex;
+		${(gl, duration) => {
+			const { tilt, spin, matrix } = group;
+			const tiltAngle = updateMotion(tilt, duration);
+			const spinAngle = updateMotion(spin, duration);
+			matrix.splice(0, 9, ...createMatrix(tiltAngle, 0, spinAngle));
+			group.inverse = createMatrix(tiltAngle, 0, spinAngle, true);
+
 			gl.clearColor(0.0, 0.0, 0.0, 1.0);
 			gl.clear(gl.COLOR_BUFFER_BIT);
+			gl.clear(gl.DEPTH_BUFFER_BIT);
+			gl.enable(gl.CULL_FACE);
+			gl.cullFace(gl.BACK);
+			gl.enable(gl.DEPTH_TEST);
+			gl.depthFunc(gl.LESS);
+
+			return 16;
 		}}
-		mat2 uAspect ${aspect}
-		${cubes.map(matrix => stew`
-			FLOAT vec2 aVertex ${vertexes}
-			elements ${elements}
-			gl_Position = vec4(aVertex, 0.0, 1.0)
-			${gl => gl.drawElements(gl.TRIANGLES, 36, gl.FLOAT, 0)}
-			vec3 uColor ${color}
-			gl_FragColor = vec4(uColor, 1.0)
+		${cubes.map(({ offset, matrix }, i) => stew`
+			mat3 uGroup ${indexes.has(i) ? groupMatrix : [1, 0, 0, 0, 1, 0, 0, 0, 1]}
+			mat3 uMatrix ${matrix}
+			vec3 uOffset ${offset}
+			${gl => gl.drawElements(gl.TRIANGLES, 36, gl.UNSIGNED_SHORT, 0)}
 		`)}
-		${() => fps}
+		vec3 absPos = abs(vPos);
+		float xEdge = max(absPos.y, absPos.z);
+		float yEdge = max(absPos.x, absPos.z);
+		float zEdge = max(absPos.x, absPos.y);
+		bool xBack = -vPos.x - xEdge > 0.125;
+		bool yBack = -vPos.y - yEdge > 0.125;
+		bool zBack = vPos.z - zEdge > 0.125;
+		gl_FragColor = vec4(
+			vPos.x - xEdge > 0.125 || yBack || zBack ? 1.0 : 0.0,
+			vPos.y - yEdge > 0.125 || xBack || zBack ? 1.0 : 0.0,
+			-vPos.z - zEdge > 0.125 || xBack || yBack ? 1.0 : 0.0,
+			1.0
+		);
 	`],
 	description,
 ];
@@ -55,10 +124,184 @@ return ['', null,
 
 ```export
 {
-	camera: [1, 0, 0, 0, 1, 0, 0, 0, 1],
-	cubes: Array(26).fill(null).map(() => [1, 0, 0, 0, 1, 0, 0, 0, 1]),
+	group: {
+		tilt: [0, 0, 0],
+		spin: [0, 0, 0],
+		matrix: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+		inverse: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+	},
+    cubes: Array(27).fill(null).map((_, i) => ({
+		matrix: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+		offset: [Math.floor(i / 9) * 2 - 2, (Math.floor(i / 3) % 3) * 2 - 2, (i % 3) * 2 - 2],
+	})),
+	indexes: new Set(),
+	sides: { left: false, right: false, both: false },
 }
-canvas {
-	width: 100%;
+```
+
+## Update Motion
+
+```export
+const [motion, duration] = arguments;
+
+if (motion.length > 4) {
+	motion[1] = Math.max(Math.min(motion[0] - motion[3], motion[4] - motion[0]), (motion[4] - motion[3]) * 0.1) * 0.03125;
 }
+
+motion[1] += motion[2] * duration;
+motion[0] += motion[1] * duration;
+
+if (motion.length > 3 && (motion[1] >= 0 && motion[0] >= motion[4] || motion[1] <= 0 && motion[0] <= motion[4])) {
+	motion.splice(0, 5, motion[4], 0, 0);
+}
+
+return motion[0];
+```
+
+## Handle Action
+
+```export
+const [side, held] = arguments;
+const { group, cubes, indexes, sides } = state;
+const { tilt, spin } = group;
+let groupName, motion;
+sides[side] = held;
+
+if (held || state.motion?.length > 3) {
+	return;
+}
+
+if (sides.left || sides.right) {
+	sides.both = true;
+	motion = side === 'left' ? tilt : spin;
+	groupName = 'all';
+} else if (!sides.both) {
+	motion = side === 'left' ? spin : tilt;
+	groupName = motion === spin ? 'spin' : 'tilt';
+} else {
+	sides.both = false;
+	return;
+}
+
+if (groupName !== state.groupName || motion !== state.motion) {
+	const groupMatrix = group.matrix;
+	let newIndexes = new Set();
+
+	for (const index of indexes) {
+		const cube = cubes[index];
+		let { matrix, offset } = cube;
+		matrix = multiply(matrix, groupMatrix);
+		offset = multiply(offset, groupMatrix);
+		Object.assign(cube, { matrix, offset });
+	}
+
+	switch (groupName) {
+		case 'all': {
+			newIndexes = new Set(Array(27).fill(0).map((_, i) => i));
+			break;
+		}
+		case 'spin': {
+			for (const [i, cube] of cubes.entries()) {
+				if (cube.offset[2] < -0.5) {
+					newIndexes.add(i);
+				}
+			}
+
+			break;
+		}
+		case 'tilt': {
+			for (const [i, cube] of cubes.entries()) {
+				if (cube.offset[0] > 0.5) {
+					newIndexes.add(i);
+				}
+			}
+
+			break;
+		}
+	}
+
+	spin.splice(0, 5, 0, 0, 0);
+	tilt.splice(0, 5, 0, 0, 0);
+	groupMatrix.splice(0, 9, 1, 0, 0, 0, 1, 0, 0, 0, 1);
+	Object.assign(state, { groupName, motion, indexes: newIndexes });
+}
+
+motion[3] = motion[0];
+motion[4] = motion[0] - (groupName === 'all' ? -Math.PI : Math.PI) / 2;
+```
+
+## Add
+
+```export
+const [...matrices] = arguments;
+return matrices.reduce((a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]]);
+```
+
+## Subtract
+
+```export
+const [...matrices] = arguments;
+return matrices.reduce((a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]]);
+```
+
+## Multiply
+
+```export
+const [...matrices] = arguments;
+
+return matrices.reduce((a, b) => {
+	const matrix = [];
+
+	for (let i = 0; i < a.length; i += 3) {
+		matrix.push(
+			a[i] * b[0] + a[i + 1] * b[3] + a[i + 2] * b[6],
+			a[i] * b[1] + a[i + 1] * b[4] + a[i + 2] * b[7],
+			a[i] * b[2] + a[i + 1] * b[5] + a[i + 2] * b[8],
+		);
+	}
+
+	return matrix;
+});
+```
+
+## Create Tilt
+
+```export
+const [angle] = arguments;
+const cos = Math.cos(angle);
+const sin = Math.sin(angle);
+return [1, 0, 0, 0, cos, sin, 0, -sin, cos];
+```
+
+## Create Rotation
+
+```export
+const [angle] = arguments;
+const cos = Math.cos(angle);
+const sin = Math.sin(angle);
+return [cos, 0, -sin, 0, 1, 0, sin, 0, cos];
+```
+
+## Create Spin
+
+```export
+const [angle] = arguments;
+const cos = Math.cos(angle);
+const sin = Math.sin(angle);
+return [cos, sin, 0, -sin, cos, 0, 0, 0, 1];
+```
+
+## Create Matrix
+
+```export
+const [tilt, rotation, spin, invert] = arguments;
+const tiltMatrix = createTilt(tilt);
+const rotationMatrix = createRotation(rotation);
+const spinMatrix = createSpin(spin);
+
+const compositeMatrix = invert
+	? multiply(spinMatrix, tiltMatrix, rotationMatrix)
+	: multiply(rotationMatrix, tiltMatrix, spinMatrix);
+
+return compositeMatrix;
 ```
