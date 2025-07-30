@@ -1,9 +1,9 @@
 export const state = stew({
     group: {
         tilt: [0, 0, 0],
+        rotation: [0, 0, 0],
         spin: [0, 0, 0],
         matrix: [1, 0, 0, 0, 1, 0, 0, 0, 1],
-        inverse: [1, 0, 0, 0, 1, 0, 0, 0, 1],
     },
     cubes: Array(27).fill(null).map((_, i) => ({
         matrix: [1, 0, 0, 0, 1, 0, 0, 0, 1],
@@ -33,8 +33,8 @@ export function updateMotion () {
 export function handleAction () {
 	const [side, held] = arguments;
 	const { group, cubes, indexes, sides } = state;
-	const { tilt, spin } = group;
-	let groupName, motion;
+	const { tilt, rotation, spin } = group;
+	let motion, change;
 	sides[side] = held;
 
 	if (held || state.motion?.length > 3) {
@@ -44,16 +44,16 @@ export function handleAction () {
 	if (sides.left || sides.right) {
 	    sides.both = true;
 	    motion = side === 'left' ? tilt : spin;
-	    groupName = 'all';
+		change = -Math.PI / 2;
 	} else if (!sides.both) {
-	    motion = side === 'left' ? spin : tilt;
-	    groupName = motion === spin ? 'spin' : 'tilt';
+	    motion = rotation;
+		change = (side === 'left' ? -Math.PI : Math.PI) / 2;
 	} else {
 	    sides.both = false;
 	    return;
 	}
 
-	if (groupName !== state.groupName || motion !== state.motion) {
+	if (motion !== state.motion) {
 	    const groupMatrix = group.matrix;
 	    let newIndexes = new Set();
 
@@ -65,39 +65,25 @@ export function handleAction () {
 	        Object.assign(cube, { matrix, offset });
 	    }
 
-	    switch (groupName) {
-	        case 'all': {
-	            newIndexes = new Set(Array(27).fill(0).map((_, i) => i));
-	            break;
-	        }
-	        case 'spin': {
-	            for (const [i, cube] of cubes.entries()) {
-	                if (cube.offset[2] < -0.5) {
-	                    newIndexes.add(i);
-	                }
-	            }
-
-	            break;
-	        }
-	        case 'tilt': {
-	            for (const [i, cube] of cubes.entries()) {
-	                if (cube.offset[0] > 0.5) {
-	                    newIndexes.add(i);
-	                }
-	            }
-
-	            break;
-	        }
+		if (motion === rotation) {
+			for (const [i, cube] of cubes.entries()) {
+				if (cube.offset[1] > 0.5) {
+					newIndexes.add(i);
+				}
+			}
+		} else {
+			newIndexes = new Set(Array(27).fill(0).map((_, i) => i));
 	    }
 
 	    spin.splice(0, 5, 0, 0, 0);
+	    rotation.splice(0, 5, 0, 0, 0);
 	    tilt.splice(0, 5, 0, 0, 0);
 	    groupMatrix.splice(0, 9, 1, 0, 0, 0, 1, 0, 0, 0, 1);
-	    Object.assign(state, { groupName, motion, indexes: newIndexes });
+	    Object.assign(state, { motion, indexes: newIndexes });
 	}
 
 	motion[3] = motion[0];
-	motion[4] = motion[0] - (groupName === 'all' ? -Math.PI : Math.PI) / 2;
+	motion[4] = motion[0] - change;
 }
 
 export function add () {
@@ -235,11 +221,11 @@ export function cube () {
 	        gl_Position = vec4(uCamera * uGroup * (uMatrix * aVertex + uOffset), 1.0);
 	        *vec3 vPos = aVertex;
 	        ${(gl, duration) => {
-	            const { tilt, spin, matrix } = group;
+	            const { tilt, rotation, spin, matrix } = group;
 	            const tiltAngle = updateMotion(tilt, duration);
+	            const rotationAngle = updateMotion(rotation, duration);
 	            const spinAngle = updateMotion(spin, duration);
-	            matrix.splice(0, 9, ...createMatrix(tiltAngle, 0, spinAngle));
-	            group.inverse = createMatrix(tiltAngle, 0, spinAngle, true);
+	            matrix.splice(0, 9, ...createMatrix(tiltAngle, rotationAngle, spinAngle));
 
 	            gl.clearColor(0.0, 0.0, 0.0, 1.0);
 	            gl.clear(gl.COLOR_BUFFER_BIT);
