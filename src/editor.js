@@ -74,7 +74,22 @@ function insert (ref, symbol) {
 	textarea.focus();
 
 	if (!slice) {
-		slice = `${symbol}${slice}`;
+		switch (symbol) {
+			case '#':
+			case '-': {
+				const match = before.match(new RegExp(`^([\\s\\S]*[\\r\\n])?([${symbol}]* *)$`));
+
+				if (match) {
+					[, before = '', slice] = match;
+					symbol = `${symbol}${slice.trim()} `;
+					selectionEnd += symbol.length - slice.length - 1;
+				}
+
+				break;
+			}
+		}
+
+		slice = symbol;
 		selectionStart = selectionEnd += 1;
 		symbol = '';
 	}
