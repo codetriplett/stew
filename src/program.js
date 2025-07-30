@@ -1,5 +1,6 @@
 import { isServer } from './document';
 import { processMemo } from './impulse';
+import { animations, schedule } from './state';
 
 const shaderTypes = ['VERTEX_SHADER', 'FRAGMENT_SHADER'];
 export const sequenceMap = new WeakMap();
@@ -118,15 +119,18 @@ export function createShader (gl, index, stack, varyings = []) {
 	}
 
 	if (allCode.length === 0) {
-		return;
+		allCode.push(index
+			? 'gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);'
+			: 'gl_Position = vec4(0.0, 0.0, 0.0, 1.0);\ngl_PointSize = 16.0;'
+		);
 	} else if (allCode[0].startsWith('precision ')) {
 		headerCode.unshift(allCode.shift());
-	} else if (index === 1) {
+	} else if (index) {
 		headerCode.unshift('precision mediump float;');
 	}
 
 	const processedCode = allCode.map(line => {
-		const match = line.match(/^varying\s+(\S+)\s+(\S+)(\s*=\s*.*)$/);
+		const match = line.match(/^\*\s*(\S+)\s+(\S+)(\s*=\s*.*)$/);
 
 		if (!match) {
 			return line;
@@ -155,7 +159,7 @@ export function createShader (gl, index, stack, varyings = []) {
 		console.error(gl.getShaderInfoLog(shader));
 	}
 	
-	if (index === 0) {
+	if (!index) {
 		varyingMap.set(shader, varyings);
 	}
 
@@ -163,16 +167,17 @@ export function createShader (gl, index, stack, varyings = []) {
 }
 
 export function parse (strings) {
-	const sequence = [];
-	let comment, definition, shader;
+	let shader = [[], []];
+	const sequence = [shader];
+	let comment, definition;
 
-	for (const string of strings) {
-		const lines = string.split(/\s*[\n\r]+\s*/);
-		comment = lines.shift().split('//')[0].trim();
+	for (let [i, string] of strings.entries()) {
+		const lines = string.replace(/^[ \t]|[ \t]$/g, '').split(/\s*(?:[\r\n]\s*)+/);
+		comment = lines.length > 1 || i === strings.length - 1 ? lines.shift() : '';
 
 		if (definition) {
-			shader.push([comment, ...definition.trim().split(/\s+/).reverse()]);
-		} else if (!shader || shader.length > 2 || shader[1].length) {
+			shader.push([comment, ...definition.split(/\s+/).reverse()]);
+		} else if (shader.length > 2 || shader[1].length || i && sequence.length < 2) {
 			shader = [[comment], []];
 			sequence.push(shader);
 		} else {
@@ -180,85 +185,41 @@ export function parse (strings) {
 		}
 
 		definition = lines.pop();
-		shader[1].push(...lines.map(line => line.replace(/;?(?=\s*\/\/.*|$)/, ';')));
+		shader[1].push(...lines.filter(line => line));
 	}
 
-	if (shader.length < 3 && !shader[1].length) {
-		sequence.pop();
+	if (definition) {
+		shader[1].push(definition);
 	}
 
-	sequence[0]?.[0]?.shift?.();
 	return sequence;
 }
 
-const animations = new Map();
-let animationActive = false;
-// const queue = new Set();
-
-function draw (timestamp) {
-	for (const [gl, array] of animations) {
-		const [prevTimestamp, nextTimestamp, ...programs] = array;
-		let param;
-
-		if (nextTimestamp > timestamp) {
-			continue;
-		}
-
-		const duration = prevTimestamp === undefined ? 0 : timestamp - prevTimestamp;
-		array[0] = timestamp;
-
-		for (const { program, callbacks } of programs) {
-			if (program) {
-				gl.useProgram(program);
-			}
-
-			for (const callback of callbacks) {
-				param = callback(gl, duration, param);
-			}
-		}
-
-		if (param > 0) {
-			array[1] += param;
-		} else {
-			animations.delete(gl);
-		}
-	}
-
-	if (animations.size) {
-		requestAnimationFrame(draw);
-	} else {
-		animationActive = false;
-	}
-}
-
-function Program ({ gl }, ...objects) {
-	processMemo(null, [objects], () => {
+export function Program ({ gl }, ...objects) {
+	const programs = processMemo(() => {
 		const programs = getStored(animations, gl, () => [undefined, 0]);
 		programs.push(...objects);
+		schedule();
+		return programs;
+	}, [objects]);
 
-		if (!animationActive) {
-			animationActive = true;
-			requestAnimationFrame(draw);
-		}
+	processMemo(null, [objects], () => () => {
+		for (const object of objects) {
+			const index = programs.indexOf(object);
 
-		return () => {
-			for (const object of objects) {
-				const index = programs.indexOf(object);
-
-				if (index === -1) {
-					continue;
-				}
-
-				programs.splice(index, 1);
-				
-				if (programs.length < 3) {
-					animations.delete(gl);
-				}
+			if (index === -1) {
+				continue;
 			}
-		};
+
+			programs.splice(index, 1);
+			
+			if (programs.length < 3) {
+				animations.delete(gl);
+			}
+		}
 	});
 
-	return ['', null, ...objects.map(({ label }) => label)];
+	return ['', null, objects.map(({ label }) => label).join(', ')];
 }
 
 export default function compile (strings, ...values) {
@@ -267,8 +228,7 @@ export default function compile (strings, ...values) {
 	}
 
 	const sequence = getStored(sequenceMap, strings, () => parse(strings));
-	const [vertexInfo = [[], []], ...fragmentInfos] = sequence;
-	const [setupNames = []] = vertexInfo;
+	const [vertexInfo, ...fragmentInfos] = sequence;
 
 	return (context, canvas, parentMap, ...stack) => {
 		const gl = canvas.getContext('webgl');
@@ -278,12 +238,10 @@ export default function compile (strings, ...values) {
 			parentMap = getStored(rootMap, gl, () => new WeakMap());
 		}
 
-		const setups = values.splice(0, setupNames.length);
 		const vertexValues = values.splice(0, vertexInfo.length - 2);
-		const labels = stack.length ? stack[0].slice(2) : [];
-		const stackEntry = [vertexInfo,,, ...labels];
+		const stackEntry = [vertexInfo];
 		const map = getStored(parentMap, strings, () => new WeakMap());
-		const programMap = new Map();
+		const programs = [];
 		let vertexShader = map.get(vertexInfo);
 		stack = [stackEntry, ...stack];
 
@@ -291,21 +249,44 @@ export default function compile (strings, ...values) {
 			const [resolverNames] = fragmentInfo;
 			const resolvers = values.splice(0, resolverNames.length);
 			const fragmentValues = values.splice(0, fragmentInfo.length - 2);
-			const subprograms = [];
+			const programMap = new Map();
+			const programSet = new Set();
 			stackEntry[1] = fragmentInfo;
 
-			for (const [i, resolver] of resolvers.entries()) {
-				stackEntry[2] = resolverNames[i];
-
-				if (Array.isArray(resolver)) {
+			if (resolvers.some(resolver => typeof resolver !== 'function')) {
+				for (const [i, resolver] of resolvers.entries()) {
+					// TODO: create unique label from vertex and fragment labels in stack
+					// const label = stackEntry.slice(2).filter(name => name).join(' < ');
+					// stackEntry[2] = resolverNames[i];
+					
+					if (typeof resolver === 'function') {
+						programs.push([null, new Set(), resolver]);
+						programMap.clear();
+						continue;
+					} else if (!Array.isArray(resolver)) {
+						continue;
+					}
+					
+					const subprograms = [];
+					
 					for (const prepare of resolver) {
-						const childPrograms = prepare(context, canvas, map, ...stack);
-						subprograms.push(...childPrograms);
+						subprograms.push(...prepare(context, canvas, map, ...stack));
 					}
 
-					continue;
-				}
+					for (const subprogram of subprograms) {
+						const [program,, ...callbacks] = subprogram;
 
+						if (!programMap.has(program)) {
+							const group = [program, new Set()];
+							programMap.set(program, group);
+							programSet.add(group);
+							programs.push(group);
+						}
+
+						programMap.get(program).push(...callbacks);
+					}
+				}
+			} else {
 				const program = getStored(map, fragmentInfo, () => {
 					if (!vertexShader) {
 						vertexShader = createShader(gl, 0, stack);
@@ -314,11 +295,6 @@ export default function compile (strings, ...values) {
 
 					const varyings = varyingMap.get(vertexShader);
 					const fragmentShader = createShader(gl, 1, stack, varyings);
-
-					if (!vertexShader || !fragmentShader) {
-						return;
-					}
-
 					const program = gl.createProgram();
 					gl.attachShader(program, vertexShader);
 					gl.attachShader(program, fragmentShader);
@@ -331,25 +307,15 @@ export default function compile (strings, ...values) {
 					return program;
 				});
 
-				const label = stackEntry.slice(2).filter(name => name).join(' < ');
-				subprograms.push([program, new Set([label]), resolver]);
+				const entry = [program, new Set(), ...resolvers];
+				programSet.add(entry);
+				programs.push(entry);
 			}
 
-			for (const entry of subprograms) {
-				const [program, labels, ...callbacks] = entry;
+			for (const entry of programSet) {
+				const [program] = entry;
 
-				if (programMap.has(program)) {
-					const entry = programMap.get(program);
-					entry.push(...callbacks);
-
-					for (const label of labels) {
-						entry[1].add(label);
-					}
-
-					continue;
-				}
-
-				const setters = !program ? [] : getStored(map, program, () => {
+				const setters = getStored(map, program, () => {
 					const [,, ...vertexVars] = vertexInfo;
 					const [,, ...fragmentVars] = fragmentInfo;
 
@@ -364,30 +330,22 @@ export default function compile (strings, ...values) {
 					});
 				});
 
-				if (setters.length) {
-					const values = [...vertexValues, ...fragmentValues];
-
-					entry.splice(2, 0, () => {
-						for (const [i, setter] of setters.entries()) {
-							setter(values[i]);
-						}
-					});
+				if (!setters.length) {
+					continue;
 				}
 
-				programMap.set(program, entry);
+				const values = [...vertexValues, ...fragmentValues];
+
+				entry.splice(2, 0, () => {
+					for (const [i, setter] of setters.entries()) {
+						setter(values[i]);
+					}
+				});
 			}
 		}
 
-		const programs = [...programMap.values()];
-
-		if (setups.length) {
-			programs.unshift([, [], ...setups]);
-		}
-
-		if (values.length) {
-			programs.push([, [], ...values]);
-		}
-
+		// TODO: pass in labels of all active programs as children for Program to print
+		// - these are just to help with debugging the state of the scene
 		return !isRoot ? programs : [Program, { gl }, ...programs.map(([program, labels, ...callbacks]) => {
 			return { program, callbacks, label: [...labels].join(', ') };
 		})];

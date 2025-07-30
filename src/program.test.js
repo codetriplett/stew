@@ -1,13 +1,6 @@
-import { parse, compile } from './program';
+import compile, { parse, Program } from './program';
 
 jest.mock('./document', () => ({ isServer: false }));
-let stringsArray;
-
-function stew (...params) {
-	const strings = params.shift();
-	stringsArray.push(strings);
-	return compile(strings, ...params);
-}
 
 function mock (object, callbackNames, constantNames) {
 	for (const name of callbackNames) {
@@ -94,11 +87,11 @@ beforeEach(() => {
 	gl.getUniformLocation.mockImplementation(() => location++);
 	gl.createShader.mockReturnValue({});
 	gl.createProgram.mockReturnValue({});
+	gl.getShaderParameter.mockReturnValue(true);
 	gl.getProgramParameter.mockReturnValue(true);
 	convert.mockReturnValue(gl);
 	canvas.getContext.mockReturnValue(gl);
 	context = { '': convert };
-	stringsArray = [];
 	requestAnimationFrame.mockImplementation((...params) => [triggerFrame] = params);
 	globalThis.requestAnimationFrame = requestAnimationFrame;
 });
@@ -106,123 +99,104 @@ beforeEach(() => {
 describe('parse', () => {
 	it('standalone callback', () => {
 		const actual = parse`${() => {}}`;
-		expect(actual).toEqual([]);
-	});
-
-	it('variables', () => {
-		const actual = parse`
-			type first ${[]}
-			type second ${[]}
-		`;
 
 		expect(actual).toEqual([
-			[[], [], ['', 'first', 'type'], ['', 'second', 'type']],
+			[[''], []],
+			[[''], []],
 		]);
 	});
 
-	it('statements', () => {
-		const actual = parse`
-			first
-			second
-		`;
+	it('variables', () => {
+		const actual = parse
+`type first ${[]}
+type second ${[]}`;
 
 		expect(actual).toEqual([
-			[[], ['first;', 'second;']],
+			[[''], [], ['', 'first', 'type'], ['', 'second', 'type']],
 		]);
 	});
 
 	it('variables and statements', () => {
-		const actual = parse`
-			type first ${[]}
-			second
-			type third ${[]}
-			fourth
-		`;
+		const actual = parse
+`type first ${[]}
+second;
+type third ${[]}
+fourth;`;
 
 		expect(actual).toEqual([
-			[[], ['second;', 'fourth;'], ['', 'first', 'type'], ['', 'third', 'type']],
+			[[''], ['second;', 'fourth;'], ['', 'first', 'type'], ['', 'third', 'type']],
 		]);
 	});
 
 	it('sequence', () => {
-		const actual = parse`
-			type first ${[]}
-			second
-			${() => {}}
-			type third ${[]}
-			fourth
-		`;
+		const actual = parse
+`type first ${[]}
+second;
+${() => {}}
+${() => {}}
+type third ${[]}
+fourth;`;
 
 		expect(actual).toEqual([
-			[[], ['second;'], ['', 'first', 'type']],
-			[[''], ['fourth;'], ['', 'third', 'type']],
-		]);
-	});
-
-	it('edge callbacks', () => {
-		const actual = parse`
-			${() => {}}
-			${() => {}}
-			type first ${[]}
-			second
-			${() => {}}
-			${() => {}}
-			type third ${[]}
-			fourth
-			${() => {}}
-			${() => {}}
-		`;
-
-		expect(actual).toEqual([
-			[['', ''], ['second;'], ['', 'first', 'type']],
+			[[''], ['second;'], ['', 'first', 'type']],
 			[['', ''], ['fourth;'], ['', 'third', 'type']],
 		]);
 	});
 
-	it('variables with properties', () => {
-		const actual = parse`
-			type first ${[]} abc
-			${() => {}} lmno
-			type second ${[]} xyz
-		`;
+	it('sequence without vertex code', () => {
+		const actual = parse
+`${() => {}}
+type third ${[]}
+fourth;`;
 
 		expect(actual).toEqual([
-			[[], [], ['abc', 'first', 'type']],
-			[['lmno'], [], ['xyz', 'second', 'type']],
+			[[''], []],
+			[[''], ['fourth;'], ['', 'third', 'type']],
 		]);
 	});
 
-	it('same line expressions', () => {
-		const actual = parse`
-			type first ${[]} ${[]}
-			${() => {}} ${() => {}}
-			type second ${[]} ${[]}
-		`;
+	it('sequence without fragment code', () => {
+		const actual = parse
+`type first ${[]}
+second;
+${() => {}}`;
 
 		expect(actual).toEqual([
-			[[], [], ['', 'first', 'type']],
-			[['', '', ''], [], ['', 'second', 'type']],
+			[[''], ['second;'], ['', 'first', 'type']],
+			[[''], []],
+		]);
+	});
+
+	it('variables with properties', () => {
+		const actual = parse
+`type first ${[]} abc
+${() => {}} lmno
+type second ${[]} xyz`;
+
+		expect(actual).toEqual([
+			[[''], [], ['abc', 'first', 'type']],
+			[['lmno'], [], ['xyz', 'second', 'type']],
 		]);
 	});
 });
 
 describe('compileProgram', () => {
-	it.skip('creates program', () => {
+	it('creates program', () => {
 		const draw = jest.fn();
 		const vector = [123, 456, 789];
 		const color = [0.123, 0.456, 0.789];
-		
-		const prepare = stew`
+
+		const prepare = compile`
 			vec3 uVector ${vector}
-			gl_Position = vec4(uVector, 1.0)
+			gl_Position = vec4(uVector, 1.0);
 			${draw}
 			vec3 uColor ${color}
-			gl_FragColor = vec4(uColor, 1.0)
+			gl_FragColor = vec4(uColor, 1.0);
 		`;
 
 		expect(prepare).toEqual(expect.any(Function));
 		const actual = prepare(context, canvas);
-		expect(actual).toEqual(['', {}, expect.any(Object)]);
+		expect(actual).toEqual([Program, { gl }, expect.any(Object)]);
 		const { callbacks } = actual[2];
 		expect(callbacks).toEqual([expect.any(Function), draw]);
 		callbacks[0]();
@@ -233,7 +207,7 @@ describe('compileProgram', () => {
 		]);
 	});
 
-	it.skip('creates nested program', () => {
+	it('creates nested program', () => {
 		const draw = jest.fn();
 
 		const array = [
@@ -241,19 +215,19 @@ describe('compileProgram', () => {
 			{ vector: [987, 654, 321], color: [0.987, 0.654, 0.321] },
 		];
 		
-		const prepare = stew`
-			gl_Position = vec4(uVector, 1.0)
-			${array.map(({ vector, color }) => stew`
+		const prepare = compile`
+			gl_Position = vec4(uVector, 1.0);
+			${array.map(({ vector, color }) => compile`
 				vec3 uVector ${vector}
 				${draw}
 				vec3 uColor ${color}
 			`)}
-			gl_FragColor = vec4(uColor, 1.0)
+			gl_FragColor = vec4(uColor, 1.0);
 		`;
 
 		expect(prepare).toEqual(expect.any(Function));
-		const actual = prepare(context);
-		expect(actual).toEqual(['', {}, expect.any(Object)]);
+		const actual = prepare(context, canvas);
+		expect(actual).toEqual([Program, { gl }, expect.any(Object)]);
 		const { callbacks } = actual[2];
 		expect(callbacks).toEqual([expect.any(Function), draw, expect.any(Function), draw]);
 		callbacks[0]();
@@ -272,11 +246,11 @@ describe('compileProgram', () => {
 		]);
 	});
 
-	it.skip('uses previous shaders and program', () => {
+	it('uses previous shaders and program', () => {
 		const draw = jest.fn();
 
 		function render ({ vector, color }) {
-			return stew`
+			return compile`
 				vec3 uVector ${vector}
 				gl_Position = vec4(uVector, 1.0)
 				${draw}
@@ -290,7 +264,7 @@ describe('compileProgram', () => {
 			color: [0.123, 0.456, 0.789],
 		});
 
-		previous(context);
+		previous(context, canvas);
 		jest.clearAllMocks();
 
 		const prepare = render({
@@ -299,8 +273,8 @@ describe('compileProgram', () => {
 		});
 
 		expect(prepare).toEqual(expect.any(Function));
-		const actual = prepare(context);
-		expect(actual).toEqual(['', {}, expect.any(Object)]);
+		const actual = prepare(context, canvas);
+		expect(actual).toEqual([Program, { gl }, expect.any(Object)]);
 		const { callbacks } = actual[2];
 		expect(callbacks).toEqual([expect.any(Function), draw]);
 		callbacks[0]();

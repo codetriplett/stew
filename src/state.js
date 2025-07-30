@@ -2,6 +2,7 @@ import { isServer } from './document';
 import { stack, processEffects } from './impulse';
 
 export const queue = new Set();
+export const animations = new Map();
 
 export function unsubscribe (impulse) {
 	const subscriptions = impulse[1];
@@ -13,28 +14,68 @@ export function unsubscribe (impulse) {
 	subscriptions.clear();
 }
 
-export function schedule (subscriptions) {
-	if (!subscriptions.size) {
-		return;
-	} else if (!queue.size) {
-		requestAnimationFrame(() => {
-			for (const impulse of queue) {
-				const [update,, ...parentImpulses] = impulse;
-				unsubscribe(impulse);
+function draw (timestamp) {
+	if (queue.size) {
+		for (const impulse of queue) {
+			const [update,, ...parentImpulses] = impulse;
+			unsubscribe(impulse);
 
-				if (!parentImpulses.some(parentImpulse => queue.has(parentImpulse))) {
-					update();
-				}
+			if (!parentImpulses.some(parentImpulse => queue.has(parentImpulse))) {
+				update();
+			}
+		}
+
+		queue.clear();
+		processEffects();
+	}
+
+	for (const [gl, array] of animations) {
+		const [prevTimestamp, nextTimestamp, ...programs] = array;
+		let param;
+
+		if (nextTimestamp > timestamp) {
+			continue;
+		}
+
+		const duration = prevTimestamp === undefined ? 0 : timestamp - prevTimestamp;
+		array[0] = timestamp;
+
+		for (const { program, callbacks } of programs) {
+			if (program) {
+				gl.useProgram(program);
 			}
 
-			queue.clear();
-			processEffects();
-		});
+			for (const callback of callbacks) {
+				param = callback(gl, duration, param) ?? param;
+			}
+		}
+
+		if (param > 0) {
+			array[1] += param;
+		} else {
+			animations.delete(gl);
+		}
 	}
 
-	for (const impulse of subscriptions) {
-		queue.add(impulse);
+	if (animations.size) {
+		requestAnimationFrame(draw);
 	}
+}
+
+export function schedule (subscriptions) {
+	if (subscriptions) {
+		const queueSize = queue.size;
+
+		for (const impulse of subscriptions) {
+			queue.add(impulse);
+		}
+
+		if (!subscriptions.size || queueSize) {
+			return;
+		}
+	}
+
+	requestAnimationFrame(draw);
 }
 
 export default function createState (state) {

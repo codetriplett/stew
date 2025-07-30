@@ -3,7 +3,7 @@ export function custom () {
 	return `CUSTOM\n${code}`;
 }
 
-export function run () {
+export function stew () {
 	const [flags, code] = arguments;
 	return new Function(code);
 }
@@ -58,12 +58,13 @@ export function getText () {
 
 export function getQuests () {
 	const [todayName, startName, count = 7] = arguments;
+	const locale = Intl.DateTimeFormat().resolvedOptions().locale;
 	const cards = [];
 	const year = startName.slice(0, 4);
-	const start = getDay(year);
-	let index = getDay(startName);
+	const start = getDay(year) - (count > 7 ? 28 : 0);
+	let index = getDay(startName) - (count > 7 ? 28 : 0);
 	index -= (index - start) % 7;
-	let week = Math.floor((index - start) / 7);
+	let week = Math.floor((index - start) / 7) + (count > 7 ? 0 : 4);;
 
 	for (let i = 0; i < count; i += 7) {
 	    const card = ['ul', { className: `card season-${Math.floor(week / 13)} week-${week % 13}` }];
@@ -77,15 +78,30 @@ export function getQuests () {
 	        const day = date.getDate();
 	        const name = `${year}${month < 10 ? '0' : ''}${month}${day < 10 ? '0' : ''}${day}`;
 	        const href = `/index/${name}`;
-	        const [, quest] = (localStorage.getItem(`${href}.md`) || '').match(/^\s*(.*?)\s*(?=#+\s|\r|\n|$)/);
-	        const content = stew(quest, [href]);
-	        const text = getText(content?.[2] || '');
+			let data;
+
+			try {
+	    		data = JSON.parse(localStorage.getItem(`${href}.json`) || '{}');
+			} catch (err) {
+				data = {};
+			}
+
+			const { quest, exp, complete } = data;
+			const content = stew(quest, [href]);
+	        let text = getText(content?.[2] || '');
+			let textProps = { className: 'quest' };
 	        index++;
+
+			if (!text && day === 1) {
+				text = new Intl.DateTimeFormat(locale, { month: 'long' }).format(date);
+				textProps.style = { fontSize: text.length > 10 ? '11px' : '15px', fontWeight: 'bold' };
+			}
 
 	        card.push(['li', name === todayName ? { className: 'today' } : null,
 	            ['span', null, day],
 	            ['a', { href },
-	                ['span', null, text],
+	                ['span', textProps, text],
+	                complete && ['span', { className: 'exp' }, `+${exp}`],
 	            ],
 	        ]);
 	    }
@@ -93,6 +109,28 @@ export function getQuests () {
 
 	return ['', null,
 	    ['style', null, `
+			.header {
+				display: flex;
+				gap: 32px;
+				justify-content: center;
+				margin-bottom: 16px;
+			}
+			h1 {
+				flex: 0 160px;
+				margin: 0;
+				font-size: 27px;
+				line-height: 35px;
+				text-align: center;
+    			white-space: nowrap;
+			}
+			.header button {
+				flex: 0 0 32px;
+				border: none;
+				font-size: 27px;
+				font-weight: bold;
+				color: var(--paper-font-color);
+				background: none;
+			}
 	        .cards {
 	            display: flex;
 	            flex-wrap: wrap;
@@ -122,7 +160,7 @@ export function getQuests () {
 	            z-index: 9;
 	        }
 	        .today {
-	            box-shadow: inset 0 0 4px 2px black;
+	            box-shadow: inset 0 0 2px 2px black;
 	        }
 	        .card li {
 	            display: flex;
@@ -149,15 +187,27 @@ export function getQuests () {
 	            position: absolute;
 	            left: 50%;
 	            top: 50%;
-	            display: block;
-	            width: 100%;
-	            max-height: 30px;
-	            font-size: 13px;
+	            max-height: 22px;
 	            line-height: 11px;
 	            transform: translate(-50%, -50%);
 	            -webkit-line-clamp: 2;
 	            text-overflow: ellipsis;
+				font-family: monospace;
+			}
+	        .quest {
+	            display: block;
+	            width: 100%;
+				font-size: 11px;
 	        }
+			.exp {
+				border-radius: 4px;
+				padding: 0 4px;
+				font-size: 15px;
+				font-weight: bold;
+				color: #2a2;
+				background: #fffd;
+				box-shadow: 0 0 4px 4px #fffd;
+			}
 	        .card li:nth-child(4) > span {
 	            display: none;
 	        }
@@ -211,9 +261,6 @@ export function getQuests () {
 	];
 }
 
-// TODO: render cube when year note is viewed
-// - blocks will be filled in when weeks have enough quests checked off
-// - color blocks in darker the closer to the edge they are (using original aVertex values)
 export function calendar () {
 	const [props, content, navigation] = arguments;
 	const date = new Date();
@@ -269,19 +316,7 @@ export function calendar () {
 	} else if (container.length > 15 && container[15][1].className.indexOf(season) === -1) {
 	    container.splice(15, 1);
 	}
-
-	const currentButton = ['button', {
-	    type: 'button',
-	    disabled: seasonOffset === 0,
-	    onclick: () => state.seasonOffset = 0,
-	}, 'Current'];
-
-	// TODO: Shift months so Decmber is part of winter
-	// - The actual change in season occurs near the end of the first month in each
-	// - these also feel a little more natural
-	// - need to find a new reference point than Jan 1st
-	// - maybe stick to ISO week days, but shift season boundaries by 4 weeks (e.g. winter is weeks 49, 50, 51, 52, 1, 2, 3, 4, ...)
-	// - basically just need add 4 to zero-indexed month and % 12 when calculating the season number
+	
 	const labels = [
 	    ['Winter', 'December', 'January', 'February'],
 	    ['Spring', 'March', 'April', 'May'],
@@ -296,17 +331,15 @@ export function calendar () {
 	// - autumn: orange leaf (spade)
 	return ['', null,
 	    ['div', { className: 'header' },
-	        seasonOffset > 0 && currentButton
 	        ['button', {
 	            type: 'button',
 	            onclick: () => state.seasonOffset -= 1,
-	        }, 'Prev'],
-
+	        }, '〈'],
+			['h1', null, `${labels[0]} ${startName.slice(0, 4)}`],
 	        ['button', {
 	            type: 'button',
 	            onclick: () => state.seasonOffset += 1,
-	        }, 'Next'],
-	        seasonOffset < 0 && currentButton,
+	        }, '〉'],
 	    ],
 	    cards,
 	];
@@ -317,4 +350,7 @@ export default [calendar, {
         '': 'Calendar',
         smile: '🙂',
     },
+    quest: '// Quest',
+    exp: '/0.. EXP',
+    complete: 'Complete',
 }];

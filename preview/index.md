@@ -3,6 +3,9 @@
     '': {
         smile: '🙂',
     },
+    quest: '// Quest',
+    exp: '/.. EXP',
+    complete: 'Complete',
 }
 ```
 

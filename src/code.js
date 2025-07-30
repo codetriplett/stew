@@ -100,7 +100,7 @@ export function extractCode (file, library = {}) {
 		let string;
 
 		if (innerCode[0] === '{') {
-			string = `\nconst ${formattedName} = stew(${innerCode});`;
+			string = `\nexport const ${formattedName} = stew(${innerCode});`;
 		} else {
 			string = `\nexport function ${formattedName} () {\n\t${innerCode.replace(/[\r\n](?=[^\r\n])/g, m => `${m}\t`) || ''}\n}`;
 		}

@@ -2,7 +2,7 @@
 
 Stew layouts are made up of arrays that give instructions for what should be displayed. The first item in each array defines its behavior, the second provides its properties, and the rest allows you to embed additional layouts within.
 
-```run
+```stew
 return ['style', null, `
 @media (max-width: 720px) {
 	.stew-demo {
@@ -194,8 +194,8 @@ Rendered elements will be written to the first value of the fragment array, allo
 ## Markdown
 
 ```demo
-const content = stew('# Hello World!', [])
-return content
+const content = stew('# Hello World!', []) // +
+return content // +
 
 ```
 
