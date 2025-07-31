@@ -2,7 +2,7 @@
 
 Stew layouts are made up of arrays that give instructions for what should be displayed. The first item in each array defines its behavior, the second provides its properties, and the rest allows you to embed additional layouts within.
 
-```stew
+```render
 return ['style', null, `
 @media (max-width: 720px) {
 	.stew-demo {

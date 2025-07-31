@@ -107,39 +107,27 @@ export default function Home () {
 		['div', { className: 'main' },
 			['div', { className: 'paper' },
 				quest,
-				stew(`
-# Make\u00A0a\u00A0note. Build\u00A0your\u00A0space.
-
-This site serves as a place to store and browse your notes. 
-It also supports embedded code to create web apps and games. 
-A version will be available soon to download and use offline. 
-
-## Make
-
-Notes are created by navigating to any URL you wish. 
-Everything on this demo site is stored in your browser cache, so avoid clearing it if you want to keep them. 
-A shortcut to the current day's note can be found at the top of this page, and a menu of all your other notes can be toggled using the icon to its left. 
-Emoji and formatters can be set by editing the [index note](/index). 
-Learn more about what features are available in the [Markdown guide](/markdown). 
-
-## Explore
-
-A left navigation will be created automatically from the headings in your notes. 
-It can be toggled using the icon menu in the upper left of those pages. 
-Clicking on headings in that list will focus in on their content, and clicking it again will open a snip. 
-Focused sections will also display the links to other notes, or sections if a hash is included, and clicking them will also open a snip. 
-Snips are sections of your notes that persist in the right panel as you browse. 
-They can be toggled using the hash icon in the upper right of your notes. 
-
-## Build (in development)
-
-Notes with embedded code before the main heading will be treated as modules. 
-Modules wrap their nested notes in additional functionality, and can even export their features to other modules. 
-The embedded code above the main heading will set the types of data it can accept, and styles to apply, while the code after the main heading will be used as the main layout component. 
-Code is set using preformatted text, but only ones that use the \`export\` format. 
-You can read more about how the layouts are defined in the [Stew guide](/stew). 
-There is even a shader language for creating games that can be found in the [WebGL guide](/webgl). 
-				`, ['/']),
+				[1, null, 'Make\u00A0a\u00A0note. Build\u00A0a\u00A0space.'],
+				['p', null,
+					'This site serves as a place to store and browse your notes. ',
+					'It also supports embedded code to create web pages and games. ',
+					'Everything is stored in your browser, but a downloadable version will also be available in the future. ',
+					'Navigate to any URL to get started on a new note, or read on to learn the basics. ',
+				],
+				['div', { className: 'flex-links' },
+					['div', null,
+						['a', { href: '/markdown' }, 'Markdown'],
+						['p', null, 'Decorates notes with HTML.'],
+					],
+					['div', null,
+						['a', { href: '/Stew' }, 'Stew'],
+						['p', null, 'Adds interactivity to layouts.'],
+					],
+					['div', null,
+						['a', { href: '/WebGL' }, 'WebGL'],
+						['p', null, 'Streamlines 2D and 3d graphics.'],
+					],
+				],
 				// TODO: render active snips session here
 				// - display inactive ones to the side, along with a button to create a new session
 				// - ones to the side can be clicked to make active or closed

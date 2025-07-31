@@ -118,6 +118,17 @@ body.dark-theme {
 	text-align: center;
 }
 
+.flex-links {
+	display: flex;
+	justify-content: space-around;
+	gap: 16px;
+	text-align: center;
+
+	a {
+		font-size: 21px;
+	}
+}
+
 .main,
 .scroll {
 	padding: 12px 8px;

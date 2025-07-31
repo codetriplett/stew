@@ -3,21 +3,31 @@ export function custom () {
 	return `CUSTOM\n${code}`;
 }
 
-export function stew () {
+export function render () {
 	const [flags, code] = arguments;
 	return new Function(code);
 }
 
 export function demo () {
 	const [{ markdown }, code] = arguments;
+	let lines, library;
 
-	const lines = markdown ? [code] : code.split(/\r\n|\r|\n/).map(line => {
-	    const [, text, comment] = line.match(/^(.*?)(?:\s*\/\/\s*([+-]))?\s*$/);
+	if (markdown) {
+		lines = [code];
 
-	    return ['div', {
-	        style: comment && { backgroundColor: comment === '-' ? 'rgba(191, 63, 63, 0.125)' : 'rgba(63, 191, 63, 0.125)' },
-	    }, text || ' '];
-	});
+		library = {
+			default: { smile: '🙂' },
+			capitalize: (flags, code) => flags.all ? code.toUpperCase() : `${code[0].toUpperCase()}${code.slice(1)}`, 
+		};
+	} else {
+		lines = code.split(/\r\n|\r|\n/).map(line => {
+			const [, text, comment] = line.match(/^(.*?)(?:\s*\/\/\s*([+-]))?\s*$/);
+
+			return ['div', {
+				style: comment && { backgroundColor: comment === '-' ? 'rgba(191, 63, 63, 0.125)' : 'rgba(63, 191, 63, 0.125)' },
+			}, text || ' '];
+		});
+	}
 
 	return ['div', {
 	    className: 'stew-demo',
@@ -30,7 +40,7 @@ export function demo () {
 	    ],
 	    ['div', {
 	        style: { flex: '2 1 0', overflowX: 'auto', padding: '16px', background: 'var(--page-background)' },
-	    }, markdown ? stew(code) : new Function(code)],
+	    }, markdown ? stew(code, ['/', library]) : new Function(code)],
 	];
 }
 
@@ -324,11 +334,6 @@ export function calendar () {
 	    ['Autumn', 'September', 'October', 'November'],
 	][Math.floor(startName.slice(4, 6) / 3)];
 
-	// TODO: rework cards so the symbols line up with the season (also maybe shorten heart a little vertically)
-	// - winter: blue diamond
-	// - spring: green clover (clubs)
-	// - summer: red heart
-	// - autumn: orange leaf (spade)
 	return ['', null,
 	    ['div', { className: 'header' },
 	        ['button', {

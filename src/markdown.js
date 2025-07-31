@@ -367,8 +367,16 @@ export default function parse (content, rootPath = '', library = stack[0]?.[4] |
 		const nodes = locked ? [] : parseNesting(symbols, stack, containers, oldlines);
 		let [container] = stack;
 		stack.unshift(...nodes);
+		const [node] = stack;
+		const isPreformatted = node[0] === 'code';
+		let previous = node[node.length - 1];
+		newlines = string && whitespace.length < 2 ? -1 : 0;
 
-		if (key !== undefined) {
+		if (isPreformatted) {
+			hashes = undefined;
+			underline = undefined;
+			table = undefined;
+		} else if (key !== undefined) {
 			key = key.toLowerCase();
 
 			if (!references[key]) {
@@ -381,17 +389,6 @@ export default function parse (content, rootPath = '', library = stack[0]?.[4] |
 			}
 
 			continue;
-		}
-		
-		const [node] = stack;
-		let previous = node[node.length - 1];
-		newlines = string && whitespace.length < 2 ? -1 : 0;
-		const isPreformatted = node[0] === 'code';
-
-		if (isPreformatted) {
-			hashes = undefined;
-			underline = undefined;
-			table = undefined;
 		}
 
 		if (hashes) {
