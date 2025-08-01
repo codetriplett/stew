@@ -10,24 +10,14 @@ export function render () {
 
 export function demo () {
 	const [{ markdown }, code] = arguments;
-	let lines, library;
 
-	if (markdown) {
-		lines = [code];
+	const lines = markdown ? [code] : code.split(/\r\n|\r|\n/).map(line => {
+		const [, text, comment] = line.match(/^(.*?)(?:\s*\/\/\s*([+-]))?\s*$/);
 
-		library = {
-			default: { smile: '🙂' },
-			capitalize: (flags, code) => flags.all ? code.toUpperCase() : `${code[0].toUpperCase()}${code.slice(1)}`, 
-		};
-	} else {
-		lines = code.split(/\r\n|\r|\n/).map(line => {
-			const [, text, comment] = line.match(/^(.*?)(?:\s*\/\/\s*([+-]))?\s*$/);
-
-			return ['div', {
-				style: comment && { backgroundColor: comment === '-' ? 'rgba(191, 63, 63, 0.125)' : 'rgba(63, 191, 63, 0.125)' },
-			}, text || ' '];
-		});
-	}
+		return ['div', {
+			style: comment && { backgroundColor: comment === '-' ? 'rgba(191, 63, 63, 0.125)' : 'rgba(63, 191, 63, 0.125)' },
+		}, text || ' '];
+	});
 
 	return ['div', {
 	    className: 'stew-demo',
@@ -40,7 +30,7 @@ export function demo () {
 	    ],
 	    ['div', {
 	        style: { flex: '2 1 0', overflowX: 'auto', padding: '16px', background: 'var(--page-background)' },
-	    }, markdown ? stew(code, ['/', library]) : new Function(code)],
+	    }, markdown ? stew(code, ['/']) : new Function(code)],
 	];
 }
 

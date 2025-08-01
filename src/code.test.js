@@ -66,9 +66,10 @@ describe('extractCode', () => {
 
 # Component
 
-[Named](/path#abc#xyz# "abc xyz lmno")
-[Alias](/path#lm#no# "ml on mlon")
-[Barrel](/path "onml")
+[Documentation](/documentation)
+[](/path#abc#xyz# "lmno")
+[](/path#lm#no# "ml on mlon")
+[](/path "onml")
 
 \`\`\`export
 const [place] = arguments;
@@ -86,10 +87,10 @@ return \`Hello \${place}\`;
 		`);
 
 		expect(actual).toEqual(
-`import lmno, { abc, xyz, lm as ml, no as on, default as mlon } from '/path';
-import * as onml from '/path';
+`import lmno, { abc, xyz, lm as ml, no as on, default as mlon } from '/path.mjs';
+import * as onml from '/path.mjs';
 
-const state = stew({
+export const state = stew({
     number: 123,
     string: 'abc',
 });

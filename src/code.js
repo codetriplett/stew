@@ -74,25 +74,30 @@ export function extractCode (file, library = {}) {
 		}
 
 		for (const link of links) {
-			const { href, title } = link[1];
+			const [, { href, title }, text] = link;
 			const [path, ...hashes] = href.split('#');
 			let object = imports[path];
 
-			if (!title || !/^\/./.test(path)) {
+			if (text || !/^\/./.test(path)) {
 				continue;
 			} else if (!object) {
 				object = {};
 				imports[path] = object;
 			}
 
-			const aliases = title.trim().split(/\s+/);
+			const names = hashes.map(hash => hash.replace(/-./g, m => m.slice(1).toUpperCase()));
+			const aliases = title ? title.trim().split(/\s+/) : names;
+
+			if (aliases.length < names.length) {
+				aliases.unshift(...names.slice(0, names.length - aliases.length));
+			}
 
 			for (const [i, alias] of aliases.entries()) {
 				if (claimed.has(alias)) {
 					continue;
 				}
 
-				object[alias] = hashes[i];
+				object[alias] = names[i];
 			}
 		}
 
@@ -127,15 +132,15 @@ export function extractCode (file, library = {}) {
 			string += ` ${alias}${entries.length ? ',' : ''}`;
 		}
 
-		for (const [alias, hash] of entries) {
-			if (hash === undefined) {
-				strings.unshift(`import * as ${alias} from '${path}';`);
+		for (const [alias, name] of entries) {
+			if (name === undefined) {
+				strings.unshift(`import * as ${alias} from '${path}.mjs';`);
 			} else {
-				named.push(hash === alias ? hash : `${hash || 'default'} as ${alias}`);
+				named.push(name === alias ? name : `${name || 'default'} as ${alias}`);
 			}
 		}
 
-		string += `${named.length ? ` { ${named.join(', ')} }` : ''} from '${path}';`;
+		string += `${named.length ? ` { ${named.join(', ')} }` : ''} from '${path}.mjs';`;
 		strings.unshift(string);
 	}
 

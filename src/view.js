@@ -96,7 +96,13 @@ export default function render (layout, context, document, nodes, container, i, 
 				layout = convert || (() => {});
 			}
 			case 'function': {
-				layout = layout(context, nodes[0]);
+				try {
+					layout = layout(context, nodes[0]);
+				} catch (err) {
+					console.error(err);
+					layout = null;
+				}
+				
 				return render(layout, context, document, nodes, container, i, map);
 			}
 		}

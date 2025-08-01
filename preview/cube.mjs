@@ -43,11 +43,11 @@ export function handleAction () {
 
 	if (sides.left || sides.right) {
 	    sides.both = true;
-	    motion = side === 'left' ? tilt : spin;
-		change = -Math.PI / 2;
-	} else if (!sides.both) {
 	    motion = rotation;
-		change = (side === 'left' ? -Math.PI : Math.PI) / 2;
+	    change = (side === 'left' ? -Math.PI : Math.PI) / 2;
+	} else if (!sides.both) {
+	    motion = side === 'left' ? tilt : spin;
+	    change = -Math.PI / 2;
 	} else {
 	    sides.both = false;
 	    return;
@@ -65,14 +65,14 @@ export function handleAction () {
 	        Object.assign(cube, { matrix, offset });
 	    }
 
-		if (motion === rotation) {
-			for (const [i, cube] of cubes.entries()) {
-				if (cube.offset[1] > 0.5) {
-					newIndexes.add(i);
-				}
-			}
-		} else {
-			newIndexes = new Set(Array(27).fill(0).map((_, i) => i));
+	    if (motion === rotation) {
+	        for (const [i, cube] of cubes.entries()) {
+	            if (cube.offset[1] > 0.5) {
+	                newIndexes.add(i);
+	            }
+	        }
+	    } else {
+	        newIndexes = new Set(Array(27).fill(0).map((_, i) => i));
 	    }
 
 	    spin.splice(0, 5, 0, 0, 0);

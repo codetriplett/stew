@@ -619,22 +619,8 @@ export default function parse (content, rootPath = '', library = stack[0]?.[4] |
 			const flags = Object.fromEntries(names.map(name => [name, true]));
 			const formatter = library[type];
 
-			if (typeof formatter !== 'function') {
-				continue;
-			}
-
-			try {
-				const node = formatter(flags, container[2]);
-
-				if (Array.isArray(node)) {
-					wrapper.splice(0, 3, ...node);
-				} else if (typeof node !== 'string') {
-					wrapper.splice(0, 3, '', null, node);
-				} else {
-					container[2] = node;
-				}
-			} catch (err) {
-				console.error(err);
+			if (typeof formatter === 'function') {
+				wrapper.splice(0, 3, '', null, () => formatter(flags, container[2]));
 			}
 		}
 	}
