@@ -67,18 +67,6 @@ if (container[2][1].className.indexOf(season) === -1) {
     container.splice(15, 1);
 }
 
-const currentButton = ['button', {
-    type: 'button',
-    disabled: seasonOffset === 0,
-    onclick: () => state.seasonOffset = 0,
-}, 'Current'];
-
-// TODO: Shift months so Decmber is part of winter
-// - The actual change in season occurs near the end of the first month in each
-// - these also feel a little more natural
-// - need to find a new reference point than Jan 1st
-// - maybe stick to ISO week days, but shift season boundaries by 4 weeks (e.g. winter is weeks 49, 50, 51, 52, 1, 2, 3, 4, ...)
-// - basically just need add 4 to zero-indexed month and % 12 when calculating the season number
 const labels = [
     ['Winter', 'December', 'January', 'February'],
     ['Spring', 'March', 'April', 'May'],
@@ -86,24 +74,17 @@ const labels = [
     ['Autumn', 'September', 'October', 'November'],
 ][Math.floor(startName.slice(4, 6) / 3)];
 
-// TODO: rework cards so the symbols line up with the season (also maybe shorten heart a little vertically)
-// - winter: blue diamond
-// - spring: green clover (clubs)
-// - summer: red heart
-// - autumn: orange leaf (spade)
 return ['', null,
     ['div', { className: 'header' },
-        seasonOffset > 0 && currentButton
         ['button', {
             type: 'button',
             onclick: () => state.seasonOffset -= 1,
-        }, 'Prev'],
-
+        }, '〈'],
+        ['h1', null, `${labels[0]} ${startName.slice(0, 4)}`],
         ['button', {
             type: 'button',
             onclick: () => state.seasonOffset += 1,
-        }, 'Next'],
-        seasonOffset < 0 && currentButton,
+        }, '〉'],
     ],
     cards,
 ];
@@ -116,7 +97,7 @@ const [flags, code] = arguments;
 return `CUSTOM\n${code}`;
 ```
 
-## Run
+## Render
 
 ```export
 const [flags, code] = arguments;
@@ -129,25 +110,25 @@ return new Function(code);
 const [{ markdown }, code] = arguments;
 
 const lines = markdown ? [code] : code.split(/\r\n|\r|\n/).map(line => {
-	const [, text, comment] = line.match(/^(.*?)(?:\s*\/\/\s*([+-]))?\s*$/);
+    const [, text, comment] = line.match(/^(.*?)(?:\s*\/\/\s*([+-]))?\s*$/);
 
-	return ['div', {
-		style: comment && { backgroundColor: comment === '-' ? 'rgba(191, 63, 63, 0.125)' : 'rgba(63, 191, 63, 0.125)' },
-	}, text || ' '];
+    return ['div', {
+        style: comment && { backgroundColor: comment === '-' ? 'rgba(191, 63, 63, 0.125)' : 'rgba(63, 191, 63, 0.125)' },
+    }, text || ' '];
 });
 
 return ['div', {
-	className: 'stew-demo',
-	style: { display: 'flex', gap: '16px' },
+    className: 'stew-demo',
+    style: { display: 'flex', gap: '16px' },
 },
-	['div', {
-		style: { flex: '3 1 0', overflowX: 'auto', fontFamily: 'monospace', whiteSpace: 'pre' },
-	},
-		...lines,
-	],
-	['div', {
-		style: { flex: '2 1 0', overflowX: 'auto', padding: '16px', background: 'var(--page-background)' },
-	}, markdown ? stew(code) : new Function(code)],
+    ['div', {
+        style: { flex: '3 1 0', overflowX: 'auto', fontFamily: 'monospace', whiteSpace: 'pre' },
+    },
+        ...lines,
+    ],
+    ['div', {
+        style: { flex: '2 1 0', overflowX: 'auto', padding: '16px', background: 'var(--page-background)' },
+    }, markdown ? stew(code, ['/']) : new Function(code)],
 ];
 ```
 
@@ -181,12 +162,13 @@ return node[0] === 'br' ? ' ' : node.slice(2).map(getText).join('');
 
 ```export 
 const [todayName, startName, count = 7] = arguments;
+const locale = Intl.DateTimeFormat().resolvedOptions().locale;
 const cards = [];
 const year = startName.slice(0, 4);
-const start = getDay(year);
-let index = getDay(startName);
+const start = getDay(year) - (count > 7 ? 28 : 0);
+let index = getDay(startName) - (count > 7 ? 28 : 0);
 index -= (index - start) % 7;
-let week = Math.floor((index - start) / 7);
+let week = Math.floor((index - start) / 7) + (count > 7 ? 0 : 4);;
 
 for (let i = 0; i < count; i += 7) {
     const card = ['ul', { className: `card season-${Math.floor(week / 13)} week-${week % 13}` }];
@@ -200,15 +182,30 @@ for (let i = 0; i < count; i += 7) {
         const day = date.getDate();
         const name = `${year}${month < 10 ? '0' : ''}${month}${day < 10 ? '0' : ''}${day}`;
         const href = `/index/${name}`;
-        const [, quest] = (localStorage.getItem(`${href}.md`) || '').match(/^\s*(.*?)\s*(?=#+\s|\r|\n|$)/);
+        let data;
+
+        try {
+            data = JSON.parse(localStorage.getItem(`${href}.json`) || '{}');
+        } catch (err) {
+            data = {};
+        }
+
+        const { quest, exp, complete } = data;
         const content = stew(quest, [href]);
-        const text = getText(content?.[2] || '');
+        let text = getText(content?.[2] || '');
+        let textProps = { className: 'quest' };
         index++;
+
+        if (!text && day === 1) {
+            text = new Intl.DateTimeFormat(locale, { month: 'long' }).format(date);
+            textProps.style = { fontSize: text.length > 10 ? '11px' : '15px', fontWeight: 'bold' };
+        }
 
         card.push(['li', name === todayName ? { className: 'today' } : null,
             ['span', null, day],
             ['a', { href },
-                ['span', null, text],
+                ['span', textProps, text],
+                complete && ['span', { className: 'exp' }, `+${exp}`],
             ],
         ]);
     }
@@ -216,6 +213,28 @@ for (let i = 0; i < count; i += 7) {
 
 return ['', null,
     ['style', null, `
+        .header {
+            display: flex;
+            gap: 32px;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+        h1 {
+            flex: 0 160px;
+            margin: 0;
+            font-size: 27px;
+            line-height: 35px;
+            text-align: center;
+            white-space: nowrap;
+        }
+        .header button {
+            flex: 0 0 32px;
+            border: none;
+            font-size: 27px;
+            font-weight: bold;
+            color: var(--paper-font-color);
+            background: none;
+        }
         .cards {
             display: flex;
             flex-wrap: wrap;
@@ -245,7 +264,7 @@ return ['', null,
             z-index: 9;
         }
         .today {
-            box-shadow: inset 0 0 4px 2px black;
+            box-shadow: inset 0 0 2px 2px black;
         }
         .card li {
             display: flex;
@@ -272,14 +291,26 @@ return ['', null,
             position: absolute;
             left: 50%;
             top: 50%;
-            display: block;
-            width: 100%;
-            max-height: 30px;
-            font-size: 13px;
+            max-height: 22px;
             line-height: 11px;
             transform: translate(-50%, -50%);
             -webkit-line-clamp: 2;
             text-overflow: ellipsis;
+            font-family: monospace;
+        }
+        .quest {
+            display: block;
+            width: 100%;
+            font-size: 11px;
+        }
+        .exp {
+            border-radius: 4px;
+            padding: 0 4px;
+            font-size: 15px;
+            font-weight: bold;
+            color: #2a2;
+            background: #fffd;
+            box-shadow: 0 0 4px 4px #fffd;
         }
         .card li:nth-child(4) > span {
             display: none;

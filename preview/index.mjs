@@ -12,11 +12,11 @@ export function demo () {
 	const [{ markdown }, code] = arguments;
 
 	const lines = markdown ? [code] : code.split(/\r\n|\r|\n/).map(line => {
-		const [, text, comment] = line.match(/^(.*?)(?:\s*\/\/\s*([+-]))?\s*$/);
+	    const [, text, comment] = line.match(/^(.*?)(?:\s*\/\/\s*([+-]))?\s*$/);
 
-		return ['div', {
-			style: comment && { backgroundColor: comment === '-' ? 'rgba(191, 63, 63, 0.125)' : 'rgba(63, 191, 63, 0.125)' },
-		}, text || ' '];
+	    return ['div', {
+	        style: comment && { backgroundColor: comment === '-' ? 'rgba(191, 63, 63, 0.125)' : 'rgba(63, 191, 63, 0.125)' },
+	    }, text || ' '];
 	});
 
 	return ['div', {
@@ -78,24 +78,24 @@ export function getQuests () {
 	        const day = date.getDate();
 	        const name = `${year}${month < 10 ? '0' : ''}${month}${day < 10 ? '0' : ''}${day}`;
 	        const href = `/index/${name}`;
-			let data;
+	        let data;
 
-			try {
-	    		data = JSON.parse(localStorage.getItem(`${href}.json`) || '{}');
-			} catch (err) {
-				data = {};
-			}
+	        try {
+	            data = JSON.parse(localStorage.getItem(`${href}.json`) || '{}');
+	        } catch (err) {
+	            data = {};
+	        }
 
-			const { quest, exp, complete } = data;
-			const content = stew(quest, [href]);
+	        const { quest, exp, complete } = data;
+	        const content = stew(quest, [href]);
 	        let text = getText(content?.[2] || '');
-			let textProps = { className: 'quest' };
+	        let textProps = { className: 'quest' };
 	        index++;
 
-			if (!text && day === 1) {
-				text = new Intl.DateTimeFormat(locale, { month: 'long' }).format(date);
-				textProps.style = { fontSize: text.length > 10 ? '11px' : '15px', fontWeight: 'bold' };
-			}
+	        if (!text && day === 1) {
+	            text = new Intl.DateTimeFormat(locale, { month: 'long' }).format(date);
+	            textProps.style = { fontSize: text.length > 10 ? '11px' : '15px', fontWeight: 'bold' };
+	        }
 
 	        card.push(['li', name === todayName ? { className: 'today' } : null,
 	            ['span', null, day],
@@ -109,28 +109,28 @@ export function getQuests () {
 
 	return ['', null,
 	    ['style', null, `
-			.header {
-				display: flex;
-				gap: 32px;
-				justify-content: center;
-				margin-bottom: 16px;
-			}
-			h1 {
-				flex: 0 160px;
-				margin: 0;
-				font-size: 27px;
-				line-height: 35px;
-				text-align: center;
-    			white-space: nowrap;
-			}
-			.header button {
-				flex: 0 0 32px;
-				border: none;
-				font-size: 27px;
-				font-weight: bold;
-				color: var(--paper-font-color);
-				background: none;
-			}
+	        .header {
+	            display: flex;
+	            gap: 32px;
+	            justify-content: center;
+	            margin-bottom: 16px;
+	        }
+	        h1 {
+	            flex: 0 160px;
+	            margin: 0;
+	            font-size: 27px;
+	            line-height: 35px;
+	            text-align: center;
+	            white-space: nowrap;
+	        }
+	        .header button {
+	            flex: 0 0 32px;
+	            border: none;
+	            font-size: 27px;
+	            font-weight: bold;
+	            color: var(--paper-font-color);
+	            background: none;
+	        }
 	        .cards {
 	            display: flex;
 	            flex-wrap: wrap;
@@ -192,22 +192,22 @@ export function getQuests () {
 	            transform: translate(-50%, -50%);
 	            -webkit-line-clamp: 2;
 	            text-overflow: ellipsis;
-				font-family: monospace;
-			}
+	            font-family: monospace;
+	        }
 	        .quest {
 	            display: block;
 	            width: 100%;
-				font-size: 11px;
+	            font-size: 11px;
 	        }
-			.exp {
-				border-radius: 4px;
-				padding: 0 4px;
-				font-size: 15px;
-				font-weight: bold;
-				color: #2a2;
-				background: #fffd;
-				box-shadow: 0 0 4px 4px #fffd;
-			}
+	        .exp {
+	            border-radius: 4px;
+	            padding: 0 4px;
+	            font-size: 15px;
+	            font-weight: bold;
+	            color: #2a2;
+	            background: #fffd;
+	            box-shadow: 0 0 4px 4px #fffd;
+	        }
 	        .card li:nth-child(4) > span {
 	            display: none;
 	        }
@@ -316,7 +316,7 @@ export function calendar () {
 	} else if (container.length > 15 && container[15][1].className.indexOf(season) === -1) {
 	    container.splice(15, 1);
 	}
-	
+
 	const labels = [
 	    ['Winter', 'December', 'January', 'February'],
 	    ['Spring', 'March', 'April', 'May'],
@@ -330,7 +330,7 @@ export function calendar () {
 	            type: 'button',
 	            onclick: () => state.seasonOffset -= 1,
 	        }, '〈'],
-			['h1', null, `${labels[0]} ${startName.slice(0, 4)}`],
+	        ['h1', null, `${labels[0]} ${startName.slice(0, 4)}`],
 	        ['button', {
 	            type: 'button',
 	            onclick: () => state.seasonOffset += 1,
@@ -346,6 +346,6 @@ export default [calendar, {
         smile: '🙂',
     },
     quest: '// Quest',
-    exp: '/0.. EXP',
+    exp: '/.. EXP',
     complete: 'Complete',
 }];
