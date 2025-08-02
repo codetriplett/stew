@@ -2,23 +2,6 @@
 
 Shaders are supported within canvas elements to create 2D and 3D graphics. You can view a example here, [Cube Code](/cube), and see it running by adding a trailing slash, [Cube Demo](/cube/). This is still experimental, and a better guide will be written to explain more, bu there are some of the basics.
 
-```render
-return ['style', null, `
-canvas {
-	width: 100%;
-}
-@media (max-width: 720px) {
-	.stew-demo {
-		display: block !important;
-
-		> *  + * {
-			margin-top: 16px;
-		}
-	}
-}
-`]
-```
-
 ## Shaders
 
 There are two types of shaders involved in painting a scene. The first runs once for each vertex, to set its position, and the second will run for each pixel of the triangles they form. The Stew library streamlines the linking of values in your program and supports nesting parts of your shaders that are more object-specific.

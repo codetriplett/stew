@@ -151,7 +151,12 @@ function Citation ({ snip }) {
 				}
 			},
 		}],
-		content,
+		['div', null,
+			['template', { shadowrootmode: 'open' },
+				['style', null, styles],
+				content,
+			],
+		],
 	];
 }
 

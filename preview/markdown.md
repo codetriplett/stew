@@ -2,20 +2,6 @@
 
 Markdown is a popular way of converting notes to HTML. Most of its formatting is based on a few symbols placed around text, so it is quick to learn and easy to read.
 
-```render
-return ['style', null, `
-@media (max-width: 720px) {
-	.stew-demo {
-		display: block !important;
-
-		> *  + * {
-			margin-top: 16px;
-		}
-	}
-}
-`]
-```
-
 ## Headings
 
 Headings are created by placing `#` symbols and a space before your text. Six sizes are supported, from largest to smallest, based on the number of symbols you use. Alternatively, the two largest sizes can be created by putting a string of `=` or `-` symbols directly below your text.

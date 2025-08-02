@@ -23,6 +23,20 @@ export function demo () {
 	    className: 'stew-demo',
 	    style: { display: 'flex', gap: '16px' },
 	},
+		['style', null, `
+			.stew-demo canvas {
+				width: 100%;
+			}
+			@media (max-width: 720px) {
+				.stew-demo {
+					display: block !important;
+
+					> *  + * {
+						margin-top: 16px;
+					}
+				}
+			}
+		`],
 	    ['div', {
 	        style: { flex: '3 1 0', overflowX: 'auto', fontFamily: 'monospace', whiteSpace: 'pre' },
 	    },

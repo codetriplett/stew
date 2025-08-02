@@ -1,20 +1,14 @@
 # Stew
 
-Stew layouts are made up of arrays that give instructions for what should be displayed. The first item in each array defines its behavior, the second provides its properties, and the rest allows you to embed additional layouts within.
+Code can be embedded into notes to create fully-customized webpages. This is done using preformatted text blocks with the `export` formatter set. The one under your primary heading will be called when accessing the notes path with a trailing slash. This function will receive the props and layout of its child notes in the URL path, if they exist.
 
-```render
-return ['style', null, `
-@media (max-width: 720px) {
-	.stew-demo {
-		display: block !important;
-
-		> *  + * {
-			margin-top: 16px;
-		}
-	}
-}
-`]
+````
+```export
+const [props, content] = arguments
+return 'Hello, World!'
 ```
+
+````
 
 ## Elements
 
@@ -28,16 +22,6 @@ These are ultimately what gets displayed to the user. The attributes follow the 
 ## Fragments
 
 ```demo
-return ['', null, // +
-	['h1', { className: 'greeting' }, 'Hello, World!'],
-	['p', null, 'The time is now'], // +
-] // +
-
-```
-
-A subsection of a layout can be wrapped as a single unit using a fragment. The properties you pass are accessible by inline functions no matter the depth, as long as another fragment inside its layout doesn't override them with their own.
-
-```demo
 const state = { time: 'now' } // +
 
 return ['', { state }, // +
@@ -46,6 +30,8 @@ return ['', { state }, // +
 ]
 
 ```
+
+Using an empty value in place of the tag name will create a group from its children without adding a wrapper element. Any properties you include will be added to the context object used by inline functions. This makes it easy pass value to deeply nested code.
 
 ## Components
 
@@ -65,7 +51,7 @@ return [Greeting, { place: 'World' }, 'Hello'] // +
 
 ```
 
-Functions can be used in place of HTML tags to create dynamic and reusable layouts. The props and children will be passed directly to it for processing.
+Functions can be used in place of tag names to create dynamic and reusable layouts. The props and children will be passed directly to the function for processing.
 
 ## States
 
@@ -89,11 +75,9 @@ return [Greeting, { place: 'World' }, 'Hello']
 
 ```
 
-States hold properties that can change over time. Whenever these values are updated, any components that read the affected values will automatically refresh their layouts. States can exist outside your layout code, or be created within components and passed along in fragment contexts. If you create a states within your components, be sure to include any values it depends on in an array as the second param. It will only create a new state if these values differ from the last time it was created. Otherwise it will return the previous one.
+States hold properties that cause your components to refresh when changed. They can be defined anywhere in your code, and only the values read within your function will cause it to udpate. If you create a state within a component, be sure to include any values it depends on in an array as the second param. This will prevent it form creating a new one when the components, unless any of those values have changed.
 
 ## Memos
-
-Custom values can be created by passing in a function instead of an object. The values from the dependencies array will also be passed as params if you prefer the short version
 
 ```demo
 const state = stew({ time: 'now' })
@@ -119,7 +103,7 @@ return [Greeting, {}, 'Hello'] // +
 
 ```
 
-If your function is async, you can provide a fallback value for use in the meantime. Once the function resolves, it will trigger a new render of its immediate component, similar to how state changes update the layout. Another value can be provided to use in cases where the async action failed.
+Custom values can be reused between renders by passing in a function to create them. Similar to creating states, the values from the dependencies array determine when this value needs to chagne. If your function returns an async value, you can provide a fallback value to use in the meantime. The component will update once the value has finished resolving. Another value can be provided to use in cases where the async action fails.
 
 ```demo
 const state = stew({ time: 'now', latitude: 49.25, longitude: -95 }) // +
@@ -151,6 +135,14 @@ setInterval(() => { // +
 }, 5000); // +
 
 return [Greeting, {}, 'Hello']
+
+```
+
+Markdown can be rendered, and stored in a memo, by passing its string before the dependencies array.
+
+```demo
+const content = stew('# Hello World!', []) // +
+return content // +
 
 ```
 
@@ -187,16 +179,6 @@ return [App] // +
 
 ```
 
-Code can be scheduled to run once the layout has rendered by putting its function after the dependencies array. You can return a function to run when the component is removed from the layout, or if any of the values in the dependencies array have cause the effect code to run again.
+Code can be scheduled to run once the layout has rendered by putting its function after the dependencies array. You can return a function to run when the component is removed from the layout, or if any of the values in the dependencies change, causing the effect to run again. Rendered elements can be read from the start of the fragments array if you need to use them in your effect, but you should avoid modififying their layouts manually.
 
-Rendered elements will be written to the first value of the fragment array, allowing you to perform followup actions on them. It isn't recommended to modify the elements themselves, but it can be useful for things like setting focus to a form field.
-
-## Markdown
-
-```demo
-const content = stew('# Hello World!', []) // +
-return content // +
-
-```
-
-Markdown can be parsed into the stew layout format by passing in the string you want to process. It can be used as a memo as well if you include a dependencies array.
+## Data
