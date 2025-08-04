@@ -182,3 +182,38 @@ return [App] // +
 Code can be scheduled to run once the layout has rendered by putting its function after the dependencies array. You can return a function to run when the component is removed from the layout, or if any of the values in the dependencies change, causing the effect to run again. Rendered elements can be read from the start of the fragments array if you need to use them in your effect, but you should avoid modififying their layouts manually.
 
 ## Data
+
+Each section of your URL represents a note, and the layout from each one is passed to the one before. Additional data is passed along as well if the container note had fields defined. These can be set at the top of the note, along with styles and additional resources.
+
+```
+/some/other/styles.css
+/some/other/script.mjs
+{
+	string: '// String',
+	number: '/.. Number',
+	boolean: '/ Boolean',
+	reference: '/path/to/data// Reference',
+	object: {
+		'': 'Object',
+		pattern: '/[a-z]/i Pattern',
+		range: '/0..9 Range',
+	},
+	array: ['/.. Array',
+		'// String',
+		'/.. Number',
+	],
+	choice: ['/ Choice',
+		'first / First',
+		'second / Second',
+	],
+}
+img {
+	width: 100%;
+}
+```
+
+These fields will show up in an expandable left when editing a note directly below the one where they were defined. The data and child note content can be accessed at the top of your function like so.
+
+```
+const [props, content] = arguments;
+```

@@ -1,3 +1,5 @@
+import { fetchData, fetchCode } from './fetch';
+
 function convertValue (type, value, checked) {
 	switch (type) {
 		case 'checkbox': {
@@ -21,7 +23,7 @@ export function extractData (form) {
 	}
 
 	for (const input of form.elements) {
-		const { type, id, value, checked, placeholder } = input;
+		const { type, id, value, checked } = input;
 
 		if (!id) {
 			continue;
@@ -29,15 +31,9 @@ export function extractData (form) {
 
 		const names = id.split(/\.|(?=\[)/).map(name => name[0] === '[' ? Number(name.slice(1, -1)) : name);
 		const finalName = names.pop();
-		let castValue = convertValue(type, value, checked);
+		const castValue = convertValue(type, value, checked);
 	
-		if (names[0] === '') {
-			names.shift();
-
-			if (!castValue) {
-				castValue = convertValue(type, placeholder, checked);
-			}
-		} else if (!castValue) {
+		if (!castValue) {
 			continue;
 		}
 
@@ -56,19 +52,6 @@ export function extractData (form) {
 	}
 
 	return data;
-}
-
-// TODO: decide if this is needed
-// - The built-in form validation should be enough
-// - When populating form, cast all non-objects to strings
-//   - for references, check that the path matches in the '' prop
-//   - for objects given as options, check the '' prop for its id (required when more than one object options is in schema)
-export function checkInput (input, value) {
-	const { type, min, max, pattern, minlength, maxlength } = input[1];
-
-	if (type === 'number') {
-		return (min === undefined || value >= min) && (max === undefined || value <= max);
-	}
 }
 
 function parseTypes (value) {
@@ -178,7 +161,7 @@ function RangeSelect ({ label, placeholder, value, inputs, rest, names }, ...opt
 		['ol', {},
 			...array.map((value, i) => {
 				const index = optionIndexes[i];
-				return index === -1 ? null : ['li', {}, FormField(rest[index], value, ...names, i)];
+				return index === -1 ? null : ['li', {}, FormField(rest[index], value, undefined, ...names, i)];
 			}),
 		],
 		['select', {
@@ -199,15 +182,15 @@ function RangeSelect ({ label, placeholder, value, inputs, rest, names }, ...opt
 
 function FormSelect (definition, value, ...names) {
 	const [first, ...rest] = definition;
-	const field = FormField(first, undefined, ...names);
+	const field = FormField(first, undefined, undefined, ...names);
 	const inputs = [];
 
-	if (!field.length) {
+	if (!field?.length) {
 		return [];
 	}
 
 	const options = rest.map(definition => {
-		const label = FormField(definition, undefined, ...names);
+		const label = FormField(definition, undefined, undefined, ...names);
 		const input = label.find(child => child[0] === 'input');
 		inputs.push(input);
 		return ['option', {}, label[2]];
@@ -263,7 +246,7 @@ function FormSelect (definition, value, ...names) {
 		if (index === -1) {
 			item[2] = 'Invalid Item';
 		} else {
-			const field = FormField(rest[index], value, ...names, name);
+			const field = FormField(rest[index], value, undefined, ...names, name);
 			const [input] = field.splice(2, 1);
 
 			field[2] = name;
@@ -278,119 +261,163 @@ function FormSelect (definition, value, ...names) {
 	return field;
 }
 
-// TODO: maybe only run this the first time to create inputs, not whenever an update is triggered in form
-// - should only need to run it initially, and whenever a select box adds new fields to the data
-export function FormField (definition, value, ...names) {
+// read schema from MJS at path and fill in its form fields
+// choosing an existing file is optional, and it will fill in values that can be overwritten
+// stored as { '': '/folder/file', ...overrides } if file is chosen to override or { '': '/folder/', ...props } if not
+
+// TODO: maybe render this as select
+// - there is already code that finds child files. make that a util function
+// - filter that list by pattern here, or range
+// - don't need to set dataset here or any onclicks, just values on the option elements for the full path
+// - cleanup form extract code to not look for dataset or ids that start with '.'
+// props.dataset = { path: `/${path}/` };
+// set selected on option that matches value param
+// create a hidden form that holds current input and set each filename as value and validate to see if it should be included
+
+function merge (base, change) {
+	if (
+		!base || typeof base !== 'object' || Array.isArray(object) ||
+		!change || typeof change !== 'object' || Array.isArray(object)
+	) {
+		return change;
+	}
+
+	for (const [name, value] of Object.entries(change)) {
+		base[name] = merge(base[name], value);
+	}
+}
+
+function ObjectField ({ schema = {}, data = {}, path }, field) {
+	const filepath = data?.[''] || '';
+	const baseSchema = !path ? {} : stew(fetchCode, [path], [], null);
+	const baseData = !/^\/.*[^\/]$/.test(dataPath) ? {} : stew(fetchData, [filepath], null);
+
+	if (!baseData || !baseSchema) {
+		return;
+	}
+
+	merge(baseSchema, schema);
+	merge(baseData, data);
+	console.log(baseSchema, baseData);
+
+	return;
+}
+
+export function FormField (definition, data, schema, ...names) {
 	if (Array.isArray(definition)) {
-		return FormSelect(definition, value, ...names);
+		return FormSelect(definition, data, ...names);
 	} else if (typeof definition === 'object') {
 		const { '': name = names[names.length - 1], ...props } = definition;
-		const object = typeof value === 'object' && !Array.isArray(value) ? value : {};
+		const object = typeof data === 'object' && !Array.isArray(data) ? data : {};
 		const list = ['ul', {}];
 
 		for (const [name, value] of Object.entries(props)) {
-			list.push(FormField(value, object[name], ...names, name));
+			list.push(FormField(value, object[name], undefined, ...names, name));
 		}
 
 		return names.length ? ['label', {}, name, list] : list;
+	} else if (typeof definition !== 'string') {
+		return;
 	}
 
-	let match = definition.match(/^\s*(?:([^*]+?)\s+)?(\**)(\S*?)\/(.*?)(?:\/([^/]*?))?(?:\/([^/]*?))?(\**)(?:\s+(.+))?\s*$/);
-
-	if (!match) {
-		const [, placeholder, persist, required, text] = definition.match(/^\s*(?:([^*]+?)\s+)?(\*?)(\*?)(?:\s*(.+))?\s*$/);
-		match = [, placeholder, persist, 'checkbox', '',,, required, text];
-	}
-
-	let [, placeholder, persist, type, path, pattern, range, required, text] = match;
-	const isLiteral = persist && required;
-	persist = persist && !isLiteral;
-	required = required && !isLiteral;
-
-	if (pattern === undefined) {
-		range = path;
-		path = undefined;
-	} else if (range === undefined) {
-		range = pattern;
-		pattern = path;
-		path = undefined;
-	}
-
-	if (!type || isLiteral && type !== 'checkbox') {
-		type = pattern !== undefined ? 'text' : 'number';
-	}
-
+	const match = definition.match(/^\s*(?:(.+)\s+)?(\**)(.*?)\/(?:(.+?)\/)?(?:((?:\\\/|[^\s\/])*?)\/)?((?:\\\/|[^\s\/])*?)(?:\s+(.+?))?\s*$/);
+	let [, placeholder, required, type, path, pattern, range = '', text] = match || [,,,,,,, definition.trim()];
+	let [, min = '', step, max = ''] = range.match(/^(?:(.*?)\.\.)?(?:(.*?)\.\.)?(.*?)$/);
 	const id = names.reduce((id, name) => `${id}${typeof name === 'number' ? `[${name}]` : `${id ? '.' : ''}${name}`}`, '');
 	const props = { id };
-	const label = ['label', { for: id }, text];
 	const input = ['input', props];
+	const label = ['label', { for: id }, text || names[names.length - 1], input];
+	
+	if (pattern !== undefined) {
+		type ||= 'text';
+		
+		if (pattern) {
+			props.pattern = pattern;
+		}
+
+		if (min) {
+			props.minlength = min;
+		}
+		
+		if (max) {
+			props.maxlength = max;
+		}
+	} else if (range) {
+		const [, minDate, minTime] = min.match(/^(?:(\d{4}-\d{2}-\d{2})(T\d{2}:\d{2})?|.*)$/);
+		const [, maxDate, maxTime] = max.match(/^(?:(\d{4}-\d{2}-\d{2})(T\d{2}:\d{2})?|.*)$/);
+		type = minTime || maxTime ? 'datetime-local' : minDate || maxDate ? 'date' : 'number';
+
+		if (min) {
+			if (type !== 'number' && !minDate) {
+				min += '-01-01';
+			}
+			
+			if (type === 'datetime-local' && !minTime) {
+				min += 'T00:00';
+			}
+
+			props.min = min;
+		}
+
+		if (max) {
+			if (type !== 'number' && !maxDate) {
+				max += '-01-01';
+			}
+			
+			if (type === 'datetime-local' && !maxTime) {
+				max += 'T00:00';
+			}
+
+			props.max = max;
+		}
+
+		if (step && step !== '1') {
+			props.step = step;
+		}
+	} else if (!match) {
+		// TODO: maybe have this be a textarea that accepts any JSON
+		// - use JSON.parse() when validating to make sure it is actually an object if there is content
+		// - have it parse out the asterisk to set it as required or not
+		return;
+	} else if (placeholder) {
+		type = 'hidden';
+		props.value = placeholder;
+		placeholder = '';
+	} else {
+		type = 'checkbox';
+	}
 
 	if (type === 'textarea') {
 		input[0] = 'textarea';
 	} else {
 		props.type = type;
+
+		if (type === 'checkbox') {
+			label.splice(2, 0, label.pop());
+		}
 	}
 
-	if (isLiteral) {
-		props.disabled = true;
-		value = placeholder;
-	} else if (placeholder && type !== 'checkbox') {
+	if (placeholder) {
 		props.placeholder = placeholder;
 	}
 
 	if (required) {
 		props.required = true;
-	} else if (persist) {
-		const id = `.${props.id}`;
-		label[1].for = id;
-		props.id = id;
 	}
 
-	if (type === 'checkbox') {
-		if (isLiteral) {
-			props.checked = value === 'true';
-		} else if (value === true) {
-			props.checked = true;
-		}
+	if (path || schema) {
+		return [ObjectField, { schema, data, path }, label];
+	}
 
-		label.push(input);
-		return label;
-	} else if ((value || value === 0) && typeof value !== 'object') {
+	if ((data || data === 0) && typeof data !== 'object') {
 		if (type === 'textarea') {
-			input[2] = String(value);
-		} else if (type !== 'checkbox') {
-			const element = document.getElementById(id);
-			props.value = element?.value || String(value);
+			input[2] = String(data);
+		} else if (type === 'checkbox') {
+			props.checked = true;
+		} else {
+			props.value = String(data);
 		}
 	}
 
-	if (path) {
-		// TODO: maybe render this as select
-		// - it would need to fetch all JSON files in the given folder
-		// - what URL pattern can be used to fetch files in folder server-side
-		props.dataset = { path: `/${path}/` };
-	}
-
-	if (pattern) {
-		props.pattern = pattern;
-	}
-
-	if (range) {
-		const [, min, step, max] = range.match(/^(?:(.*?)\.\.)?(?:(.*?)\.\.)?(.*?)$/);
-
-		if (max) {
-			props[type === 'text' ? 'maxlength' : 'max'] = max;
-		}
-
-		if (min) {
-			props[type === 'text' ? 'minlength' : 'min'] = min;
-		}
-
-		if (step && step !== '1' && type !== 'text') {
-			props.step = step;
-		}
-	}
-
-	label.push(input);
 	return label;
 }

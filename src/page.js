@@ -1,5 +1,6 @@
 
-import state, { fetchNote, updateSettings, packSettingsAndSessions, scrollTo, updateWidth } from '.';
+import state, { updateSettings, packSettingsAndSessions, scrollTo, updateWidth } from '.';
+import { fetchNote } from './fetch';
 import Editor from './editor';
 import Sidebar from './sidebar';
 

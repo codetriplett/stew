@@ -1,4 +1,5 @@
-import state, { fetchNote, updateSettings, setTheme, updateWidth } from '.';
+import state, { updateSettings, setTheme, updateWidth } from '.';
+import { fetchNote } from './fetch';
 import Sidebar from './sidebar';
 
 function alphabetizeFolder (folder) {

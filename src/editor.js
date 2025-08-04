@@ -154,7 +154,7 @@ export default function Editor ({ path, file, schema, isModule }) {
 				'': 'form',
 				onsubmit: event => event.preventDefault(),
 			},
-				FormField(schema, data),
+				FormField('', data, schema),
 			]]),
 		],
 		['div', { className: 'main' },

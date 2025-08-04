@@ -4,8 +4,8 @@
         smile: '🙂',
     },
     quest: '// Quest',
-    exp: '/.. EXP',
-    complete: 'Complete',
+    exp: '/0.. EXP',
+    complete: '/ Complete',
 }
 ```
 
@@ -121,6 +121,20 @@ return ['div', {
     className: 'stew-demo',
     style: { display: 'flex', gap: '16px' },
 },
+    ['style', null, `
+        .stew-demo canvas {
+            width: 100%;
+        }
+        @media (max-width: 720px) {
+            .stew-demo {
+                display: block !important;
+
+                > *  + * {
+                    margin-top: 16px;
+                }
+            }
+        }
+    `],
     ['div', {
         style: { flex: '3 1 0', overflowX: 'auto', fontFamily: 'monospace', whiteSpace: 'pre' },
     },
@@ -190,21 +204,19 @@ for (let i = 0; i < count; i += 7) {
             data = {};
         }
 
-        const { quest, exp, complete } = data;
-        const content = stew(quest, [href]);
-        let text = getText(content?.[2] || '');
-        let textProps = { className: 'quest' };
+        const textProps = { className: 'quest' };
+        let { quest = '', exp = 0, complete } = data;
         index++;
 
-        if (!text && day === 1) {
-            text = new Intl.DateTimeFormat(locale, { month: 'long' }).format(date);
-            textProps.style = { fontSize: text.length > 10 ? '11px' : '15px', fontWeight: 'bold' };
+        if (!quest && day === 1) {
+            quest = new Intl.DateTimeFormat(locale, { month: 'long' }).format(date);
+            textProps.style = { fontSize: quest.length > 10 ? '11px' : '15px', fontWeight: 'bold' };
         }
 
         card.push(['li', name === todayName ? { className: 'today' } : null,
             ['span', null, day],
             ['a', { href },
-                ['span', textProps, text],
+                ['span', textProps, quest],
                 complete && ['span', { className: 'exp' }, `+${exp}`],
             ],
         ]);

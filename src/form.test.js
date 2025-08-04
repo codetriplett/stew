@@ -215,162 +215,245 @@ describe.skip('findOption', () => {
 // 123 */ Number
 // abc *// String
 
-describe.skip('FormField', () => {
+describe('FormField', () => {
+	it('checkbox', () => {
+		const actual = FormField('/', undefined, undefined, 'group', 'name');
+
+		expect(actual).toEqual(['label', {
+			for: 'group.name',
+		},
+			['input', { type: 'checkbox', id: 'group.name' }],
+			'name',
+		]);
+	});
+
+	it('label', () => {
+		const actual = FormField('/ Label', undefined, undefined, 'group', 'name');
+
+		expect(actual).toEqual(['label', {
+			for: 'group.name',
+		},
+			['input', { type: 'checkbox', id: 'group.name' }],
+			'Label',
+		]);
+	});
+
+	it('required', () => {
+		const actual = FormField('*/ Label', undefined, undefined, 'group', 'name');
+
+		expect(actual).toEqual(['label', {
+			for: 'group.name',
+		},
+			['input', { type: 'checkbox', id: 'group.name', required: true }],
+			'Label',
+		]);
+	});
+
+	it('static', () => {
+		const actual = FormField('Placeholder / Label', undefined, undefined, 'group', 'name');
+
+		expect(actual).toEqual(['label', {
+			for: 'group.name',
+		}, 'Label',
+			['input', { type: 'hidden', id: 'group.name', value: 'Placeholder' }],
+		]);
+	});
+
+	it('placeholder', () => {
+		const actual = FormField('Placeholder // Label', undefined, undefined, 'group', 'name');
+
+		expect(actual).toEqual(['label', {
+			for: 'group.name',
+		}, 'Label',
+			['input', { type: 'text', id: 'group.name', placeholder: 'Placeholder' }],
+		]);
+	});
+
+	it('placeholder and required', () => {
+		const actual = FormField('Placeholder *// Label', undefined, undefined, 'group', 'name');
+
+		expect(actual).toEqual(['label', {
+			for: 'group.name',
+		}, 'Label',
+			['input', { type: 'text', id: 'group.name', placeholder: 'Placeholder', required: true }],
+		]);
+	});
+
 	describe('number', () => {
-		it('unpopulated', () => {
-			const actual = FormField('/ Label', undefined, 'group', 'name');
+		it('basic', () => {
+			const actual = FormField('/.. Label', undefined, undefined, 'group', 'name');
 
-			expect(actual).toEqual([
-				['label', { for: 'group.name' }, 'Label'],
-				['input', { type: 'number', id: 'group.name' }],
-			]);
-		});
-
-		it('populated', () => {
-			const actual = FormField('/ Label', 123, 'group', 'name');
-
-			expect(actual).toEqual([
-				['label', { for: 'group.name' }, 'Label'],
-				['input', { type: 'number', id: 'group.name', value: '123' }],
-			]);
-		});
-
-		it('fallback', () => {
-			const actual = FormField('789 */ Label', 123, 'group', 'name');
-
-			expect(actual).toEqual([
-				['label', { for: '.group.name' }, 'Label'],
-				['input', { type: 'number', id: '.group.name', placeholder: '789', value: '123' }],
-			]);
-		});
-
-		it('required', () => {
-			const actual = FormField('789 /* Label', 123, 'group', 'name');
-
-			expect(actual).toEqual([
-				['label', { for: 'group.name' }, 'Label'],
-				['input', { type: 'number', id: 'group.name', placeholder: '789', value: '123', required: true }],
-			]);
-		});
-
-		it('literal', () => {
-			const actual = FormField('789 */* Label', 123, 'group', 'name');
-
-			expect(actual).toEqual([
-				['label', { for: 'group.name' }, 'Label'],
-				['input', { type: 'number', id: 'group.name', value: '789', disabled: true }],
-			]);
-		});
-
-		it('range longhand', () => {
-			const actual = FormField('/.. Label', undefined, 'group', 'name');
-
-			expect(actual).toEqual([
-				['label', { for: 'group.name' }, 'Label'],
+			expect(actual).toEqual(['label', {
+				for: 'group.name',
+			}, 'Label',
 				['input', { type: 'number', id: 'group.name' }],
 			]);
 		});
 
 		it('max shorthand', () => {
-			const actual = FormField('/4 Label', undefined, 'group', 'name');
+			const actual = FormField('/4 Label', undefined, undefined, 'group', 'name');
 
-			expect(actual).toEqual([
-				['label', { for: 'group.name' }, 'Label'],
+			expect(actual).toEqual(['label', {
+				for: 'group.name',
+			}, 'Label',
 				['input', { type: 'number', id: 'group.name', max: '4' }],
 			]);
 		});
 
 		it('max', () => {
-			const actual = FormField('/..4 Label', undefined, 'group', 'name');
+			const actual = FormField('/..4 Label', undefined, undefined, 'group', 'name');
 
-			expect(actual).toEqual([
-				['label', { for: 'group.name' }, 'Label'],
+			expect(actual).toEqual(['label', {
+				for: 'group.name',
+			}, 'Label',
 				['input', { type: 'number', id: 'group.name', max: '4' }],
 			]);
 		});
 
 		it('min', () => {
-			const actual = FormField('/0.. Label', undefined, 'group', 'name');
+			const actual = FormField('/0.. Label', undefined, undefined, 'group', 'name');
 
-			expect(actual).toEqual([
-				['label', { for: 'group.name' }, 'Label'],
+			expect(actual).toEqual(['label', {
+				for: 'group.name',
+			}, 'Label',
 				['input', { type: 'number', id: 'group.name', min: '0' }],
 			]);
 		});
 
 		it('step', () => {
-			const actual = FormField('/..2.. Label', undefined, 'group', 'name');
+			const actual = FormField('/..2.. Label', undefined, undefined, 'group', 'name');
 
-			expect(actual).toEqual([
-				['label', { for: 'group.name' }, 'Label'],
+			expect(actual).toEqual(['label', {
+				for: 'group.name',
+			}, 'Label',
 				['input', { type: 'number', id: 'group.name', step: '2' }],
 			]);
 		});
 
 		it('min and max', () => {
-			const actual = FormField('/0..4 Label', undefined, 'group', 'name');
+			const actual = FormField('/0..4 Label', undefined, undefined, 'group', 'name');
 
-			expect(actual).toEqual([
-				['label', { for: 'group.name' }, 'Label'],
+			expect(actual).toEqual(['label', {
+				for: 'group.name',
+			}, 'Label',
 				['input', { type: 'number', id: 'group.name', min: '0', max: '4' }],
 			]);
 		});
 
 		it('min and step', () => {
-			const actual = FormField('/0..2.. Label', undefined, 'group', 'name');
+			const actual = FormField('/0..2.. Label', undefined, undefined, 'group', 'name');
 
-			expect(actual).toEqual([
-				['label', { for: 'group.name' }, 'Label'],
+			expect(actual).toEqual(['label', {
+				for: 'group.name',
+			}, 'Label',
 				['input', { type: 'number', id: 'group.name', min: '0', step: '2' }],
 			]);
 		});
 
 		it('step and max', () => {
-			const actual = FormField('/..2..4 Label', undefined, 'group', 'name');
+			const actual = FormField('/..2..4 Label', undefined, undefined, 'group', 'name');
 
-			expect(actual).toEqual([
-				['label', { for: 'group.name' }, 'Label'],
+			expect(actual).toEqual(['label', {
+				for: 'group.name',
+			}, 'Label',
 				['input', { type: 'number', id: 'group.name', step: '2', max: '4' }],
 			]);
 		});
 
 		it('min, step, and max', () => {
-			const actual = FormField('/0..2..4 Label', undefined, 'group', 'name');
+			const actual = FormField('/0..2..4 Label', undefined, undefined, 'group', 'name');
 
-			expect(actual).toEqual([
-				['label', { for: 'group.name' }, 'Label'],
+			expect(actual).toEqual(['label', {
+				for: 'group.name',
+			}, 'Label',
 				['input', { type: 'number', id: 'group.name', min: '0', step: '2', max: '4' }],
 			]);
 		});
 
-		it('custom type', () => {
-			const actual = FormField('date/2000-01-01..7..2020-01-01 Label', undefined, 'group', 'name');
+		it('datetime-local', () => {
+			const actual = FormField('/2000-01-01T12:00..7..2020-01-01T12:00 Label', undefined, undefined, 'group', 'name');
 
-			expect(actual).toEqual([
-				['label', { for: 'group.name' }, 'Label'],
+			expect(actual).toEqual(['label', {
+				for: 'group.name',
+			}, 'Label',
+				['input', { type: 'datetime-local', id: 'group.name', min: '2000-01-01T12:00', step: '7', max: '2020-01-01T12:00' }],
+			]);
+		});
+
+		it('datetime-local add min time', () => {
+			const actual = FormField('/2000-01-01..7..2020-01-01T12:00 Label', undefined, undefined, 'group', 'name');
+
+			expect(actual).toEqual(['label', {
+				for: 'group.name',
+			}, 'Label',
+				['input', { type: 'datetime-local', id: 'group.name', min: '2000-01-01T00:00', step: '7', max: '2020-01-01T12:00' }],
+			]);
+		});
+
+		it('datetime-local add min date and time', () => {
+			const actual = FormField('/2000..7..2020-01-01T12:00 Label', undefined, undefined, 'group', 'name');
+
+			expect(actual).toEqual(['label', {
+				for: 'group.name',
+			}, 'Label',
+				['input', { type: 'datetime-local', id: 'group.name', min: '2000-01-01T00:00', step: '7', max: '2020-01-01T12:00' }],
+			]);
+		});
+
+		it('datetime-local add max time', () => {
+			const actual = FormField('/2000-01-01T12:00..7..2020-01-01 Label', undefined, undefined, 'group', 'name');
+
+			expect(actual).toEqual(['label', {
+				for: 'group.name',
+			}, 'Label',
+				['input', { type: 'datetime-local', id: 'group.name', min: '2000-01-01T12:00', step: '7', max: '2020-01-01T00:00' }],
+			]);
+		});
+
+		it('datetime-local add max date and time', () => {
+			const actual = FormField('/2000-01-01T12:00..7..2020 Label', undefined, undefined, 'group', 'name');
+
+			expect(actual).toEqual(['label', {
+				for: 'group.name',
+			}, 'Label',
+				['input', { type: 'datetime-local', id: 'group.name', min: '2000-01-01T12:00', step: '7', max: '2020-01-01T00:00' }],
+			]);
+		});
+
+		it('date', () => {
+			const actual = FormField('/2000-01-01..7..2020-01-01 Label', undefined, undefined, 'group', 'name');
+
+			expect(actual).toEqual(['label', {
+				for: 'group.name',
+			}, 'Label',
 				['input', { type: 'date', id: 'group.name', min: '2000-01-01', step: '7', max: '2020-01-01' }],
 			]);
 		});
 
-		it('custom type reference number', () => {
-			const actual = FormField('date/path//2020-01-01 Label', undefined, 'group', 'name');
+		it('populated', () => {
+			const actual = FormField('/.. Label', 123, undefined, 'group', 'name');
 
-			expect(actual).toEqual([
-				['label', { for: 'group.name' }, 'Label'],
-				['input', { type: 'date', id: 'group.name', max: '2020-01-01', dataset: { path: '/path/' } }],
+			expect(actual).toEqual(['label', {
+				for: 'group.name',
+			}, 'Label',
+				['input', { type: 'number', id: 'group.name', value: '123' }],
 			]);
 		});
 	});
 
-	describe('text', () => {
-		it('unpopulated', () => {
+	describe.skip('text', () => {
+		it('basic', () => {
 			const actual = FormField('// Label', undefined, 'group', 'name');
 
-			expect(actual).toEqual([
-				['label', { for: 'group.name' }, 'Label'],
+			expect(actual).toEqual(['label', {
+				for: 'group.name',
+			}, 'Label',
 				['input', { type: 'text', id: 'group.name' }],
 			]);
 		});
+
+
+
 
 		it('populated', () => {
 			const actual = FormField('// Label', 'abc', 'group', 'name');
@@ -391,7 +474,7 @@ describe.skip('FormField', () => {
 		});
 
 		it('required', () => {
-			const actual = FormField('xyz //* Label', 'abc', 'group', 'name');
+			const actual = FormField('xyz *// Label', 'abc', 'group', 'name');
 
 			expect(actual).toEqual([
 				['label', { for: 'group.name' }, 'Label'],
@@ -454,43 +537,7 @@ describe.skip('FormField', () => {
 		});
 	});
 
-	describe('other', () => {
-		it('checkbox unpopulated', () => {
-			const actual = FormField('Label', undefined, 'group', 'name');
-
-			expect(actual).toEqual([
-				['input', { type: 'checkbox', id: 'group.name' }],
-				['label', { for: 'group.name' }, 'Label'],
-			]);
-		});
-
-		it('checkbox populated', () => {
-			const actual = FormField('Label', true, 'group', 'name');
-
-			expect(actual).toEqual([
-				['input', { type: 'checkbox', id: 'group.name', checked: true }],
-				['label', { for: 'group.name' }, 'Label'],
-			]);
-		});
-
-		it('checkbox fallback', () => {
-			const actual = FormField('* Label', true, 'group', 'name');
-
-			expect(actual).toEqual([
-				['input', { type: 'checkbox', id: '.group.name', checked: true }],
-				['label', { for: '.group.name' }, 'Label'],
-			]);
-		});
-
-		it('checkbox literal', () => {
-			const actual = FormField('false ** Label', true, 'group', 'name');
-
-			expect(actual).toEqual([
-				['input', { type: 'checkbox', id: 'group.name', checked: false, disabled: true }],
-				['label', { for: 'group.name' }, 'Label'],
-			]);
-		});
-
+	describe.skip('object', () => {
 		it('object unpopulated', () => {
 			const actual = FormField({
 				number: '/ Number',
@@ -523,7 +570,7 @@ describe.skip('FormField', () => {
 		});
 	});
 
-	describe('select', () => {
+	describe.skip('select', () => {
 		it('unpopulated', () => {
 			const actual = FormField(['Label',
 				'123 */ Number',
@@ -660,7 +707,7 @@ describe.skip('FormField', () => {
 		});
 	});
 
-	describe('array', () => {
+	describe.skip('array', () => {
 		it('unpopulated', () => {
 			const actual = FormField(['/ Label',
 				'/ Number',
@@ -728,7 +775,7 @@ describe.skip('FormField', () => {
 		});
 	});
 
-	describe('properties', () => {
+	describe.skip('properties', () => {
 		it('unpopulated', () => {
 			const actual = FormField(['// Label',
 				'/ Number',
