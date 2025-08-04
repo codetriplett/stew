@@ -276,8 +276,8 @@ function FormSelect (definition, value, ...names) {
 
 function merge (base, change) {
 	if (
-		!base || typeof base !== 'object' || Array.isArray(object) ||
-		!change || typeof change !== 'object' || Array.isArray(object)
+		!base || typeof base !== 'object' || Array.isArray(base) ||
+		!change || typeof change !== 'object' || Array.isArray(change)
 	) {
 		return change;
 	}
@@ -287,47 +287,56 @@ function merge (base, change) {
 	}
 }
 
-function ObjectField ({ schema = {}, data = {}, path }, field) {
+// the idea here is that objects can extend existing schemas (if path is provided), or create their own embedded in current one
+// - even if another schema is referenced, choosing an existing file is optional. It can be created fresh from overrides within data as well
+// - '' prop on stored data indicates the schema it is tied to, and optionally what existing data it overwrites (if not ending in '/')
+// - the path to the schema is used not only for the form, but can also be used to import the code to render the component (file.default[0])
+function ObjectField ({ schema = {}, data = {}, path, names }, field) {
 	const filepath = data?.[''] || '';
-	const baseSchema = !path ? {} : stew(fetchCode, [path], [], null);
-	const baseData = !/^\/.*[^\/]$/.test(dataPath) ? {} : stew(fetchData, [filepath], null);
+	const baseSchema = !path ? {} : stew(fetchCode, [path], null)?.default?.[1] || {};
+	const baseData = !/^\/.*[^\/]$/.test(filepath) ? {} : stew(fetchData, [filepath], null);
 
 	if (!baseData || !baseSchema) {
 		return;
 	}
 
+	const list = ['ul', null];
 	merge(baseSchema, schema);
 	merge(baseData, data);
-	console.log(baseSchema, baseData);
 
-	return;
+	for (const [name, value] of Object.entries(baseSchema)) {
+		list.push(['li', null, FormField(value, baseData[name], ...names, name)]);
+	}
+
+	if (!names.length) {
+		return list;
+	}
+
+	field.push(list);
+	return field;
 }
 
-export function FormField (definition, data, schema, ...names) {
+export function FormField (definition, data, ...names) {
+	let schema;
+
 	if (Array.isArray(definition)) {
 		return FormSelect(definition, data, ...names);
 	} else if (typeof definition === 'object') {
-		const { '': name = names[names.length - 1], ...props } = definition;
-		const object = typeof data === 'object' && !Array.isArray(data) ? data : {};
-		const list = ['ul', {}];
-
-		for (const [name, value] of Object.entries(props)) {
-			list.push(FormField(value, object[name], undefined, ...names, name));
-		}
-
-		return names.length ? ['label', {}, name, list] : list;
+		({ '': definition = names[names.length - 1] || '', ...schema } = definition);
+		data = typeof data === 'object' && !Array.isArray(data) ? data : {};
 	} else if (typeof definition !== 'string') {
 		return;
 	}
 
-	const match = definition.match(/^\s*(?:(.+)\s+)?(\**)(.*?)\/(?:(.+?)\/)?(?:((?:\\\/|[^\s\/])*?)\/)?((?:\\\/|[^\s\/])*?)(?:\s+(.+?))?\s*$/);
-	let [, placeholder, required, type, path, pattern, range = '', text] = match || [,,,,,,, definition.trim()];
+	const match = definition.match(/^\s*(?:(.+)\s+)?(\**)(.*?)\/(.*?\/)?((?:\\\/|[^\s\/])*?)(?:\s+(.+?))?\s*$/);
+	let [, placeholder, required, type, slashes = '', range = '', text] = match || [,,,,,, definition.trim()];
+	let [, path, pattern] = slashes.match(/^(.*?)(?:((?:\\\/|[^\s\/])*?)\/)?$/);
 	let [, min = '', step, max = ''] = range.match(/^(?:(.*?)\.\.)?(?:(.*?)\.\.)?(.*?)$/);
 	const id = names.reduce((id, name) => `${id}${typeof name === 'number' ? `[${name}]` : `${id ? '.' : ''}${name}`}`, '');
 	const props = { id };
 	const input = ['input', props];
 	const label = ['label', { for: id }, text || names[names.length - 1], input];
-	
+
 	if (pattern !== undefined) {
 		type ||= 'text';
 		
@@ -375,10 +384,14 @@ export function FormField (definition, data, schema, ...names) {
 			props.step = step;
 		}
 	} else if (!match) {
-		// TODO: maybe have this be a textarea that accepts any JSON
-		// - use JSON.parse() when validating to make sure it is actually an object if there is content
-		// - have it parse out the asterisk to set it as required or not
-		return;
+		if (!schema) {
+			// TODO: maybe have this be a textarea that accepts any JSON
+			// - use JSON.parse() when validating to make sure it is actually an object if there is content
+			// - have it parse out the asterisk to set it as required or not
+			return;
+		}
+
+		type = 'text';
 	} else if (placeholder) {
 		type = 'hidden';
 		props.value = placeholder;
@@ -406,7 +419,7 @@ export function FormField (definition, data, schema, ...names) {
 	}
 
 	if (path || schema) {
-		return [ObjectField, { schema, data, path }, label];
+		return [ObjectField, { schema, data, path, names }, label];
 	}
 
 	if ((data || data === 0) && typeof data !== 'object') {
