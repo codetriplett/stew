@@ -122,6 +122,8 @@ createServer((req, res) => {
 					for (const file of files) {
 						if (file.endsWith('.md')) {
 							notes.push(file.slice(0, -3));
+						} else if (file.endsWith('.json')) {
+							notes.push(file.slice(0, -5));
 						}
 					}
 

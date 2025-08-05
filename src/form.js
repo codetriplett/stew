@@ -1,4 +1,4 @@
-import { fetchData, fetchCode } from './fetch';
+import { fetchCode, fetchList } from './fetch';
 
 function convertValue (type, value, checked) {
 	switch (type) {
@@ -161,7 +161,7 @@ function RangeSelect ({ label, placeholder, value, inputs, rest, names }, ...opt
 		['ol', {},
 			...array.map((value, i) => {
 				const index = optionIndexes[i];
-				return index === -1 ? null : ['li', {}, FormField(rest[index], value, undefined, ...names, i)];
+				return index === -1 ? null : ['li', {}, FormField(rest[index], value, ...names, i)];
 			}),
 		],
 		['select', {
@@ -182,7 +182,7 @@ function RangeSelect ({ label, placeholder, value, inputs, rest, names }, ...opt
 
 function FormSelect (definition, value, ...names) {
 	const [first, ...rest] = definition;
-	const field = FormField(first, undefined, undefined, ...names);
+	const field = FormField(first, undefined, ...names);
 	const inputs = [];
 
 	if (!field?.length) {
@@ -190,7 +190,12 @@ function FormSelect (definition, value, ...names) {
 	}
 
 	const options = rest.map(definition => {
-		const label = FormField(definition, undefined, undefined, ...names);
+		let label = FormField(definition, undefined, ...names);
+		
+		if (typeof label[0] === 'function') {
+			label = label[2];
+		}
+
 		const input = label.find(child => child[0] === 'input');
 		inputs.push(input);
 		return ['option', {}, label[2]];
@@ -246,7 +251,7 @@ function FormSelect (definition, value, ...names) {
 		if (index === -1) {
 			item[2] = 'Invalid Item';
 		} else {
-			const field = FormField(rest[index], value, undefined, ...names, name);
+			const field = FormField(rest[index], value, ...names, name);
 			const [input] = field.splice(2, 1);
 
 			field[2] = name;
@@ -285,35 +290,98 @@ function merge (base, change) {
 	for (const [name, value] of Object.entries(change)) {
 		base[name] = merge(base[name], value);
 	}
+
+	return base;
 }
+
+const form = document.createElement('form');
+const input = document.createElement('input');
+form.appendChild(input);
 
 // the idea here is that objects can extend existing schemas (if path is provided), or create their own embedded in current one
 // - even if another schema is referenced, choosing an existing file is optional. It can be created fresh from overrides within data as well
 // - '' prop on stored data indicates the schema it is tied to, and optionally what existing data it overwrites (if not ending in '/')
 // - the path to the schema is used not only for the form, but can also be used to import the code to render the component (file.default[0])
 function ObjectField ({ schema = {}, data = {}, path, names }, field) {
-	const filepath = data?.[''] || '';
-	const baseSchema = !path ? {} : stew(fetchCode, [path], null)?.default?.[1] || {};
-	const baseData = !/^\/.*[^\/]$/.test(filepath) ? {} : stew(fetchData, [filepath], null);
+	field = [...field];
+	const inputProps = field.pop()[1];
+	const complex = path && names.length > 0;
 
-	if (!baseData || !baseSchema) {
-		return;
+	const state = stew({
+		expanded: Object.keys(data).filter(key => key).length > 0,
+		selection: data?.['']?.split?.('/')?.pop?.() || '',
+	}, []);
+
+	const { expanded, selection } = state;
+	let select;
+	
+	// TODO: load baseData from data[''] to use as placeholders in form
+	// - don't set as value prop, since that would add a copy of each to the data saved here
+	// - only overrides should be stored here
+
+	if (complex) {
+		const base = stew(fetchCode, [path], null);
+		const list = stew(fetchList, [path], null);
+
+		if (!base || !list) {
+			return;
+		}
+		
+		const { '': meta, ...baseSchema } = base?.default?.[1] || {};
+
+		[schema, select] = stew(() => [
+			merge(baseSchema, schema),
+			['', null, ['select', {
+				onchange: event => state.selection = event.target.value,
+			},
+				['option', { value: '' }, inputProps.placeholder || 'Select an item...'],
+				...list.filter(value => {
+					Object.assign(input, { value }, inputProps);
+					return form.checkValidity();
+				}).map(value => {
+					return ['option', { value }, value];
+				})
+			]],
+		], [path]);
+
+		stew(null, [selection], () => {
+			const [ref] = select[0];
+
+			if (selection) {
+				ref.value = selection;
+			} else {
+				ref.selectedIndex = 0;
+			}
+		});
 	}
-
+	
 	const list = ['ul', null];
-	merge(baseSchema, schema);
-	merge(baseData, data);
-
-	for (const [name, value] of Object.entries(baseSchema)) {
-		list.push(['li', null, FormField(value, baseData[name], ...names, name)]);
+	
+	if (selection) {
+		const field = FormField('//', `/${path}/${selection}`, ...names, '');
+		field[1].type = 'hidden';
+		console.log(field);
+		list.push(['li', null, field]);
 	}
 
-	if (!names.length) {
-		return list;
+	for (const [name, value] of Object.entries(expanded ? schema : {})) {
+		list.push(['li', null, FormField(value, data[name], ...names, name)]);
+
+		if (!name) {
+			console.log(list[list.length - 1]);
+		}
 	}
 
-	field.push(list);
-	return field;
+	return !names.length ? list : [
+		...field,
+		!expanded && ['button', {
+			type: 'button',
+			style: { float: 'right', marginTop: '-21px' },
+			onclick: () => state.expanded = true,
+		}, selection ? 'Override' : 'Create'],
+		select,
+		list,
+	];
 }
 
 export function FormField (definition, data, ...names) {
@@ -323,7 +391,6 @@ export function FormField (definition, data, ...names) {
 		return FormSelect(definition, data, ...names);
 	} else if (typeof definition === 'object') {
 		({ '': definition = names[names.length - 1] || '', ...schema } = definition);
-		data = typeof data === 'object' && !Array.isArray(data) ? data : {};
 	} else if (typeof definition !== 'string') {
 		return;
 	}
@@ -392,7 +459,7 @@ export function FormField (definition, data, ...names) {
 		}
 
 		type = 'text';
-	} else if (placeholder) {
+	} else if (placeholder && required) {
 		type = 'hidden';
 		props.value = placeholder;
 		placeholder = '';
@@ -404,10 +471,6 @@ export function FormField (definition, data, ...names) {
 		input[0] = 'textarea';
 	} else {
 		props.type = type;
-
-		if (type === 'checkbox') {
-			label.splice(2, 0, label.pop());
-		}
 	}
 
 	if (placeholder) {
@@ -419,7 +482,7 @@ export function FormField (definition, data, ...names) {
 	}
 
 	if (path || schema) {
-		return [ObjectField, { schema, data, path, names }, label];
+		return [ObjectField, { schema, data, path: path.slice(0, -1), names }, label];
 	}
 
 	if ((data || data === 0) && typeof data !== 'object') {
@@ -432,5 +495,5 @@ export function FormField (definition, data, ...names) {
 		}
 	}
 
-	return label;
+	return id.endsWith('.') ? input : label;
 }

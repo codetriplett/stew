@@ -1,6 +1,6 @@
 import Home from './home';
 import Page from './page';
-import { fetchNote, fetchData, fetchCode } from './fetch';
+import { fetchNote, fetchData, fetchCode, fetchList } from './fetch';
 
 const { localStorage, location } = window;
 const { pathname, hash } = location;
@@ -197,22 +197,9 @@ Promise.all([...promises, fetchCode('index')]).then(async sequence => {
 		heading = mainHeading || formatHeading(name);
 		isModule = !hash ? false : hash.split('#')[0].indexOf(':') !== -1;
 	} else {
-		const folder = `/${path}`;
-		const res = await fetch(`${folder}/`);
-		const names = await res.json();
-		breadcrumbs[breadcrumbs.length - 1][1].href = folder.slice(0, -1);
-
-		for (const path in localStorage) {
-			const index = path.lastIndexOf('/');
-
-			if (path.startsWith(folder) && path.endsWith('.md') && index === folder.length - 1) {
-				const name = path.slice(folder.length, -3);
-
-				if (names.indexOf(name) === -1) {
-					names.push(name);
-				}
-			}
-		}
+		const trimmedPath = path.slice(0, -1);
+		const names = await fetchList(trimmedPath);
+		breadcrumbs[breadcrumbs.length - 1][1].href = `/${trimmedPath}`;
 
 		directory = names.sort().map(file => {
 			const text = formatHeading(file);

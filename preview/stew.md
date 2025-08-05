@@ -183,37 +183,78 @@ Code can be scheduled to run once the layout has rendered by putting its functio
 
 ## Data
 
-Each section of your URL represents a note, and the layout from each one is passed to the one before. Additional data is passed along as well if the container note had fields defined. These can be set at the top of the note, along with styles and additional resources.
+Your custom code will also wrap the content of notes that live beneath it in the URL. The child notes will provide data in addition to their layout which can be read from the arguments. These arguments are empty when viewing the parent page on its own, with a trailing slash, so you can customize the behavior for each.
+
+```
+const [props, content] = arguments;
+```
+
+You will need to define a schema in order to edit the prop data passed in. This is defined at the top of the file in the object we mentioned earlier. These fields will show up in an expandable left nav when editing a child note of the current page.
 
 ```
 /some/other/styles.css
 /some/other/script.mjs
 {
+	'': 'Heading',
+
+	// display a field that accepts only text
 	string: '// String',
+	pattern: '/[a-z]+/ Pattern',
+
+	// display a field that accepts only numbers
 	number: '/.. Number',
+	range: '/0..9 Range',
+
+	// display a checkbox that stores true if selected
 	boolean: '/ Boolean',
+
+	// fields can set placeholder text to give some extra context
+	name: 'Enter a name /[a-z]+/ Name',
+
+	// fields can be set to required by placing a * before their type definition
+	age: '*/0..128 Age'
+
+	// required booleans will use their placeholder text as a static value to set instead
+	static: 'static */ Static',
+	// these are useful within the array options below to select preset values
+	
+	// path is used to embed existing schema, and locate existing data under it
 	reference: '/path/to/data// Reference',
+
+	// more complex data can be defined in objects
 	object: {
-		'': 'Object',
-		pattern: '/[a-z]/i Pattern',
-		range: '/0..9 Range',
+		'': 'Object', // path can also be included here to override existing schema
+		// set additional fields here
 	},
+
+	// allows for a collection of items that match one of the provided types
 	array: ['/.. Array',
 		'// String',
 		'/.. Number',
 	],
-	choice: ['/ Choice',
+	// can set a min and max value, like with number fields, to limit the size of the array
+
+	// !!! the rest aren't finished at this time. I started to run out of steam here. !!!
+
+	// allows selecting one
+	select: ['/ Select',
 		'first / First',
 		'second / Second',
+	],
+
+	// allows selecting from multiple options, but only one time each
+	multiselect: ['Multiselect',
+		'first / First',
+		'second / Second',
+	],
+
+	// objects can be defined where the keys are custom, but value types are predefined
+	properties: ['// Properties',
+		'// String',
+		'/.. Number',
 	],
 }
 img {
 	width: 100%;
 }
-```
-
-These fields will show up in an expandable left when editing a note directly below the one where they were defined. The data and child note content can be accessed at the top of your function like so.
-
-```
-const [props, content] = arguments;
 ```

@@ -26,7 +26,7 @@ path/path/\w+/
 const checkValidity = jest.fn();
 const reportValidity = jest.fn();
 export const elements = [];
-let form, dataMock, schemaMock;
+let form, dataMock, schemaMock, memos;
 
 export function addElements (value, id = '') {
 	let type = 'text';
@@ -78,10 +78,18 @@ beforeEach(() => {
 	checkValidity.mockReturnValue(true);
 	fetchData.mockImplementation(() => dataMock);
 	fetchCode.mockImplementation(() => ({ default: [null, schemaMock] }));
-	globalThis.stew = (callback, params) => callback(...params);
+
+	globalThis.stew = (callback, params) => {
+		if (typeof callback === 'function' && callback.name) {
+			return callback(...params);
+		}
+
+		return memos.shift();
+	};
 
 	dataMock = {};
 	schemaMock = {};
+	memos = [];
 
 	form = {
 		checkValidity,
@@ -557,7 +565,7 @@ describe('FormField', () => {
 						number: '/.. Number',
 						text: '// Text',
 					},
-					data: {},
+					data: undefined,
 					path: '',
 					names: ['group'],
 				},
@@ -568,8 +576,21 @@ describe('FormField', () => {
 				]
 			]);
 
+			const state = { expanded: false };
+			memos = [state];
 			const [callback, props, ...children] = layout;
-			const actual = callback(props, ...children);
+			let actual = callback(props, ...children);
+
+			expect(actual).toEqual(['label', {
+				for: 'group',
+			}, 'Label',
+				['input', { type: 'text', id: 'group' }],
+				['button', { type: 'button', onclick: expect.any(Function) }, 'Create'],
+			]);
+
+			actual[4][1].onclick();
+			memos = [state];
+			actual = callback(props, ...children);
 
 			expect(actual).toEqual(['label', {
 				for: 'group',
@@ -594,7 +615,7 @@ describe('FormField', () => {
 			]);
 		});
 
-		it('object unpopulated', () => {
+		it('object populated', () => {
 			const layout = FormField({
 				'': 'Label',
 				number: '/.. Number',
@@ -604,6 +625,8 @@ describe('FormField', () => {
 				text: 'abc',
 			}, 'group');
 
+			const state = { expanded: true };
+			memos = [state];
 			const [callback, props, ...children] = layout;
 			const actual = callback(props, ...children);
 
@@ -642,7 +665,27 @@ describe('FormField', () => {
 				number: 123,
 				text: 'abc',
 			}, 'group');
+			
+			expect(layout).toEqual([
+				expect.any(Function),
+				{
+					schema: {},
+					data: {
+						number: 123,
+						text: 'abc',
+					},
+					path: 'path',
+					names: ['group'],
+				},
+				['label', {
+					for: 'group',
+				}, 'Label',
+					['input', { type: 'text', id: 'group' }],
+				]
+			]);
 
+			const state = { expanded: true };
+			memos = [state];
 			const [callback, props, ...children] = layout;
 			const actual = callback(props, ...children);
 
@@ -680,6 +723,8 @@ describe('FormField', () => {
 				text: 'abc',
 			}, 'group');
 
+			const state = { expanded: true };
+			memos = [state];
 			const [callback, props, ...children] = layout;
 			const actual = callback(props, ...children);
 
@@ -721,6 +766,8 @@ describe('FormField', () => {
 				boolean: true,
 			}, 'group');
 
+			const state = { expanded: true };
+			memos = [state];
 			const [callback, props, ...children] = layout;
 			const actual = callback(props, ...children);
 
@@ -774,6 +821,8 @@ describe('FormField', () => {
 				boolean: true,
 			}, 'group');
 
+			const state = { expanded: true };
+			memos = [state];
 			const [callback, props, ...children] = layout;
 			const actual = callback(props, ...children);
 
@@ -804,6 +853,88 @@ describe('FormField', () => {
 							'Boolean',
 						],
 					],
+				],
+			]);
+		});
+	});
+
+	// { '': 'Label', ... }: custom object
+	// { '': '// Label', ... }: import/override root data (add textarea for fully custom JSON)
+	// { '': '/.. Label', ... }: import/override root data
+	// { '': '/path// Label', ... }: extend schema
+
+	// ['Label', ...]: multi select, but only one of each (checkboxes to show/hide values)
+	// ['/ Label', ...]: select one
+	// ['// Label', ...]: store in object under custom keys that match pattern
+	// ['/.. Label', ...]: array
+	
+	// { '': '/ Label', ... }: not really supported (no path allowed, no slash already supports custom object)
+	// ['/path// Label', ...]: not really supported
+
+	describe.skip('array', () => {
+		it('unpopulated', () => {
+			const actual = FormField(['/.. Label',
+				'/.. Number',
+				'// Text',
+			], undefined, 'group');
+
+			expect(actual).toEqual([
+				['label', {}, 'Label',
+					['ol', {}],
+					['select', { onchange: expect.any(Function) },
+						['option', {}, 'Add item...'],
+						['option', {}, 'Number'],
+						['option', {}, 'Text'],
+					],
+				],
+			]);
+		});
+
+		it('populated', () => {
+			const actual = FormField(['/ Label',
+				'/ Number',
+				'// Text',
+			], [123, 'abc'], 'group');
+
+			expect(actual).toEqual([
+				['label', {}, 'Label'],
+				['ol', {},
+					['li', {},
+						['input', { type: 'number', id: 'group[0]', value: '123' }],
+					],
+					['li', {},
+						['input', { type: 'text', id: 'group[1]', value: 'abc' }],
+					],
+				],
+				['select', { onchange: expect.any(Function) },
+					['option', {}, 'Add item...'],
+					['option', {}, 'Number'],
+					['option', {}, 'Text'],
+				],
+			]);
+		});
+
+		it('added', () => {
+			const actual = FormField(['/ Label',
+				'/ Number',
+				'// Text',
+			], undefined, 'group');
+
+			const select = actual[2];
+			const { onchange } = select[1];
+			onchange({ selectedIndex: 2 });
+
+			expect(actual).toEqual([
+				['label', {}, 'Label'],
+				['ol', {},
+					['li', {},
+						['input', { type: 'text', id: 'group[0]' }],
+					],
+				],
+				['select', { onchange: expect.any(Function) },
+					['option', { selected: true }, 'Add item...'],
+					['option', {}, 'Number'],
+					['option', {}, 'Text'],
 				],
 			]);
 		});
@@ -942,74 +1073,6 @@ describe('FormField', () => {
 					['option', { selected: true }, 'Text'],
 				],
 				['', {}],
-			]);
-		});
-	});
-
-	describe.skip('array', () => {
-		it('unpopulated', () => {
-			const actual = FormField(['/ Label',
-				'/ Number',
-				'// Text',
-			], undefined, 'group');
-
-			expect(actual).toEqual([
-				['label', {}, 'Label'],
-				['ol', {}],
-				['select', { onchange: expect.any(Function) },
-					['option', {}, 'Add item...'],
-					['option', {}, 'Number'],
-					['option', {}, 'Text'],
-				],
-			]);
-		});
-
-		it('populated', () => {
-			const actual = FormField(['/ Label',
-				'/ Number',
-				'// Text',
-			], [123, 'abc'], 'group');
-
-			expect(actual).toEqual([
-				['label', {}, 'Label'],
-				['ol', {},
-					['li', {},
-						['input', { type: 'number', id: 'group[0]', value: '123' }],
-					],
-					['li', {},
-						['input', { type: 'text', id: 'group[1]', value: 'abc' }],
-					],
-				],
-				['select', { onchange: expect.any(Function) },
-					['option', {}, 'Add item...'],
-					['option', {}, 'Number'],
-					['option', {}, 'Text'],
-				],
-			]);
-		});
-
-		it('added', () => {
-			const actual = FormField(['/ Label',
-				'/ Number',
-				'// Text',
-			], undefined, 'group');
-
-			const select = actual[2];
-			const { onchange } = select[1];
-			onchange({ selectedIndex: 2 });
-
-			expect(actual).toEqual([
-				['label', {}, 'Label'],
-				['ol', {},
-					['li', {},
-						['input', { type: 'text', id: 'group[0]' }],
-					],
-				],
-				['select', { onchange: expect.any(Function) },
-					['option', { selected: true }, 'Add item...'],
-					['option', {}, 'Number'],
-					['option', {}, 'Text'],
-				],
 			]);
 		});
 	});
