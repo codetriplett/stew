@@ -76,8 +76,12 @@ function parseTypes (value) {
 	return [];
 }
 
-// TODO: work out way to allow neseted option/array/object definitions
-// - for now, only simple inputs are allowed
+// TODO: simplify how it detects which array item to use
+// - only differentiate between boolean/number/text and objects by their '' path
+// - find first one that fits, and don't bother with pattern, min, max etc
+// - have array search recursively, and us it if it returns a match within itself
+// - separate definition parsing code so we don't need generate label/input layout just to find the type
+// - only path, pattern, and range are neeeded (e.g. path -> object (then check url), else pattern -> text, else range -> number, else checkbox (or static if required flag is present))
 export function findOption (value, ...options) {
 	if (value === undefined) {
 		return -1;
@@ -161,7 +165,7 @@ function RangeSelect ({ label, placeholder, value, inputs, rest, names }, ...opt
 		['ol', {},
 			...array.map((value, i) => {
 				const index = optionIndexes[i];
-				return index === -1 ? null : ['li', {}, FormField(rest[index], value, ...names, i)];
+				return index === -1 ? null : ['li', {}, Field(rest[index], value, ...names, i)];
 			}),
 		],
 		['select', {
@@ -180,90 +184,178 @@ function RangeSelect ({ label, placeholder, value, inputs, rest, names }, ...opt
 	];
 }
 
-function FormSelect (definition, value, ...names) {
-	const [first, ...rest] = definition;
-	const field = FormField(first, undefined, ...names);
-	const inputs = [];
+function ValueSelect ({ types, value }, field, ...options) {
+	const index = types.indexOf(typeof value);
 
-	if (!field?.length) {
-		return [];
-	}
+	// TODO: add button as shortcut for selecting the first option if there is only one
+	return [...field.slice(0, -1), ['select', {
+		onchange: () => {
+			console.log('=======');
+		},
+	},
+		['option', null, field[1].placeholder || 'Select an item...'],
+		...fields.map((field, i) => ['option', { selected: i === index }, field[2]]),
+	]];
+}
 
-	const options = rest.map(definition => {
-		let label = FormField(definition, undefined, ...names);
-		
-		if (typeof label[0] === 'function') {
-			label = label[2];
-		}
+function ArraySelect () {
+	return;
+}
 
-		const input = label.find(child => child[0] === 'input');
-		inputs.push(input);
-		return ['option', {}, label[2]];
-	});
+function ObjectSelect () {
+	return;
+}
 
-	const label = field[2];
-	const [input] = field.splice(3, 1);
-	const { type, placeholder } = input[1];
-	const selectProps = {};
-	const select = ['select', selectProps, ...options];
-	delete field[1].for;
+export function FormSelect (definition, value, ...names) {
+	const fields = stew(() => {
+		return definition.map(definition => Field(definition, undefined, ...names));
+	}, [definition]);
+
+	const [type, ...types] = stew(() => {
+		return fields.map(field => {
+			const [tagName, { type }] = field[field.length - 1];
+
+			if (tagName === FormSelect) {
+				return;
+			} else if (tagName === ObjectField) {
+				return 'object';
+			} else if (type === 'checkbox' || type === 'hidden') {
+				return 'boolean'
+			}
+
+			return type === 'number' || type === 'range' ? 'number' : 'string';
+		});
+	}, [fields]);
 
 	switch (type) {
-		case 'checkbox': {
-			return [BooleanSelect, { label, placeholder, value, inputs }, ...options];
+		case 'boolean': {
+			return [ValueSelect, { types, value }, ...fields];
 		}
-		case 'number':
-		case 'range': {
-			return [RangeSelect, { label, placeholder, value, inputs, rest, names }, ...options];
+		case 'number': {
+			const array = Array.isArray(value) ? value : [];
+			return [ArraySelect, { types, array }, ...fields];
+		}
+		case 'string': {
+			const object = typeof value === 'object' && !Array.isArray(value) ? value : {};
+			return [ObjectSelect, { types, object }, ...fields];
 		}
 	}
 
-	// TODO: create PropertySelect impulse for this
-	const object = typeof value === 'object' && !Array.isArray(value) ? value : {};
-	const list = ['ul', {}];
-	const option = ['option', {}, placeholder || 'Add property...'];
-	select.splice(2, 0, option);
-	delete input[1].id;
-	delete input[1].placeholder;
-	field[1] = {};
+	// return [...field.slice(0, -1), fields.length !== 1
+	// 	? ['select', {
+	// 		onchange: () => {
+	// 			console.log('=======');
+	// 		},
+	// 	},
+	// 		['option', null, field[1].placeholder || 'Select an item...'],
+	// 		...fields.map(field => ['option', null, field[2]]),
+	// 	]
+	// 	: (!isSingle || !array[0]) && ['button', {
+	// 		type: 'button',
+	// 		onclick: () => {
+	// 			console.log('=======');
+	// 		},
+	// 	}, 'Add'],
+	// ];
+
+
+	// when field input type is...
+	// checkbox: select one (choosing one will add or replace the existing fields)
+	// number, range: select any (choosing one will add a new item, also needs delete button)
+	// else: store in object under custom keys that match pattern
+
+	// simplify how value items are tied to options available
+	// boolean: checkbox
+	// number: number, range
+	// text: otherwise
+	// object: use '' prop
+
+
+
+
+
+	// const inputs = [];
+
+	// if (!field?.length) {
+	// 	return [];
+	// }
+
+	// // just parse definitions here
+	// const options = rest.map(definition => {
+	// 	let label = Field(definition, undefined, ...names);
+		
+	// 	if (typeof label[0] === 'function') {
+	// 		label = label[2];
+	// 	}
+
+	// 	const input = label.find(child => child[0] === 'input');
+	// 	inputs.push(input);
+	// 	return ['option', {}, label[2]];
+	// });
+
+	// const label = field[2];
+	// const [input] = field.splice(3, 1);
+	// const { type, placeholder } = input[1];
+	// const selectProps = {};
+	// const select = ['select', selectProps, ...options];
+	// delete field[1].for;
+
+	// switch (type) {
+	// 	case 'checkbox': {
+	// 		return [BooleanSelect, { label, placeholder, value, inputs }, ...options];
+	// 	}
+	// 	case 'number':
+	// 	case 'range': {
+	// 		return [RangeSelect, { label, placeholder, value, inputs, rest, names }, ...options];
+	// 	}
+	// }
+
+	// // TODO: create PropertySelect impulse for this
+	// const object = typeof value === 'object' && !Array.isArray(value) ? value : {};
+	// const list = ['ul', {}];
+	// const option = ['option', {}, placeholder || 'Add property...'];
+	// select.splice(2, 0, option);
+	// delete input[1].id;
+	// delete input[1].placeholder;
+	// field[1] = {};
 			
-	selectProps.onchange = ({ selectedIndex }) => {
-		const name = input[1].value;
-		const newInput = inputs[selectedIndex - 1];
-		select[2][1].selected = true;
+	// selectProps.onchange = ({ selectedIndex }) => {
+	// 	const name = input[1].value;
+	// 	const newInput = inputs[selectedIndex - 1];
+	// 	select[2][1].selected = true;
 
-		if (!name || !newInput) {
-			return;
-		}
+	// 	if (!name || !newInput) {
+	// 		return;
+	// 	}
 
-		delete input[1].value;
-		const clonedInput = [...newInput];
-		clonedInput[1] = { ...clonedInput[1] };
-		clonedInput[1].id += `.${name}`;
-		const label = ['label', { for: clonedInput[1].id }, name];
-		list.push(['li', {}, label, clonedInput]);
-	};
+	// 	delete input[1].value;
+	// 	const clonedInput = [...newInput];
+	// 	clonedInput[1] = { ...clonedInput[1] };
+	// 	clonedInput[1].id += `.${name}`;
+	// 	const label = ['label', { for: clonedInput[1].id }, name];
+	// 	list.push(['li', {}, label, clonedInput]);
+	// };
 
-	for (const [name, value] of Object.entries(object)) {
-		const index = findOption(value, ...inputs);
-		const item = ['li', {}];
+	// for (const [name, value] of Object.entries(object)) {
+	// 	const index = findOption(value, ...inputs);
+	// 	const item = ['li', {}];
 
-		if (index === -1) {
-			item[2] = 'Invalid Item';
-		} else {
-			const field = FormField(rest[index], value, ...names, name);
-			const [input] = field.splice(2, 1);
+	// 	if (index === -1) {
+	// 		item[2] = 'Invalid Item';
+	// 	} else {
+	// 		const field = Field(rest[index], value, ...names, name);
+	// 		const [input] = field.splice(2, 1);
 
-			field[2] = name;
-			item[2] = field;
-			item[3] = input;
-		}
+	// 		field[2] = name;
+	// 		item[2] = field;
+	// 		item[3] = input;
+	// 	}
 
-		list.push(item);
-	}
+	// 	list.push(item);
+	// }
 
-	field.push(list, input, select);
-	return field;
+	// field.push(list, input, select);
+	// return field;
 }
 
 // read schema from MJS at path and fill in its form fields
@@ -294,15 +386,19 @@ function merge (base, change) {
 	return base;
 }
 
-const form = document.createElement('form');
-const input = document.createElement('input');
-form.appendChild(input);
+let form, input;
+
+if (typeof document === 'object') {
+	form = document.createElement('form');
+	input = document.createElement('input');
+	form.appendChild(input);
+}
 
 // the idea here is that objects can extend existing schemas (if path is provided), or create their own embedded in current one
 // - even if another schema is referenced, choosing an existing file is optional. It can be created fresh from overrides within data as well
 // - '' prop on stored data indicates the schema it is tied to, and optionally what existing data it overwrites (if not ending in '/')
 // - the path to the schema is used not only for the form, but can also be used to import the code to render the component (file.default[0])
-function ObjectField ({ schema = {}, data = {}, path, names }, field) {
+function ObjectField ({ schema = {}, data = {}, names }, field) {
 	field = [...field];
 	const inputProps = field.pop()[1];
 	const complex = path && names.length > 0;
@@ -358,14 +454,14 @@ function ObjectField ({ schema = {}, data = {}, path, names }, field) {
 	const list = ['ul', null];
 	
 	if (selection) {
-		const field = FormField('//', `/${path}/${selection}`, ...names, '');
+		const field = Field('//', `/${path}/${selection}`, ...names, '');
 		field[1].type = 'hidden';
 		console.log(field);
 		list.push(['li', null, field]);
 	}
 
 	for (const [name, value] of Object.entries(expanded ? schema : {})) {
-		list.push(['li', null, FormField(value, data[name], ...names, name)]);
+		list.push(['li', null, Field(value, data[name], ...names, name)]);
 
 		if (!name) {
 			console.log(list[list.length - 1]);
@@ -384,27 +480,35 @@ function ObjectField ({ schema = {}, data = {}, path, names }, field) {
 	];
 }
 
-export function FormField (definition, data, ...names) {
+export function Field (definition, data, ...names) {
 	let schema;
 
 	if (Array.isArray(definition)) {
 		return FormSelect(definition, data, ...names);
 	} else if (typeof definition === 'object') {
 		({ '': definition = names[names.length - 1] || '', ...schema } = definition);
-	} else if (typeof definition !== 'string') {
+	}
+
+	if (typeof definition !== 'string') {
 		return;
 	}
 
-	const match = definition.match(/^\s*(?:(.+)\s+)?(\**)(.*?)\/(.*?\/)?((?:\\\/|[^\s\/])*?)(?:\s+(.+?))?\s*$/);
-	let [, placeholder, required, type, slashes = '', range = '', text] = match || [,,,,,, definition.trim()];
-	let [, path, pattern] = slashes.match(/^(.*?)(?:((?:\\\/|[^\s\/])*?)\/)?$/);
-	let [, min = '', step, max = ''] = range.match(/^(?:(.*?)\.\.)?(?:(.*?)\.\.)?(.*?)$/);
 	const id = names.reduce((id, name) => `${id}${typeof name === 'number' ? `[${name}]` : `${id ? '.' : ''}${name}`}`, '');
-	const props = { id };
+	const match = definition.match(/^\s*(?:(.+)\s+)?(.*?)\/(.*?\/)?((?:\\\/|[^\s\/])*?)(?:\s+(.+?))?\s*$/);
+	let [, placeholder, type, slashes = '', range = '', label] = match || [,,,,, definition.trim()];
+	let [, min = '', step, max = '', required] = range.match(/^(?:(.*?)\.\.)?(?:(.*?)\.\.)?(.*?)(\**)$/);
+	const props = id ? { id } : {};
 	const input = ['input', props];
-	const label = ['label', { for: id }, text || names[names.length - 1], input];
+	const field = ['label', id ? { for: id } : null, names[names.length - 1], input];
+	let path;
 
-	if (pattern !== undefined) {
+	if (label) {
+		field[2] = label;
+	}
+
+	if (slashes) {
+		const [, prefix, pattern] = slashes.match(/^(.*?)(?:((?:\\\/|[^\s\/])*?)\/)?$/);
+		path = prefix.slice(0, -1);
 		type ||= 'text';
 		
 		if (pattern) {
@@ -421,7 +525,7 @@ export function FormField (definition, data, ...names) {
 	} else if (range) {
 		const [, minDate, minTime] = min.match(/^(?:(\d{4}-\d{2}-\d{2})(T\d{2}:\d{2})?|.*)$/);
 		const [, maxDate, maxTime] = max.match(/^(?:(\d{4}-\d{2}-\d{2})(T\d{2}:\d{2})?|.*)$/);
-		type = minTime || maxTime ? 'datetime-local' : minDate || maxDate ? 'date' : 'number';
+		type ||= minTime || maxTime ? 'datetime-local' : minDate || maxDate ? 'date' : 'number';
 
 		if (min) {
 			if (type !== 'number' && !minDate) {
@@ -451,20 +555,11 @@ export function FormField (definition, data, ...names) {
 			props.step = step;
 		}
 	} else if (!match) {
-		if (!schema) {
-			// TODO: maybe have this be a textarea that accepts any JSON
-			// - use JSON.parse() when validating to make sure it is actually an object if there is content
-			// - have it parse out the asterisk to set it as required or not
-			return;
-		}
-
-		type = 'text';
-	} else if (placeholder && required) {
-		type = 'hidden';
-		props.value = placeholder;
-		placeholder = '';
-	} else {
 		type = 'checkbox';
+	} else {
+		type = 'hidden';
+		props.value = placeholder || '';
+		placeholder = '';
 	}
 
 	if (type === 'textarea') {
@@ -482,7 +577,7 @@ export function FormField (definition, data, ...names) {
 	}
 
 	if (path || schema) {
-		return [ObjectField, { schema, data, path: path.slice(0, -1), names }, label];
+		return [ObjectField, { schema, data, path, names }, field];
 	}
 
 	if ((data || data === 0) && typeof data !== 'object') {
@@ -495,5 +590,5 @@ export function FormField (definition, data, ...names) {
 		}
 	}
 
-	return id.endsWith('.') ? input : label;
+	return id.endsWith('.') ? input : field;
 }

@@ -69,5 +69,3 @@ export async function fetchList (path) {
 
 	return names;
 }
-
-Object.assign(window, { fetchNote, fetchData, fetchCode, fetchList });

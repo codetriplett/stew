@@ -1,4 +1,4 @@
-import { extractData, FormField } from './form';
+import { extractData, Field } from './form';
 import { extractCode } from './code';
 import Sidebar from './sidebar';
 import state, { library } from '.';
@@ -154,7 +154,7 @@ export default function Editor ({ path, file, schema, isModule }) {
 				'': 'form',
 				onsubmit: event => event.preventDefault(),
 			},
-				FormField(schema, data),
+				Field(schema, data),
 			]]),
 		],
 		['div', { className: 'main' },

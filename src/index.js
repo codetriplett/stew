@@ -5,6 +5,7 @@ import { fetchNote, fetchData, fetchCode, fetchList } from './fetch';
 const { localStorage, location } = window;
 const { pathname, hash } = location;
 export const library = {};
+Object.assign(window, { fetchNote, fetchData, fetchCode, fetchList });
 
 const state = stew({
 	focusedSection: hash.slice(1),
