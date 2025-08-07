@@ -1,4 +1,3 @@
-import { isServer } from './document';
 import { processMemo } from './impulse';
 import { animations, schedule } from './state';
 
@@ -223,7 +222,7 @@ export function Program ({ gl }, ...objects) {
 }
 
 export default function compile (strings, ...values) {
-	if (isServer) {
+	if (typeof window !== 'object') {
 		return;
 	}
 

@@ -1,4 +1,5 @@
 import { fetchCode, fetchList } from './fetch';
+import stew from './stew';
 
 function convertValue (type, value, checked) {
 	switch (type) {
@@ -54,27 +55,27 @@ export function extractData (form) {
 	return data;
 }
 
-function parseTypes (value) {
-	switch (typeof value) {
-		case 'boolean': {
-			return ['checkbox'];
-		}
-		case 'number': {
-			return ['number', 'range']
-		}
-		case 'string': {
-			if (/^\d+-\d\d-\d\dT\d\d:\d\d$/.test(value)) {
-				return ['datetime-local'];
-			} else if (/^\d+-\d\d-\d\d$/.test(value)) {
-				return ['date'];
-			}
+// function parseTypes (value) {
+// 	switch (typeof value) {
+// 		case 'boolean': {
+// 			return ['checkbox'];
+// 		}
+// 		case 'number': {
+// 			return ['number', 'range']
+// 		}
+// 		case 'string': {
+// 			if (/^\d+-\d\d-\d\dT\d\d:\d\d$/.test(value)) {
+// 				return ['datetime-local'];
+// 			} else if (/^\d+-\d\d-\d\d$/.test(value)) {
+// 				return ['date'];
+// 			}
 
-			break;
-		}
-	}
+// 			break;
+// 		}
+// 	}
 
-	return [];
-}
+// 	return [];
+// }
 
 // TODO: simplify how it detects which array item to use
 // - only differentiate between boolean/number/text and objects by their '' path
@@ -82,162 +83,238 @@ function parseTypes (value) {
 // - have array search recursively, and us it if it returns a match within itself
 // - separate definition parsing code so we don't need generate label/input layout just to find the type
 // - only path, pattern, and range are neeeded (e.g. path -> object (then check url), else pattern -> text, else range -> number, else checkbox (or static if required flag is present))
+// export function findOption (value, ...options) {
+// 	if (value === undefined) {
+// 		return -1;
+// 	} else if (Array.isArray(value)) {
+// 		// look for first array it finds
+// 		// - too complicated to test each value of each one to find the best match
+// 		return;
+// 	}
+
+// 	let path;
+
+// 	if (typeof value === 'object') {
+// 		// TODO: also load schema of matched component and fill in overrides
+// 		const { '': url, ...overrides } = value;
+
+// 		if (url === undefined) {
+// 			// look for first object it finds without an id (otherwise first one with id)
+// 			// - too complicated to test each property of each one to find the best match
+// 			return;
+// 		} else if (url[0] !== '/') {
+// 			// look for first object it finds that matches the id (otherwise first one without an id)
+// 			return;
+// 		}
+
+// 		const lastSlashIndex = url.lastIndexOf('/');
+// 		path = url.slice(0, lastSlashIndex + 1);
+// 		value = url.slice(lastSlashIndex);
+// 	}
+
+// 	const types = parseTypes(value);
+
+// 	const filteredOptions = options.filter(option => {
+// 		const [tagName, { type, dataset }] = option;
+// 		return (types.indexOf(type) !== -1 || type === 'text' || tagName === 'textarea') && dataset?.path === path;
+// 	});
+
+// 	// TODO: find first one that matches the min/max or pattern requirements (otherwise choose the first one)
+
+// 	const option = filteredOptions[0];
+// 	return options.indexOf(option);
+// }
+
+// function BooleanSelect ({ label, placeholder, value, inputs }, ...options) {
+// 	const state = stew(() => {
+// 		return stew({ index: findOption(value, ...inputs) });
+// 	}, []);
+
+// 	const { index } = state;
+
+// 	for (const [i, option] of options.entries()) {
+// 		option[1].selected = i === index;
+// 	}
+
+// 	return ['label', {},
+// 		label,
+// 		['select', {
+// 			onchange: event => {
+// 				state.index = event.target.selectedIndex - 1;
+// 			}
+// 		},
+// 			['option', {
+// 				selected: index === -1,
+// 			}, placeholder || 'Select item...'],
+// 			...options,
+// 		],
+// 		inputs[index],
+// 	];
+// }
+
+// function RangeSelect ({ label, placeholder, value, inputs, rest, names }, ...options) {
+// 	const state = stew(() => {
+// 		const array = Array.isArray(value) ? value : [];
+// 		const optionIndexes = array.map(value => findOption(value, ...inputs));
+// 		return stew({ optionIndexes, array });
+// 	}, []);
+
+// 	const { optionIndexes, array } = state;
+
+// 	return ['label', {},
+// 		label,
+// 		['ol', {},
+// 			...array.map((value, i) => {
+// 				const index = optionIndexes[i];
+// 				return index === -1 ? null : ['li', {}, Field(rest[index], value, ...names, i)];
+// 			}),
+// 		],
+// 		['select', {
+// 			onchange: event => {
+// 				const index = event.target.selectedIndex - 1;
+// 				state.optionIndexes = [...optionIndexes, index];
+// 				state.array = [...array, undefined];
+// 				event.target.selectedIndex = 0;
+// 			}
+// 		},
+// 			['option', {
+// 				selected: true,
+// 			}, placeholder || 'Add item...'],
+// 			...options,
+// 		],
+// 	];
+// }
+
 export function findOption (value, ...options) {
-	if (value === undefined) {
-		return -1;
-	} else if (Array.isArray(value)) {
-		// look for first array it finds
-		// - too complicated to test each value of each one to find the best match
-		return;
-	}
-
-	let path;
-
-	if (typeof value === 'object') {
-		// TODO: also load schema of matched component and fill in overrides
-		const { '': url, ...overrides } = value;
-
-		if (url === undefined) {
-			// look for first object it finds without an id (otherwise first one with id)
-			// - too complicated to test each property of each one to find the best match
-			return;
-		} else if (url[0] !== '/') {
-			// look for first object it finds that matches the id (otherwise first one without an id)
-			return;
+	return options.findIndex(([type]) => {
+		if (typeof value !== 'object') {
+			return typeof value === type;
 		}
 
-		const lastSlashIndex = url.lastIndexOf('/');
-		path = url.slice(0, lastSlashIndex + 1);
-		value = url.slice(lastSlashIndex);
-	}
-
-	const types = parseTypes(value);
-
-	const filteredOptions = options.filter(option => {
-		const [tagName, { type, dataset }] = option;
-		return (types.indexOf(type) !== -1 || type === 'text' || tagName === 'textarea') && dataset?.path === path;
+		const path = value?.[''] || '';
+		return path.startsWith(type) && path.lastIndexOf('/') < type.length;
 	});
-
-	// TODO: find first one that matches the min/max or pattern requirements (otherwise choose the first one)
-
-	const option = filteredOptions[0];
-	return options.indexOf(option);
 }
 
-function BooleanSelect ({ label, placeholder, value, inputs }, ...options) {
-	const state = stew(() => {
-		return stew({ index: findOption(value, ...inputs) });
-	}, []);
-
+function ValueSelect ({ options, names, value }, select) {
+	const valueType = typeof value;
+	const state = stew({ index: options.findIndex(([type]) => type === valueType) }, [valueType]);
 	const { index } = state;
-
-	for (const [i, option] of options.entries()) {
-		option[1].selected = i === index;
-	}
-
-	return ['label', {},
-		label,
-		['select', {
-			onchange: event => {
-				state.index = event.target.selectedIndex - 1;
-			}
-		},
-			['option', {
-				selected: index === -1,
-			}, placeholder || 'Select item...'],
-			...options,
-		],
-		inputs[index],
-	];
-}
-
-function RangeSelect ({ label, placeholder, value, inputs, rest, names }, ...options) {
-	const state = stew(() => {
-		const array = Array.isArray(value) ? value : [];
-		const optionIndexes = array.map(value => findOption(value, ...inputs));
-		return stew({ optionIndexes, array });
-	}, []);
-
-	const { optionIndexes, array } = state;
-
-	return ['label', {},
-		label,
-		['ol', {},
-			...array.map((value, i) => {
-				const index = optionIndexes[i];
-				return index === -1 ? null : ['li', {}, Field(rest[index], value, ...names, i)];
-			}),
-		],
-		['select', {
-			onchange: event => {
-				const index = event.target.selectedIndex - 1;
-				state.optionIndexes = [...optionIndexes, index];
-				state.array = [...array, undefined];
-				event.target.selectedIndex = 0;
-			}
-		},
-			['option', {
-				selected: true,
-			}, placeholder || 'Add item...'],
-			...options,
-		],
-	];
-}
-
-function ValueSelect ({ types, value }, field, ...options) {
-	const index = types.indexOf(typeof value);
+	select[3][1].onchange = event => state.index = event.target.selectedIndex;
 
 	// TODO: add button as shortcut for selecting the first option if there is only one
-	return [...field.slice(0, -1), ['select', {
-		onchange: () => {
-			console.log('=======');
-		},
-	},
-		['option', null, field[1].placeholder || 'Select an item...'],
-		...fields.map((field, i) => ['option', { selected: i === index }, field[2]]),
-	]];
+	return ['', null,
+		select,
+		index > -1 && Field(options[index][2], value, ...names),
+	];
 }
 
-function ArraySelect () {
-	return;
+function ArraySelect ({ options, names, array }, select) {
+	const initialIndexes = stew(() => {
+		return array
+			.map(value => findOption(value, ...options))
+			.filter(index => index > -1);
+	}, [array]);
+
+	const state = stew({ indexes: initialIndexes }, [array]);
+	const { indexes } = state;
+
+	select[3][1].onchange = event => {
+		const index = event.target.selectedIndex - 1;
+
+		if (index > -1) {
+			state.indexes = [...indexes, index];
+			event.target.selectedIndex = 0;
+		}
+	};
+
+	// TODO: add button as shortcut for selecting the first option if there is only one
+	return ['', null,
+		select,
+		['ol', null,
+			...indexes.map((index, i) => {
+				return index > -1 && ['li', null, Field(options[index][2], array[i], ...names)];
+			}),
+		],
+	];
 }
 
-function ObjectSelect () {
-	return;
+function ObjectSelect ({ options, names, object }, select, input) {
+	const initialIndexes = stew(() => {
+		return Object.entries(object)
+			.map(([name, value]) => [name, findOption(value, ...options)])
+			.filter(([, index]) => index > -1);
+	}, [array]);
+
+	const state = stew({ indexes: initialIndexes }, [array]);
+	const { indexes } = state;
+
+	select[3][1].onchange = event => {
+		const index = event.target.selectedIndex - 1;
+
+		if (index > -1) {
+			state.indexes = [...state.indexes, index];
+			event.target.value = '';
+		}
+	};
+
+	// TODO: add button as shortcut for selecting the first option if there is only one
+	return ['', null,
+		select,
+		['ul', null,
+			...indexes.map(([name, index], i) => {
+				const nameInput = [...input];
+				input[1].value = name;
+
+				return index > -1 && ['li', null,
+					nameInput,
+					Field(options[index][2], array[i], ...names),
+				];
+			}),
+		],
+	];
 }
 
-export function FormSelect (definition, value, ...names) {
-	const fields = stew(() => {
-		return definition.map(definition => Field(definition, undefined, ...names));
-	}, [definition]);
+export function Select (definitions, value, ...names) {
+	const [info, ...options] = stew(() => {
+		return definitions.map((definition, i) => {
+			const [,, label, input] = Field(definition, undefined, ...(i ? names : []));
+			let { type, placeholder, path } = input[1];
 
-	const [type, ...types] = stew(() => {
-		return fields.map(field => {
-			const [tagName, { type }] = field[field.length - 1];
-
-			if (tagName === FormSelect) {
-				return;
-			} else if (tagName === ObjectField) {
-				return 'object';
-			} else if (type === 'checkbox' || type === 'hidden') {
-				return 'boolean'
+			if (type === 'checkbox' || type === 'hidden') {
+				type = 'boolean';
+			} else if (type === 'number' || type === 'range') {
+				type = 'number';
+			} else {
+				type = type ? 'string' : path ? `/${path}/` : '';
 			}
 
-			return type === 'number' || type === 'range' ? 'number' : 'string';
-		});
-	}, [fields]);
+			return [type, label, definition, placeholder];
+		}).filter(option => option);
+	}, [definitions]);
+
+	const [type, label, definition, placeholder] = info;
+
+	const select = ['label', null,
+		label,
+		['select', {},
+			['option', null, placeholder || 'Select an item...'],
+			...options.map(option => ['option', null, option[1]]),
+		],
+	];
 
 	switch (type) {
 		case 'boolean': {
-			return [ValueSelect, { types, value }, ...fields];
+			return [ValueSelect, { options, names, value }, select];
 		}
 		case 'number': {
-			const array = Array.isArray(value) ? value : [];
-			return [ArraySelect, { types, array }, ...fields];
+			const array = !Array.isArray(value) ? [] : value;
+			return [ArraySelect, { options, names, array }, select];
 		}
 		case 'string': {
-			const object = typeof value === 'object' && !Array.isArray(value) ? value : {};
-			return [ObjectSelect, { types, object }, ...fields];
+			const input = Field(definition);
+			const object = typeof value !== 'object' || Array.isArray(value) ? {} : value;
+			return [ObjectSelect, { options, names, object }, select, input];
 		}
 	}
 
@@ -398,7 +475,7 @@ if (typeof document === 'object') {
 // - even if another schema is referenced, choosing an existing file is optional. It can be created fresh from overrides within data as well
 // - '' prop on stored data indicates the schema it is tied to, and optionally what existing data it overwrites (if not ending in '/')
 // - the path to the schema is used not only for the form, but can also be used to import the code to render the component (file.default[0])
-function ObjectField ({ schema = {}, data = {}, names }, field) {
+function ObjectField ({ schema = {}, data = {}, path, names }, field) {
 	field = [...field];
 	const inputProps = field.pop()[1];
 	const complex = path && names.length > 0;
@@ -484,7 +561,7 @@ export function Field (definition, data, ...names) {
 	let schema;
 
 	if (Array.isArray(definition)) {
-		return FormSelect(definition, data, ...names);
+		return Select(definition, data, ...names);
 	} else if (typeof definition === 'object') {
 		({ '': definition = names[names.length - 1] || '', ...schema } = definition);
 	}

@@ -1,7 +1,7 @@
-import { isServer } from './document';
 import render, { remove, reconcile } from './view';
 import createState, { schedule } from './state';
 import parse from './markdown';
+import stew from './stew';
 
 export const stack = [];
 export const effects = [];
@@ -39,8 +39,9 @@ export function processEffects () {
 //   - in both cases clearing the variable that holds the suspend/resume/swap will allow it to garbage collect the tree
 export function processMemo (callback, ...rest) {
 	let [deps = [], intermediate, fallback] = rest;
-	const [info = [,,,,, []]] = stack;
-	const memo = info[5].shift() || [];
+	const [info = []] = stack;
+	const memos = info[5];
+	const memo = memos?.shift?.() || [];
 	let [value,, ...prev] = memo;
 	info.push(memo);
 
@@ -55,7 +56,7 @@ export function processMemo (callback, ...rest) {
 		memo.splice(deps.length + 2);
 		return value;
 	} else if (!callback) {
-		if (intermediate && !isServer) {
+		if (intermediate && memos) {
 			// if effect should be scheduled
 			memo.splice(0, memo.length, value, [intermediate, ...prev], ...deps);
 			effects.push(memo);
@@ -107,7 +108,7 @@ export default function renderImpulse (info, props, children, context, document,
 	// - anchor can always be used as sibling during reconciliation
 	const update = (...params) => {
 		let siblings;
-		info.push(context[''], info.splice(4));
+		info.push(context[''], document === stew ? null : info.splice(4));
 		stack.unshift(info);
 
 		if (!params.length) {

@@ -21,7 +21,7 @@
  * SOFTWARE.
  */
 
-import { isServer } from './document';
+import virtual, { parseSelector } from './document';
 import { effects, processEffects, processMemo, stack } from './impulse';
 import createState, { queue, schedule } from './state';
 import compile from './program';
@@ -51,49 +51,52 @@ export function hotSwapStep (info, manifest, subscriptions) {
 
 export default function stew (...layout) {
 	if (!layout.length) {
-		return queue.size ? new Promise(resolve => effects.push([, resolve])) : Promise.resolve();
+		return queue.size ? new Promise(resolve => effects.push([, [resolve]])) : Promise.resolve();
 	}
 
-	const [original] = layout;
-	let [node, object = {}] = layout;
-	let document = isServer ? stew : globalThis.document || {};
+	let document = globalThis.document || stew;
+	const isServer = document === stew;
+	let [selector, object, ...rest] = layout;
+	let node, props;
 
-	if (Array.isArray(node)) {
+	if (Array.isArray(selector)) {
 		return compile(...layout);
 	} else if (Array.isArray(object)) {
 		return processMemo(...layout);
-	} else if (node === stew) {
-		document = stew;
-		node = '';
-	}
-
-	if (typeof node === 'function') {
-		const { '': _, ...props } = object;
-		layout[1] = props;
+	} else if (typeof selector === 'function') {
+		({ '': node, ...props } = object || {});
+	} else if (layout.length === 1) {
+		return createState(selector);
+	} else if (typeof selector !== 'string') {
+		node = selector;
+	} else if (!isServer) {
+		node = document.querySelector(selector);
 	} else {
-		if (layout.length === 1) {
-			return createState(node);
-		}
-		
-		if (typeof node === 'string') {
-			node = node ? document.querySelector(node) : document.createDocumentFragment();
-		}
+		const [tagName, id, ...classes] = parseSelector(selector)[0][0];
 
-		if (!node) {
-			console.error(`Element not found: ${node}`);
-			return;
-		}
+		if (id) {
+			node = document.createElement(tagName || 'div');
+			Object.assign(node, { id, className: classes.join(' ') || null });
+		} else {
+			node = document.createDocumentFragment();
 
-		layout[0] = node;
-		layout[1] = null;
+			if (selector) {
+				document = virtual;
+			}
+		}
 	}
 
-	stack.unshift([,,,, object]);
-	const info = render(layout, { '': object }, document, [], ['', {}], 0, {});
+	if (!node || typeof node !== 'object') {
+		console.error(`Element not found: ${selector}`);
+		return;
+	}
+
+	stack.unshift([,,,, object, document === stew ? null : []]);
+	const info = render([node, props, ...rest], { '': object }, document, [], ['', {}], 0, {});
 	stack.shift();
 	processEffects();
 
-	return node !== original ? node : manifest => {
+	return isServer || document === virtual ? node : manifest => {
 		const subscriptions = new Set();
 		hotSwapStep(info, manifest, subscriptions);
 		schedule(subscriptions);

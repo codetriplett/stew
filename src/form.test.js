@@ -1,5 +1,6 @@
-import { extractData, checkInput, findOption, FormSelect, Field } from './form';
+import { extractData, checkInput, findOption, Select, Field } from './form';
 import { fetchCode, fetchData } from './fetch';
+import stew from './stew';
 
 jest.mock('./fetch');
 
@@ -72,6 +73,10 @@ export function addElements (value, id = '') {
 	elements.push({ type, id, value, checked, placeholder: '' });
 }
 
+function trim (html) {
+	return html.replace(/(^|>)\s+|\s+(<|$)/g, m => m.trim());
+}
+
 beforeEach(() => {
 	jest.clearAllMocks();
 	elements.splice(0);
@@ -79,14 +84,18 @@ beforeEach(() => {
 	fetchData.mockImplementation(() => dataMock);
 	fetchCode.mockImplementation(() => ({ default: [null, schemaMock] }));
 
-	globalThis.stew = (callback, params) => {
-		if (typeof callback === 'function') {
-			return callback(...params);
-		}
+	// globalThis.stew = (callback, params) => {
+	// 	if (typeof callback === 'function') {
+	// 		return callback(...params);
+	// 	} else if (memos.length) {
+	// 		return memos.shift();
+	// 	}
 
-		return memos.shift();
-	};
+	// 	memos.push(callback);
+	// 	return callback;
+	// };
 
+	memos = [];
 	dataMock = {};
 	schemaMock = {};
 
@@ -231,8 +240,156 @@ describe.skip('findOption', () => {
 // 123 */ Number
 // abc *// String
 
-describe('FormSelect', () => {
+describe.only('FormSelect', () => {
+	it('value select', () => {
+		const [callback, ...params] = Field(['Label',
+			'/.. Number',
+			'// String',
+		], undefined, 'group');
 
+		const actual = callback(...params);
+
+		expect(actual).toEqual(['', null,
+			['label', null,
+				'Label',
+				['select', {
+					onchange: expect.any(Function),
+				},
+					['option', null, 'Select an item...'],
+					['option', null, 'Number'],
+					['option', null, 'String'],
+				],
+			],
+			false,
+		]);
+	});
+
+	it('value select populated', () => {
+		const [callback, ...params] = Field(['Label',
+			'/.. Number',
+			'// String',
+		], 123, 'group');
+
+		const actual = callback(...params);
+
+		expect(actual).toEqual(['', null,
+			['label', null,
+				'Label',
+				['select', {
+					onchange: expect.any(Function),
+				},
+					['option', null, 'Select an item...'],
+					['option', null, 'Number'],
+					['option', null, 'String'],
+				],
+			],
+			['label', { for: 'group' },
+				'Number',
+				['input', { id: 'group', type: 'number', value: '123' }],
+			],
+		]);
+	});
+
+	it('array select', () => {
+		const [callback, ...params] = Field(['/.. Label',
+			'/.. Number',
+			'// String',
+		], undefined, 'group');
+
+		const actual = callback(...params);
+
+		expect(actual).toEqual(['', null,
+			['label', null,
+				'Label',
+				['select', {
+					onchange: expect.any(Function),
+				},
+					['option', null, 'Select an item...'],
+					['option', null, 'Number'],
+					['option', null, 'String'],
+				],
+			],
+			['ol', null],
+		]);
+	});
+
+	it.only('array select add', async () => {
+		const actual = stew('#', null, Field(['/.. Label',
+			'/.. Number',
+			'// String',
+		], undefined, 'group'));
+
+		expect(String(actual)).toEqual(trim(`
+			<label>
+				Label
+				<select>
+					<option>Select an item...</option>
+					<option>Number</option>
+					<option>String</option>
+				</select>
+			</label>
+			<ol></ol>
+		`));
+
+		const select = actual.querySelector('select');
+		select.onchange(({ target: { selectedIndex: 2 } }));
+		await stew();
+
+		expect(String(actual)).toEqual(trim(`
+			<label>
+				Label
+				<select>
+					<option>Select an item...</option>
+					<option>Number</option>
+					<option>String</option>
+				</select>
+			</label>
+			<ol>
+				<li>
+					<label for="group">
+						String
+						<input id="group" type="text">
+					</label>
+				</li>
+			</ol>
+		`));
+	});
+
+	it('array select populated', () => {
+		const [callback, ...params] = Field(['/.. Label',
+			'/.. Number',
+			'// String',
+		], ['abc', 123], 'group');
+
+		const actual = callback(...params);
+
+		expect(actual).toEqual(['', null,
+			['label', null,
+				'Label',
+				['select', {
+					onchange: expect.any(Function),
+				},
+					['option', null, 'Select an item...'],
+					['option', null, 'Number'],
+					['option', null, 'String'],
+				],
+			],
+			['ol', null,
+				['li', null,
+					['label', { for: 'group' },
+						'String',
+						['input', { id: 'group', type: 'text', value: 'abc' }],
+					],
+				],
+				['li', null,
+					['label', { for: 'group' },
+						'Number',
+						['input', { id: 'group', type: 'number', value: '123' }],
+					],
+				],
+			],
+		]);
+	});
 });
 
 describe('Field', () => {

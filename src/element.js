@@ -1,5 +1,6 @@
-import { isServer, nameMap } from './document';
+import { nameMap } from './document';
 import render, { remove, reconcile } from './view';
+import stew from './stew';
 
 function updateAttributes (node, attributes, prevNames, nextNames = new Set()) {
 	for (const [name, value] of Object.entries(attributes)) {
@@ -57,7 +58,7 @@ export default function renderElement (info, props, children, context, document,
 		// - have client side attach and use shadowRoot in its place to reconcile children
 		// - the actual DOM element that wraps the shadowRoot should be added to nodes for parent's reconciliation
 		// - how to we store both wrapper element and shadow node in info array? try not to add extra checks. 
-		if (!isServer && shadowrootmode && tagName.toLowerCase?.() === 'template') {
+		if (document !== stew && shadowrootmode && tagName.toLowerCase?.() === 'template') {
 			const [parentNode] = nodes;
 			node = parentNode.shadowRoot || parentNode.attachShadow({ mode: shadowrootmode });
 		} else {

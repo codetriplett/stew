@@ -1,8 +1,9 @@
-import { isServer } from './document';
 import { stack, processEffects } from './impulse';
 
 export const queue = new Set();
 export const animations = new Map();
+
+const requestAnimationFrame = globalThis.requestAnimationFrame || setTimeout;
 
 export function unsubscribe (impulse) {
 	const subscriptions = impulse[1];
@@ -79,7 +80,7 @@ export function schedule (subscriptions) {
 }
 
 export default function createState (state) {
-	if (isServer) {
+	if (typeof window !== 'object' && !stack[0]?.[5]) {
 		return state;
 	}
 

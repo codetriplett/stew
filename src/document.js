@@ -47,7 +47,7 @@ function findMatches (nodes, selectors, matches) {
 	}
 }
 
-function parseSelector (selector) {
+export function parseSelector (selector) {
 	return selector.trim().split(/\s*,\s*/).map(selector => {
 		return selector.split(/\s+/).map(level => {
 			const items = level.split('.');
@@ -78,7 +78,7 @@ function writeChildNodes (childNodes, tagName) {
 	return allChildNodes.join('');
 }
 
-Object.assign(stew, {
+const virtual = {
 	createTextNode (nodeValue) {
 		return {
 			nodeValue,
@@ -149,7 +149,7 @@ Object.assign(stew, {
 					html = '<!DOCTYPE';
 				}
 
-				if (isServer) {
+				if (this === virtual) {
 					attributeEntries.sort(([a], [b]) => a.localeCompare(b));
 					styleEntries.sort(([a], [b]) => a.localeCompare(b));
 					datasetEntries.sort(([a], [b]) => a.localeCompare(b));
@@ -204,16 +204,12 @@ Object.assign(stew, {
 
 		return element;
 	},
-	querySelector (selector) {
-		return html.querySelector(selector);
+	attachShadow () {
+		const shadow = this.createElement('shadow');
+		this.childNodes = [shadow];
+		this.shadowRoot = shadow;
 	},
-	querySelectorAll (selector) {
-		return html.querySelectorAll(selector);
-	},
-});
+};
 
-const [html, head, body] = ['html', 'head', 'body'].map(tagName => stew.createElement(tagName));
-html.appendChild(head);
-html.appendChild(body);
-stew.body = body;
-export const isServer = typeof window !== 'object';
+Object.assign(stew, virtual);
+export default virtual;
