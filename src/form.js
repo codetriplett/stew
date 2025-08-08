@@ -1,4 +1,4 @@
-import { fetchCode, fetchList } from './fetch';
+import { fetchCode, fetchData, fetchList } from './fetch';
 import stew from './stew';
 
 function convertValue (type, value, checked) {
@@ -244,9 +244,9 @@ function ObjectSelect ({ options, names, object }, select, input) {
 		return Object.entries(object)
 			.map(([name, value]) => [name, findOption(value, ...options)])
 			.filter(([, index]) => index > -1);
-	}, [array]);
+	}, [object]);
 
-	const state = stew({ indexes: initialIndexes }, [array]);
+	const state = stew({ indexes: initialIndexes }, [object]);
 	const { indexes } = state;
 
 	select[3][1].onchange = event => {
@@ -261,15 +261,16 @@ function ObjectSelect ({ options, names, object }, select, input) {
 	// TODO: add button as shortcut for selecting the first option if there is only one
 	return ['', null,
 		select,
+		input[3],
 		['ul', null,
-			...indexes.map(([name, index], i) => {
-				const nameInput = [...input];
-				input[1].value = name;
+			...indexes.map(([name, index]) => {
+				if (index < 0) {
+					return;
+				}
 
-				return index > -1 && ['li', null,
-					nameInput,
-					Field(options[index][2], array[i], ...names),
-				];
+				const field = Field(options[index][2], object[name], ...names, name);
+				field[2] = name;
+				return ['li', null, field];
 			}),
 		],
 	];
@@ -312,9 +313,8 @@ export function Select (definitions, value, ...names) {
 			return [ArraySelect, { options, names, array }, select];
 		}
 		case 'string': {
-			const input = Field(definition);
 			const object = typeof value !== 'object' || Array.isArray(value) ? {} : value;
-			return [ObjectSelect, { options, names, object }, select, input];
+			return [ObjectSelect, { options, names, object }, select, Field(definition)];
 		}
 	}
 
@@ -465,12 +465,6 @@ function merge (base, change) {
 
 let form, input;
 
-if (typeof document === 'object') {
-	form = document.createElement('form');
-	input = document.createElement('input');
-	form.appendChild(input);
-}
-
 // the idea here is that objects can extend existing schemas (if path is provided), or create their own embedded in current one
 // - even if another schema is referenced, choosing an existing file is optional. It can be created fresh from overrides within data as well
 // - '' prop on stored data indicates the schema it is tied to, and optionally what existing data it overwrites (if not ending in '/')
@@ -486,6 +480,7 @@ function ObjectField ({ schema = {}, data = {}, path, names }, field) {
 	}, []);
 
 	const { expanded, selection } = state;
+	let existingData = {};
 	let select;
 	
 	// TODO: load baseData from data[''] to use as placeholders in form
@@ -495,22 +490,27 @@ function ObjectField ({ schema = {}, data = {}, path, names }, field) {
 	if (complex) {
 		const base = stew(fetchCode, [path], null);
 		const list = stew(fetchList, [path], null);
+		existingData = stew(fetchData, [path], null);
 
-		if (!base || !list) {
+		if (!base || !existingData || !list) {
 			return;
+		} else if (!form || !input) {
+			form = globalThis.document.createElement('form');
+			input = globalThis.document.createElement('input');
+			form.appendChild(input);
 		}
-		
+
 		const { '': meta, ...baseSchema } = base?.default?.[1] || {};
 
 		[schema, select] = stew(() => [
 			merge(baseSchema, schema),
-			['', null, ['select', {
+			list.length > 0 && ['', null, ['select', {
 				onchange: event => state.selection = event.target.value,
 			},
 				['option', { value: '' }, inputProps.placeholder || 'Select an item...'],
 				...list.filter(value => {
 					Object.assign(input, { value }, inputProps);
-					return form.checkValidity();
+					return form?.checkValidity?.() ?? true;
 				}).map(value => {
 					return ['option', { value }, value];
 				})
@@ -518,6 +518,10 @@ function ObjectField ({ schema = {}, data = {}, path, names }, field) {
 		], [path]);
 
 		stew(null, [selection], () => {
+			if (!select) {
+				return;
+			}
+
 			const [ref] = select[0];
 
 			if (selection) {
@@ -529,23 +533,25 @@ function ObjectField ({ schema = {}, data = {}, path, names }, field) {
 	}
 	
 	const list = ['ul', null];
+	let meta;
 	
 	if (selection) {
-		const field = Field('//', `/${path}/${selection}`, ...names, '');
-		field[1].type = 'hidden';
-		console.log(field);
-		list.push(['li', null, field]);
+		meta = Field('//', `/${path}/${selection}`, ...names, '');
+		delete meta[1].type;
+		meta[1].disabled = true;
 	}
 
 	for (const [name, value] of Object.entries(expanded ? schema : {})) {
-		list.push(['li', null, Field(value, data[name], ...names, name)]);
+		const existingValue = existingData[name];
+		const item = ['li', null, Field(value, data[name], ...names, name)];
+		list.push(item);
 
-		if (!name) {
-			console.log(list[list.length - 1]);
+		if (existingValue) {
+			item.push(['input', { value: existingValue, disabled: true }]);
 		}
 	}
 
-	return !names.length ? list : [
+	return !names.length ? list : ['', null, [
 		...field,
 		!expanded && ['button', {
 			type: 'button',
@@ -553,10 +559,11 @@ function ObjectField ({ schema = {}, data = {}, path, names }, field) {
 			onclick: () => state.expanded = true,
 		}, selection ? 'Override' : 'Create'],
 		select,
-		list,
-	];
+	], meta, list];
 }
 
+// TODO: see if ...names can be replaced by parentId and name
+// - then append name to parentId, in brackets if it's a number
 export function Field (definition, data, ...names) {
 	let schema;
 
@@ -663,7 +670,21 @@ export function Field (definition, data, ...names) {
 		} else if (type === 'checkbox') {
 			props.checked = true;
 		} else {
-			props.value = String(data);
+			let value = String(data);
+
+			if (type.startsWith('date')) {
+				const [, date, time] = value.match(/^(?:(\d{4}-\d{2}-\d{2})(T\d{2}:\d{2})?|.*)$/);
+
+				if (!date) {
+					value += '-01-01';
+				}
+				
+				if (type === 'datetime-local' && !time) {
+					value += 'T00:00';
+				}
+			}
+
+			props.value = value;
 		}
 	}
 

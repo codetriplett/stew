@@ -68,7 +68,7 @@ export function processMemo (callback, ...rest) {
 	// if memo should be updated
 	switch (typeof callback) {
 		case 'function': {
-			value = callback(...deps);
+			value = execute(callback, ...deps);
 			break;
 		}
 		case 'object': {

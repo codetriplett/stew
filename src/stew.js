@@ -23,7 +23,7 @@
 
 import virtual, { parseSelector } from './document';
 import { effects, processEffects, processMemo, stack } from './impulse';
-import createState, { queue, schedule } from './state';
+import { queue, schedule } from './state';
 import compile from './program';
 import render from './view';
 
@@ -66,7 +66,7 @@ export default function stew (...layout) {
 	} else if (typeof selector === 'function') {
 		({ '': node, ...props } = object || {});
 	} else if (layout.length === 1) {
-		return createState(selector);
+		return processMemo(selector, []);
 	} else if (typeof selector !== 'string') {
 		node = selector;
 	} else if (!isServer) {
@@ -80,7 +80,7 @@ export default function stew (...layout) {
 		} else {
 			node = document.createDocumentFragment();
 
-			if (selector) {
+			if (id === '') {
 				document = virtual;
 			}
 		}

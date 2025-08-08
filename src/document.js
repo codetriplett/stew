@@ -21,7 +21,7 @@ function findMatches (nodes, selectors, matches) {
 		const nodeClasses = new Set((node.className || '').trim().split(/\s+/));
 
 		for (const [query, ...childQueries] of selectors) {
-			const [tagName, id, ...classes] = query;
+			const [tagName, id = '', ...classes] = query;
 			let childSelectors = selectors;
 
 			const isMatch = (!tagName || tagName.toUpperCase() === node.tagName)
@@ -51,7 +51,7 @@ export function parseSelector (selector) {
 	return selector.trim().split(/\s*,\s*/).map(selector => {
 		return selector.split(/\s+/).map(level => {
 			const items = level.split('.');
-			const [tagName, id = ''] = items.shift().split('#');
+			const [tagName, id] = items.shift().split('#');
 			items.unshift(tagName, id);
 			return items;
 		});
@@ -142,6 +142,7 @@ const virtual = {
 				const styleEntries = Object.entries(style);
 				const datasetEntries = Object.entries(dataset);
 				const lowercaseTagName = tagName.toLowerCase();
+				const booleans = [];
 				let html = `<${lowercaseTagName === '!doctype' ? '!DOCTYPE' : lowercaseTagName}`;
 				let content = writeChildNodes(childNodes, tagName);
 
@@ -149,7 +150,7 @@ const virtual = {
 					html = '<!DOCTYPE';
 				}
 
-				if (this === virtual) {
+				if (isVirtual) {
 					attributeEntries.sort(([a], [b]) => a.localeCompare(b));
 					styleEntries.sort(([a], [b]) => a.localeCompare(b));
 					datasetEntries.sort(([a], [b]) => a.localeCompare(b));
@@ -161,7 +162,13 @@ const virtual = {
 					}
 
 					name = nameMap[name] || name.replace(/(?=[A-Z])/g, '-').toLowerCase();
-					html += ` ${name}${value === true ? '' : `="${String(value).replace(/"/g, '&quot;')}"`}`;
+
+					if (value === true) {
+						booleans.push(name);
+						continue;
+					}
+
+					html += ` ${name}="${String(value).replace(/"/g, '&quot;')}"`;
 				}
 
 				const styleString = styleEntries.map(([name, value]) => {
@@ -174,6 +181,10 @@ const virtual = {
 					html += ` data-${name}${value === true ? '' : `="${String(value).replace(/"/g, '&quot;')}"`}`;
 				}
 
+				if (booleans.length) {
+					html += ` ${booleans.join(' ')}`;
+				}
+
 				if (selfClosingTags.has(lowercaseTagName)) {
 					return `${html}>`;
 				}
@@ -182,6 +193,7 @@ const virtual = {
 			},
 		};
 
+		const isVirtual = this === virtual;
 		const names = new Set(Object.keys(element));
 		const { style } = element;
 

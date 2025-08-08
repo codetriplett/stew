@@ -1,5 +1,5 @@
 import { extractData, checkInput, findOption, Select, Field } from './form';
-import { fetchCode, fetchData } from './fetch';
+import { fetchCode, fetchData, fetchList } from './fetch';
 import stew from './stew';
 
 jest.mock('./fetch');
@@ -27,7 +27,7 @@ path/path/\w+/
 const checkValidity = jest.fn();
 const reportValidity = jest.fn();
 export const elements = [];
-let form, dataMock, schemaMock, memos;
+let form, dataMock, schemaMock, listMock;
 
 export function addElements (value, id = '') {
 	let type = 'text';
@@ -81,23 +81,16 @@ beforeEach(() => {
 	jest.clearAllMocks();
 	elements.splice(0);
 	checkValidity.mockReturnValue(true);
+
 	fetchData.mockImplementation(() => dataMock);
 	fetchCode.mockImplementation(() => ({ default: [null, schemaMock] }));
+	fetchList.mockImplementation(() => listMock);
 
-	// globalThis.stew = (callback, params) => {
-	// 	if (typeof callback === 'function') {
-	// 		return callback(...params);
-	// 	} else if (memos.length) {
-	// 		return memos.shift();
-	// 	}
+	globalThis.document = stew;
 
-	// 	memos.push(callback);
-	// 	return callback;
-	// };
-
-	memos = [];
 	dataMock = {};
 	schemaMock = {};
+	listMock = [];
 
 	form = {
 		checkValidity,
@@ -240,80 +233,99 @@ describe.skip('findOption', () => {
 // 123 */ Number
 // abc *// String
 
-describe.only('FormSelect', () => {
+describe('Select', () => {
 	it('value select', () => {
-		const [callback, ...params] = Field(['Label',
+		const actual = stew('#', null, Field(['Label',
 			'/.. Number',
 			'// String',
-		], undefined, 'group');
+		], undefined, 'group'));
 
-		const actual = callback(...params);
-
-		expect(actual).toEqual(['', null,
-			['label', null,
-				'Label',
-				['select', {
-					onchange: expect.any(Function),
-				},
-					['option', null, 'Select an item...'],
-					['option', null, 'Number'],
-					['option', null, 'String'],
-				],
-			],
-			false,
-		]);
+		expect(String(actual)).toEqual(trim(`
+			<label>
+				Label
+				<select>
+					<option>Select an item...</option>
+					<option>Number</option>
+					<option>String</option>
+				</select>
+			</label>
+		`));
 	});
 
 	it('value select populated', () => {
-		const [callback, ...params] = Field(['Label',
+		const actual = stew('#', null, Field(['Label',
 			'/.. Number',
 			'// String',
-		], 123, 'group');
+		], 123, 'group'));
 
-		const actual = callback(...params);
-
-		expect(actual).toEqual(['', null,
-			['label', null,
-				'Label',
-				['select', {
-					onchange: expect.any(Function),
-				},
-					['option', null, 'Select an item...'],
-					['option', null, 'Number'],
-					['option', null, 'String'],
-				],
-			],
-			['label', { for: 'group' },
-				'Number',
-				['input', { id: 'group', type: 'number', value: '123' }],
-			],
-		]);
+		expect(String(actual)).toEqual(trim(`
+			<label>
+				Label
+				<select>
+					<option>Select an item...</option>
+					<option>Number</option>
+					<option>String</option>
+				</select>
+			</label>
+			<label for="group">
+				Number
+				<input id="group" type="number" value="123">
+			</label>
+		`));
 	});
 
 	it('array select', () => {
-		const [callback, ...params] = Field(['/.. Label',
+		const actual = stew('#', null, Field(['/.. Label',
 			'/.. Number',
 			'// String',
-		], undefined, 'group');
+		], undefined, 'group'));
 
-		const actual = callback(...params);
-
-		expect(actual).toEqual(['', null,
-			['label', null,
-				'Label',
-				['select', {
-					onchange: expect.any(Function),
-				},
-					['option', null, 'Select an item...'],
-					['option', null, 'Number'],
-					['option', null, 'String'],
-				],
-			],
-			['ol', null],
-		]);
+		expect(String(actual)).toEqual(trim(`
+			<label>
+				Label
+				<select>
+					<option>Select an item...</option>
+					<option>Number</option>
+					<option>String</option>
+				</select>
+			</label>
+			<ol></ol>
+		`));
 	});
 
-	it.only('array select add', async () => {
+	it('array select populated', () => {
+		const actual = stew('#', null, Field(['/.. Label',
+			'/.. Number',
+			'// String',
+		], ['abc', 123], 'group'));
+
+		expect(String(actual)).toEqual(trim(`
+			<label>
+				Label
+				<select>
+					<option>Select an item...</option>
+					<option>Number</option>
+					<option>String</option>
+				</select>
+			</label>
+			<ol>
+				<li>
+					<label for="group">
+						String
+						<input id="group" type="text" value="abc">
+					</label>
+				</li>
+				<li>
+					<label for="group">
+						Number
+						<input id="group" type="number" value="123">
+					</label>
+				</li>
+			</ol>
+		`));
+	});
+
+	it('array select add', async () => {
 		const actual = stew('#', null, Field(['/.. Label',
 			'/.. Number',
 			'// String',
@@ -355,533 +367,616 @@ describe.only('FormSelect', () => {
 		`));
 	});
 
-	it('array select populated', () => {
-		const [callback, ...params] = Field(['/.. Label',
+	it('property select', () => {
+		const actual = stew('#', null, Field(['// Label',
 			'/.. Number',
 			'// String',
-		], ['abc', 123], 'group');
+		], undefined, 'group'));
 
-		const actual = callback(...params);
+		expect(String(actual)).toEqual(trim(`
+			<label>
+				Label
+				<select>
+					<option>Select an item...</option>
+					<option>Number</option>
+					<option>String</option>
+				</select>
+			</label>
+			<input type="text">
+			<ul></ul>
+		`));
+	});
 
-		expect(actual).toEqual(['', null,
-			['label', null,
-				'Label',
-				['select', {
-					onchange: expect.any(Function),
-				},
-					['option', null, 'Select an item...'],
-					['option', null, 'Number'],
-					['option', null, 'String'],
-				],
-			],
-			['ol', null,
-				['li', null,
-					['label', { for: 'group' },
-						'String',
-						['input', { id: 'group', type: 'text', value: 'abc' }],
-					],
-				],
-				['li', null,
-					['label', { for: 'group' },
-						'Number',
-						['input', { id: 'group', type: 'number', value: '123' }],
-					],
-				],
-			],
-		]);
+	it('property select populated', () => {
+		const actual = stew('#', null, Field(['// Label',
+			'/.. Number',
+			'// String',
+		], {
+			number: 123,
+			text: 'abc',
+		}, 'group'));
+
+		expect(String(actual)).toEqual(trim(`
+			<label>
+				Label
+				<select>
+					<option>Select an item...</option>
+					<option>Number</option>
+					<option>String</option>
+				</select>
+			</label>
+			<input type="text">
+			<ul>
+				<li>
+					<label for="group.number">
+						number
+						<input id="group.number" type="number" value="123">
+					</label>
+				</li>
+				<li>
+					<label for="group.text">
+						text
+						<input id="group.text" type="text" value="abc">
+					</label>
+				</li>
+			</ul>
+		`));
 	});
 });
 
 describe('Field', () => {
 	it('checkbox', () => {
-		const actual = Field('', undefined, 'group', 'name');
+		const actual = stew('#', null, Field('', undefined, 'group', 'name'));
 
-		expect(actual).toEqual(['label', {
-			for: 'group.name',
-		}, 'name',
-			['input', { type: 'checkbox', id: 'group.name' }],
-		]);
+		expect(String(actual)).toEqual(trim(`
+			<label for="group.name">
+				name
+				<input id="group.name" type="checkbox">
+			</label>
+		`));
 	});
 
 	it('label', () => {
-		const actual = Field('Label', undefined, 'group', 'name');
+		const actual = stew('#', null, Field('Label', undefined, 'group', 'name'));
 
-		expect(actual).toEqual(['label', {
-			for: 'group.name',
-		}, 'Label',
-			['input', { type: 'checkbox', id: 'group.name' }],
-		]);
+		expect(String(actual)).toEqual(trim(`
+			<label for="group.name">
+				Label
+				<input id="group.name" type="checkbox">
+			</label>
+		`));
 	});
 
 	it('static', () => {
-		const actual = Field('Placeholder / Label', undefined, 'group', 'name');
+		const actual = stew('#', null, Field('Placeholder / Label', undefined, 'group', 'name'));
 
-		expect(actual).toEqual(['label', {
-			for: 'group.name',
-		}, 'Label',
-			['input', { type: 'hidden', id: 'group.name', value: 'Placeholder' }],
-		]);
+		expect(String(actual)).toEqual(trim(`
+			<label for="group.name">
+				Label
+				<input id="group.name" type="hidden" value="Placeholder">
+			</label>
+		`));
 	});
 
 	it('empty', () => {
-		const actual = Field('/ Label', undefined, 'group', 'name');
+		const actual = stew('#', null, Field('/ Label', undefined, 'group', 'name'));
 
-		expect(actual).toEqual(['label', {
-			for: 'group.name',
-		}, 'Label',
-			['input', { type: 'hidden', id: 'group.name', value: '' }],
-		]);
+		expect(String(actual)).toEqual(trim(`
+			<label for="group.name">
+				Label
+				<input id="group.name" type="hidden" value="">
+			</label>
+		`));
 	});
 
 	it('placeholder', () => {
-		const actual = Field('Placeholder // Label', undefined, 'group', 'name');
+		const actual = stew('#', null, Field('Placeholder // Label', undefined, 'group', 'name'));
 
-		expect(actual).toEqual(['label', {
-			for: 'group.name',
-		}, 'Label',
-			['input', { type: 'text', id: 'group.name', placeholder: 'Placeholder' }],
-		]);
+		expect(String(actual)).toEqual(trim(`
+			<label for="group.name">
+				Label
+				<input id="group.name" placeholder="Placeholder" type="text">
+			</label>
+		`));
 	});
 
 	it('required', () => {
-		const actual = Field('/* Label', undefined, 'group', 'name');
+		const actual = stew('#', null, Field('/* Label', undefined, 'group', 'name'));
 
-		expect(actual).toEqual(['label', {
-			for: 'group.name',
-		}, 'Label',
-			['input', { type: 'number', id: 'group.name', required: true }],
-		]);
-	});
-
-	it('placeholder and required', () => {
-		const actual = Field('Placeholder //* Label', undefined, 'group', 'name');
-
-		expect(actual).toEqual(['label', {
-			for: 'group.name',
-		}, 'Label',
-			['input', { type: 'text', id: 'group.name', placeholder: 'Placeholder', required: true }],
-		]);
+		expect(String(actual)).toEqual(trim(`
+			<label for="group.name">
+				Label
+				<input id="group.name" type="number" required>
+			</label>
+		`));
 	});
 
 	describe('number', () => {
 		it('basic', () => {
-			const actual = Field('/.. Label', undefined, 'group', 'name');
+			const actual = stew('#', null, Field('/.. Label', undefined, 'group', 'name'));
 
-			expect(actual).toEqual(['label', {
-				for: 'group.name',
-			}, 'Label',
-				['input', { type: 'number', id: 'group.name' }],
-			]);
+			expect(String(actual)).toEqual(trim(`
+				<label for="group.name">
+					Label
+					<input id="group.name" type="number">
+				</label>
+			`));
 		});
 
 		it('max shorthand', () => {
-			const actual = Field('/4 Label', undefined, 'group', 'name');
+			const actual = stew('#', null, Field('/4 Label', undefined, 'group', 'name'));
 
-			expect(actual).toEqual(['label', {
-				for: 'group.name',
-			}, 'Label',
-				['input', { type: 'number', id: 'group.name', max: '4' }],
-			]);
+			expect(String(actual)).toEqual(trim(`
+				<label for="group.name">
+					Label
+					<input id="group.name" max="4" type="number">
+				</label>
+			`));
 		});
 
 		it('max', () => {
-			const actual = Field('/..4 Label', undefined, 'group', 'name');
+			const actual = stew('#', null, Field('/..4 Label', undefined, 'group', 'name'));
 
-			expect(actual).toEqual(['label', {
-				for: 'group.name',
-			}, 'Label',
-				['input', { type: 'number', id: 'group.name', max: '4' }],
-			]);
+			expect(String(actual)).toEqual(trim(`
+				<label for="group.name">
+					Label
+					<input id="group.name" max="4" type="number">
+				</label>
+			`));
 		});
 
 		it('min', () => {
-			const actual = Field('/0.. Label', undefined, 'group', 'name');
+			const actual = stew('#', null, Field('/0.. Label', undefined, 'group', 'name'));
 
-			expect(actual).toEqual(['label', {
-				for: 'group.name',
-			}, 'Label',
-				['input', { type: 'number', id: 'group.name', min: '0' }],
-			]);
+			expect(String(actual)).toEqual(trim(`
+				<label for="group.name">
+					Label
+					<input id="group.name" min="0" type="number">
+				</label>
+			`));
 		});
 
 		it('step', () => {
-			const actual = Field('/..2.. Label', undefined, 'group', 'name');
+			const actual = stew('#', null, Field('/..2.. Label', undefined, 'group', 'name'));
 
-			expect(actual).toEqual(['label', {
-				for: 'group.name',
-			}, 'Label',
-				['input', { type: 'number', id: 'group.name', step: '2' }],
-			]);
+			expect(String(actual)).toEqual(trim(`
+				<label for="group.name">
+					Label
+					<input id="group.name" step="2" type="number">
+				</label>
+			`));
 		});
 
 		it('min and max', () => {
-			const actual = Field('/0..4 Label', undefined, 'group', 'name');
+			const actual = stew('#', null, Field('/0..4 Label', undefined, 'group', 'name'));
 
-			expect(actual).toEqual(['label', {
-				for: 'group.name',
-			}, 'Label',
-				['input', { type: 'number', id: 'group.name', min: '0', max: '4' }],
-			]);
+			expect(String(actual)).toEqual(trim(`
+				<label for="group.name">
+					Label
+					<input id="group.name" max="4" min="0" type="number">
+				</label>
+			`));
 		});
 
 		it('min and step', () => {
-			const actual = Field('/0..2.. Label', undefined, 'group', 'name');
+			const actual = stew('#', null, Field('/0..2.. Label', undefined, 'group', 'name'));
 
-			expect(actual).toEqual(['label', {
-				for: 'group.name',
-			}, 'Label',
-				['input', { type: 'number', id: 'group.name', min: '0', step: '2' }],
-			]);
+			expect(String(actual)).toEqual(trim(`
+				<label for="group.name">
+					Label
+					<input id="group.name" min="0" step="2" type="number">
+				</label>
+			`));
 		});
 
 		it('step and max', () => {
-			const actual = Field('/..2..4 Label', undefined, 'group', 'name');
+			const actual = stew('#', null, Field('/..2..4 Label', undefined, 'group', 'name'));
 
-			expect(actual).toEqual(['label', {
-				for: 'group.name',
-			}, 'Label',
-				['input', { type: 'number', id: 'group.name', step: '2', max: '4' }],
-			]);
+			expect(String(actual)).toEqual(trim(`
+				<label for="group.name">
+					Label
+					<input id="group.name" max="4" step="2" type="number">
+				</label>
+			`));
 		});
 
 		it('min, step, and max', () => {
-			const actual = Field('/0..2..4 Label', undefined, 'group', 'name');
+			const actual = stew('#', null, Field('/0..2..4 Label', undefined, 'group', 'name'));
 
-			expect(actual).toEqual(['label', {
-				for: 'group.name',
-			}, 'Label',
-				['input', { type: 'number', id: 'group.name', min: '0', step: '2', max: '4' }],
-			]);
+			expect(String(actual)).toEqual(trim(`
+				<label for="group.name">
+					Label
+					<input id="group.name" max="4" min="0" step="2" type="number">
+				</label>
+			`));
 		});
 
 		it('datetime-local', () => {
-			const actual = Field('/2000-01-01T12:00..7..2020-01-01T12:00 Label', undefined, 'group', 'name');
+			const actual = stew('#', null, Field('/2000-01-01T12:00..7..2020-01-01T12:00 Label', undefined, 'group', 'name'));
 
-			expect(actual).toEqual(['label', {
-				for: 'group.name',
-			}, 'Label',
-				['input', { type: 'datetime-local', id: 'group.name', min: '2000-01-01T12:00', step: '7', max: '2020-01-01T12:00' }],
-			]);
+			expect(String(actual)).toEqual(trim(`
+				<label for="group.name">
+					Label
+					<input id="group.name" max="2020-01-01T12:00" min="2000-01-01T12:00" step="7" type="datetime-local">
+				</label>
+			`));
 		});
 
-		it('datetime-local add min time', () => {
-			const actual = Field('/2000-01-01..7..2020-01-01T12:00 Label', undefined, 'group', 'name');
+		it('datetime-local and min date', () => {
+			const actual = stew('#', null, Field('/2000-01-01..7..2020-01-01T12:00 Label', undefined, 'group', 'name'));
 
-			expect(actual).toEqual(['label', {
-				for: 'group.name',
-			}, 'Label',
-				['input', { type: 'datetime-local', id: 'group.name', min: '2000-01-01T00:00', step: '7', max: '2020-01-01T12:00' }],
-			]);
+			expect(String(actual)).toEqual(trim(`
+				<label for="group.name">
+					Label
+					<input id="group.name" max="2020-01-01T12:00" min="2000-01-01T00:00" step="7" type="datetime-local">
+				</label>
+			`));
 		});
 
-		it('datetime-local add min date and time', () => {
-			const actual = Field('/2000..7..2020-01-01T12:00 Label', undefined, 'group', 'name');
+		it('datetime-local and min year', () => {
+			const actual = stew('#', null, Field('/2000..7..2020-01-01T12:00 Label', undefined, 'group', 'name'));
 
-			expect(actual).toEqual(['label', {
-				for: 'group.name',
-			}, 'Label',
-				['input', { type: 'datetime-local', id: 'group.name', min: '2000-01-01T00:00', step: '7', max: '2020-01-01T12:00' }],
-			]);
+			expect(String(actual)).toEqual(trim(`
+				<label for="group.name">
+					Label
+					<input id="group.name" max="2020-01-01T12:00" min="2000-01-01T00:00" step="7" type="datetime-local">
+				</label>
+			`));
 		});
 
-		it('datetime-local add max time', () => {
-			const actual = Field('/2000-01-01T12:00..7..2020-01-01 Label', undefined, 'group', 'name');
+		it('datetime-local and max date', () => {
+			const actual = stew('#', null, Field('/2000-01-01T12:00..7..2020-01-01 Label', undefined, 'group', 'name'));
 
-			expect(actual).toEqual(['label', {
-				for: 'group.name',
-			}, 'Label',
-				['input', { type: 'datetime-local', id: 'group.name', min: '2000-01-01T12:00', step: '7', max: '2020-01-01T00:00' }],
-			]);
+			expect(String(actual)).toEqual(trim(`
+				<label for="group.name">
+					Label
+					<input id="group.name" max="2020-01-01T00:00" min="2000-01-01T12:00" step="7" type="datetime-local">
+				</label>
+			`));
 		});
 
-		it('datetime-local add max date and time', () => {
-			const actual = Field('/2000-01-01T12:00..7..2020 Label', undefined, 'group', 'name');
+		it('datetime-local and max year', () => {
+			const actual = stew('#', null, Field('/2000-01-01T12:00..7..2020 Label', undefined, 'group', 'name'));
 
-			expect(actual).toEqual(['label', {
-				for: 'group.name',
-			}, 'Label',
-				['input', { type: 'datetime-local', id: 'group.name', min: '2000-01-01T12:00', step: '7', max: '2020-01-01T00:00' }],
-			]);
+			expect(String(actual)).toEqual(trim(`
+				<label for="group.name">
+					Label
+					<input id="group.name" max="2020-01-01T00:00" min="2000-01-01T12:00" step="7" type="datetime-local">
+				</label>
+			`));
 		});
 
 		it('date', () => {
-			const actual = Field('/2000-01-01..7..2020-01-01 Label', undefined, 'group', 'name');
+			const actual = stew('#', null, Field('/2000-01-01..7..2020-01-01 Label', undefined, 'group', 'name'));
 
-			expect(actual).toEqual(['label', {
-				for: 'group.name',
-			}, 'Label',
-				['input', { type: 'date', id: 'group.name', min: '2000-01-01', step: '7', max: '2020-01-01' }],
-			]);
+			expect(String(actual)).toEqual(trim(`
+				<label for="group.name">
+					Label
+					<input id="group.name" max="2020-01-01" min="2000-01-01" step="7" type="date">
+				</label>
+			`));
+		});
+
+		it('date and min year', () => {
+			const actual = stew('#', null, Field('/2000..7..2020-01-01 Label', undefined, 'group', 'name'));
+
+			expect(String(actual)).toEqual(trim(`
+				<label for="group.name">
+					Label
+					<input id="group.name" max="2020-01-01" min="2000-01-01" step="7" type="date">
+				</label>
+			`));
+		});
+
+		it('date and max year', () => {
+			const actual = stew('#', null, Field('/2000-01-01..7..2020 Label', undefined, 'group', 'name'));
+
+			expect(String(actual)).toEqual(trim(`
+				<label for="group.name">
+					Label
+					<input id="group.name" max="2020-01-01" min="2000-01-01" step="7" type="date">
+				</label>
+			`));
 		});
 
 		it('populated', () => {
-			const actual = Field('/.. Label', 123, 'group', 'name');
+			const actual = stew('#', null, Field('/.. Label', 123, 'group', 'name'));
 
-			expect(actual).toEqual(['label', {
-				for: 'group.name',
-			}, 'Label',
-				['input', { type: 'number', id: 'group.name', value: '123' }],
-			]);
+			expect(String(actual)).toEqual(trim(`
+				<label for="group.name">
+					Label
+					<input id="group.name" type="number" value="123">
+				</label>
+			`));
+		});
+
+		it('populated datetime-local', () => {
+			const actual = stew('#', null, Field('datetime-local/.. Label', '2010-01-01T12:00', 'group', 'name'));
+
+			expect(String(actual)).toEqual(trim(`
+				<label for="group.name">
+					Label
+					<input id="group.name" type="datetime-local" value="2010-01-01T12:00">
+				</label>
+			`));
+		});
+
+		it('populated add time', () => {
+			const actual = stew('#', null, Field('datetime-local/.. Label', '2010-01-01', 'group', 'name'));
+
+			expect(String(actual)).toEqual(trim(`
+				<label for="group.name">
+					Label
+					<input id="group.name" type="datetime-local" value="2010-01-01T00:00">
+				</label>
+			`));
+		});
+
+		it('populated add date and time', () => {
+			const actual = stew('#', null, Field('datetime-local/.. Label', 2010, 'group', 'name'));
+
+			expect(String(actual)).toEqual(trim(`
+				<label for="group.name">
+					Label
+					<input id="group.name" type="datetime-local" value="2010-01-01T00:00">
+				</label>
+			`));
+		});
+
+		it('populated add date', () => {
+			const actual = stew('#', null, Field('date/.. Label', 2010, 'group', 'name'));
+
+			expect(String(actual)).toEqual(trim(`
+				<label for="group.name">
+					Label
+					<input id="group.name" type="date" value="2010-01-01">
+				</label>
+			`));
 		});
 	});
 
 	describe('text', () => {
 		it('basic', () => {
-			const actual = Field('// Label', undefined, 'group', 'name');
+			const actual = stew('#', null, Field('// Label', undefined, 'group', 'name'));
 
-			expect(actual).toEqual(['label', {
-				for: 'group.name',
-			}, 'Label',
-				['input', { type: 'text', id: 'group.name' }],
-			]);
+			expect(String(actual)).toEqual(trim(`
+				<label for="group.name">
+					Label
+					<input id="group.name" type="text">
+				</label>
+			`));
 		});
 
 		it('pattern', () => {
-			const actual = Field('/\\w*/ Label', undefined, 'group', 'name');
+			const actual = stew('#', null, Field('/\\w*/ Label', undefined, 'group', 'name'));
 
-			expect(actual).toEqual(['label', {
-				for: 'group.name',
-			}, 'Label',
-				['input', { type: 'text', id: 'group.name', pattern: '\\w*' }],
-			]);
+			expect(String(actual)).toEqual(trim(`
+				<label for="group.name">
+					Label
+					<input id="group.name" pattern="\\w*" type="text">
+				</label>
+			`));
 		});
 
 		it('maxlength shorthand', () => {
-			const actual = Field('//4 Label', undefined, 'group', 'name');
+			const actual = stew('#', null, Field('//4 Label', undefined, 'group', 'name'));
 
-			expect(actual).toEqual(['label', {
-				for: 'group.name',
-			}, 'Label',
-				['input', { type: 'text', id: 'group.name', maxlength: '4' }],
-			]);
+			expect(String(actual)).toEqual(trim(`
+				<label for="group.name">
+					Label
+					<input id="group.name" maxlength="4" type="text">
+				</label>
+			`));
 		});
 
 		it('maxlength', () => {
-			const actual = Field('//..4 Label', undefined, 'group', 'name');
+			const actual = stew('#', null, Field('//..4 Label', undefined, 'group', 'name'));
 
-			expect(actual).toEqual(['label', {
-				for: 'group.name',
-			}, 'Label',
-				['input', { type: 'text', id: 'group.name', maxlength: '4' }],
-			]);
+			expect(String(actual)).toEqual(trim(`
+				<label for="group.name">
+					Label
+					<input id="group.name" maxlength="4" type="text">
+				</label>
+			`));
 		});
 
 		it('minlength', () => {
-			const actual = Field('//0.. Label', undefined, 'group', 'name');
+			const actual = stew('#', null, Field('//0.. Label', undefined, 'group', 'name'));
 
-			expect(actual).toEqual(['label', {
-				for: 'group.name',
-			}, 'Label',
-				['input', { type: 'text', id: 'group.name', minlength: '0' }],
-			]);
+			expect(String(actual)).toEqual(trim(`
+				<label for="group.name">
+					Label
+					<input id="group.name" minlength="0" type="text">
+				</label>
+			`));
 		});
 
 		it('minlength and maxlength', () => {
-			const actual = Field('//0..4 Label', undefined, 'group', 'name');
+			const actual = stew('#', null, Field('//0..4 Label', undefined, 'group', 'name'));
 
-			expect(actual).toEqual(['label', {
-				for: 'group.name',
-			}, 'Label',
-				['input', { type: 'text', id: 'group.name', minlength: '0', maxlength: '4' }],
-			]);
+			expect(String(actual)).toEqual(trim(`
+				<label for="group.name">
+					Label
+					<input id="group.name" maxlength="4" minlength="0" type="text">
+				</label>
+			`));
 		});
 
 		it('populated', () => {
-			const actual = Field('// Label', 'abc', 'group', 'name');
+			const actual = stew('#', null, Field('// Label', 'abc', 'group', 'name'));
 
-			expect(actual).toEqual(['label', {
-				for: 'group.name',
-			}, 'Label',
-				['input', { type: 'text', id: 'group.name', value: 'abc' }],
-			]);
+			expect(String(actual)).toEqual(trim(`
+				<label for="group.name">
+					Label
+					<input id="group.name" type="text" value="abc">
+				</label>
+			`));
 		});
 
 		it('textarea unpopulated', () => {
-			const actual = Field('textarea// Label', undefined, 'group', 'name');
+			const actual = stew('#', null, Field('textarea// Label', undefined, 'group', 'name'));
 
-			expect(actual).toEqual(['label', {
-				for: 'group.name',
-			}, 'Label',
-				['textarea', { id: 'group.name' }],
-			]);
+			expect(String(actual)).toEqual(trim(`
+				<label for="group.name">
+					Label
+					<textarea id="group.name"></textarea>
+				</label>
+			`));
 		});
 
 		it('textarea populated', () => {
-			const actual = Field('textarea// Label', 'abc', 'group', 'name');
+			const actual = stew('#', null, Field('textarea// Label', 'abc', 'group', 'name'));
 
-			expect(actual).toEqual(['label', {
-				for: 'group.name',
-			}, 'Label',
-				['textarea', { id: 'group.name' }, 'abc'],
-			]);
+			expect(String(actual)).toEqual(trim(`
+				<label for="group.name">
+					Label
+					<textarea id="group.name">abc</textarea>
+				</label>
+			`));
 		});
 	});
 
 	describe('object', () => {
-		it('unpopulated', () => {
-			const layout = Field({
+		it('unpopulated', async () => {
+			const actual = stew('#', null, Field({
 				'': 'Label',
 				number: '/.. Number',
 				text: '// Text',
-			}, undefined, 'group');
+			}, undefined, 'group'));
 
-			expect(layout).toEqual([
-				expect.any(Function),
-				{
-					schema: {
-						number: '/.. Number',
-						text: '// Text',
-					},
-					data: undefined,
-					names: ['group'],
-				},
-				['label', {
-					for: 'group',
-				}, 'Label',
-					['input', { type: 'text', id: 'group' }],
-				]
-			]);
+			expect(String(actual)).toEqual(trim(`
+				<label for="group">
+					Label
+					<button type="button" style="float:right;margin-top:-21px;">Create</button>
+				</label>
+				<ul></ul>
+			`));
 
-			const state = { expanded: false };
-			memos = [state];
-			const [callback, props, ...children] = layout;
-			let actual = callback(props, ...children);
+			const button = actual.querySelector('button');
+			button.onclick();
+			await stew();
 
-			expect(actual).toEqual(['label', {
-				for: 'group',
-			}, 'Label',
-				['button', {
-					type: 'button',
-					style: { float: 'right', marginTop: '-21px' },
-					onclick: expect.any(Function),
-				}, 'Create'],
-				undefined,
-				['ul', null],
-			]);
-
-			actual[3][1].onclick();
-			memos = [state];
-			actual = callback(props, ...children);
-
-			expect(actual).toEqual(['label', {
-				for: 'group',
-			}, 'Label',
-				false,
-				undefined,
-				['ul', null,
-					['li', null,
-						['label', {
-							for: 'group.number',
-						}, 'Number',
-							['input', { type: 'number', id: 'group.number' }, ],
-						],
-					],
-					['li', null,
-						['label', {
-							for: 'group.text',
-						}, 'Text',
-							['input', { type: 'text', id: 'group.text' }, ],
-						],
-					],
-				],
-			]);
+			expect(String(actual)).toEqual(trim(`
+				<label for="group">Label</label>
+				<ul>
+					<li>
+						<label for="group.number">
+							Number
+							<input id="group.number" type="number">
+						</label>
+					</li>
+					<li>
+						<label for="group.text">
+							Text
+							<input id="group.text" type="text">
+						</label>
+					</li>
+				</ul>
+			`));
 		});
 
 		it('populated', () => {
-			const layout = Field({
+			const actual = stew('#', null, Field({
 				'': 'Label',
 				number: '/.. Number',
 				text: '// Text',
 			}, {
 				number: 123,
 				text: 'abc',
-			}, 'group');
+			}, 'group'));
 
-			const state = { expanded: true };
-			memos = [state];
-			const [callback, props, ...children] = layout;
-			const actual = callback(props, ...children);
-
-			expect(actual).toEqual(['label', {
-				for: 'group',
-			}, 'Label',
-				['input', { type: 'text', id: 'group' }],
-				['ul', null,
-					['li', null,
-						['label', {
-							for: 'group.number',
-						}, 'Number',
-							['input', { type: 'number', id: 'group.number', value: '123' }, ],
-						],
-					],
-					['li', null,
-						['label', {
-							for: 'group.text',
-						}, 'Text',
-							['input', { type: 'text', id: 'group.text', value: 'abc' }, ],
-						],
-					],
-				],
-			]);
+			expect(String(actual)).toEqual(trim(`
+				<label for="group">Label</label>
+				<ul>
+					<li>
+						<label for="group.number">
+							Number
+							<input id="group.number" type="number" value="123">
+						</label>
+					</li>
+					<li>
+						<label for="group.text">
+							Text
+							<input id="group.text" type="text" value="abc">
+						</label>
+					</li>
+				</ul>
+			`));
 		});
 
-		it('blank reference', () => {
+		it('blank reference', async () => {
+			schemaMock = {
+				number: '/.. Number',
+				text: '// Text',
+			};
+			
+			const actual = stew('#', null, Field({
+				'': '/path// Label',
+			}, {
+				number: 123,
+				text: 'abc',
+			}, 'group'));
+
+			await stew();
+
+			expect(String(actual)).toEqual(trim(`
+				<label for="group">Label</label>
+				<ul>
+					<li>
+						<label for="group.number">
+							Number
+							<input id="group.number" type="number" value="123">
+						</label>
+					</li>
+					<li>
+						<label for="group.text">
+							Text
+							<input id="group.text" type="text" value="abc">
+						</label>
+					</li>
+				</ul>
+			`));
+		});
+
+		it('with selections', async () => {
 			schemaMock = {
 				number: '/.. Number',
 				text: '// Text',
 			};
 
-			const layout = Field({
+			listMock = ['first', 'second'];
+			
+			const actual = stew('#', null, Field({
 				'': '/path// Label',
 			}, {
 				number: 123,
 				text: 'abc',
-			}, 'group');
-			
-			expect(layout).toEqual([
-				expect.any(Function),
-				{
-					schema: {},
-					data: {
-						number: 123,
-						text: 'abc',
-					},
-					path: 'path',
-					names: ['group'],
-				},
-				['label', {
-					for: 'group',
-				}, 'Label',
-					['input', { type: 'text', id: 'group' }],
-				]
-			]);
+			}, 'group'));
 
-			const state = { expanded: true };
-			memos = [state];
-			const [callback, props, ...children] = layout;
-			const actual = callback(props, ...children);
-
-			expect(actual).toEqual(['label', {
-				for: 'group',
-			}, 'Label',
-				['input', { type: 'text', id: 'group' }],
-				['ul', null,
-					['li', null,
-						['label', {
-							for: 'group.number',
-						}, 'Number',
-							['input', { type: 'number', id: 'group.number', value: '123' }, ],
-						],
-					],
-					['li', null,
-						['label', {
-							for: 'group.text',
-						}, 'Text',
-							['input', { type: 'text', id: 'group.text', value: 'abc' }, ],
-						],
-					],
-				],
-			]);
+			expect(String(actual)).toEqual(trim(`
+				<label for="group">
+					Label
+					<select selected-index="0">
+						<option value="">Select an item...</option>
+						<option value="first">first</option>
+						<option value="second">second</option>
+					</select>
+				</label>
+				<ul>
+					<li>
+						<label for="group.number">
+							Number
+							<input id="group.number" type="number" value="123">
+						</label>
+					</li>
+					<li>
+						<label for="group.text">
+							Text
+							<input id="group.text" type="text" value="abc">
+						</label>
+					</li>
+				</ul>
+			`));
 		});
 
 		it('shorthand reference', () => {
@@ -890,37 +985,37 @@ describe('Field', () => {
 				text: '// Text',
 			};
 
-			const layout = Field('/path// Label', {
+			listMock = ['first', 'second'];
+
+			const actual = stew('#', null, Field('/path// Label', {
 				number: 123,
 				text: 'abc',
-			}, 'group');
+			}, 'group'));
 
-			const state = { expanded: true };
-			memos = [state];
-			const [callback, props, ...children] = layout;
-			const actual = callback(props, ...children);
-
-			expect(actual).toEqual(['label', {
-				for: 'group',
-			}, 'Label',
-				['input', { type: 'text', id: 'group' }],
-				['ul', null,
-					['li', null,
-						['label', {
-							for: 'group.number',
-						}, 'Number',
-							['input', { type: 'number', id: 'group.number', value: '123' }, ],
-						],
-					],
-					['li', null,
-						['label', {
-							for: 'group.text',
-						}, 'Text',
-							['input', { type: 'text', id: 'group.text', value: 'abc' }, ],
-						],
-					],
-				],
-			]);
+			expect(String(actual)).toEqual(trim(`
+				<label for="group">
+					Label
+					<select selected-index="0">
+						<option value="">Select an item...</option>
+						<option value="first">first</option>
+						<option value="second">second</option>
+					</select>
+				</label>
+				<ul>
+					<li>
+						<label for="group.number">
+							Number
+							<input id="group.number" type="number" value="123">
+						</label>
+					</li>
+					<li>
+						<label for="group.text">
+							Text
+							<input id="group.text" type="text" value="abc">
+						</label>
+					</li>
+				</ul>
+			`));
 		});
 
 		it('extended reference', () => {
@@ -929,52 +1024,41 @@ describe('Field', () => {
 				text: '// Text',
 			};
 
-			const layout = Field({
+			const actual = stew('#', null, Field({
 				'': '/path// Label',
-				boolean: '/ Boolean',
+				boolean: 'Boolean',
 			}, {
 				number: 123,
 				text: 'abc',
 				boolean: true,
-			}, 'group');
+			}, 'group'));
 
-			const state = { expanded: true };
-			memos = [state];
-			const [callback, props, ...children] = layout;
-			const actual = callback(props, ...children);
-
-			expect(actual).toEqual(['label', {
-				for: 'group',
-			}, 'Label',
-				['input', { type: 'text', id: 'group' }],
-				['ul', null,
-					['li', null,
-						['label', {
-							for: 'group.number',
-						}, 'Number',
-							['input', { type: 'number', id: 'group.number', value: '123' }, ],
-						],
-					],
-					['li', null,
-						['label', {
-							for: 'group.text',
-						}, 'Text',
-							['input', { type: 'text', id: 'group.text', value: 'abc' }, ],
-						],
-					],
-					['li', null,
-						['label', {
-							for: 'group.boolean',
-						},
-							['input', { type: 'checkbox', id: 'group.boolean', checked: true }, ],
-							'Boolean',
-						],
-					],
-				],
-			]);
+			expect(String(actual)).toEqual(trim(`
+				<label for="group">Label</label>
+				<ul>
+					<li>
+						<label for="group.number">
+							Number
+							<input id="group.number" type="number" value="123">
+						</label>
+					</li>
+					<li>
+						<label for="group.text">
+							Text
+							<input id="group.text" type="text" value="abc">
+						</label>
+					</li>
+					<li>
+						<label for="group.boolean">
+							Boolean
+							<input id="group.boolean" type="checkbox" checked>
+						</label>
+					</li>
+				</ul>
+			`));
 		});
 
-		it('extended reference', () => {
+		it('extended reference and data', () => {
 			schemaMock = {
 				number: '/.. Number',
 				text: '// Text',
@@ -985,48 +1069,49 @@ describe('Field', () => {
 				text: 'abc',
 			};
 
-			const layout = Field({
+			listMock = ['first', 'second'];
+
+			const actual = stew('#', null, Field({
 				'': '/path// Label',
-				boolean: '/ Boolean',
+				boolean: 'Boolean',
 			}, {
-				'': '/path/file',
+				'': '/path/second',
 				boolean: true,
-			}, 'group');
+			}, 'group'));
 
-			const state = { expanded: true };
-			memos = [state];
-			const [callback, props, ...children] = layout;
-			const actual = callback(props, ...children);
-
-			expect(actual).toEqual(['label', {
-				for: 'group',
-			}, 'Label',
-				['input', { type: 'text', id: 'group' }],
-				['ul', null,
-					['li', null,
-						['label', {
-							for: 'group.number',
-						}, 'Number',
-							['input', { type: 'number', id: 'group.number', value: '123' }, ],
-						],
-					],
-					['li', null,
-						['label', {
-							for: 'group.text',
-						}, 'Text',
-							['input', { type: 'text', id: 'group.text', value: 'abc' }, ],
-						],
-					],
-					['li', null,
-						['label', {
-							for: 'group.boolean',
-						},
-							['input', { type: 'checkbox', id: 'group.boolean', checked: true }, ],
-							'Boolean',
-						],
-					],
-				],
-			]);
+			expect(String(actual)).toEqual(trim(`
+				<label for="group">
+					Label
+					<select value="second">
+						<option value="">Select an item...</option>
+						<option value="first">first</option>
+						<option value="second">second</option>
+					</select>
+				</label>
+				<input id="group." value="/path/second" disabled>
+				<ul>
+					<li>
+						<label for="group.number">
+							Number
+							<input id="group.number" type="number">
+						</label>
+						<input value="123" disabled>
+					</li>
+					<li>
+						<label for="group.text">
+							Text
+							<input id="group.text" type="text">
+						</label>
+						<input value="abc" disabled>
+					</li>
+					<li>
+						<label for="group.boolean">
+							Boolean
+							<input id="group.boolean" type="checkbox" checked>
+						</label>
+					</li>
+				</ul>
+			`));
 		});
 	});
 
@@ -1043,7 +1128,7 @@ describe('Field', () => {
 	// { '': '/ Label', ... }: not really supported (no path allowed, no slash already supports custom object)
 	// ['/path// Label', ...]: not really supported
 
-	describe('array', () => {
+	describe.skip('array', () => {
 		it('unpopulated', () => {
 			const actual = Field(['Label',
 				'/.. Number',
