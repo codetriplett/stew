@@ -310,15 +310,15 @@ describe('Select', () => {
 			</label>
 			<ol>
 				<li>
-					<label for="group">
+					<label for="group[0]">
 						String
-						<input id="group" type="text" value="abc">
+						<input id="group[0]" type="text" value="abc">
 					</label>
 				</li>
 				<li>
-					<label for="group">
+					<label for="group[1]">
 						Number
-						<input id="group" type="number" value="123">
+						<input id="group[1]" type="number" value="123">
 					</label>
 				</li>
 			</ol>
@@ -358,13 +358,22 @@ describe('Select', () => {
 			</label>
 			<ol>
 				<li>
-					<label for="group">
+					<label for="group[0]">
 						String
-						<input id="group" type="text">
+						<input id="group[0]" type="text">
 					</label>
 				</li>
 			</ol>
 		`));
+	});
+
+	// TODO: display a textarea of all the item's values instead of the full list
+	// - user can modify the lines in this to create/remove/reorder elements without needing a clumsy UI
+	// - use placeholder text in object definition to indicate which of its keys should be used as the display value (defualt to '' or first key)
+	// - it will still validate each lines item when saving the text area changes, just like when array was first populated
+	// - ignore newly added lines that aren't compatible with one of the array's static types (don't create objects from them as the key)
+	it.skip('array select reorder', () => {
+
 	});
 
 	it('property select', () => {
@@ -454,6 +463,17 @@ describe('Field', () => {
 			<label for="group.name">
 				Label
 				<input id="group.name" type="hidden" value="Placeholder">
+			</label>
+		`));
+	});
+
+	it('static with slash', () => {
+		const actual = stew('#', null, Field('Placeholder / Value / Label', undefined, 'group', 'name'));
+
+		expect(String(actual)).toEqual(trim(`
+			<label for="group.name">
+				Label
+				<input id="group.name" type="hidden" value="Placeholder / Value">
 			</label>
 		`));
 	});
@@ -845,7 +865,7 @@ describe('Field', () => {
 			}, undefined, 'group'));
 
 			expect(String(actual)).toEqual(trim(`
-				<label for="group">
+				<label>
 					Label
 					<button type="button" style="float:right;margin-top:-21px;">Create</button>
 				</label>
@@ -857,7 +877,7 @@ describe('Field', () => {
 			await stew();
 
 			expect(String(actual)).toEqual(trim(`
-				<label for="group">Label</label>
+				<label>Label</label>
 				<ul>
 					<li>
 						<label for="group.number">
@@ -886,7 +906,7 @@ describe('Field', () => {
 			}, 'group'));
 
 			expect(String(actual)).toEqual(trim(`
-				<label for="group">Label</label>
+				<label>Label</label>
 				<ul>
 					<li>
 						<label for="group.number">
@@ -920,7 +940,7 @@ describe('Field', () => {
 			await stew();
 
 			expect(String(actual)).toEqual(trim(`
-				<label for="group">Label</label>
+				<label>Label</label>
 				<ul>
 					<li>
 						<label for="group.number">
@@ -954,7 +974,7 @@ describe('Field', () => {
 			}, 'group'));
 
 			expect(String(actual)).toEqual(trim(`
-				<label for="group">
+				<label>
 					Label
 					<select selected-index="0">
 						<option value="">Select an item...</option>
@@ -993,7 +1013,7 @@ describe('Field', () => {
 			}, 'group'));
 
 			expect(String(actual)).toEqual(trim(`
-				<label for="group">
+				<label>
 					Label
 					<select selected-index="0">
 						<option value="">Select an item...</option>
@@ -1034,7 +1054,7 @@ describe('Field', () => {
 			}, 'group'));
 
 			expect(String(actual)).toEqual(trim(`
-				<label for="group">Label</label>
+				<label>Label</label>
 				<ul>
 					<li>
 						<label for="group.number">
@@ -1080,7 +1100,7 @@ describe('Field', () => {
 			}, 'group'));
 
 			expect(String(actual)).toEqual(trim(`
-				<label for="group">
+				<label>
 					Label
 					<select value="second">
 						<option value="">Select an item...</option>
@@ -1109,6 +1129,93 @@ describe('Field', () => {
 							Boolean
 							<input id="group.boolean" type="checkbox" checked>
 						</label>
+					</li>
+				</ul>
+			`));
+		});
+
+		it('nested', async () => {
+			const actual = stew('#', null, Field({
+				'': 'Label',
+				object: {
+					'': 'Object',
+					number: '/.. Number',
+					text: '// Text',
+				},
+				array: ['/.. Array', {
+					'': 'Object',
+					number: '/.. Number',
+					text: '// Text',
+				}],
+			}, undefined, 'group'));
+
+			const button = actual.querySelector('button');
+			button.onclick();
+			await stew();
+
+			expect(String(actual)).toEqual(trim(`
+				<label>Label</label>
+				<ul>
+					<li>
+						<label>
+							Object
+							<button type="button" style="float:right;margin-top:-21px;">Create</button>
+						</label>
+						<ul></ul>
+					</li>
+					<li>
+						<label>
+							Array
+							<select>
+								<option>Select an item...</option>
+								<option>Object</option>
+							</select>
+						</label>
+						<ol></ol>
+					</li>
+				</ul>
+			`));
+		});
+
+		// TODO: test that reference data is being populated for object
+		it.only('nested populated', async () => {
+			const actual = stew('#', null, Field({
+				'': 'Label',
+				object: {
+					'': 'Object',
+					number: '/.. Number',
+					text: '// Text',
+				},
+				array: ['/.. Array', {
+					'': 'Object',
+					number: '/.. Number',
+					text: '// Text',
+				}],
+			}, undefined, 'group'));
+
+			const button = actual.querySelector('button');
+			button.onclick();
+			await stew();
+
+			expect(String(actual)).toEqual(trim(`
+				<label>Label</label>
+				<ul>
+					<li>
+						<label>
+							Object
+							<button type="button" style="float:right;margin-top:-21px;">Create</button>
+						</label>
+						<ul></ul>
+					</li>
+					<li>
+						<label>
+							Array
+							<select>
+								<option>Select an item...</option>
+								<option>Object</option>
+							</select>
+						</label>
+						<ol></ol>
 					</li>
 				</ul>
 			`));

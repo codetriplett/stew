@@ -194,6 +194,10 @@ export function parse (strings) {
 	return sequence;
 }
 
+// TODO: check that impulses can be used in canvas
+// - make sure new objects are added into the gl array in the same spot the previous ones were spliced out
+// - might need to use an empty object when no others were produced to reserve the spot
+// - maybe use that empty object as an anchor, similar to the empty text node used for the DOM
 export function Program ({ gl }, ...objects) {
 	const programs = processMemo(() => {
 		const programs = getStored(animations, gl, () => [undefined, 0]);

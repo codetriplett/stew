@@ -233,7 +233,7 @@ function ArraySelect ({ options, names, array }, select) {
 		select,
 		['ol', null,
 			...indexes.map((index, i) => {
-				return index > -1 && ['li', null, Field(options[index][2], array[i], ...names)];
+				return index > -1 && ['li', null, Field(options[index][2], array[i], ...names, i)];
 			}),
 		],
 	];
@@ -279,7 +279,13 @@ function ObjectSelect ({ options, names, object }, select, input) {
 export function Select (definitions, value, ...names) {
 	const [info, ...options] = stew(() => {
 		return definitions.map((definition, i) => {
-			const [,, label, input] = Field(definition, undefined, ...(i ? names : []));
+			let field = Field(definition, undefined, ...(i ? names : []));
+
+			if (field[0] !== 'label') {
+				field = field[2];
+			}
+
+			const [,, label, input] = field;
 			let { type, placeholder, path } = input[1];
 
 			if (type === 'checkbox' || type === 'hidden') {
@@ -475,17 +481,13 @@ function ObjectField ({ schema = {}, data = {}, path, names }, field) {
 	const complex = path && names.length > 0;
 
 	const state = stew({
-		expanded: Object.keys(data).filter(key => key).length > 0,
+		expanded: !names.length || Object.keys(data).filter(key => key).length > 0,
 		selection: data?.['']?.split?.('/')?.pop?.() || '',
 	}, []);
 
 	const { expanded, selection } = state;
 	let existingData = {};
 	let select;
-	
-	// TODO: load baseData from data[''] to use as placeholders in form
-	// - don't set as value prop, since that would add a copy of each to the data saved here
-	// - only overrides should be stored here
 
 	if (complex) {
 		const base = stew(fetchCode, [path], null);
@@ -581,9 +583,9 @@ export function Field (definition, data, ...names) {
 	const match = definition.match(/^\s*(?:(.+)\s+)?(.*?)\/(.*?\/)?((?:\\\/|[^\s\/])*?)(?:\s+(.+?))?\s*$/);
 	let [, placeholder, type, slashes = '', range = '', label] = match || [,,,,, definition.trim()];
 	let [, min = '', step, max = '', required] = range.match(/^(?:(.*?)\.\.)?(?:(.*?)\.\.)?(.*?)(\**)$/);
-	const props = id ? { id } : {};
+	const props = {};
 	const input = ['input', props];
-	const field = ['label', id ? { for: id } : null, names[names.length - 1], input];
+	const field = ['label', null, names[names.length - 1], input];
 	let path;
 
 	if (label) {
@@ -662,6 +664,9 @@ export function Field (definition, data, ...names) {
 
 	if (path || schema) {
 		return [ObjectField, { schema, data, path, names }, field];
+	} else if (id) {
+		props.id = id;
+		field[1] = { for: id };
 	}
 
 	if ((data || data === 0) && typeof data !== 'object') {

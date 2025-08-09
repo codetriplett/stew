@@ -4,8 +4,8 @@
         smile: '🙂',
     },
     quest: '// Quest',
-    exp: '/0.. EXP',
-    complete: '/ Complete',
+    exp: '/0..100.. EXP',
+    complete: 'Complete',
 }
 ```
 
