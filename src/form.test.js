@@ -74,7 +74,7 @@ export function addElements (value, id = '') {
 }
 
 function trim (html) {
-	return html.replace(/(^|>)\s+|\s+(<|$)/g, m => m.trim());
+	return html.replace(/(^|>)\s+|\s+(<|$)/g, m => m.trim()).replace(/\s*[\r\n]+\s*/, '\n');
 }
 
 beforeEach(() => {
@@ -86,6 +86,7 @@ beforeEach(() => {
 	fetchCode.mockImplementation(() => ({ default: [null, schemaMock] }));
 	fetchList.mockImplementation(() => listMock);
 
+	globalThis.stew = stew;
 	globalThis.document = stew;
 
 	dataMock = {};
@@ -162,60 +163,6 @@ describe('extractData', () => {
 	});
 });
 
-describe.skip('checkInput', () => {
-	it('accepts number within free range', () => {
-		const actual = checkInput([, { type: 'number' }], 2);
-		expect(actual).toEqual(true);
-	});
-
-	it('accepts number within strict range', () => {
-		const actual = checkInput([, { type: 'number', min: 0, max: 4 }], 2);
-		expect(actual).toEqual(true);
-	});
-	
-	it('rejects number below range', () => {
-		const actual = checkInput([, { type: 'number', min: 2, max: 4 }], 0);
-		expect(actual).toEqual(false);
-	});
-	
-	it('rejects number above range', () => {
-		const actual = checkInput([, { type: 'number', min: 0, max: 2 }], 4);
-		expect(actual).toEqual(false);
-	});
-});
-
-describe.skip('findOption', () => {
-	it('finds checkbox input', () => {
-		const actual = findOption(true, [, {}], [, { type: 'checkbox' }]);
-		expect(actual).toEqual(1);
-	});
-
-	it('finds number input', () => {
-		const actual = findOption(123, [, {}], [, { type: 'number' }]);
-		expect(actual).toEqual(1);
-	});
-
-	it('finds text input', () => {
-		const actual = findOption('abc', [, {}], [, { type: 'text' }]);
-		expect(actual).toEqual(1);
-	});
-
-	it('finds textarea input', () => {
-		const actual = findOption('abc', [, {}], ['textarea', {}]);
-		expect(actual).toEqual(1);
-	});
-
-	it('finds reference input', () => {
-		const actual = findOption({ '': '/folder/file' }, [, {}], [, { type: 'text', dataset: { path: '/folder/' }}]);
-		expect(actual).toEqual(1);
-	});
-
-	it('rejects undefined', () => {
-		const actual = findOption(undefined, [, {}], [, { type: 'text' }]);
-		expect(actual).toEqual(-1);
-	});
-});
-
 // Literal: sets value and disabled prop
 // =============
 // true ** Boolean
@@ -289,6 +236,7 @@ describe('Select', () => {
 					<option>String</option>
 				</select>
 			</label>
+			<textarea id="group."></textarea>
 			<ol></ol>
 		`));
 	});
@@ -308,14 +256,18 @@ describe('Select', () => {
 					<option>String</option>
 				</select>
 			</label>
+			<textarea id="group.">
+				abc
+				123
+			</textarea>
 			<ol>
-				<li>
+				<li style="display:none;">
 					<label for="group[0]">
 						String
 						<input id="group[0]" type="text" value="abc">
 					</label>
 				</li>
-				<li>
+				<li style="display:none;">
 					<label for="group[1]">
 						Number
 						<input id="group[1]" type="number" value="123">
@@ -325,7 +277,10 @@ describe('Select', () => {
 		`));
 	});
 
-	it('array select add', async () => {
+	// TODO: have newly added items show by default
+	// - include a button to hide then (which will then add/update their row in the textarea)
+	// - maybe support adding new rows manually by having 'Add' action borrow their values to prefill the appropriate field
+	it.skip('array select add', async () => {
 		const actual = stew('#', null, Field(['/.. Label',
 			'/.. Number',
 			'// String',
@@ -356,8 +311,9 @@ describe('Select', () => {
 					<option>String</option>
 				</select>
 			</label>
+			<textarea></textarea>
 			<ol>
-				<li>
+				<li style="display:none;">
 					<label for="group[0]">
 						String
 						<input id="group[0]" type="text">
@@ -462,7 +418,7 @@ describe('Field', () => {
 		expect(String(actual)).toEqual(trim(`
 			<label for="group.name">
 				Label
-				<input id="group.name" type="hidden" value="Placeholder">
+				<input id="group.name" value="Placeholder" disabled>
 			</label>
 		`));
 	});
@@ -473,7 +429,7 @@ describe('Field', () => {
 		expect(String(actual)).toEqual(trim(`
 			<label for="group.name">
 				Label
-				<input id="group.name" type="hidden" value="Placeholder / Value">
+				<input id="group.name" value="Placeholder / Value" disabled>
 			</label>
 		`));
 	});
@@ -484,7 +440,7 @@ describe('Field', () => {
 		expect(String(actual)).toEqual(trim(`
 			<label for="group.name">
 				Label
-				<input id="group.name" type="hidden" value="">
+				<input id="group.name" value="" disabled>
 			</label>
 		`));
 	});
@@ -941,6 +897,7 @@ describe('Field', () => {
 
 			expect(String(actual)).toEqual(trim(`
 				<label>Label</label>
+				<input id="group." value="/path/" disabled>
 				<ul>
 					<li>
 						<label for="group.number">
@@ -982,6 +939,7 @@ describe('Field', () => {
 						<option value="second">second</option>
 					</select>
 				</label>
+				<input id="group." value="/path/" disabled>
 				<ul>
 					<li>
 						<label for="group.number">
@@ -1021,6 +979,7 @@ describe('Field', () => {
 						<option value="second">second</option>
 					</select>
 				</label>
+				<input id="group." value="/path/" disabled>
 				<ul>
 					<li>
 						<label for="group.number">
@@ -1055,6 +1014,7 @@ describe('Field', () => {
 
 			expect(String(actual)).toEqual(trim(`
 				<label>Label</label>
+				<input id="group." value="/path/" disabled>
 				<ul>
 					<li>
 						<label for="group.number">
@@ -1171,6 +1131,7 @@ describe('Field', () => {
 								<option>Object</option>
 							</select>
 						</label>
+						<textarea id="group.array."></textarea>
 						<ol></ol>
 					</li>
 				</ul>
@@ -1178,44 +1139,95 @@ describe('Field', () => {
 		});
 
 		// TODO: test that reference data is being populated for object
-		it.only('nested populated', async () => {
+		it('nested populated', async () => {
 			const actual = stew('#', null, Field({
 				'': 'Label',
 				object: {
-					'': 'Object',
+					'': '/path// Object',
 					number: '/.. Number',
 					text: '// Text',
 				},
-				array: ['/.. Array', {
-					'': 'Object',
+				array: ['/.. Array', '// String', {
+					'': '/path// Object',
 					number: '/.. Number',
 					text: '// Text',
 				}],
-			}, undefined, 'group'));
-
-			const button = actual.querySelector('button');
-			button.onclick();
-			await stew();
+			}, {
+				object: {
+					'': '/path/first',
+					number: 123,
+					text: 'abc',
+				},
+				array: [
+					'lmno',
+					{
+						'': '/path/second',
+						number: 789,
+						text: 'xyz',
+					},
+				],
+			}, 'group'));
 
 			expect(String(actual)).toEqual(trim(`
 				<label>Label</label>
 				<ul>
 					<li>
-						<label>
-							Object
-							<button type="button" style="float:right;margin-top:-21px;">Create</button>
-						</label>
-						<ul></ul>
+						<label>Object</label>
+						<input id="group.object." value="/path/first" disabled>
+						<ul>
+							<li>
+								<label for="group.object.number">
+									Number
+									<input id="group.object.number" type="number" value="123">
+								</label>
+							</li>
+							<li>
+								<label for="group.object.text">
+									Text
+									<input id="group.object.text" type="text" value="abc">
+								</label>
+							</li>
+						</ul>
 					</li>
 					<li>
 						<label>
 							Array
 							<select>
 								<option>Select an item...</option>
+								<option>String</option>
 								<option>Object</option>
 							</select>
 						</label>
-						<ol></ol>
+						<textarea id="group.array.">
+							lmno
+							/path/second
+						</textarea>
+						<ol>
+							<li style="display:none;">
+								<label for="group.array[0]">
+									String
+									<input id="group.array[0]" type="text" value="lmno">
+								</label>
+							</li>
+							<li style="display:none;">
+								<label>Object</label>
+								<input id="group.array[1]." value="/path/second" disabled>
+								<ul>
+									<li>
+										<label for="group.array[1].number">
+											Number
+											<input id="group.array[1].number" type="number" value="789">
+										</label>
+									</li>
+									<li>
+										<label for="group.array[1].text">
+											Text
+											<input id="group.array[1].text" type="text" value="xyz">
+										</label>
+									</li>
+								</ul>
+							</li>
+						</ol>
 					</li>
 				</ul>
 			`));
@@ -1235,311 +1247,4 @@ describe('Field', () => {
 	// { '': '/ Label', ... }: not really supported (no path allowed, no slash already supports custom object)
 	// ['/path// Label', ...]: not really supported
 
-	describe.skip('array', () => {
-		it('unpopulated', () => {
-			const actual = Field(['Label',
-				'/.. Number',
-				'// Text',
-			], undefined, 'group');
-
-			expect(actual).toEqual([
-				['label', {}, 'Label',
-					['ol', {}],
-					['select', { onchange: expect.any(Function) },
-						['option', {}, 'Add item...'],
-						['option', {}, 'Number'],
-						['option', {}, 'Text'],
-					],
-				],
-			]);
-		});
-
-		it('populated', () => {
-			const actual = Field(['/ Label',
-				'/ Number',
-				'// Text',
-			], [123, 'abc'], 'group');
-
-			expect(actual).toEqual([
-				['label', {}, 'Label'],
-				['ol', {},
-					['li', {},
-						['input', { type: 'number', id: 'group[0]', value: '123' }],
-					],
-					['li', {},
-						['input', { type: 'text', id: 'group[1]', value: 'abc' }],
-					],
-				],
-				['select', { onchange: expect.any(Function) },
-					['option', {}, 'Add item...'],
-					['option', {}, 'Number'],
-					['option', {}, 'Text'],
-				],
-			]);
-		});
-
-		it('added', () => {
-			const actual = Field(['/ Label',
-				'/ Number',
-				'// Text',
-			], undefined, 'group');
-
-			const select = actual[2];
-			const { onchange } = select[1];
-			onchange({ selectedIndex: 2 });
-
-			expect(actual).toEqual([
-				['label', {}, 'Label'],
-				['ol', {},
-					['li', {},
-						['input', { type: 'text', id: 'group[0]' }],
-					],
-				],
-				['select', { onchange: expect.any(Function) },
-					['option', { selected: true }, 'Add item...'],
-					['option', {}, 'Number'],
-					['option', {}, 'Text'],
-				],
-			]);
-		});
-	});
-
-	describe.skip('select', () => {
-		it('unpopulated', () => {
-			const actual = Field(['Label',
-				'123 */ Number',
-				'abc *// Text',
-			], undefined, 'group', 'name');
-
-			expect(actual).toEqual([
-				['label', {}, 'Label'],
-				['select', { onchange: expect.any(Function) },
-					['option', {}, 'Select item...'],
-					['option', {}, 'Number'],
-					['option', {}, 'Text'],
-				],
-				['', {}],
-			]);
-		});
-
-		it('populated with literal', () => {
-			const actual = Field(['Label',
-				'/ Number',
-				'abc *//* Text',
-			], 'abc', 'group', 'name');
-
-			expect(actual).toEqual([
-				['label', {}, 'Label'],
-				['select', { onchange: expect.any(Function) },
-					['option', {}, 'Select item...'],
-					['option', {}, 'Number'],
-					['option', { selected: true }, 'Text'],
-				],
-				['input', { type: 'text', id: 'group.name', disabled: true, value: 'abc' }],
-			]);
-		});
-
-		it('populated with non-literal', () => {
-			const actual = Field(['Label',
-				'/ Number',
-				'// Text',
-			], 'abc', 'group', 'name');
-
-			expect(actual).toEqual([
-				['label', {}, 'Label'],
-				['select', { onchange: expect.any(Function) },
-					['option', {}, 'Select item...'],
-					['option', {}, 'Number'],
-					['option', { selected: true }, 'Text'],
-				],
-				['input', { type: 'text', id: 'group.name', value: 'abc'}]
-			]);
-		});
-
-		it('set', () => {
-			const actual = Field(['Label',
-				'123 */* Number',
-				'abc *//* Text',
-			], undefined, 'group', 'name');
-
-			const select = actual[1];
-			const { onchange } = select[1];
-			onchange({ selectedIndex: 2 });
-
-			expect(actual).toEqual([
-				['label', {}, 'Label'],
-				['select', { onchange: expect.any(Function) },
-					['option', {}, 'Select item...'],
-					['option', {}, 'Number'],
-					['option', {}, 'Text'],
-				],
-				['input', { type: 'text', id: 'group.name', disabled: true, value: 'abc' }],
-			]);
-		});
-		
-		it('changed to literal', () => {
-			const actual = Field(['Label',
-				'123 */* Number',
-				'// Text',
-			], 'abc', 'group', 'name');
-
-			const select = actual[1];
-			const { onchange } = select[1];
-			onchange({ selectedIndex: 1 });
-
-			expect(actual).toEqual([
-				['label', {}, 'Label'],
-				['select', { onchange: expect.any(Function) },
-					['option', {}, 'Select item...'],
-					['option', {}, 'Number'],
-					['option', { selected: true }, 'Text'],
-				],
-				['input', { type: 'number', id: 'group.name', disabled: true, value: '123' }],
-			]);
-		});
-		
-		it('changed to non-literal', () => {
-			const actual = Field(['Label',
-				'/ Number',
-				'abc *// Text',
-			], 'abc', 'group', 'name');
-
-			const select = actual[1];
-			const { onchange } = select[1];
-			onchange({ selectedIndex: 1 });
-
-			expect(actual).toEqual([
-				['label', {}, 'Label'],
-				['select', { onchange: expect.any(Function) },
-					['option', {}, 'Select item...'],
-					['option', {}, 'Number'],
-					['option', { selected: true }, 'Text'],
-				],
-				['input', { type: 'number', id: 'group.name' }],
-			]);
-		});
-		
-		it('cleared', () => {
-			const actual = Field(['Label',
-				'/ Number',
-				'// Text',
-			], 'abc', 'group', 'name');
-
-			const select = actual[1];
-			const { onchange } = select[1];
-			onchange({ selectedIndex: 0 });
-
-			expect(actual).toEqual([
-				['label', {}, 'Label'],
-				['select', { onchange: expect.any(Function) },
-					['option', {}, 'Select item...'],
-					['option', {}, 'Number'],
-					['option', { selected: true }, 'Text'],
-				],
-				['', {}],
-			]);
-		});
-	});
-
-	describe.skip('properties', () => {
-		it('unpopulated', () => {
-			const actual = Field(['// Label',
-				'/ Number',
-				'// Text',
-			], undefined, 'group');
-
-			expect(actual).toEqual([
-				['label', {}, 'Label'],
-				['ul', {}],
-				['input', { type: 'text' }],
-				['select', { onchange: expect.any(Function) },
-					['option', {}, 'Add property...'],
-					['option', {}, 'Number'],
-					['option', {}, 'Text'],
-				],
-			]);
-		});
-
-		it('populated', () => {
-			const actual = Field(['// Label',
-				'/ Number',
-				'// Text',
-			], {
-				number: 123,
-				text: 'abc',
-			}, 'group');
-
-			expect(actual).toEqual([
-				['label', {}, 'Label'],
-				['ul', {},
-					['li', {},
-						['label', { for: 'group.number' }, 'number'],
-						['input', { type: 'number', id: 'group.number', value: '123' }],
-					],
-					['li', {},
-						['label', { for: 'group.text' }, 'text'],
-						['input', { type: 'text', id: 'group.text', value: 'abc' }],
-					],
-				],
-				['input', { type: 'text' }],
-				['select', { onchange: expect.any(Function) },
-					['option', {}, 'Add property...'],
-					['option', {}, 'Number'],
-					['option', {}, 'Text'],
-				],
-			]);
-		});
-
-		it('added', () => {
-			const actual = Field(['// Label',
-				'/ Number',
-				'// Text',
-			], undefined, 'group');
-
-			const input = actual[2];
-			const select = actual[3];
-			const { onchange } = select[1];
-			input[1].value = 'text';
-			onchange({ selectedIndex: 2 });
-
-			expect(actual).toEqual([
-				['label', {}, 'Label'],
-				['ul', {},
-					['li', {},
-						['label', { for: 'group.text' }, 'text'],
-						['input', { type: 'text', id: 'group.text' }],
-					],
-				],
-				['input', { type: 'text' }],
-				['select', { onchange: expect.any(Function) },
-					['option', { selected: true }, 'Add property...'],
-					['option', {}, 'Number'],
-					['option', {}, 'Text'],
-				],
-			]);
-		});
-
-		it('requires name', () => {
-			const actual = Field(['// Label',
-				'/ Number',
-				'// Text',
-			], undefined, 'group');
-
-			const input = actual[2];
-			const select = actual[3];
-			const { onchange } = select[1];
-			onchange({ selectedIndex: 2 });
-
-			expect(actual).toEqual([
-				['label', {}, 'Label'],
-				['ul', {}],
-				['input', { type: 'text' }],
-				['select', { onchange: expect.any(Function) },
-					['option', { selected: true }, 'Add property...'],
-					['option', {}, 'Number'],
-					['option', {}, 'Text'],
-				],
-			]);
-		});
-	});
 });

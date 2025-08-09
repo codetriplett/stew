@@ -81,7 +81,10 @@ export function processMemo (callback, ...rest) {
 		// if it is async
 		value.catch(() => fallback ?? intermediate).then(value => {
 			memo[0] = value;
-			schedule(new Set([impulse]));
+
+			if (impulse) {
+				schedule(new Set([impulse]));
+			}
 		});
 
 		const impulse = stack[0]?.[1];

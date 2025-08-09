@@ -1,5 +1,4 @@
 import { fetchCode, fetchData, fetchList } from './fetch';
-import stew from './stew';
 
 function convertValue (type, value, checked) {
 	switch (type) {
@@ -24,9 +23,12 @@ export function extractData (form) {
 	}
 
 	for (const input of form.elements) {
-		const { type, id, value, checked } = input;
+		const { tagName, type, id, value, checked } = input;
 
 		if (!id) {
+			continue;
+		} else if (tagName.toLowerCase() === 'textarea') {
+			// TODO: use these to check which array items are still valid and in what order to store them
 			continue;
 		}
 
@@ -54,136 +56,6 @@ export function extractData (form) {
 
 	return data;
 }
-
-// function parseTypes (value) {
-// 	switch (typeof value) {
-// 		case 'boolean': {
-// 			return ['checkbox'];
-// 		}
-// 		case 'number': {
-// 			return ['number', 'range']
-// 		}
-// 		case 'string': {
-// 			if (/^\d+-\d\d-\d\dT\d\d:\d\d$/.test(value)) {
-// 				return ['datetime-local'];
-// 			} else if (/^\d+-\d\d-\d\d$/.test(value)) {
-// 				return ['date'];
-// 			}
-
-// 			break;
-// 		}
-// 	}
-
-// 	return [];
-// }
-
-// TODO: simplify how it detects which array item to use
-// - only differentiate between boolean/number/text and objects by their '' path
-// - find first one that fits, and don't bother with pattern, min, max etc
-// - have array search recursively, and us it if it returns a match within itself
-// - separate definition parsing code so we don't need generate label/input layout just to find the type
-// - only path, pattern, and range are neeeded (e.g. path -> object (then check url), else pattern -> text, else range -> number, else checkbox (or static if required flag is present))
-// export function findOption (value, ...options) {
-// 	if (value === undefined) {
-// 		return -1;
-// 	} else if (Array.isArray(value)) {
-// 		// look for first array it finds
-// 		// - too complicated to test each value of each one to find the best match
-// 		return;
-// 	}
-
-// 	let path;
-
-// 	if (typeof value === 'object') {
-// 		// TODO: also load schema of matched component and fill in overrides
-// 		const { '': url, ...overrides } = value;
-
-// 		if (url === undefined) {
-// 			// look for first object it finds without an id (otherwise first one with id)
-// 			// - too complicated to test each property of each one to find the best match
-// 			return;
-// 		} else if (url[0] !== '/') {
-// 			// look for first object it finds that matches the id (otherwise first one without an id)
-// 			return;
-// 		}
-
-// 		const lastSlashIndex = url.lastIndexOf('/');
-// 		path = url.slice(0, lastSlashIndex + 1);
-// 		value = url.slice(lastSlashIndex);
-// 	}
-
-// 	const types = parseTypes(value);
-
-// 	const filteredOptions = options.filter(option => {
-// 		const [tagName, { type, dataset }] = option;
-// 		return (types.indexOf(type) !== -1 || type === 'text' || tagName === 'textarea') && dataset?.path === path;
-// 	});
-
-// 	// TODO: find first one that matches the min/max or pattern requirements (otherwise choose the first one)
-
-// 	const option = filteredOptions[0];
-// 	return options.indexOf(option);
-// }
-
-// function BooleanSelect ({ label, placeholder, value, inputs }, ...options) {
-// 	const state = stew(() => {
-// 		return stew({ index: findOption(value, ...inputs) });
-// 	}, []);
-
-// 	const { index } = state;
-
-// 	for (const [i, option] of options.entries()) {
-// 		option[1].selected = i === index;
-// 	}
-
-// 	return ['label', {},
-// 		label,
-// 		['select', {
-// 			onchange: event => {
-// 				state.index = event.target.selectedIndex - 1;
-// 			}
-// 		},
-// 			['option', {
-// 				selected: index === -1,
-// 			}, placeholder || 'Select item...'],
-// 			...options,
-// 		],
-// 		inputs[index],
-// 	];
-// }
-
-// function RangeSelect ({ label, placeholder, value, inputs, rest, names }, ...options) {
-// 	const state = stew(() => {
-// 		const array = Array.isArray(value) ? value : [];
-// 		const optionIndexes = array.map(value => findOption(value, ...inputs));
-// 		return stew({ optionIndexes, array });
-// 	}, []);
-
-// 	const { optionIndexes, array } = state;
-
-// 	return ['label', {},
-// 		label,
-// 		['ol', {},
-// 			...array.map((value, i) => {
-// 				const index = optionIndexes[i];
-// 				return index === -1 ? null : ['li', {}, Field(rest[index], value, ...names, i)];
-// 			}),
-// 		],
-// 		['select', {
-// 			onchange: event => {
-// 				const index = event.target.selectedIndex - 1;
-// 				state.optionIndexes = [...optionIndexes, index];
-// 				state.array = [...array, undefined];
-// 				event.target.selectedIndex = 0;
-// 			}
-// 		},
-// 			['option', {
-// 				selected: true,
-// 			}, placeholder || 'Add item...'],
-// 			...options,
-// 		],
-// 	];
-// }
 
 export function findOption (value, ...options) {
 	return options.findIndex(([type]) => {
@@ -216,8 +88,9 @@ function ArraySelect ({ options, names, array }, select) {
 			.filter(index => index > -1);
 	}, [array]);
 
-	const state = stew({ indexes: initialIndexes }, [array]);
-	const { indexes } = state;
+	const state = stew({ indexes: initialIndexes, order: [] }, [array]);
+	const { indexes, order } = state;
+	const meta = Field('textarea//', '', ...names, '');
 
 	select[3][1].onchange = event => {
 		const index = event.target.selectedIndex - 1;
@@ -228,12 +101,34 @@ function ArraySelect ({ options, names, array }, select) {
 		}
 	};
 
+	meta[1].onselectionchange = () => {
+		// TODO: show only the rows that are highlighted
+
+		// TODO: have extract data look here first to determine which rows still exist and to refresh the order
+		// - set ids based on insertion order, ignoring the order they are in textarea until it's saved
+
+		console.log(event.target);
+	};
+
+	meta[2] = indexes.map((index, i) => {
+		const [type,,, placeholder = ''] = options[index];
+		const value = array[i];
+		return type && type[0] !== '/' ? value : value[placeholder];
+	}).join('\n');
+
 	// TODO: add button as shortcut for selecting the first option if there is only one
 	return ['', null,
 		select,
+		meta,
 		['ol', null,
 			...indexes.map((index, i) => {
-				return index > -1 && ['li', null, Field(options[index][2], array[i], ...names, i)];
+				if (index < 0) {
+					return;
+				}
+				
+				const definition = options[index][2];
+				const props = order.indexOf(i) !== -1 ? null : { style: { display: 'none' } };
+				return ['li', props, Field(definition, array[i], ...names, i)];
 			}),
 		],
 	];
@@ -280,13 +175,15 @@ export function Select (definitions, value, ...names) {
 	const [info, ...options] = stew(() => {
 		return definitions.map((definition, i) => {
 			let field = Field(definition, undefined, ...(i ? names : []));
+			let path;
 
 			if (field[0] !== 'label') {
+				({ path } = field[1]);
 				field = field[2];
 			}
 
 			const [,, label, input] = field;
-			let { type, placeholder, path } = input[1];
+			let { type, placeholder } = input[1];
 
 			if (type === 'checkbox' || type === 'hidden') {
 				type = 'boolean';
@@ -323,136 +220,7 @@ export function Select (definitions, value, ...names) {
 			return [ObjectSelect, { options, names, object }, select, Field(definition)];
 		}
 	}
-
-	// return [...field.slice(0, -1), fields.length !== 1
-	// 	? ['select', {
-	// 		onchange: () => {
-	// 			console.log('=======');
-	// 		},
-	// 	},
-	// 		['option', null, field[1].placeholder || 'Select an item...'],
-	// 		...fields.map(field => ['option', null, field[2]]),
-	// 	]
-	// 	: (!isSingle || !array[0]) && ['button', {
-	// 		type: 'button',
-	// 		onclick: () => {
-	// 			console.log('=======');
-	// 		},
-	// 	}, 'Add'],
-	// ];
-
-
-	// when field input type is...
-	// checkbox: select one (choosing one will add or replace the existing fields)
-	// number, range: select any (choosing one will add a new item, also needs delete button)
-	// else: store in object under custom keys that match pattern
-
-	// simplify how value items are tied to options available
-	// boolean: checkbox
-	// number: number, range
-	// text: otherwise
-	// object: use '' prop
-
-
-
-
-
-	// const inputs = [];
-
-	// if (!field?.length) {
-	// 	return [];
-	// }
-
-	// // just parse definitions here
-	// const options = rest.map(definition => {
-	// 	let label = Field(definition, undefined, ...names);
-		
-	// 	if (typeof label[0] === 'function') {
-	// 		label = label[2];
-	// 	}
-
-	// 	const input = label.find(child => child[0] === 'input');
-	// 	inputs.push(input);
-	// 	return ['option', {}, label[2]];
-	// });
-
-	// const label = field[2];
-	// const [input] = field.splice(3, 1);
-	// const { type, placeholder } = input[1];
-	// const selectProps = {};
-	// const select = ['select', selectProps, ...options];
-	// delete field[1].for;
-
-	// switch (type) {
-	// 	case 'checkbox': {
-	// 		return [BooleanSelect, { label, placeholder, value, inputs }, ...options];
-	// 	}
-	// 	case 'number':
-	// 	case 'range': {
-	// 		return [RangeSelect, { label, placeholder, value, inputs, rest, names }, ...options];
-	// 	}
-	// }
-
-	// // TODO: create PropertySelect impulse for this
-	// const object = typeof value === 'object' && !Array.isArray(value) ? value : {};
-	// const list = ['ul', {}];
-	// const option = ['option', {}, placeholder || 'Add property...'];
-	// select.splice(2, 0, option);
-	// delete input[1].id;
-	// delete input[1].placeholder;
-	// field[1] = {};
-			
-	// selectProps.onchange = ({ selectedIndex }) => {
-	// 	const name = input[1].value;
-	// 	const newInput = inputs[selectedIndex - 1];
-	// 	select[2][1].selected = true;
-
-	// 	if (!name || !newInput) {
-	// 		return;
-	// 	}
-
-	// 	delete input[1].value;
-	// 	const clonedInput = [...newInput];
-	// 	clonedInput[1] = { ...clonedInput[1] };
-	// 	clonedInput[1].id += `.${name}`;
-	// 	const label = ['label', { for: clonedInput[1].id }, name];
-	// 	list.push(['li', {}, label, clonedInput]);
-	// };
-
-	// for (const [name, value] of Object.entries(object)) {
-	// 	const index = findOption(value, ...inputs);
-	// 	const item = ['li', {}];
-
-	// 	if (index === -1) {
-	// 		item[2] = 'Invalid Item';
-	// 	} else {
-	// 		const field = Field(rest[index], value, ...names, name);
-	// 		const [input] = field.splice(2, 1);
-
-	// 		field[2] = name;
-	// 		item[2] = field;
-	// 		item[3] = input;
-	// 	}
-
-	// 	list.push(item);
-	// }
-
-	// field.push(list, input, select);
-	// return field;
 }
-
-// read schema from MJS at path and fill in its form fields
-// choosing an existing file is optional, and it will fill in values that can be overwritten
-// stored as { '': '/folder/file', ...overrides } if file is chosen to override or { '': '/folder/', ...props } if not
-
-// TODO: maybe render this as select
-// - there is already code that finds child files. make that a util function
-// - filter that list by pattern here, or range
-// - don't need to set dataset here or any onclicks, just values on the option elements for the full path
-// - cleanup form extract code to not look for dataset or ids that start with '.'
-// props.dataset = { path: `/${path}/` };
-// set selected on option that matches value param
-// create a hidden form that holds current input and set each filename as value and validate to see if it should be included
 
 function merge (base, change) {
 	if (
@@ -537,10 +305,8 @@ function ObjectField ({ schema = {}, data = {}, path, names }, field) {
 	const list = ['ul', null];
 	let meta;
 	
-	if (selection) {
-		meta = Field('//', `/${path}/${selection}`, ...names, '');
-		delete meta[1].type;
-		meta[1].disabled = true;
+	if (path) {
+		meta = Field('/', `/${path}/${selection}`, ...names, '');
 	}
 
 	for (const [name, value] of Object.entries(expanded ? schema : {})) {
@@ -643,15 +409,9 @@ export function Field (definition, data, ...names) {
 	} else if (!match) {
 		type = 'checkbox';
 	} else {
-		type = 'hidden';
 		props.value = placeholder || '';
+		props.disabled = true;
 		placeholder = '';
-	}
-
-	if (type === 'textarea') {
-		input[0] = 'textarea';
-	} else {
-		props.type = type;
 	}
 
 	if (placeholder) {
@@ -667,6 +427,12 @@ export function Field (definition, data, ...names) {
 	} else if (id) {
 		props.id = id;
 		field[1] = { for: id };
+	}
+	
+	if (type === 'textarea') {
+		input[0] = 'textarea';
+	} else if (type) {
+		props.type = type;
 	}
 
 	if ((data || data === 0) && typeof data !== 'object') {
