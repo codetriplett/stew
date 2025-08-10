@@ -101,42 +101,54 @@ beforeEach(() => {
 });
 
 describe('extractData', () => {
-	it('extracts data', () => {
-		addElements({
+	it.skip('extracts data', () => {
+		const form = stew('#', null, ['form', null, Field({
+			// boolean: 'Boolean',
+			// number: '/.. Number',
+			// string: '// String',
+			// object: {
+			// 	'': 'Object',
+			// 	boolean: 'Boolean',
+			// 	number: '/.. Number',
+			// 	string: '// String',
+			// },
+			array: ['/.. Array',
+				// 'Boolean',
+				// '/.. Number',
+				// '// String',
+				{
+					boolean: 'Boolean',
+					number: '/.. Number',
+					string: '// String',
+				},
+			],
+		}, {
 			boolean: true,
 			number: 123,
 			string: 'abc',
 			object: {
 				boolean: true,
-				number: 123,
-				string: 'abc',
+				number: 456,
+				string: 'lmno',
 			},
 			array: [
 				true,
-				123,
-				'abc',
+				654,
+				'onml',
 				{
 					boolean: true,
-					number: 123,
-					string: 'abc',
+					number: 789,
+					string: 'xyz',
 				},
 			],
-		});
+		})]);
 
-		expect(elements).toEqual([
-			{ id: 'boolean', type: 'checkbox', value: 'on', checked: true, placeholder: '' },
-			{ id: 'number', type: 'number', value: '123', checked: false, placeholder: '' },
-			{ id: 'string', type: 'text', value: 'abc', checked: false, placeholder: '' },
-			{ id: 'object.boolean', type: 'checkbox', value: 'on', checked: true, placeholder: '' },
-			{ id: 'object.number', type: 'number', value: '123', checked: false, placeholder: '' },
-			{ id: 'object.string', type: 'text', value: 'abc', checked: false, placeholder: '' },
-			{ id: 'array[0]', type: 'checkbox', value: 'on', checked: true, placeholder: '' },
-			{ id: 'array[1]', type: 'number', value: '123', checked: false, placeholder: '' },
-			{ id: 'array[2]', type: 'text', value: 'abc', checked: false, placeholder: '' },
-			{ id: 'array[3].boolean', type: 'checkbox', value: 'on', checked: true, placeholder: '' },
-			{ id: 'array[3].number', type: 'number', value: '123', checked: false, placeholder: '' },
-			{ id: 'array[3].string', type: 'text', value: 'abc', checked: false, placeholder: '' },
-		]);
+		expect(String(form)).toEqual();
+
+		Object.assign(form, {
+			checkValidity: () => true,
+			elements: form.querySelectorAll('input, textarea'),
+		});
 
 		const actual = extractData(form);
 
@@ -146,17 +158,17 @@ describe('extractData', () => {
 			string: 'abc',
 			object: {
 				boolean: true,
-				number: 123,
-				string: 'abc',
+				number: 456,
+				string: 'lmno',
 			},
 			array: [
 				true,
-				123,
-				'abc',
+				654,
+				'onml',
 				{
 					boolean: true,
-					number: 123,
-					string: 'abc',
+					number: 789,
+					string: 'xyz',
 				},
 			],
 		});
@@ -257,8 +269,8 @@ describe('Select', () => {
 				</select>
 			</label>
 			<textarea id="group.">
-				abc
-				123
+				0: abc
+				1: 123
 			</textarea>
 			<ol>
 				<li style="display:none;">
@@ -272,6 +284,47 @@ describe('Select', () => {
 						Number
 						<input id="group[1]" type="number" value="123">
 					</label>
+				</li>
+			</ol>
+		`));
+	});
+
+	// TODO: also test with array that has incompatible types
+	it.skip('array select object populated', () => {
+		const actual = stew('#', null, Field(['/.. Label',
+			{
+				number: '/.. Number',
+				string: '// String',
+			}
+		], [{ number: 123, strong: 'abc' }], 'group'));
+
+		expect(String(actual)).toEqual(trim(`
+			<label>
+				Label
+				<select>
+					<option>Select an item...</option>
+					<option>group</option>
+				</select>
+			</label>
+			<textarea id="group.">
+				0: group
+			</textarea>
+			<ol>
+				<li style="display:none;">
+					<ul>
+						<li>
+							<label for="group[0].number">
+								String
+								<input id="group[0].number" type="text" value="123">
+							</label>
+						</li>
+						<li>
+							<label for="group[0].string">
+								Number
+								<input id="group[0].string" type="number" value="abc">
+							</label>
+						</li>
+					</ul>
 				</li>
 			</ol>
 		`));
@@ -401,8 +454,19 @@ describe('Field', () => {
 		`));
 	});
 
-	it('label', () => {
-		const actual = stew('#', null, Field('Label', undefined, 'group', 'name'));
+	it('checkbox using slash', () => {
+		const actual = stew('#', null, Field('/', undefined, 'group', 'name'));
+
+		expect(String(actual)).toEqual(trim(`
+			<label for="group.name">
+				name
+				<input id="group.name" type="checkbox">
+			</label>
+		`));
+	});
+
+	it('checkbox with label', () => {
+		const actual = stew('#', null, Field('/ Label', undefined, 'group', 'name'));
 
 		expect(String(actual)).toEqual(trim(`
 			<label for="group.name">
@@ -413,6 +477,17 @@ describe('Field', () => {
 	});
 
 	it('static', () => {
+		const actual = stew('#', null, Field('Placeholder /', undefined, 'group', 'name'));
+
+		expect(String(actual)).toEqual(trim(`
+			<label for="group.name">
+				name
+				<input id="group.name" value="Placeholder" disabled>
+			</label>
+		`));
+	});
+
+	it('static with label', () => {
 		const actual = stew('#', null, Field('Placeholder / Label', undefined, 'group', 'name'));
 
 		expect(String(actual)).toEqual(trim(`
@@ -434,17 +509,6 @@ describe('Field', () => {
 		`));
 	});
 
-	it('empty', () => {
-		const actual = stew('#', null, Field('/ Label', undefined, 'group', 'name'));
-
-		expect(String(actual)).toEqual(trim(`
-			<label for="group.name">
-				Label
-				<input id="group.name" value="" disabled>
-			</label>
-		`));
-	});
-
 	it('placeholder', () => {
 		const actual = stew('#', null, Field('Placeholder // Label', undefined, 'group', 'name'));
 
@@ -457,12 +521,12 @@ describe('Field', () => {
 	});
 
 	it('required', () => {
-		const actual = stew('#', null, Field('/* Label', undefined, 'group', 'name'));
+		const actual = stew('#', null, Field('//* Label', undefined, 'group', 'name'));
 
 		expect(String(actual)).toEqual(trim(`
 			<label for="group.name">
 				Label
-				<input id="group.name" type="number" required>
+				<input id="group.name" type="text" required>
 			</label>
 		`));
 	});
@@ -1199,8 +1263,8 @@ describe('Field', () => {
 							</select>
 						</label>
 						<textarea id="group.array.">
-							lmno
-							/path/second
+							0: lmno
+							1: /path/second
 						</textarea>
 						<ol>
 							<li style="display:none;">

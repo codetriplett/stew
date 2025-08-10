@@ -35,7 +35,7 @@ export function extractData (form) {
 		const names = id.split(/\.|(?=\[)/).map(name => name[0] === '[' ? Number(name.slice(1, -1)) : name);
 		const finalName = names.pop();
 		const castValue = convertValue(type, value, checked);
-	
+
 		if (!castValue) {
 			continue;
 		}
@@ -83,9 +83,7 @@ function ValueSelect ({ options, names, value }, select) {
 
 function ArraySelect ({ options, names, array }, select) {
 	const initialIndexes = stew(() => {
-		return array
-			.map(value => findOption(value, ...options))
-			.filter(index => index > -1);
+		return array.map(value => findOption(value, ...options));
 	}, [array]);
 
 	const state = stew({ indexes: initialIndexes, order: [] }, [array]);
@@ -111,10 +109,14 @@ function ArraySelect ({ options, names, array }, select) {
 	};
 
 	meta[2] = indexes.map((index, i) => {
-		const [type,,, placeholder = ''] = options[index];
+		if (index < 0) {
+			return;
+		}
+
+		const [type, label,, placeholder = ''] = options[index];
 		const value = array[i];
-		return type && type[0] !== '/' ? value : value[placeholder];
-	}).join('\n');
+		return `${i}: ${type && type[0] !== '/' ? value : value[placeholder] || type || label || 'Object'}`;
+	}).filter(value => value).join('\n');
 
 	// TODO: add button as shortcut for selecting the first option if there is only one
 	return ['', null,
@@ -306,7 +308,7 @@ function ObjectField ({ schema = {}, data = {}, path, names }, field) {
 	let meta;
 	
 	if (path) {
-		meta = Field('/', `/${path}/${selection}`, ...names, '');
+		meta = Field(`/${path}/${selection} /`, undefined, ...names, '');
 	}
 
 	for (const [name, value] of Object.entries(expanded ? schema : {})) {
@@ -346,9 +348,9 @@ export function Field (definition, data, ...names) {
 	}
 
 	const id = names.reduce((id, name) => `${id}${typeof name === 'number' ? `[${name}]` : `${id ? '.' : ''}${name}`}`, '');
-	const match = definition.match(/^\s*(?:(.+)\s+)?(.*?)\/(.*?\/)?((?:\\\/|[^\s\/])*?)(?:\s+(.+?))?\s*$/);
-	let [, placeholder, type, slashes = '', range = '', label] = match || [,,,,, definition.trim()];
-	let [, min = '', step, max = '', required] = range.match(/^(?:(.*?)\.\.)?(?:(.*?)\.\.)?(.*?)(\**)$/);
+	const match = definition.match(/^\s*(?:(.+)\s+)?(.*?)\/(.*?\/)?((?:\\\/|[^\s\/])*?)(\**)(?:\s+(.+?))?\s*$/);
+	let [, placeholder, type, slashes = '', range = '', required, label] = match || [,,,,,, definition.trim()];
+	let [, min = '', step, max = ''] = range.match(/^(?:(.*?)\.\.)?(?:(.*?)\.\.)?(.*?)$/);
 	const props = {};
 	const input = ['input', props];
 	const field = ['label', null, names[names.length - 1], input];
@@ -406,12 +408,12 @@ export function Field (definition, data, ...names) {
 		if (step && step !== '1') {
 			props.step = step;
 		}
-	} else if (!match) {
-		type = 'checkbox';
-	} else {
-		props.value = placeholder || '';
+	} else if (placeholder) {
+		props.value = placeholder;
 		props.disabled = true;
 		placeholder = '';
+	} else {
+		type ||= 'checkbox';
 	}
 
 	if (placeholder) {
