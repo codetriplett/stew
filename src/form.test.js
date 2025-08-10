@@ -74,7 +74,7 @@ export function addElements (value, id = '') {
 }
 
 function trim (html) {
-	return html.replace(/(^|>)\s+|\s+(<|$)/g, m => m.trim()).replace(/\s*[\r\n]+\s*/, '\n');
+	return html.replace(/(^|>)\s+|\s+(<|$)/g, m => m.trim()).replace(/\s*[\r\n]+\s*/g, '\n');
 }
 
 beforeEach(() => {
@@ -289,42 +289,83 @@ describe('Select', () => {
 		`));
 	});
 
-	// TODO: also test with array that has incompatible types
-	it.skip('array select object populated', () => {
+	it('array select object populated', () => {
 		const actual = stew('#', null, Field(['/.. Label',
 			{
 				number: '/.. Number',
 				string: '// String',
 			}
-		], [{ number: 123, strong: 'abc' }], 'group'));
+		], [true, { number: 123, string: 'abc' }], 'group'));
 
 		expect(String(actual)).toEqual(trim(`
 			<label>
 				Label
 				<select>
 					<option>Select an item...</option>
-					<option>group</option>
+					<option>/</option>
 				</select>
 			</label>
 			<textarea id="group.">
-				0: group
+				1: /
 			</textarea>
 			<ol>
 				<li style="display:none;">
 					<ul>
 						<li>
-							<label for="group[0].number">
-								String
-								<input id="group[0].number" type="text" value="123">
+							<label for="group[1].number">
+								Number
+								<input id="group[1].number" type="number" value="123">
 							</label>
 						</li>
 						<li>
-							<label for="group[0].string">
-								Number
-								<input id="group[0].string" type="number" value="abc">
+							<label for="group[1].string">
+								String
+								<input id="group[1].string" type="text" value="abc">
 							</label>
 						</li>
 					</ul>
+				</li>
+			</ol>
+		`));
+	});
+
+	it('array select without labels', () => {
+		const actual = stew('#', null, Field(['/.. Label',
+			'static /',
+			'/..',
+			'//',
+		], ['static', 123, 'abc'], 'group'));
+
+		expect(String(actual)).toEqual(trim(`
+			<label>
+				Label
+				<select>
+					<option>Select an item...</option>
+					<option>static</option>
+					<option>number</option>
+					<option>string</option>
+				</select>
+			</label>
+			<textarea id="group.">
+				0: static
+				1: 123
+				2: abc
+			</textarea>
+			<ol>
+				<li style="display:none;">
+					<label for="group[0]">
+						<input id="group[0]" value="static" disabled>
+					</label>
+				</li>
+				<li style="display:none;">
+					<label for="group[1]">
+						<input id="group[1]" type="number" value="123">
+					</label>
+				</li>
+				<li style="display:none;">
+					<label for="group[2]">
+						<input id="group[2]" type="text" value="abc">
+					</label>
 				</li>
 			</ol>
 		`));
@@ -448,7 +489,6 @@ describe('Field', () => {
 
 		expect(String(actual)).toEqual(trim(`
 			<label for="group.name">
-				name
 				<input id="group.name" type="checkbox">
 			</label>
 		`));
@@ -459,7 +499,6 @@ describe('Field', () => {
 
 		expect(String(actual)).toEqual(trim(`
 			<label for="group.name">
-				name
 				<input id="group.name" type="checkbox">
 			</label>
 		`));
@@ -481,7 +520,6 @@ describe('Field', () => {
 
 		expect(String(actual)).toEqual(trim(`
 			<label for="group.name">
-				name
 				<input id="group.name" value="Placeholder" disabled>
 			</label>
 		`));
@@ -944,6 +982,33 @@ describe('Field', () => {
 			`));
 		});
 
+		it('without labels', async () => {
+			const actual = stew('#', null, Field({
+				number: '/..',
+				text: '//',
+			}, {
+				number: 123,
+				text: 'abc',
+			}, 'group'));
+
+			expect(String(actual)).toEqual(trim(`
+				<ul>
+					<li>
+						<label for="group.number">
+							number
+							<input id="group.number" type="number" value="123">
+						</label>
+					</li>
+					<li>
+						<label for="group.text">
+							text
+							<input id="group.text" type="text" value="abc">
+						</label>
+					</li>
+				</ul>
+			`));
+		});
+
 		it('blank reference', async () => {
 			schemaMock = {
 				number: '/.. Number',
@@ -1264,7 +1329,7 @@ describe('Field', () => {
 						</label>
 						<textarea id="group.array.">
 							0: lmno
-							1: /path/second
+							1: Object
 						</textarea>
 						<ol>
 							<li style="display:none;">
