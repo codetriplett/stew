@@ -195,8 +195,8 @@ describe('extractData', () => {
 describe('Select', () => {
 	it('value select', () => {
 		const actual = stew('#', null, Field(['Label',
-			'/.. Number',
-			'// String',
+			'Number /..',
+			'String //',
 		], undefined, 'group'));
 
 		expect(String(actual)).toEqual(trim(`
@@ -213,8 +213,8 @@ describe('Select', () => {
 
 	it('value select populated', () => {
 		const actual = stew('#', null, Field(['Label',
-			'/.. Number',
-			'// String',
+			'Number /..',
+			'String //',
 		], 123, 'group'));
 
 		expect(String(actual)).toEqual(trim(`
@@ -234,9 +234,9 @@ describe('Select', () => {
 	});
 
 	it('array select', () => {
-		const actual = stew('#', null, Field(['/.. Label',
-			'/.. Number',
-			'// String',
+		const actual = stew('#', null, Field(['Label /..',
+			'Number /..',
+			'String //',
 		], undefined, 'group'));
 
 		expect(String(actual)).toEqual(trim(`
@@ -254,9 +254,9 @@ describe('Select', () => {
 	});
 
 	it('array select populated', () => {
-		const actual = stew('#', null, Field(['/.. Label',
-			'/.. Number',
-			'// String',
+		const actual = stew('#', null, Field(['Label /..',
+			'Number /..',
+			'String //',
 		], ['abc', 123], 'group'));
 
 		expect(String(actual)).toEqual(trim(`
@@ -269,8 +269,8 @@ describe('Select', () => {
 				</select>
 			</label>
 			<textarea id="group.">
-				0: abc
-				1: 123
+				abc
+				123
 			</textarea>
 			<ol>
 				<li style="display:none;">
@@ -290,10 +290,10 @@ describe('Select', () => {
 	});
 
 	it('array select object populated', () => {
-		const actual = stew('#', null, Field(['/.. Label',
+		const actual = stew('#', null, Field(['Label /..',
 			{
-				number: '/.. Number',
-				string: '// String',
+				number: 'Number /..',
+				string: 'String //',
 			}
 		], [true, { number: 123, string: 'abc' }], 'group'));
 
@@ -306,7 +306,7 @@ describe('Select', () => {
 				</select>
 			</label>
 			<textarea id="group.">
-				1: /
+				/
 			</textarea>
 			<ol>
 				<li style="display:none;">
@@ -330,8 +330,8 @@ describe('Select', () => {
 	});
 
 	it('array select without labels', () => {
-		const actual = stew('#', null, Field(['/.. Label',
-			'static /',
+		const actual = stew('#', null, Field(['Label /..',
+			'/ static',
 			'/..',
 			'//',
 		], ['static', 123, 'abc'], 'group'));
@@ -347,9 +347,9 @@ describe('Select', () => {
 				</select>
 			</label>
 			<textarea id="group.">
-				0: static
-				1: 123
-				2: abc
+				static
+				123
+				abc
 			</textarea>
 			<ol>
 				<li style="display:none;">
@@ -375,9 +375,9 @@ describe('Select', () => {
 	// - include a button to hide then (which will then add/update their row in the textarea)
 	// - maybe support adding new rows manually by having 'Add' action borrow their values to prefill the appropriate field
 	it.skip('array select add', async () => {
-		const actual = stew('#', null, Field(['/.. Label',
-			'/.. Number',
-			'// String',
+		const actual = stew('#', null, Field(['Label /..',
+			'Number /..',
+			'String //',
 		], undefined, 'group'));
 
 		expect(String(actual)).toEqual(trim(`
@@ -427,9 +427,9 @@ describe('Select', () => {
 	});
 
 	it('property select', () => {
-		const actual = stew('#', null, Field(['// Label',
-			'/.. Number',
-			'// String',
+		const actual = stew('#', null, Field(['Label //',
+			'Number /..',
+			'String //',
 		], undefined, 'group'));
 
 		expect(String(actual)).toEqual(trim(`
@@ -447,9 +447,9 @@ describe('Select', () => {
 	});
 
 	it('property select populated', () => {
-		const actual = stew('#', null, Field(['// Label',
-			'/.. Number',
-			'// String',
+		const actual = stew('#', null, Field(['Label //',
+			'Number /..',
+			'String //',
 		], {
 			number: 123,
 			text: 'abc',
@@ -505,7 +505,7 @@ describe('Field', () => {
 	});
 
 	it('checkbox with label', () => {
-		const actual = stew('#', null, Field('/ Label', undefined, 'group', 'name'));
+		const actual = stew('#', null, Field('Label', undefined, 'group', 'name'));
 
 		expect(String(actual)).toEqual(trim(`
 			<label for="group.name">
@@ -516,39 +516,39 @@ describe('Field', () => {
 	});
 
 	it('static', () => {
-		const actual = stew('#', null, Field('Placeholder /', undefined, 'group', 'name'));
+		const actual = stew('#', null, Field('/ static', undefined, 'group', 'name'));
 
 		expect(String(actual)).toEqual(trim(`
 			<label for="group.name">
-				<input id="group.name" value="Placeholder" disabled>
+				<input id="group.name" value="static" disabled>
 			</label>
 		`));
 	});
 
 	it('static with label', () => {
-		const actual = stew('#', null, Field('Placeholder / Label', undefined, 'group', 'name'));
+		const actual = stew('#', null, Field('Label / static', undefined, 'group', 'name'));
 
 		expect(String(actual)).toEqual(trim(`
 			<label for="group.name">
 				Label
-				<input id="group.name" value="Placeholder" disabled>
+				<input id="group.name" value="static" disabled>
 			</label>
 		`));
 	});
 
 	it('static with slash', () => {
-		const actual = stew('#', null, Field('Placeholder / Value / Label', undefined, 'group', 'name'));
+		const actual = stew('#', null, Field('Label / static / value', undefined, 'group', 'name'));
 
 		expect(String(actual)).toEqual(trim(`
 			<label for="group.name">
 				Label
-				<input id="group.name" value="Placeholder / Value" disabled>
+				<input id="group.name" value="static / value" disabled>
 			</label>
 		`));
 	});
 
 	it('placeholder', () => {
-		const actual = stew('#', null, Field('Placeholder // Label', undefined, 'group', 'name'));
+		const actual = stew('#', null, Field('Label // Placeholder', undefined, 'group', 'name'));
 
 		expect(String(actual)).toEqual(trim(`
 			<label for="group.name">
@@ -559,7 +559,7 @@ describe('Field', () => {
 	});
 
 	it('required', () => {
-		const actual = stew('#', null, Field('//* Label', undefined, 'group', 'name'));
+		const actual = stew('#', null, Field('Label //*', undefined, 'group', 'name'));
 
 		expect(String(actual)).toEqual(trim(`
 			<label for="group.name">
@@ -571,7 +571,7 @@ describe('Field', () => {
 
 	describe('number', () => {
 		it('basic', () => {
-			const actual = stew('#', null, Field('/.. Label', undefined, 'group', 'name'));
+			const actual = stew('#', null, Field('Label /..', undefined, 'group', 'name'));
 
 			expect(String(actual)).toEqual(trim(`
 				<label for="group.name">
@@ -582,7 +582,7 @@ describe('Field', () => {
 		});
 
 		it('max shorthand', () => {
-			const actual = stew('#', null, Field('/4 Label', undefined, 'group', 'name'));
+			const actual = stew('#', null, Field('Label /4', undefined, 'group', 'name'));
 
 			expect(String(actual)).toEqual(trim(`
 				<label for="group.name">
@@ -593,7 +593,7 @@ describe('Field', () => {
 		});
 
 		it('max', () => {
-			const actual = stew('#', null, Field('/..4 Label', undefined, 'group', 'name'));
+			const actual = stew('#', null, Field('Label /..4', undefined, 'group', 'name'));
 
 			expect(String(actual)).toEqual(trim(`
 				<label for="group.name">
@@ -604,7 +604,7 @@ describe('Field', () => {
 		});
 
 		it('min', () => {
-			const actual = stew('#', null, Field('/0.. Label', undefined, 'group', 'name'));
+			const actual = stew('#', null, Field('Label /0..', undefined, 'group', 'name'));
 
 			expect(String(actual)).toEqual(trim(`
 				<label for="group.name">
@@ -615,7 +615,7 @@ describe('Field', () => {
 		});
 
 		it('step', () => {
-			const actual = stew('#', null, Field('/..2.. Label', undefined, 'group', 'name'));
+			const actual = stew('#', null, Field('Label /..2..', undefined, 'group', 'name'));
 
 			expect(String(actual)).toEqual(trim(`
 				<label for="group.name">
@@ -626,7 +626,7 @@ describe('Field', () => {
 		});
 
 		it('min and max', () => {
-			const actual = stew('#', null, Field('/0..4 Label', undefined, 'group', 'name'));
+			const actual = stew('#', null, Field('Label /0..4', undefined, 'group', 'name'));
 
 			expect(String(actual)).toEqual(trim(`
 				<label for="group.name">
@@ -637,7 +637,7 @@ describe('Field', () => {
 		});
 
 		it('min and step', () => {
-			const actual = stew('#', null, Field('/0..2.. Label', undefined, 'group', 'name'));
+			const actual = stew('#', null, Field('Label /0..2..', undefined, 'group', 'name'));
 
 			expect(String(actual)).toEqual(trim(`
 				<label for="group.name">
@@ -648,7 +648,7 @@ describe('Field', () => {
 		});
 
 		it('step and max', () => {
-			const actual = stew('#', null, Field('/..2..4 Label', undefined, 'group', 'name'));
+			const actual = stew('#', null, Field('Label /..2..4', undefined, 'group', 'name'));
 
 			expect(String(actual)).toEqual(trim(`
 				<label for="group.name">
@@ -659,7 +659,7 @@ describe('Field', () => {
 		});
 
 		it('min, step, and max', () => {
-			const actual = stew('#', null, Field('/0..2..4 Label', undefined, 'group', 'name'));
+			const actual = stew('#', null, Field('Label /0..2..4', undefined, 'group', 'name'));
 
 			expect(String(actual)).toEqual(trim(`
 				<label for="group.name">
@@ -670,7 +670,7 @@ describe('Field', () => {
 		});
 
 		it('datetime-local', () => {
-			const actual = stew('#', null, Field('/2000-01-01T12:00..7..2020-01-01T12:00 Label', undefined, 'group', 'name'));
+			const actual = stew('#', null, Field('Label /2000-01-01T12:00..7..2020-01-01T12:00', undefined, 'group', 'name'));
 
 			expect(String(actual)).toEqual(trim(`
 				<label for="group.name">
@@ -681,7 +681,7 @@ describe('Field', () => {
 		});
 
 		it('datetime-local and min date', () => {
-			const actual = stew('#', null, Field('/2000-01-01..7..2020-01-01T12:00 Label', undefined, 'group', 'name'));
+			const actual = stew('#', null, Field('Label /2000-01-01..7..2020-01-01T12:00', undefined, 'group', 'name'));
 
 			expect(String(actual)).toEqual(trim(`
 				<label for="group.name">
@@ -692,7 +692,7 @@ describe('Field', () => {
 		});
 
 		it('datetime-local and min year', () => {
-			const actual = stew('#', null, Field('/2000..7..2020-01-01T12:00 Label', undefined, 'group', 'name'));
+			const actual = stew('#', null, Field('Label /2000..7..2020-01-01T12:00', undefined, 'group', 'name'));
 
 			expect(String(actual)).toEqual(trim(`
 				<label for="group.name">
@@ -703,7 +703,7 @@ describe('Field', () => {
 		});
 
 		it('datetime-local and max date', () => {
-			const actual = stew('#', null, Field('/2000-01-01T12:00..7..2020-01-01 Label', undefined, 'group', 'name'));
+			const actual = stew('#', null, Field('Label /2000-01-01T12:00..7..2020-01-01', undefined, 'group', 'name'));
 
 			expect(String(actual)).toEqual(trim(`
 				<label for="group.name">
@@ -714,7 +714,7 @@ describe('Field', () => {
 		});
 
 		it('datetime-local and max year', () => {
-			const actual = stew('#', null, Field('/2000-01-01T12:00..7..2020 Label', undefined, 'group', 'name'));
+			const actual = stew('#', null, Field('Label /2000-01-01T12:00..7..2020', undefined, 'group', 'name'));
 
 			expect(String(actual)).toEqual(trim(`
 				<label for="group.name">
@@ -725,7 +725,7 @@ describe('Field', () => {
 		});
 
 		it('date', () => {
-			const actual = stew('#', null, Field('/2000-01-01..7..2020-01-01 Label', undefined, 'group', 'name'));
+			const actual = stew('#', null, Field('Label /2000-01-01..7..2020-01-01', undefined, 'group', 'name'));
 
 			expect(String(actual)).toEqual(trim(`
 				<label for="group.name">
@@ -736,7 +736,7 @@ describe('Field', () => {
 		});
 
 		it('date and min year', () => {
-			const actual = stew('#', null, Field('/2000..7..2020-01-01 Label', undefined, 'group', 'name'));
+			const actual = stew('#', null, Field('Label /2000..7..2020-01-01', undefined, 'group', 'name'));
 
 			expect(String(actual)).toEqual(trim(`
 				<label for="group.name">
@@ -747,7 +747,7 @@ describe('Field', () => {
 		});
 
 		it('date and max year', () => {
-			const actual = stew('#', null, Field('/2000-01-01..7..2020 Label', undefined, 'group', 'name'));
+			const actual = stew('#', null, Field('Label /2000-01-01..7..2020', undefined, 'group', 'name'));
 
 			expect(String(actual)).toEqual(trim(`
 				<label for="group.name">
@@ -758,7 +758,7 @@ describe('Field', () => {
 		});
 
 		it('populated', () => {
-			const actual = stew('#', null, Field('/.. Label', 123, 'group', 'name'));
+			const actual = stew('#', null, Field('Label /..', 123, 'group', 'name'));
 
 			expect(String(actual)).toEqual(trim(`
 				<label for="group.name">
@@ -769,7 +769,7 @@ describe('Field', () => {
 		});
 
 		it('populated datetime-local', () => {
-			const actual = stew('#', null, Field('datetime-local/.. Label', '2010-01-01T12:00', 'group', 'name'));
+			const actual = stew('#', null, Field('Label datetime-local/..', '2010-01-01T12:00', 'group', 'name'));
 
 			expect(String(actual)).toEqual(trim(`
 				<label for="group.name">
@@ -780,7 +780,7 @@ describe('Field', () => {
 		});
 
 		it('populated add time', () => {
-			const actual = stew('#', null, Field('datetime-local/.. Label', '2010-01-01', 'group', 'name'));
+			const actual = stew('#', null, Field('Label datetime-local/..', '2010-01-01', 'group', 'name'));
 
 			expect(String(actual)).toEqual(trim(`
 				<label for="group.name">
@@ -791,7 +791,7 @@ describe('Field', () => {
 		});
 
 		it('populated add date and time', () => {
-			const actual = stew('#', null, Field('datetime-local/.. Label', 2010, 'group', 'name'));
+			const actual = stew('#', null, Field('Label datetime-local/..', 2010, 'group', 'name'));
 
 			expect(String(actual)).toEqual(trim(`
 				<label for="group.name">
@@ -802,7 +802,7 @@ describe('Field', () => {
 		});
 
 		it('populated add date', () => {
-			const actual = stew('#', null, Field('date/.. Label', 2010, 'group', 'name'));
+			const actual = stew('#', null, Field('Label date/..', 2010, 'group', 'name'));
 
 			expect(String(actual)).toEqual(trim(`
 				<label for="group.name">
@@ -815,7 +815,7 @@ describe('Field', () => {
 
 	describe('text', () => {
 		it('basic', () => {
-			const actual = stew('#', null, Field('// Label', undefined, 'group', 'name'));
+			const actual = stew('#', null, Field('Label //', undefined, 'group', 'name'));
 
 			expect(String(actual)).toEqual(trim(`
 				<label for="group.name">
@@ -826,7 +826,7 @@ describe('Field', () => {
 		});
 
 		it('pattern', () => {
-			const actual = stew('#', null, Field('/\\w*/ Label', undefined, 'group', 'name'));
+			const actual = stew('#', null, Field('Label /\\w*/', undefined, 'group', 'name'));
 
 			expect(String(actual)).toEqual(trim(`
 				<label for="group.name">
@@ -837,7 +837,7 @@ describe('Field', () => {
 		});
 
 		it('maxlength shorthand', () => {
-			const actual = stew('#', null, Field('//4 Label', undefined, 'group', 'name'));
+			const actual = stew('#', null, Field('Label //4', undefined, 'group', 'name'));
 
 			expect(String(actual)).toEqual(trim(`
 				<label for="group.name">
@@ -848,7 +848,7 @@ describe('Field', () => {
 		});
 
 		it('maxlength', () => {
-			const actual = stew('#', null, Field('//..4 Label', undefined, 'group', 'name'));
+			const actual = stew('#', null, Field('Label //..4', undefined, 'group', 'name'));
 
 			expect(String(actual)).toEqual(trim(`
 				<label for="group.name">
@@ -859,7 +859,7 @@ describe('Field', () => {
 		});
 
 		it('minlength', () => {
-			const actual = stew('#', null, Field('//0.. Label', undefined, 'group', 'name'));
+			const actual = stew('#', null, Field('Label //0..', undefined, 'group', 'name'));
 
 			expect(String(actual)).toEqual(trim(`
 				<label for="group.name">
@@ -870,7 +870,7 @@ describe('Field', () => {
 		});
 
 		it('minlength and maxlength', () => {
-			const actual = stew('#', null, Field('//0..4 Label', undefined, 'group', 'name'));
+			const actual = stew('#', null, Field('Label //0..4', undefined, 'group', 'name'));
 
 			expect(String(actual)).toEqual(trim(`
 				<label for="group.name">
@@ -881,7 +881,7 @@ describe('Field', () => {
 		});
 
 		it('populated', () => {
-			const actual = stew('#', null, Field('// Label', 'abc', 'group', 'name'));
+			const actual = stew('#', null, Field('Label //', 'abc', 'group', 'name'));
 
 			expect(String(actual)).toEqual(trim(`
 				<label for="group.name">
@@ -892,7 +892,7 @@ describe('Field', () => {
 		});
 
 		it('textarea unpopulated', () => {
-			const actual = stew('#', null, Field('textarea// Label', undefined, 'group', 'name'));
+			const actual = stew('#', null, Field('Label textarea//', undefined, 'group', 'name'));
 
 			expect(String(actual)).toEqual(trim(`
 				<label for="group.name">
@@ -903,7 +903,7 @@ describe('Field', () => {
 		});
 
 		it('textarea populated', () => {
-			const actual = stew('#', null, Field('textarea// Label', 'abc', 'group', 'name'));
+			const actual = stew('#', null, Field('Label textarea//', 'abc', 'group', 'name'));
 
 			expect(String(actual)).toEqual(trim(`
 				<label for="group.name">
@@ -918,8 +918,8 @@ describe('Field', () => {
 		it('unpopulated', async () => {
 			const actual = stew('#', null, Field({
 				'': 'Label',
-				number: '/.. Number',
-				text: '// Text',
+				number: 'Number /..',
+				text: 'Text //',
 			}, undefined, 'group'));
 
 			expect(String(actual)).toEqual(trim(`
@@ -956,8 +956,8 @@ describe('Field', () => {
 		it('populated', () => {
 			const actual = stew('#', null, Field({
 				'': 'Label',
-				number: '/.. Number',
-				text: '// Text',
+				number: 'Number /..',
+				text: 'Text //',
 			}, {
 				number: 123,
 				text: 'abc',
@@ -1011,12 +1011,12 @@ describe('Field', () => {
 
 		it('blank reference', async () => {
 			schemaMock = {
-				number: '/.. Number',
-				text: '// Text',
+				number: 'Number /..',
+				text: 'Text //',
 			};
 			
 			const actual = stew('#', null, Field({
-				'': '/path// Label',
+				'': 'Label /path//',
 			}, {
 				number: 123,
 				text: 'abc',
@@ -1046,14 +1046,14 @@ describe('Field', () => {
 
 		it('with selections', async () => {
 			schemaMock = {
-				number: '/.. Number',
-				text: '// Text',
+				number: 'Number /..',
+				text: 'Text //',
 			};
 
 			listMock = ['first', 'second'];
 			
 			const actual = stew('#', null, Field({
-				'': '/path// Label',
+				'': 'Label /path//',
 			}, {
 				number: 123,
 				text: 'abc',
@@ -1088,13 +1088,13 @@ describe('Field', () => {
 
 		it('shorthand reference', () => {
 			schemaMock = {
-				number: '/.. Number',
-				text: '// Text',
+				number: 'Number /..',
+				text: 'Text //',
 			};
 
 			listMock = ['first', 'second'];
 
-			const actual = stew('#', null, Field('/path// Label', {
+			const actual = stew('#', null, Field('Label /path//', {
 				number: 123,
 				text: 'abc',
 			}, 'group'));
@@ -1128,12 +1128,12 @@ describe('Field', () => {
 
 		it('extended reference', () => {
 			schemaMock = {
-				number: '/.. Number',
-				text: '// Text',
+				number: 'Number /..',
+				text: 'Text //',
 			};
 
 			const actual = stew('#', null, Field({
-				'': '/path// Label',
+				'': 'Label /path//',
 				boolean: 'Boolean',
 			}, {
 				number: 123,
@@ -1169,8 +1169,8 @@ describe('Field', () => {
 
 		it('extended reference and data', () => {
 			schemaMock = {
-				number: '/.. Number',
-				text: '// Text',
+				number: 'Number /..',
+				text: 'Text //',
 			};
 
 			dataMock = {
@@ -1181,7 +1181,7 @@ describe('Field', () => {
 			listMock = ['first', 'second'];
 
 			const actual = stew('#', null, Field({
-				'': '/path// Label',
+				'': 'Label /path//',
 				boolean: 'Boolean',
 			}, {
 				'': '/path/second',
@@ -1228,13 +1228,13 @@ describe('Field', () => {
 				'': 'Label',
 				object: {
 					'': 'Object',
-					number: '/.. Number',
-					text: '// Text',
+					number: 'Number /..',
+					text: 'Text //',
 				},
-				array: ['/.. Array', {
+				array: ['Array /..', {
 					'': 'Object',
-					number: '/.. Number',
-					text: '// Text',
+					number: 'Number /..',
+					text: 'Text //',
 				}],
 			}, undefined, 'group'));
 
@@ -1272,14 +1272,14 @@ describe('Field', () => {
 			const actual = stew('#', null, Field({
 				'': 'Label',
 				object: {
-					'': '/path// Object',
-					number: '/.. Number',
-					text: '// Text',
+					'': 'Object /path//',
+					number: 'Number /..',
+					text: 'Text //',
 				},
-				array: ['/.. Array', '// String', {
-					'': '/path// Object',
-					number: '/.. Number',
-					text: '// Text',
+				array: ['Array /..', 'String //', {
+					'': 'Object /path//',
+					number: 'Number /..',
+					text: 'Text //',
 				}],
 			}, {
 				object: {
@@ -1328,8 +1328,8 @@ describe('Field', () => {
 							</select>
 						</label>
 						<textarea id="group.array.">
-							0: lmno
-							1: Object
+							lmno
+							Object
 						</textarea>
 						<ol>
 							<li style="display:none;">

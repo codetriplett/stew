@@ -115,7 +115,13 @@ function ArraySelect ({ options, names, array }, select) {
 
 		const [type, label,, placeholder = ''] = options[index];
 		const value = array[i];
-		return `${i}: ${type && type[0] !== '/' ? value : label || value[placeholder]}`;
+
+		if (type && type[0] !== '/') {
+			return value;
+		}
+
+		const name = value['']?.slice(type.length);
+		return !label ? value[placeholder] : name ? `${label} / ${name}` : label;
 	}).filter(value => value).join('\n');
 
 	// TODO: add button as shortcut for selecting the first option if there is only one
@@ -294,13 +300,11 @@ function ObjectField ({ schema = {}, data = {}, path, names }, field) {
 		], [path]);
 
 		stew(null, [selection], () => {
-			if (!select) {
+			const [ref] = select?.[0] || [];
+
+			if (!ref) {
 				return;
-			}
-
-			const [ref] = select[0];
-
-			if (selection) {
+			} else if (selection) {
 				ref.value = selection;
 			} else {
 				ref.selectedIndex = 0;
@@ -312,7 +316,7 @@ function ObjectField ({ schema = {}, data = {}, path, names }, field) {
 	let meta;
 	
 	if (path) {
-		meta = Field(`/${path}/${selection} /`, undefined, ...names, '');
+		meta = Field(`/ /${path}/${selection}`, undefined, ...names, '');
 	}
 
 	for (const [name, value] of Object.entries(expanded ? schema : {})) {
@@ -357,8 +361,8 @@ export function Field (definition, data, ...names) {
 	}
 
 	const id = names.reduce((id, name) => `${id}${typeof name === 'number' ? `[${name}]` : `${id ? '.' : ''}${name}`}`, '');
-	const match = definition.match(/^\s*(?:(.+)\s+)?(.*?)\/(.*?\/)?((?:\\\/|[^\s\/])*?)(\**)(?:\s+(.+?))?\s*$/);
-	let [, placeholder, type, slashes = '', range = '', required, label = ''] = match || [,,,,,, definition.trim()];
+	const match = definition.match(/^\s*(?:([^\/]+)\s+)?(\S*?)\/(\S*\/)?(\S*?)(\**)(?:\s+(.+?))?\s*$/);
+	let [, label, type, slashes = '', range = '', required, placeholder] = match || [, definition.trim()];
 	let [, min = '', step, max = ''] = range.match(/^(?:(.*?)\.\.)?(?:(.*?)\.\.)?(.*?)$/);
 	const props = {};
 	const input = ['input', props];

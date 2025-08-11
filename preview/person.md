@@ -1,8 +1,8 @@
 ```export
 {
-	name: 'Enter name // Name',
-	age: 'Enter age /.. Age',
-	friends: ['Choose type... /.. Friends', '/person// Person'],
+	name: 'Name // Enter name',
+	age: 'Age /.. Enter age',
+	friends: ['Friends /.. Choose type...', 'Person /person//'],
 }
 ```
 

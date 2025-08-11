@@ -294,6 +294,12 @@ form > ul {
 	padding-left: 0;
 	border-left: none;
 }
+form textarea {
+	width: 100%;
+	min-height: 51px;
+	margin-top: 16px;
+	resize: vertical;
+}
 label input:not([type="checkbox"]),
 label select {
     display: block;

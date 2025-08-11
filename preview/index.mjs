@@ -357,7 +357,7 @@ export default [calendar, {
         '': 'Calendar',
         smile: '🙂',
     },
-    quest: '// Quest',
-    exp: '/0..100.. EXP',
+    quest: 'Quest //',
+    exp: 'EXP /0..100..',
     complete: 'Complete',
 }];
