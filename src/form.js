@@ -72,7 +72,7 @@ function ValueSelect ({ options, names, value }, select) {
 	const valueType = typeof value;
 	const state = stew({ index: options.findIndex(([type]) => type === valueType) }, [valueType]);
 	const { index } = state;
-	select[3][1].onchange = event => state.index = event.target.selectedIndex;
+	select[3][1].onchange = event => state.index = event.target.selectedIndex - 1;
 
 	// TODO: add button as shortcut for selecting the first option if there is only one
 	return ['', null,
@@ -86,9 +86,10 @@ function ArraySelect ({ options, names, array }, select) {
 		return array.map(value => findOption(value, ...options));
 	}, [array]);
 
-	const state = stew({ indexes: initialIndexes, order: [] }, [array]);
-	const { indexes, order } = state;
+	const state = stew({ indexes: initialIndexes, start: 0, end: 0 }, [array]);
+	const { indexes, start, end } = state;
 	const meta = Field('textarea//', '', ...names, '');
+	let visibleIndex = 0;
 
 	select[3][1].onchange = event => {
 		const index = event.target.selectedIndex - 1;
@@ -99,13 +100,17 @@ function ArraySelect ({ options, names, array }, select) {
 		}
 	};
 
-	meta[1].onselectionchange = () => {
-		// TODO: show only the rows that are highlighted
+	meta[1].onselectionchange = event => {
+		const { value, selectionStart, selectionEnd } = event.target;
 
-		// TODO: have extract data look here first to determine which rows still exist and to refresh the order
-		// - set ids based on insertion order, ignoring the order they are in textarea until it's saved
+		if (selectionStart === selectionEnd) {
+			Object.assign(state, { start: 0, end: 0 });
+			return;
+		}
 
-		console.log(event.target);
+		const newStart = value.slice(0, selectionStart).replace(/[\r\n]*[^\r\n]+$/, '').match(/[^\r\n]+/g)?.length || 0;
+		const newEnd = newStart + (value.slice(selectionStart, selectionEnd).replace(/[\r\n]+$/, '').match(/[\r\n]+/g)?.length || 0) + 1;
+		Object.assign(state, { start: newStart, end: newEnd });
 	};
 
 	meta[2] = indexes.map((index, i) => {
@@ -114,10 +119,14 @@ function ArraySelect ({ options, names, array }, select) {
 		}
 
 		const [type, label,, placeholder = ''] = options[index];
-		const value = array[i];
+		let value = array[i] || '';
 
 		if (type && type[0] !== '/') {
-			return value;
+			return `${label} / ${value}`;
+		} else if (label?.startsWith('/')) {
+			return value[''] || label;
+		} else if (!value) {
+			value = { '': type };
 		}
 
 		const name = value['']?.slice(type.length);
@@ -128,14 +137,15 @@ function ArraySelect ({ options, names, array }, select) {
 	return ['', null,
 		select,
 		meta,
-		['ol', null,
+		['ol', start < 9 ? null : { className: 'extra-padding' },
 			...indexes.map((index, i) => {
 				if (index < 0) {
 					return;
 				}
 				
 				const definition = options[index][2];
-				const props = order.indexOf(i) !== -1 ? null : { style: { display: 'none' } };
+				const props = visibleIndex >= start && visibleIndex < end ? null : { style: { display: 'none' } };
+				visibleIndex++;
 				return ['li', props, Field(definition, array[i], ...names, i)];
 			}),
 		],
@@ -199,9 +209,13 @@ export function Select (definitions, value, ...names) {
 				type = 'number';
 			} else {
 				type = type ? 'string' : path ? `/${path}/` : value ? '' : '/';
+				
+				if (!type) {
+					placeholder	= value;
+				}
 			}
 
-			return [type, label || value || type, definition, placeholder];
+			return [type, label || (i ? value || type : names[names.length - 1]), definition, placeholder];
 		}).filter(option => option);
 	}, [definitions]);
 
@@ -210,12 +224,13 @@ export function Select (definitions, value, ...names) {
 	const select = ['label', null,
 		label,
 		['select', {},
-			['option', null, placeholder || 'Select an item...'],
+			['option', { selected: true }, placeholder || 'Select an item...'],
 			...options.map(option => ['option', null, option[1]]),
 		],
 	];
 
 	switch (type) {
+		case '':
 		case 'boolean': {
 			return [ValueSelect, { options, names, value }, select];
 		}
@@ -300,7 +315,11 @@ function ObjectField ({ schema = {}, data = {}, path, names }, field) {
 		], [path]);
 
 		stew(null, [selection], () => {
-			const [ref] = select?.[0] || [];
+			if (!select) {
+				return;
+			}
+
+			const [ref] = select[0];
 
 			if (!ref) {
 				return;
@@ -338,7 +357,7 @@ function ObjectField ({ schema = {}, data = {}, path, names }, field) {
 		...field,
 		!expanded && ['button', {
 			type: 'button',
-			style: { float: 'right', marginTop: '-21px' },
+			className: 'action-button',
 			onclick: () => state.expanded = true,
 		}, selection ? 'Override' : 'Create'],
 		select,

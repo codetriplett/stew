@@ -359,5 +359,10 @@ export default [calendar, {
     },
     quest: 'Quest //',
     exp: 'EXP /0..100..',
+    type: ['Type / Select a type...',
+        'Mind (visualize) / mind',
+        'Body (exercise) / body',
+        'Soul (socialize) / soul',
+    ],
     complete: 'Complete',
 }];

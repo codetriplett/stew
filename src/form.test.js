@@ -203,7 +203,25 @@ describe('Select', () => {
 			<label>
 				Label
 				<select>
-					<option>Select an item...</option>
+					<option selected>Select an item...</option>
+					<option>Number</option>
+					<option>String</option>
+				</select>
+			</label>
+		`));
+	});
+
+	it('value select with info', () => {
+		const actual = stew('#', null, Field(['Label / Choose an item...',
+			'Number /..',
+			'String //',
+		], undefined, 'group'));
+
+		expect(String(actual)).toEqual(trim(`
+			<label>
+				Label
+				<select>
+					<option selected>Choose an item...</option>
 					<option>Number</option>
 					<option>String</option>
 				</select>
@@ -221,7 +239,7 @@ describe('Select', () => {
 			<label>
 				Label
 				<select>
-					<option>Select an item...</option>
+					<option selected>Select an item...</option>
 					<option>Number</option>
 					<option>String</option>
 				</select>
@@ -243,7 +261,7 @@ describe('Select', () => {
 			<label>
 				Label
 				<select>
-					<option>Select an item...</option>
+					<option selected>Select an item...</option>
 					<option>Number</option>
 					<option>String</option>
 				</select>
@@ -263,14 +281,14 @@ describe('Select', () => {
 			<label>
 				Label
 				<select>
-					<option>Select an item...</option>
+					<option selected>Select an item...</option>
 					<option>Number</option>
 					<option>String</option>
 				</select>
 			</label>
 			<textarea id="group.">
-				abc
-				123
+				String / abc
+				Number / 123
 			</textarea>
 			<ol>
 				<li style="display:none;">
@@ -301,7 +319,7 @@ describe('Select', () => {
 			<label>
 				Label
 				<select>
-					<option>Select an item...</option>
+					<option selected>Select an item...</option>
 					<option>/</option>
 				</select>
 			</label>
@@ -340,7 +358,7 @@ describe('Select', () => {
 			<label>
 				Label
 				<select>
-					<option>Select an item...</option>
+					<option selected>Select an item...</option>
 					<option>static</option>
 					<option>number</option>
 					<option>string</option>
@@ -348,8 +366,8 @@ describe('Select', () => {
 			</label>
 			<textarea id="group.">
 				static
-				123
-				abc
+				number / 123
+				string / abc
 			</textarea>
 			<ol>
 				<li style="display:none;">
@@ -384,7 +402,7 @@ describe('Select', () => {
 			<label>
 				Label
 				<select>
-					<option>Select an item...</option>
+					<option selected>Select an item...</option>
 					<option>Number</option>
 					<option>String</option>
 				</select>
@@ -400,7 +418,7 @@ describe('Select', () => {
 			<label>
 				Label
 				<select>
-					<option>Select an item...</option>
+					<option selected>Select an item...</option>
 					<option>Number</option>
 					<option>String</option>
 				</select>
@@ -436,7 +454,7 @@ describe('Select', () => {
 			<label>
 				Label
 				<select>
-					<option>Select an item...</option>
+					<option selected>Select an item...</option>
 					<option>Number</option>
 					<option>String</option>
 				</select>
@@ -459,7 +477,7 @@ describe('Select', () => {
 			<label>
 				Label
 				<select>
-					<option>Select an item...</option>
+					<option selected>Select an item...</option>
 					<option>Number</option>
 					<option>String</option>
 				</select>
@@ -925,7 +943,7 @@ describe('Field', () => {
 			expect(String(actual)).toEqual(trim(`
 				<label>
 					Label
-					<button type="button" style="float:right;margin-top:-21px;">Create</button>
+					<button class="action-button" type="button">Create</button>
 				</label>
 				<ul></ul>
 			`));
@@ -1248,7 +1266,7 @@ describe('Field', () => {
 					<li>
 						<label>
 							Object
-							<button type="button" style="float:right;margin-top:-21px;">Create</button>
+							<button class="action-button" type="button">Create</button>
 						</label>
 						<ul></ul>
 					</li>
@@ -1256,7 +1274,7 @@ describe('Field', () => {
 						<label>
 							Array
 							<select>
-								<option>Select an item...</option>
+								<option selected>Select an item...</option>
 								<option>Object</option>
 							</select>
 						</label>
@@ -1322,14 +1340,14 @@ describe('Field', () => {
 						<label>
 							Array
 							<select>
-								<option>Select an item...</option>
+								<option selected>Select an item...</option>
 								<option>String</option>
 								<option>Object</option>
 							</select>
 						</label>
 						<textarea id="group.array.">
-							lmno
-							Object
+							String / lmno
+							Object / second
 						</textarea>
 						<ol>
 							<li style="display:none;">

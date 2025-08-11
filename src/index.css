@@ -281,7 +281,8 @@ span.child-button {
 	color: var(--reference-font-color);
 }
 
-form ul {
+form ul,
+form ol {
 	display: flex;
 	gap: 10px;
 	flex-direction: column;
@@ -294,21 +295,27 @@ form > ul {
 	padding-left: 0;
 	border-left: none;
 }
+form ol {
+	padding-left: 24px;
+
+	.extra-padding {
+		padding-left: 32px;
+	}
+}
+form input:not([type="checkbox"]),
+form select,
 form textarea {
-	width: 100%;
-	min-height: 51px;
-	margin-top: 16px;
-	resize: vertical;
-}
-label input:not([type="checkbox"]),
-label select {
     display: block;
+	width: 224px;
     margin-top: 5px;
-    width: 100%;
 }
-label input[type="checkbox"] {
+form input[type="checkbox"] {
 	float: left;
 	margin-right: 5px;
+}
+form textarea {
+	min-height: 51px;
+	resize: vertical;
 }
 
 .sidebar .citations {
@@ -326,6 +333,16 @@ label input[type="checkbox"] {
 .sidebar .citation-button-active {
 	padding-left: 12px;
 	background: var(--reference-active-background);
+}
+
+.sidebar form .action-button {
+	float: right;
+    border: 1px solid var(--button-border-color);
+    border-radius: 4px;
+    margin-top: -4px;
+    font-size: inherit;
+	color: var(--paper-font-color);
+    background: var(--paper-background);
 }
 
 .toolbar {

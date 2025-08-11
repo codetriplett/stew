@@ -9,5 +9,5 @@ export default [person, {
     },
     name: 'Name // Enter name',
     age: 'Age /.. Enter age',
-    friends: ['Friends /.. Choose type...', 'Person /person//'],
+    friends: ['Friends /.. Add friend...', 'Person /person//'],
 }];

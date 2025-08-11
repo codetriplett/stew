@@ -21,15 +21,18 @@ const reserved = new Set([
 ]);
 
 export function format (value, indentation = '') {
+	indentation += '    ';
+
 	if (typeof value !== 'object') {
 		return typeof value === 'string' ? `'${value}'` : String(value);
 	} else if (Array.isArray(value)) {
-		return `[${value.map(item => format(item, indentation)).join(', ')}]`;
+		return `[${value.map(item => {
+			return format(item, indentation);
+		}).join(`,\n${indentation}`)},\n${indentation.slice(4)}]`;
 	}
 
 	const { '': meta, ...props } = value;
 	const entries = Object.entries(props);
-	indentation += '    ';
 
 	if (meta) {
 		entries.unshift(['\'\'', meta]);
