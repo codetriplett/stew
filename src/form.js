@@ -58,9 +58,11 @@ export function extractData (form) {
 }
 
 export function findOption (value, ...options) {
-	return options.findIndex(([type, label]) => {
-		if (typeof value !== 'object') {
-			return type ? typeof value === type : value === label;
+	const valueType = typeof value;
+
+	return options.findIndex(([type,,, placeholder]) => {
+		if (valueType !== 'object') {
+			return type ? valueType === type : value === placeholder;
 		}
 
 		const path = value?.[''] || '/';
@@ -69,13 +71,22 @@ export function findOption (value, ...options) {
 }
 
 function ValueSelect ({ options, names, value }, select) {
-	const valueType = typeof value;
-	const state = stew({ index: options.findIndex(([type]) => type === valueType) }, [valueType]);
+	const state = stew({ index: findOption(value, ...options) }, [value]);
 	const { index } = state;
-	select[3][1].onchange = event => state.index = event.target.selectedIndex - 1;
+	let ref;
+
+	select[3][1].onchange = event => {
+		state.index = event.target.selectedIndex - 1;
+	};
+
+	stew(null, [index, select], () => {
+		const [label] = ref[0];
+		const select = label.querySelector('select');
+		select.selectedIndex = index + 1;
+	});
 
 	// TODO: add button as shortcut for selecting the first option if there is only one
-	return ['', null,
+	return ref = ['', null,
 		select,
 		index > -1 && Field(options[index][2], value, ...names),
 	];
@@ -125,12 +136,12 @@ function ArraySelect ({ options, names, array }, select) {
 			return `${label} / ${value}`;
 		} else if (label?.startsWith('/')) {
 			return value[''] || label;
-		} else if (!value) {
-			value = { '': type };
+		} else if (!type) {
+			return `/ ${placeholder}`;
 		}
 
-		const name = value['']?.slice(type.length);
-		return !label ? value[placeholder] : name ? `${label} / ${name}` : label;
+		const name = value?.['']?.slice?.(type.length);
+		return `${label || 'object'} / ${placeholder && value[placeholder] || name || i}`;
 	}).filter(value => value).join('\n');
 
 	// TODO: add button as shortcut for selecting the first option if there is only one
@@ -193,26 +204,30 @@ export function Select (definitions, value, ...names) {
 	const [info, ...options] = stew(() => {
 		return definitions.map((definition, i) => {
 			let field = Field(definition, undefined, ...(i ? names : []));
+			const isObject = field[0] !== 'label';
 			let path;
 
-			if (field[0] !== 'label') {
+			if (isObject) {
 				({ path } = field[1]);
 				field = field[2];
 			}
 
 			const [,, label, input] = field;
-			let { type, placeholder, value } = input[1];
+			let { type = '', placeholder, disabled, value } = input[1];
 
-			if (type === 'checkbox' || type === 'hidden') {
+			if (path) {
+				type = `/${path}/`;
+			} else if (isObject) {
+				type = '/';
+				placeholder ||= value;
+			} else if (disabled) {
+				placeholder = value;
+			} else if (type === 'checkbox' || type === 'hidden') {
 				type = 'boolean';
 			} else if (type === 'number' || type === 'range') {
 				type = 'number';
-			} else {
-				type = type ? 'string' : path ? `/${path}/` : value ? '' : '/';
-				
-				if (!type) {
-					placeholder	= value;
-				}
+			} else  {
+				type = 'string';
 			}
 
 			return [type, label || (i ? value || type : names[names.length - 1]), definition, placeholder];
@@ -221,7 +236,7 @@ export function Select (definitions, value, ...names) {
 
 	const [type, label, definition, placeholder] = info;
 
-	const select = ['label', null,
+	const select = ['label', { className: 'select-label' },
 		label,
 		['select', {},
 			['option', { selected: true }, placeholder || 'Select an item...'],
@@ -385,7 +400,7 @@ export function Field (definition, data, ...names) {
 	let [, min = '', step, max = ''] = range.match(/^(?:(.*?)\.\.)?(?:(.*?)\.\.)?(.*?)$/);
 	const props = {};
 	const input = ['input', props];
-	const field = ['label', null, label, input];
+	const field = ['label', {}, label, input];
 	let path;
 
 	if (slashes) {
@@ -437,6 +452,7 @@ export function Field (definition, data, ...names) {
 			props.step = step;
 		}
 	} else if (placeholder) {
+		field[1].className = 'static-label';
 		props.value = placeholder;
 		props.disabled = true;
 		placeholder = '';
@@ -453,10 +469,11 @@ export function Field (definition, data, ...names) {
 	}
 
 	if (path || schema) {
+		delete field[1].className;
 		return [ObjectField, { schema, data, path, names }, field];
 	} else if (id) {
 		props.id = id;
-		field[1] = { for: id };
+		field[1].for = id;
 	}
 	
 	if (type === 'textarea') {
@@ -465,7 +482,7 @@ export function Field (definition, data, ...names) {
 		props.type = type;
 	}
 
-	if ((data || data === 0) && typeof data !== 'object') {
+	if (!props.disabled && (data || data === 0) && typeof data !== 'object') {
 		if (type === 'textarea') {
 			input[2] = String(data);
 		} else if (type === 'checkbox') {

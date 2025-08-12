@@ -4,10 +4,10 @@ export function person () {
 }
 
 export default [person, {
-    '': {
-        '': 'Person',
-    },
+    '': 'Person',
     name: 'Name // Enter name',
     age: 'Age /.. Enter age',
-    friends: ['Friends /.. Add friend...', 'Person /person//'],
+    friends: ['Friends /.. Add friend...',
+        'Person /person// name',
+    ],
 }];

@@ -172,8 +172,14 @@ export function extractCode (file, library = {}) {
 
 	try {
 		const object = new Function(`return ${schema}`)();
-		const emoji = object[''] || {};
-		object[''] = { ...emoji, '': heading };
+		const emoji = object[''];
+
+		if (emoji) {
+			object[''] = { ...emoji, '': heading };
+		} else {
+			object[''] = heading;
+		}
+
 		schema = format(object);
 	} catch (err) {
 		console.error(`Schema syntax error: ${err.message}`);

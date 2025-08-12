@@ -200,9 +200,9 @@ describe('Select', () => {
 		], undefined, 'group'));
 
 		expect(String(actual)).toEqual(trim(`
-			<label>
+			<label class="select-label">
 				Label
-				<select>
+				<select selected-index="0">
 					<option selected>Select an item...</option>
 					<option>Number</option>
 					<option>String</option>
@@ -218,9 +218,9 @@ describe('Select', () => {
 		], undefined, 'group'));
 
 		expect(String(actual)).toEqual(trim(`
-			<label>
+			<label class="select-label">
 				Label
-				<select>
+				<select selected-index="0">
 					<option selected>Choose an item...</option>
 					<option>Number</option>
 					<option>String</option>
@@ -236,9 +236,9 @@ describe('Select', () => {
 		], 123, 'group'));
 
 		expect(String(actual)).toEqual(trim(`
-			<label>
+			<label class="select-label">
 				Label
-				<select>
+				<select selected-index="1">
 					<option selected>Select an item...</option>
 					<option>Number</option>
 					<option>String</option>
@@ -258,7 +258,7 @@ describe('Select', () => {
 		], undefined, 'group'));
 
 		expect(String(actual)).toEqual(trim(`
-			<label>
+			<label class="select-label">
 				Label
 				<select>
 					<option selected>Select an item...</option>
@@ -278,7 +278,7 @@ describe('Select', () => {
 		], ['abc', 123], 'group'));
 
 		expect(String(actual)).toEqual(trim(`
-			<label>
+			<label class="select-label">
 				Label
 				<select>
 					<option selected>Select an item...</option>
@@ -316,7 +316,7 @@ describe('Select', () => {
 		], [true, { number: 123, string: 'abc' }], 'group'));
 
 		expect(String(actual)).toEqual(trim(`
-			<label>
+			<label class="select-label">
 				Label
 				<select>
 					<option selected>Select an item...</option>
@@ -355,7 +355,7 @@ describe('Select', () => {
 		], ['static', 123, 'abc'], 'group'));
 
 		expect(String(actual)).toEqual(trim(`
-			<label>
+			<label class="select-label">
 				Label
 				<select>
 					<option selected>Select an item...</option>
@@ -371,7 +371,7 @@ describe('Select', () => {
 			</textarea>
 			<ol>
 				<li style="display:none;">
-					<label for="group[0]">
+					<label class="static-label" for="group[0]">
 						<input id="group[0]" value="static" disabled>
 					</label>
 				</li>
@@ -389,6 +389,48 @@ describe('Select', () => {
 		`));
 	});
 
+	it('array select with descriptor', () => {
+		const actual = stew('#', null, Field(['Label /..',
+			{
+				'': 'Object / string',
+				number: 'Number /..',
+				string: 'String //',
+			}
+		], [true, { number: 123, string: 'abc' }], 'group'));
+
+		expect(String(actual)).toEqual(trim(`
+			<label class="select-label">
+				Label
+				<select>
+					<option selected>Select an item...</option>
+					<option>Object</option>
+				</select>
+			</label>
+			<textarea id="group.">
+				Object / abc
+			</textarea>
+			<ol>
+				<li style="display:none;">
+					<label>Object</label>
+					<ul>
+						<li>
+							<label for="group[1].number">
+								Number
+								<input id="group[1].number" type="number" value="123">
+							</label>
+						</li>
+						<li>
+							<label for="group[1].string">
+								String
+								<input id="group[1].string" type="text" value="abc">
+							</label>
+						</li>
+					</ul>
+				</li>
+			</ol>
+		`));
+	});
+
 	// TODO: have newly added items show by default
 	// - include a button to hide then (which will then add/update their row in the textarea)
 	// - maybe support adding new rows manually by having 'Add' action borrow their values to prefill the appropriate field
@@ -399,7 +441,7 @@ describe('Select', () => {
 		], undefined, 'group'));
 
 		expect(String(actual)).toEqual(trim(`
-			<label>
+			<label class="select-label">
 				Label
 				<select>
 					<option selected>Select an item...</option>
@@ -415,7 +457,7 @@ describe('Select', () => {
 		await stew();
 
 		expect(String(actual)).toEqual(trim(`
-			<label>
+			<label class="select-label">
 				Label
 				<select>
 					<option selected>Select an item...</option>
@@ -451,7 +493,7 @@ describe('Select', () => {
 		], undefined, 'group'));
 
 		expect(String(actual)).toEqual(trim(`
-			<label>
+			<label class="select-label">
 				Label
 				<select>
 					<option selected>Select an item...</option>
@@ -474,7 +516,7 @@ describe('Select', () => {
 		}, 'group'));
 
 		expect(String(actual)).toEqual(trim(`
-			<label>
+			<label class="select-label">
 				Label
 				<select>
 					<option selected>Select an item...</option>
@@ -537,7 +579,7 @@ describe('Field', () => {
 		const actual = stew('#', null, Field('/ static', undefined, 'group', 'name'));
 
 		expect(String(actual)).toEqual(trim(`
-			<label for="group.name">
+			<label class="static-label" for="group.name">
 				<input id="group.name" value="static" disabled>
 			</label>
 		`));
@@ -547,7 +589,7 @@ describe('Field', () => {
 		const actual = stew('#', null, Field('Label / static', undefined, 'group', 'name'));
 
 		expect(String(actual)).toEqual(trim(`
-			<label for="group.name">
+			<label class="static-label" for="group.name">
 				Label
 				<input id="group.name" value="static" disabled>
 			</label>
@@ -558,7 +600,7 @@ describe('Field', () => {
 		const actual = stew('#', null, Field('Label / static / value', undefined, 'group', 'name'));
 
 		expect(String(actual)).toEqual(trim(`
-			<label for="group.name">
+			<label class="static-label" for="group.name">
 				Label
 				<input id="group.name" value="static / value" disabled>
 			</label>
@@ -973,7 +1015,7 @@ describe('Field', () => {
 
 		it('populated', () => {
 			const actual = stew('#', null, Field({
-				'': 'Label',
+				'': 'Label / text',
 				number: 'Number /..',
 				text: 'Text //',
 			}, {
@@ -1271,7 +1313,7 @@ describe('Field', () => {
 						<ul></ul>
 					</li>
 					<li>
-						<label>
+						<label class="select-label">
 							Array
 							<select>
 								<option selected>Select an item...</option>
@@ -1337,7 +1379,7 @@ describe('Field', () => {
 						</ul>
 					</li>
 					<li>
-						<label>
+						<label class="select-label">
 							Array
 							<select>
 								<option selected>Select an item...</option>

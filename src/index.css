@@ -317,6 +317,9 @@ form textarea {
 	min-height: 51px;
 	resize: vertical;
 }
+.select-label + .static-label {
+	display: none;
+}
 
 .sidebar .citations {
 	padding-top: 5px;
