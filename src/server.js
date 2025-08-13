@@ -120,10 +120,16 @@ createServer((req, res) => {
 					const notes = [];
 					
 					for (const file of files) {
+						let name;
+
 						if (file.endsWith('.md')) {
-							notes.push(file.slice(0, -3));
+							name = file.slice(0, -3);
 						} else if (file.endsWith('.json')) {
-							notes.push(file.slice(0, -5));
+							name = file.slice(0, -5);
+						}
+						
+						if (name && notes.indexOf(name) === -1) {
+							notes.push(name);
 						}
 					}
 

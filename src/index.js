@@ -204,7 +204,7 @@ Promise.all([...promises, fetchCode('index')]).then(async sequence => {
 
 		directory = names.sort().map(file => {
 			const text = formatHeading(file);
-			return [`${folder}${file}`, text];
+			return [`/${path}${file}`, text];
 		});
 	}
 
