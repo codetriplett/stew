@@ -198,28 +198,31 @@ You will need to define a schema in order to edit the prop data passed in. This 
 	'': 'Heading',
 
 	// display a field that accepts only text
-	string: '// String',
-	pattern: '/[a-z]+/ Pattern',
+	string: '//',
+	pattern: '/[a-z]+/',
 
 	// display a field that accepts only numbers
-	number: '/.. Number',
-	range: '/0..9 Range',
+	number: '/..',
+	range: '/0..9',
 
 	// display a checkbox that stores true if selected
-	boolean: '/ Boolean',
+	boolean: '',
+
+
+
 
 	// fields can set placeholder text to give some extra context
-	name: 'Enter a name /[a-z]+/ Name',
+	name: 'Name /[a-z]+/ Enter a name',
 
 	// fields can be set to required by placing a * before their type definition
-	age: '*/0..128 Age'
+	age: 'Age */0..128'
 
 	// required booleans will use their placeholder text as a static value to set instead
-	static: 'static */ Static',
+	static: '/ static',
 	// these are useful within the array options below to select preset values
 	
 	// path is used to embed existing schema, and locate existing data under it
-	reference: '/path/to/data// Reference',
+	friend: 'Friend /person//',
 
 	// more complex data can be defined in objects
 	object: {
@@ -228,30 +231,26 @@ You will need to define a schema in order to edit the prop data passed in. This 
 	},
 
 	// allows for a collection of items that match one of the provided types
-	array: ['/.. Array',
-		'// String',
-		'/.. Number',
+	friends: ['Friends /..',
+		'String //',
+		'Number /..',
 	],
 	// can set a min and max value, like with number fields, to limit the size of the array
 
 	// !!! the rest aren't finished at this time. I started to run out of steam here. !!!
 
 	// allows selecting one
-	select: ['/ Select',
-		'first / First',
-		'second / Second',
+	color: ['Favorite Color',
+		'Red / #f00',
+		'Green / #0f0',
+		'Blue / #00f',
 	],
-
-	// allows selecting from multiple options, but only one time each
-	multiselect: ['Multiselect',
-		'first / First',
-		'second / Second',
-	],
+	// a slash not followed by pattern and/or range will define static values
 
 	// objects can be defined where the keys are custom, but value types are predefined
-	properties: ['// Properties',
-		'// String',
-		'/.. Number',
+	properties: ['Properties //',
+		'String //',
+		'Number /..',
 	],
 }
 img {

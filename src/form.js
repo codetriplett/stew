@@ -1,6 +1,15 @@
 import { fetchCode, fetchData, fetchList } from './fetch';
 
 function convertValue (type, value, checked) {
+	if (!type) {
+		if (value === 'true' || value === 'false') {
+			type = 'checkbox';
+			checked = value === 'true';
+		} else if (value && !isNaN(value)) {
+			type = 'number';
+		}
+	}
+
 	switch (type) {
 		case 'checkbox': {
 			return checked;
@@ -15,29 +24,31 @@ function convertValue (type, value, checked) {
 }
 
 export function extractData (form) {
-	const data = {};
-
 	if (!form.checkValidity()) {
 		form.reportValidity();
 		return;
 	}
+	
+	const orderMap = new Map();
+	const data = {};
 
 	for (const input of form.elements) {
-		const { tagName, type, id, value, checked } = input;
+		let { tagName, type, id, value, checked } = input;
 
 		if (!id) {
-			continue;
-		} else if (tagName.toLowerCase() === 'textarea') {
-			// TODO: use these to check which array items are still valid and in what order to store them
 			continue;
 		}
 
 		const names = id.split(/\.|(?=\[)/).map(name => name[0] === '[' ? Number(name.slice(1, -1)) : name);
 		const finalName = names.pop();
-		const castValue = convertValue(type, value, checked);
+		const isOrder = !finalName && tagName.toLowerCase() === 'textarea';
 
-		if (!castValue) {
-			continue;
+		if (!isOrder) {
+			value = convertValue(type, value, checked);
+
+			if (!value) {
+				continue;
+			}
 		}
 
 		const object = names.reduce((object, name, i) => {
@@ -45,13 +56,30 @@ export function extractData (form) {
 				return object[name];
 			}
 
-			const nextName = names[i + 1] ?? finalName;
+			const nextName = names[i + 1] ?? (isOrder ? 0 : finalName);
 			const newObject = typeof nextName === 'number' ? [] : {};
 			object[name] = newObject;
 			return newObject;
 		}, data);
 
-		object[finalName] = castValue;
+		if (isOrder) {
+			orderMap.set(object, value);
+		} else {
+			object[finalName] = value;
+		}
+	}
+
+	for (const [array, order] of orderMap) {
+		const lines = order.trim().split(/\s*[\r\n]+\s*/);
+		const items = array.splice(0);
+
+		for (const line of lines) {
+			const [, index] = line.match(/^\s*(\d+)\./) || [];
+
+			if (index > 0) {
+				array.push(items[index - 1]);
+			}
+		}
 	}
 
 	return data;
@@ -111,44 +139,57 @@ function ArraySelect ({ options, names, array }, select) {
 		}
 	};
 
-	meta[1].onselectionchange = event => {
-		const { value, selectionStart, selectionEnd } = event.target;
+	Object.assign(meta[1], {
+		oncut: event => {
+			// TODO: make sure it include full lines in cut
+		},
+		onpaste: event => {
+			// TODO: make sure it doesn't paste in the middle of a line and don't replace selection text
+			// - shift currently selected line down unless selectionStart is at the end of current line
+		},
+		onkeydown: event => {
+			event.preventDefault();
+			// TODO: allow manual edits that modify the fields within the form that is tied to this line
+			// - also add code that updates textarea when those fields are updated
+			// - this can be a phase 2 task
+		},
+		onselectionchange: event => {
+			const { value, selectionStart, selectionEnd } = event.target;
 
-		if (selectionStart === selectionEnd) {
-			Object.assign(state, { start: 0, end: 0 });
-			return;
-		}
+			if (selectionStart === selectionEnd) {
+				Object.assign(state, { start: 0, end: 0 });
+				return;
+			}
 
-		const newStart = value.slice(0, selectionStart).replace(/[\r\n]*[^\r\n]+$/, '').match(/[^\r\n]+/g)?.length || 0;
-		const newEnd = newStart + (value.slice(selectionStart, selectionEnd).replace(/[\r\n]+$/, '').match(/[\r\n]+/g)?.length || 0) + 1;
-		Object.assign(state, { start: newStart, end: newEnd });
-	};
+			const newStart = value.slice(0, selectionStart).replace(/[\r\n]*[^\r\n]+$/, '').match(/[^\r\n]+/g)?.length || 0;
+			const newEnd = newStart + (value.slice(selectionStart, selectionEnd).replace(/[\r\n]+$/, '').match(/[\r\n]+/g)?.length || 0) + 1;
+			Object.assign(state, { start: newStart, end: newEnd });
+		},
+	});
 
 	meta[2] = indexes.map((index, i) => {
 		if (index < 0) {
 			return;
 		}
 
-		const [type, label,, placeholder = ''] = options[index];
-		let value = array[i] || '';
+		let [type, label,, placeholder = ''] = options[index];
+		let value = array[i] || (type === 'string' ? '' : null);
 
-		if (type && type[0] !== '/') {
-			return `${label} / ${value}`;
-		} else if (label?.startsWith('/')) {
-			return value[''] || label;
-		} else if (!type) {
-			return `/ ${placeholder}`;
+		if (type[0] === '/') {
+			type = `${label && type.length === 1 ? `${label} ` : ''}${type}${value?.['']?.slice?.(type.length) || ''} `;
+			value = placeholder && value?.[placeholder] || '';
+		} else {
+			type = typeof value === 'string' ? '// ' : '/';
 		}
 
-		const name = value?.['']?.slice?.(type.length);
-		return `${label || 'object'} / ${placeholder && value[placeholder] || name || i}`;
+		return `${i + 1}. ${type}${value}`;
 	}).filter(value => value).join('\n');
 
 	// TODO: add button as shortcut for selecting the first option if there is only one
 	return ['', null,
 		select,
 		meta,
-		['ol', start < 9 ? null : { className: 'extra-padding' },
+		['ol', { start: start + 1, className: start < 9 ? '' : 'extra-padding' },
 			...indexes.map((index, i) => {
 				if (index < 0) {
 					return;
@@ -230,7 +271,7 @@ export function Select (definitions, value, ...names) {
 				type = 'string';
 			}
 
-			return [type, label || (i ? value || type : names[names.length - 1]), definition, placeholder];
+			return [type, label, definition, placeholder];
 		}).filter(option => option);
 	}, [definitions]);
 
@@ -240,7 +281,7 @@ export function Select (definitions, value, ...names) {
 		label,
 		['select', {},
 			['option', { selected: true }, placeholder || 'Select an item...'],
-			...options.map(option => ['option', null, option[1]]),
+			...options.map(([type, label,, value]) => ['option', null, label || type || value]),
 		],
 	];
 
@@ -395,8 +436,8 @@ export function Field (definition, data, ...names) {
 	}
 
 	const id = names.reduce((id, name) => `${id}${typeof name === 'number' ? `[${name}]` : `${id ? '.' : ''}${name}`}`, '');
-	const match = definition.match(/^\s*(?:([^\/]+)\s+)?(\S*?)\/(\S*\/)?(\S*?)(\**)(?:\s+(.+?))?\s*$/);
-	let [, label, type, slashes = '', range = '', required, placeholder] = match || [, definition.trim()];
+	const match = definition.match(/^\s*(?:([^\/]+)\s+)?(\**)(\S*?)\/(\S*\/)?(\S*?)(?:\s+(.+?))?\s*$/);
+	let [, label, required, type, slashes = '', range = '', placeholder] = match || [, definition.trim()];
 	let [, min = '', step, max = ''] = range.match(/^(?:(.*?)\.\.)?(?:(.*?)\.\.)?(.*?)$/);
 	const props = {};
 	const input = ['input', props];

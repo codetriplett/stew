@@ -74,7 +74,7 @@ export function addElements (value, id = '') {
 }
 
 function trim (html) {
-	return html.replace(/(^|>)\s+|\s+(<|$)/g, m => m.trim()).replace(/\s*[\r\n]+\s*/g, '\n');
+	return html.replace(/(^|>)\s+|(^|[\r\n])\s+(<|$)/g, m => m.trim()).replace(/[\r\n]+\s*/g, '\n');
 }
 
 beforeEach(() => {
@@ -271,6 +271,19 @@ describe('Select', () => {
 		`));
 	});
 
+	/*
+
+	test these fully
+	
+	1: /123 (number, boolean, or null)
+	2: // abc (string)
+	3: Label / value (uses own schema and data)
+	4: Label /path/ value (using existing schema)
+	5: Label /path/name value (using existing data)
+	
+	Label and value are optional for objects
+	
+	*/
 	it('array select populated', () => {
 		const actual = stew('#', null, Field(['Label /..',
 			'Number /..',
@@ -287,8 +300,8 @@ describe('Select', () => {
 				</select>
 			</label>
 			<textarea id="group.">
-				String / abc
-				Number / 123
+				1: // abc
+				2: /123
 			</textarea>
 			<ol>
 				<li style="display:none;">
@@ -310,6 +323,7 @@ describe('Select', () => {
 	it('array select object populated', () => {
 		const actual = stew('#', null, Field(['Label /..',
 			{
+				'': 'Object / string',
 				number: 'Number /..',
 				string: 'String //',
 			}
@@ -320,14 +334,15 @@ describe('Select', () => {
 				Label
 				<select>
 					<option selected>Select an item...</option>
-					<option>/</option>
+					<option>Object</option>
 				</select>
 			</label>
 			<textarea id="group.">
-				/
+				1: Object / abc
 			</textarea>
 			<ol>
 				<li style="display:none;">
+					<label>Object</label>
 					<ul>
 						<li>
 							<label for="group[1].number">
@@ -365,9 +380,9 @@ describe('Select', () => {
 				</select>
 			</label>
 			<textarea id="group.">
-				static
-				number / 123
-				string / abc
+				1: // static
+				2: /123
+				3: // abc
 			</textarea>
 			<ol>
 				<li style="display:none;">
@@ -384,48 +399,6 @@ describe('Select', () => {
 					<label for="group[2]">
 						<input id="group[2]" type="text" value="abc">
 					</label>
-				</li>
-			</ol>
-		`));
-	});
-
-	it('array select with descriptor', () => {
-		const actual = stew('#', null, Field(['Label /..',
-			{
-				'': 'Object / string',
-				number: 'Number /..',
-				string: 'String //',
-			}
-		], [true, { number: 123, string: 'abc' }], 'group'));
-
-		expect(String(actual)).toEqual(trim(`
-			<label class="select-label">
-				Label
-				<select>
-					<option selected>Select an item...</option>
-					<option>Object</option>
-				</select>
-			</label>
-			<textarea id="group.">
-				Object / abc
-			</textarea>
-			<ol>
-				<li style="display:none;">
-					<label>Object</label>
-					<ul>
-						<li>
-							<label for="group[1].number">
-								Number
-								<input id="group[1].number" type="number" value="123">
-							</label>
-						</li>
-						<li>
-							<label for="group[1].string">
-								String
-								<input id="group[1].string" type="text" value="abc">
-							</label>
-						</li>
-					</ul>
 				</li>
 			</ol>
 		`));
@@ -619,7 +592,7 @@ describe('Field', () => {
 	});
 
 	it('required', () => {
-		const actual = stew('#', null, Field('Label //*', undefined, 'group', 'name'));
+		const actual = stew('#', null, Field('Label *//', undefined, 'group', 'name'));
 
 		expect(String(actual)).toEqual(trim(`
 			<label for="group.name">
@@ -1388,8 +1361,8 @@ describe('Field', () => {
 							</select>
 						</label>
 						<textarea id="group.array.">
-							String / lmno
-							Object / second
+							1: // lmno
+							2: /path/second 
 						</textarea>
 						<ol>
 							<li style="display:none;">
