@@ -1,4 +1,5 @@
 import { fetchCode, fetchData, fetchList } from './fetch';
+import { resizeTextarea } from './editor';
 
 function convertValue (type, value, checked) {
 	if (!type) {
@@ -120,84 +121,106 @@ function ValueSelect ({ options, names, value }, select) {
 	];
 }
 
+function renderIdentifier (option, i, array) {
+	let [type, label,, placeholder = ''] = option;
+	let value = array[i] || (type === 'string' ? '' : null);
+
+	if (type[0] === '/') {
+		type = `${label && type.length === 1 ? `${label} ` : ''}${type}${value?.['']?.slice?.(type.length) || ''} `;
+		value = placeholder && value?.[placeholder] || '';
+	} else {
+		type = typeof value === 'string' ? '// ' : '/';
+	}
+
+	return `${i + 1}. ${type}${value}`;
+}
+
 function ArraySelect ({ options, names, array }, select) {
 	const initialIndexes = stew(() => {
 		return array.map(value => findOption(value, ...options));
 	}, [array]);
 
-	const state = stew({ indexes: initialIndexes, start: 0, end: 0 }, [array]);
-	const { indexes, start, end } = state;
-	const meta = Field('textarea//', '', ...names, '');
-	let visibleIndex = 0;
+	const state = stew({
+		indexes: initialIndexes,
+		selectionText: '',
+		start: 1,
+		visibleIndexes: new Set(),
+	}, [array]);
+
+	const { indexes, start, visibleIndexes } = state;
+	let ref;
+
+	stew(null, [], () => {
+		const [, textarea] = ref[0];
+		resizeTextarea([[textarea]]);
+	});
+
+	const meta = stew(() => {
+		const text = indexes.map((index, i) => {
+			return index < 0 ? '' : renderIdentifier(options[index], i, array);
+		}).filter(value => value).join('\n');
+		
+		const field = Field('textarea//', '', ...names, '');
+		field[2] = text;
+		return field;
+	}, [array]);
 
 	select[3][1].onchange = event => {
 		const index = event.target.selectedIndex - 1;
 
-		if (index > -1) {
-			state.indexes = [...indexes, index];
-			event.target.selectedIndex = 0;
-		}
-	};
-
-	Object.assign(meta[1], {
-		oncut: event => {
-			// TODO: make sure it include full lines in cut
-		},
-		onpaste: event => {
-			// TODO: make sure it doesn't paste in the middle of a line and don't replace selection text
-			// - shift currently selected line down unless selectionStart is at the end of current line
-		},
-		onkeydown: event => {
-			event.preventDefault();
-			// TODO: allow manual edits that modify the fields within the form that is tied to this line
-			// - also add code that updates textarea when those fields are updated
-			// - this can be a phase 2 task
-		},
-		onselectionchange: event => {
-			const { value, selectionStart, selectionEnd } = event.target;
-
-			if (selectionStart === selectionEnd) {
-				Object.assign(state, { start: 0, end: 0 });
-				return;
-			}
-
-			const newStart = value.slice(0, selectionStart).replace(/[\r\n]*[^\r\n]+$/, '').match(/[^\r\n]+/g)?.length || 0;
-			const newEnd = newStart + (value.slice(selectionStart, selectionEnd).replace(/[\r\n]+$/, '').match(/[\r\n]+/g)?.length || 0) + 1;
-			Object.assign(state, { start: newStart, end: newEnd });
-		},
-	});
-
-	meta[2] = indexes.map((index, i) => {
-		if (index < 0) {
+		if (index === -1) {
 			return;
 		}
 
-		let [type, label,, placeholder = ''] = options[index];
-		let value = array[i] || (type === 'string' ? '' : null);
+		const [, textarea] = ref[0];
+		textarea.value += `\n${renderIdentifier(options[index], indexes.length, array)}`;
+		state.indexes = [...indexes, index];
+		event.target.selectedIndex = 0;
+		resizeTextarea([[textarea]]);
+	};
 
-		if (type[0] === '/') {
-			type = `${label && type.length === 1 ? `${label} ` : ''}${type}${value?.['']?.slice?.(type.length) || ''} `;
-			value = placeholder && value?.[placeholder] || '';
-		} else {
-			type = typeof value === 'string' ? '// ' : '/';
-		}
+	Object.assign(meta[1], {
+		onfocus: event => {
+			// TODO: update the text of previously visible rows, in case they were updated
+			// - this doesn't affect how things are saved. It just helps with the UI to avoid confusion.
+		},
+		onselectionchange: event => {
+			let { value, selectionStart, selectionEnd } = event.target;
 
-		return `${i + 1}. ${type}${value}`;
-	}).filter(value => value).join('\n');
+			if (selectionStart === selectionEnd) {
+				Object.assign(state, { selectionText: '', start: 1, visibleIndexes: new Set() });
+				return;
+			} else if (/[\r\n]/.test(value[selectionEnd - 1])) {
+				selectionEnd -= 1;
+			}
+
+			const before = value.slice(0, selectionStart).replace(/[^\r\n]+$/, '');
+			const after = value.slice(selectionEnd).replace(/^[^\r\n]+/, '');
+			const selectionText = value.slice(before.length, after ? -after.length : value.length).trim();
+
+			if (selectionText === state.selectionText) {
+				return;
+			}
+
+			const start = (before.match(/(^|\r|\n)\d+/g)?.length || 0) + 1;
+			const lines = selectionText.split(/[\r\n]+/);
+			const visibleIndexes = new Set(lines.map(line => Number(line.match(/^\s*0*(\d*)/)[1])));
+			Object.assign(state, { selectionText, start, visibleIndexes });
+		},
+	});
 
 	// TODO: add button as shortcut for selecting the first option if there is only one
-	return ['', null,
+	return ref = ['', null,
 		select,
 		meta,
-		['ol', { start: start + 1, className: start < 9 ? '' : 'extra-padding' },
+		['ol', { start, className: start < 10 ? '' : 'extra-padding' },
 			...indexes.map((index, i) => {
 				if (index < 0) {
 					return;
 				}
 				
 				const definition = options[index][2];
-				const props = visibleIndex >= start && visibleIndex < end ? null : { style: { display: 'none' } };
-				visibleIndex++;
+				const props = visibleIndexes.has(i + 1) ? null : { style: { display: 'none' } };
 				return ['li', props, Field(definition, array[i], ...names, i)];
 			}),
 		],
@@ -343,7 +366,10 @@ function ObjectField ({ schema = {}, data = {}, path, names }, field) {
 	if (complex) {
 		const base = stew(fetchCode, [path], null);
 		const list = stew(fetchList, [path], null);
-		existingData = stew(fetchData, [path], null);
+
+		if (selection) {
+			existingData = stew(fetchData, [`${path}/${selection}`], null);
+		}
 
 		if (!base || !existingData || !list) {
 			return;
@@ -404,18 +430,21 @@ function ObjectField ({ schema = {}, data = {}, path, names }, field) {
 			label[2] = name;
 		}
 
-		if (existingValue) {
+		if (existingValue && label[0] === 'label') {
 			item.push(['input', { value: existingValue, disabled: true }]);
 		}
 	}
 
+	// TODO: figure out why this isn't filling in the content of the new <li> that was added from ArraySelect
+	// - it seems to be getting here, but <ul> is empty
+
 	return !names.length ? list : ['', null, [
 		...field,
-		!expanded && ['button', {
+		['button', {
 			type: 'button',
 			className: 'action-button',
-			onclick: () => state.expanded = true,
-		}, selection ? 'Override' : 'Create'],
+			onclick: () => state.expanded = !expanded,
+		}, expanded ? 'Hide' : selection ? 'Override' : 'Create'],
 		select,
 	], meta, list];
 }

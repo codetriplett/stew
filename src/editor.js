@@ -56,7 +56,7 @@ async function save (path, formRef, textareaRef, isCommit, skipReload) {
 	}
 }
 
-function resizeTextarea (ref) {
+export function resizeTextarea (ref) {
 	const { scrollX, scrollY } = window;
 	const [textarea] = ref[0];
 	textarea.style.height = '0px';
@@ -146,7 +146,13 @@ function insert (ref, symbol) {
 export default function Editor ({ path, file, schema, isModule }) {
 	const { data } = state;
 	let formRef, textareaRef;
-	stew(null, [], () => resizeTextarea(textareaRef));
+
+	stew(null, [], () => {
+		const { classList } = document.body;
+		classList.add('edit-active');
+		resizeTextarea(textareaRef);
+		return () => classList.remove('edit-active');
+	});
 
 	return ['', null,
 		[Sidebar, { icon: 'menu', hideContent: true },

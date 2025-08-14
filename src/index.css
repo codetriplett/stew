@@ -51,14 +51,7 @@ body.dark-theme {
 }
 
 :root {
-	--left-sidebar-width: 0px;
-	--right-sidebar-width: 0px;
-}
-.left-sidebar-active {
 	--left-sidebar-width: 240px;
-}
-.right-sidebar-active {
-	--right-sidebar-width: 480px;
 }
 
 #app {
@@ -70,7 +63,7 @@ body.dark-theme {
 
 .main {
 	flex: 1 0 0;
-	max-width: min(1200px, calc(100dvw - 8px - var(--left-sidebar-width) - var(--right-sidebar-width)));
+	max-width: min(1200px, calc(100dvw - 8px));
 	overflow-x: auto;
 
 	h1 {
@@ -153,13 +146,13 @@ body.dark-theme {
 	margin: 0;
 	overflow-x: visible;
 	overflow-y: auto;
-} 
+}
 .sidebar-left {
-	flex: 0 0 240px;
-	max-width: 240px;
+	flex: 0 0 var(--left-sidebar-width);
+	max-width: var(--left-sidebar-width);
 
 	.scroll {
-		width: 240px;
+		width: var(--left-sidebar-width);
 	}
 }
 .sidebar-right {
@@ -177,6 +170,9 @@ body.dark-theme {
 	.scroll {
 		display: none;
 	}
+}
+body.edit-active {
+	--left-sidebar-width: 360px;
 }
 
 .left-button,
@@ -229,12 +225,12 @@ body.dark-theme {
 }
 .sidebar-left > .toggle {
     top: 18px;
-    right: -46px;
+    right: -48px;
 	left: auto;
 }
 .sidebar-right > .toggle {
     top: 18px;
-    left: -46px;
+    left: -48px;
 	right: auto;
 }
 
@@ -306,7 +302,8 @@ form input:not([type="checkbox"]),
 form select,
 form textarea {
     display: block;
-	width: 224px;
+	width: 100%;
+	min-width: 224px;
     margin-top: 5px;
 }
 form input[type="checkbox"] {
@@ -449,7 +446,7 @@ form textarea {
 		.menu-button {
 			position: fixed;
 			top: 18px;
-			left: 260px;
+			left: calc(var(--left-sidebar-width) + 20px);
 		}
 	}
 	.show-right {
@@ -474,5 +471,11 @@ form textarea {
 	.toggle,
 	.toolbar-centered {
 		box-shadow: 0 0 8px 8px var(--paper-background);
+	}
+}
+
+@media (max-width: 430px) {
+	body.edit-active {
+		--left-sidebar-width: calc(100dvw - 72px);
 	}
 }
