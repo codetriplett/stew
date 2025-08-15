@@ -134,6 +134,9 @@ body.dark-theme {
 	box-shadow: 0 0 8px 0 var(--paper-shadow);
 	color: var(--paper-font-color);
 }
+.paper {
+	min-height: calc(100dvh - 24px);
+}
 .sidebar {
 	position: relative;
 	color: var(--paper-font-color);
@@ -360,6 +363,9 @@ form textarea {
     position: static;
 	margin: 0 3px;
 }
+.sidebar-left:not(.sidebar-hidden) + .main .toolbar {
+	padding-left: var(--left-sidebar-width);
+}
 
 .theme-button:after {
 	background-position-x: calc((0 * 16px + 1px) * -1.2);
@@ -469,8 +475,43 @@ form textarea {
 		}
 	}
 	.toggle,
-	.toolbar-centered {
+	.toolbar-centered,
+	.left-button,
+	.right-button {
 		box-shadow: 0 0 8px 8px var(--paper-background);
+	}
+
+	.edit-active {
+		.main textarea {
+			margin-top: 0;
+		}
+		.sidebar-left > .toggle {
+			position: fixed;
+			top: auto;
+			bottom: 20px;
+		}
+		.right-button {
+			position: fixed;
+			top: auto;
+			bottom: 20px;
+			right: 20px;
+		}
+		&:not(.show-left) .sidebar-left > .toggle {
+			left: 20px;
+		}
+		&.show-left .right-button {
+			bottom: auto;
+			right: auto;
+			top: 20px;
+			left: calc(var(--left-sidebar-width) + 20px);
+		}
+		.toolbar {
+			bottom: 18px;
+			padding: 0 !important;
+		}
+	}
+	.show-left .toolbar {
+		display: none;
 	}
 }
 

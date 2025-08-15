@@ -1,6 +1,6 @@
 import state, { updateSettings } from '.';
 
-export default function Sidebar ({ isRight = false, hideContent = false, icon, toggleProp, widget, Component }, ...children) {
+export default function Sidebar ({ isRight = false, isForm = false, icon, toggleProp, widget, Component }, ...children) {
 	if (widget?.length > 2) {
 		children.unshift(['div', null,
 			['template', { shadowrootmode: 'open' }, widget],
@@ -10,7 +10,8 @@ export default function Sidebar ({ isRight = false, hideContent = false, icon, t
 	const { settings, hasMounted } = state;
 	const side = isRight ? 'right' : 'left';
 	const sideProp = isRight ? 'showRight' : 'showLeft';
-	const show = toggleProp ? settings[toggleProp] : state[sideProp];
+	const sidebarState = !isForm ? state : stew({ [sideProp]: true }, []);
+	const show = toggleProp ? settings[toggleProp] : sidebarState[sideProp];
 	const { classList } = document.body;
 	const toggleClass = `show-${side}`;
 	const eligible = children.some(child => child);
@@ -26,7 +27,7 @@ export default function Sidebar ({ isRight = false, hideContent = false, icon, t
 	return hasMounted && ['div', {
 		className: `sidebar sidebar-${side} ${active ? '': 'sidebar-hidden'}`,
 	},
-		(active || hideContent) && ['div', {
+		(active || isForm) && ['div', {
 			className: `scroll scroll-${side}`,
 		}, ...children],
 		eligible && ['button', {
@@ -43,7 +44,7 @@ export default function Sidebar ({ isRight = false, hideContent = false, icon, t
 				if (toggleProp) {
 					updateSettings({ [toggleProp]: !show });
 				} else {
-					state[sideProp] = !show;
+					sidebarState[sideProp] = !show;
 				}
 
 				if (show) {

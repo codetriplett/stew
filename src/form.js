@@ -30,7 +30,7 @@ export function extractData (form) {
 		return;
 	}
 	
-	const orderMap = new Map();
+	const arrays = [];
 	const data = {};
 
 	for (const input of form.elements) {
@@ -41,10 +41,12 @@ export function extractData (form) {
 		}
 
 		const names = id.split(/\.|(?=\[)/).map(name => name[0] === '[' ? Number(name.slice(1, -1)) : name);
-		const finalName = names.pop();
+		let finalName = names.pop();
 		const isOrder = !finalName && tagName.toLowerCase() === 'textarea';
 
-		if (!isOrder) {
+		if (isOrder) {
+			finalName = names.pop();
+		} else {
 			value = convertValue(type, value, checked);
 
 			if (!value) {
@@ -64,13 +66,19 @@ export function extractData (form) {
 		}, data);
 
 		if (isOrder) {
-			orderMap.set(object, value);
+			arrays.push([object, finalName, value]);
 		} else {
 			object[finalName] = value;
 		}
 	}
 
-	for (const [array, order] of orderMap) {
+	for (const [object, name, order] of arrays) {
+		const array = object[name];
+
+		if (!array) {
+			continue;
+		}
+
 		const lines = order.trim().split(/\s*[\r\n]+\s*/);
 		const items = array.splice(0);
 
@@ -80,6 +88,10 @@ export function extractData (form) {
 			if (index > 0) {
 				array.push(items[index - 1]);
 			}
+		}
+
+		if (!array.length) {
+			delete object[name];
 		}
 	}
 
@@ -121,15 +133,22 @@ function ValueSelect ({ options, names, value }, select) {
 	];
 }
 
-function renderIdentifier (option, i, array) {
+function renderIdentifier (option, i, value) {
 	let [type, label,, placeholder = ''] = option;
-	let value = array[i] || (type === 'string' ? '' : null);
+
+	if (!value) {
+		value = type === 'string' ? '' : null;
+	}
 
 	if (type[0] === '/') {
-		type = `${label && type.length === 1 ? `${label} ` : ''}${type}${value?.['']?.slice?.(type.length) || ''} `;
-		value = placeholder && value?.[placeholder] || '';
+		type = `${label && type.length === 1 ? `${label} ` : ''}${type}${value?.['']?.slice?.(type.length) || ''}`;
+		value = type === '/' ? ` ${placeholder && value?.[placeholder] || ''}` : '';
 	} else {
-		type = typeof value === 'string' ? '// ' : '/';
+		type = !type || type === 'string' ? '// ' : '/';
+
+		if (typeof value === 'object') {
+			value = null;
+		}
 	}
 
 	return `${i + 1}. ${type}${value}`;
@@ -142,7 +161,9 @@ function ArraySelect ({ options, names, array }, select) {
 
 	const state = stew({
 		indexes: initialIndexes,
-		selectionText: '',
+		before: '',
+		between: '',
+		after: '',
 		start: 1,
 		visibleIndexes: new Set(),
 	}, [array]);
@@ -157,7 +178,7 @@ function ArraySelect ({ options, names, array }, select) {
 
 	const meta = stew(() => {
 		const text = indexes.map((index, i) => {
-			return index < 0 ? '' : renderIdentifier(options[index], i, array);
+			return index < 0 ? '' : renderIdentifier(options[index], i, array[i]);
 		}).filter(value => value).join('\n');
 		
 		const field = Field('textarea//', '', ...names, '');
@@ -173,7 +194,10 @@ function ArraySelect ({ options, names, array }, select) {
 		}
 
 		const [, textarea] = ref[0];
-		textarea.value += `\n${renderIdentifier(options[index], indexes.length, array)}`;
+		const option = options[index];
+		const [type,,, placeholder] = option;
+		const value = type ? null : placeholder;
+		textarea.value += `\n${renderIdentifier(option, indexes.length, value)}`;
 		state.indexes = [...indexes, index];
 		event.target.selectedIndex = 0;
 		resizeTextarea([[textarea]]);
@@ -181,14 +205,37 @@ function ArraySelect ({ options, names, array }, select) {
 
 	Object.assign(meta[1], {
 		onfocus: event => {
-			// TODO: update the text of previously visible rows, in case they were updated
-			// - this doesn't affect how things are saved. It just helps with the UI to avoid confusion.
+			const { before, between, after } = state;
+
+			if (!between) {
+				return;
+			}
+
+			const [,, list] = ref[0];
+			const items = list.querySelectorAll('li');
+			const lines = between.split(/[\r\n]+/);
+			const lineIndexes = lines.map(line => Number(line.match(/^\s*0*(\d*)/)[1]));
+			
+			const newLines = lineIndexes.map((lineIndex, i) => {
+				const arrayIndex = lineIndex - 1;
+				const input = items[arrayIndex]?.querySelector?.('input');
+
+				if (!input) {
+					return lines[i];
+				}
+
+				const { id, value } = input;
+				const index = indexes[arrayIndex];
+				return renderIdentifier(options[index], arrayIndex, id.endsWith('.') ? { '': value } : value);
+			});
+
+			event.target.value = `${before}${newLines.join('\n')}${after}`;
 		},
 		onselectionchange: event => {
 			let { value, selectionStart, selectionEnd } = event.target;
 
 			if (selectionStart === selectionEnd) {
-				Object.assign(state, { selectionText: '', start: 1, visibleIndexes: new Set() });
+				Object.assign(state, { between: '', start: 1, visibleIndexes: new Set() });
 				return;
 			} else if (/[\r\n]/.test(value[selectionEnd - 1])) {
 				selectionEnd -= 1;
@@ -196,16 +243,16 @@ function ArraySelect ({ options, names, array }, select) {
 
 			const before = value.slice(0, selectionStart).replace(/[^\r\n]+$/, '');
 			const after = value.slice(selectionEnd).replace(/^[^\r\n]+/, '');
-			const selectionText = value.slice(before.length, after ? -after.length : value.length).trim();
+			const between = value.slice(before.length, after ? -after.length : value.length).trim();
 
-			if (selectionText === state.selectionText) {
+			if (between === state.between) {
 				return;
 			}
 
 			const start = (before.match(/(^|\r|\n)\d+/g)?.length || 0) + 1;
-			const lines = selectionText.split(/[\r\n]+/);
+			const lines = between.split(/[\r\n]+/);
 			const visibleIndexes = new Set(lines.map(line => Number(line.match(/^\s*0*(\d*)/)[1])));
-			Object.assign(state, { selectionText, start, visibleIndexes });
+			Object.assign(state, { before, between, after, start, visibleIndexes });
 		},
 	});
 
@@ -444,7 +491,7 @@ function ObjectField ({ schema = {}, data = {}, path, names }, field) {
 			type: 'button',
 			className: 'action-button',
 			onclick: () => state.expanded = !expanded,
-		}, expanded ? 'Hide' : selection ? 'Override' : 'Create'],
+		}, expanded ? 'Hide' : selection ? 'Override' : 'Show'],
 		select,
 	], meta, list];
 }

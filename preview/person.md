@@ -2,7 +2,7 @@
 {
 	name: 'Name // Enter name',
 	age: 'Age /.. Enter age',
-	friends: ['Friends /.. Add friend...', 'Person /person// name'],
+	friends: ['Friends /.. Add friend...', 'Person /person// Choose a person...'],
 }
 ```
 
