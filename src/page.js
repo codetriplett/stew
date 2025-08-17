@@ -4,8 +4,6 @@ import { fetchNote } from './fetch';
 import Editor from './editor';
 import Sidebar from './sidebar';
 
-const styles = document.querySelector('#styles').textContent;
-
 function addSnips (...newSnips) {
 	const { classList } = document.body;
 	const { snips } = state;
@@ -53,6 +51,8 @@ function LeftMenuList (map, hashes) {
 						const { pathname, hash } = window.location;
 
 						if (name !== hash.slice(1)) {
+							const { classList } = document.body;
+							classList.remove('show-left');
 							window.location.hash = name;
 						} else {
 							addSnips(`${pathname}${hash}`);
@@ -85,6 +85,22 @@ function LeftMenu ({ map, ref, directory }, widget) {
 	const hashes = map[root]?.[0];
 	const citations = focusedSection && map[focusedSection]?.slice?.(2) || [];
 
+	const citationButtons = citations.map(citation => {
+		const { href } = citation[1];
+		const [path, ...hashes] = href.split('#');
+		const text = getText(citation);
+
+		return hashes.length > 0 && ['li', null,
+			['button', {
+				type: 'button',
+				className: 'citation-button',
+				onclick: () => {
+					addSnips(...hashes.map(hash => `${path}#${hash}`));
+				},
+			}, text],
+		];
+	}).filter(button => button);
+
 	return [Sidebar, { icon: 'menu', toggleProp: 'showMenu', widget },
 		!directory ? LeftMenuList(map, hashes) : directory.length > 0 && ['ul', {
 			className: 'children',
@@ -98,29 +114,13 @@ function LeftMenu ({ map, ref, directory }, widget) {
 				];
 			}),
 		],
-		citations.length > 0 && ['ul', {
+		citationButtons.length > 0 && ['ul', {
 			className: 'citations',
-		},
-			citations.map(citation => {
-				const { href } = citation[1];
-				const text = getText(citation);
-
-				return ['li', null,
-					['button', {
-						type: 'button',
-						className: 'citation-button',
-						onclick: () => {
-							const [path, ...hashes] = href.split('#');
-							addSnips(...hashes.map(hash => `${path}#${hash}`));
-						},
-					}, text],
-				];
-			}),
-		],
+		}, ...citationButtons],
 	];
 }
 
-function Citation ({ snip }) {
+function Citation ({ snip, styles }) {
 	const [path] = snip.replace(/^\/+/, '').split('#');
 	const markdown = stew(fetchNote, [path], undefined);
 	let content = markdown ? stew(markdown, [snip]) : markdown === undefined ? null : ['p', null, `File not found: /${path}.md`];
@@ -189,6 +189,8 @@ export default function Page ({ path, map, ref, breadcrumbs, heading, isModule, 
 		return [Editor, { path, file: markdown, schema, isModule }];
 	}
 
+	const styles = stew(() => document.querySelector('#styles').textContent, []);
+
 	stew(null, [], () => {
 		scrollTo(window.location.hash, 'instant');
 		state.hasMounted = true;
@@ -224,7 +226,7 @@ export default function Page ({ path, map, ref, breadcrumbs, heading, isModule, 
 			],
 		],
 		[Sidebar, { isRight: true, icon: 'snips', toggleProp: 'showSnips' },
-			...snips.map(snip => [Citation, { '': snip, snip }]),
+			...snips.map(snip => [Citation, { '': snip, snip, styles }]),
 		],
 	];
 }

@@ -1,5 +1,5 @@
 import { fetchCode, fetchData, fetchList } from './fetch';
-import { resizeTextarea } from './editor';
+import { resizeTextarea } from './helpers';
 
 function convertValue (type, value, checked) {
 	if (!type) {
@@ -30,7 +30,7 @@ export function extractData (form) {
 		return;
 	}
 	
-	const arrays = [];
+	const metas = [];
 	const data = {};
 
 	for (const input of form.elements) {
@@ -42,9 +42,9 @@ export function extractData (form) {
 
 		const names = id.split(/\.|(?=\[)/).map(name => name[0] === '[' ? Number(name.slice(1, -1)) : name);
 		let finalName = names.pop();
-		const isOrder = !finalName && tagName.toLowerCase() === 'textarea';
+		const isMeta = finalName === '';
 
-		if (isOrder) {
+		if (isMeta) {
 			finalName = names.pop();
 		} else {
 			value = convertValue(type, value, checked);
@@ -59,39 +59,45 @@ export function extractData (form) {
 				return object[name];
 			}
 
-			const nextName = names[i + 1] ?? (isOrder ? 0 : finalName);
+			const nextName = names[i + 1] ?? finalName;
 			const newObject = typeof nextName === 'number' ? [] : {};
 			object[name] = newObject;
 			return newObject;
 		}, data);
 
-		if (isOrder) {
-			arrays.push([object, finalName, value]);
+		if (isMeta) {
+			metas.push([object, finalName, value, tagName.toLowerCase()]);
 		} else {
 			object[finalName] = value;
 		}
 	}
 
-	for (const [object, name, order] of arrays) {
-		const array = object[name];
+	for (const [object, name, value, tagName] of metas) {
+		const structure = object[name];
 
-		if (!array) {
+		if (tagName === 'input') {
+			if (structure || /[^\/]$/.test(value)) {
+				object[name] = { '': value, ...structure };
+			}
+
+			continue;
+		} else if (!structure) {
 			continue;
 		}
 
-		const lines = order.trim().split(/\s*[\r\n]+\s*/);
-		const items = array.splice(0);
+		const lines = value.trim().split(/\s*[\r\n]+\s*/);
+		const items = structure.splice(0);
 
 		for (const line of lines) {
 			const [, index] = line.match(/^\s*(\d+)\./) || [];
 			const item = items[index - 1];
 
 			if (index > 0 && item !== null) {
-				array.push(item);
+				structure.push(item);
 			}
 		}
 
-		if (!array.length) {
+		if (!structure.length) {
 			delete object[name];
 		}
 	}
@@ -362,7 +368,7 @@ export function Select (definitions, value, ...names) {
 	const select = ['label', { className: 'select-label' },
 		label,
 		options.length === 1 && type && type !== 'boolean'
-			? ['button', { className: 'action-button' }, placeholder || 'Add']
+			? ['button', { type: 'button', className: 'action-button' }, placeholder || 'Add']
 			: ['select', {},
 				['option', { selected: true }, placeholder || 'Select an item...'],
 				...options.map(([type, label,, value]) => ['option', null, label || type || value]),
@@ -471,14 +477,14 @@ function ObjectField ({ schema = {}, data = {}, path, names }, field) {
 		});
 	}
 	
-	const list = ['ul', null];
+	const list = ['ul', expanded ? null : { style: { display: 'none' } }];
 	let meta;
 	
 	if (path) {
 		meta = Field(`/ /${path}/${selection}`, undefined, ...names, '');
 	}
 
-	for (const [name, definition] of Object.entries(expanded ? schema : {})) {
+	for (const [name, definition] of Object.entries(schema)) {
 		const isOverride = !selection || overrides.indexOf(name) !== -1;
 		const value = isOverride ? data[name] : undefined;
 		const item = ['li', null, Field(definition, value, ...names, name)];

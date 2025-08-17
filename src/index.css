@@ -280,8 +280,8 @@ span.child-button {
 	color: var(--reference-font-color);
 }
 
-form ul,
-form ol {
+.sidebar form ul,
+.sidebar form ol {
 	display: flex;
 	gap: 10px;
 	flex-direction: column;
@@ -289,12 +289,12 @@ form ol {
 	padding-left: 16px;
 	border-left: 1px solid var(--paper-font-color);
 }
-form > ul {
-	margin: 42px 0 0;
+.sidebar form > ul {
+	margin: 0;
 	padding-left: 0;
 	border-left: none;
 }
-form ol {
+.sidebar form ol {
 	padding-left: 24px;
 
 	.extra-padding {
@@ -445,6 +445,18 @@ form textarea {
 			display: none;
 		}
 	}
+	body:not(.show-left, .show-right, .edit-active) .sidebar-left > .toggle {
+		position: fixed;
+		top: 18px;
+		left: 18px;
+		right: auto;
+	}
+	body:not(.show-left, .show-right, .edit-active) .sidebar-right > .toggle {
+		position: fixed;
+		top: 18px;
+		right: 18px;
+		left: auto;
+	}
 	.show-left {
 		.toolbar {
 			display: none;
@@ -483,7 +495,7 @@ form textarea {
 
 	.edit-active {
 		.main textarea {
-			margin-top: 0;
+			margin: 0 0 48px;
 		}
 		.sidebar-left > .toggle {
 			position: fixed;

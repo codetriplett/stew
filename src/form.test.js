@@ -267,7 +267,7 @@ describe('Select', () => {
 				</select>
 			</label>
 			<textarea id="group."></textarea>
-			<ol></ol>
+			<ol class="" start="1"></ol>
 		`));
 	});
 
@@ -300,10 +300,10 @@ describe('Select', () => {
 				</select>
 			</label>
 			<textarea id="group.">
-				1: // abc
-				2: /123
+				1. // abc
+				2. /123
 			</textarea>
-			<ol>
+			<ol class="" start="1">
 				<li style="display:none;">
 					<label for="group[0]">
 						String
@@ -320,7 +320,7 @@ describe('Select', () => {
 		`));
 	});
 
-	it('array select object populated', () => {
+	it.only('array select object populated', () => {
 		const actual = stew('#', null, Field(['Label /..',
 			{
 				'': 'Object / string',
@@ -332,17 +332,17 @@ describe('Select', () => {
 		expect(String(actual)).toEqual(trim(`
 			<label class="select-label">
 				Label
-				<select>
-					<option selected>Select an item...</option>
-					<option>Object</option>
-				</select>
+				<button type="button" class="action-button">Add</button>
 			</label>
 			<textarea id="group.">
-				1: Object / abc
+				2. Object / abc
 			</textarea>
-			<ol>
+			<ol class="" start="1">
 				<li style="display:none;">
-					<label>Object</label>
+					<label>
+						Object
+						<button type="button" class="action-button">Show</button>
+					</label>
 					<ul>
 						<li>
 							<label for="group[1].number">

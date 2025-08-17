@@ -1,6 +1,7 @@
 import { extractData, Field } from './form';
 import { extractCode } from './code';
 import Sidebar from './sidebar';
+import { resizeTextarea } from './helpers';
 import state, { library } from '.';
 
 async function putFile (path, body, isCommit) {
@@ -54,15 +55,6 @@ async function save (path, formRef, textareaRef, isCommit, skipReload) {
 	if (!skipReload) {
 		window.location.reload();
 	}
-}
-
-export function resizeTextarea (ref) {
-	const { scrollX, scrollY } = window;
-	const [textarea] = ref[0];
-	textarea.style.height = '0px';
-	const { scrollHeight } = textarea;
-	textarea.style.height = `${scrollHeight}px`;
-	window.scrollTo(scrollX, scrollY);
 }
 
 function insert (ref, symbol) {

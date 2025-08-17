@@ -96,47 +96,45 @@ export function processMemo (callback, ...rest) {
 }
 
 export default function renderImpulse (info, props, children, context, document, nodes) {
-	if (info[1]) {
-		const [update] = info[1];
-		nodes.push(...update(context, props, ...children));
-		return;
+	if (!info[1]) {
+		const [callback] = info;
+		const [parentNode] = nodes;
+		let anchor, prevParams, prevNodes;
+
+		const update = (...params) => {
+			if (!params.length) {
+				params = prevParams;
+			}
+
+			const [context, ...rest] = params;
+			info.push(context[''], document === stew ? null : info.splice(4));
+			stack.unshift(info);
+			const layout = execute(callback, ...rest);
+			const prevProxy = info[3];
+			const nodes = [parentNode];
+			const proxy = render(layout, context, document, nodes, info, 0, {});
+			nodes.shift();
+
+			if (proxy !== prevProxy) {
+				remove(prevProxy, parentNode);
+			}
+
+			if (params === prevParams) {
+				reconcile(parentNode, nodes, prevNodes, anchor);
+			} else {
+				prevParams = params;
+			}
+
+			stack.shift();
+			info.splice(4, 2);
+			prevNodes = nodes;
+			return [...nodes, anchor];
+		};
+
+		anchor = document.createTextNode('');
+		info.splice(1, 3, [update, new Set(), ...stack.map(info => info[1])], anchor, null);
 	}
 
-	const [callback] = info;
-	const [parentNode] = nodes;
-	let anchor, prevParams, prevNodes;
-
-	const update = (...params) => {
-		if (!params.length) {
-			params = prevParams;
-		}
-
-		const [context, ...rest] = params;
-		info.push(context[''], document === stew ? null : info.splice(4));
-		stack.unshift(info);
-		const layout = execute(callback, ...rest);
-		const prevProxy = info[3];
-		const nodes = [parentNode];
-		const proxy = render(layout, context, document, nodes, info, 0, {});
-		nodes.shift();
-
-		if (proxy !== prevProxy) {
-			remove(prevProxy, parentNode);
-		}
-
-		if (params === prevParams) {
-			reconcile(parentNode, nodes, prevNodes, anchor);
-		} else {
-			prevParams = params;
-		}
-
-		stack.shift();
-		info.splice(4, 2);
-		prevNodes = nodes;
-		return [...nodes, anchor];
-	};
-
-	anchor = document.createTextNode('');
-	info.splice(1, 3, [update, new Set(), ...stack.map(info => info[1])], anchor, null);
+	const [update] = info[1];
 	nodes.push(...update(context, props, ...children));
 }

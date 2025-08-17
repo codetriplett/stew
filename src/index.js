@@ -66,7 +66,7 @@ export function updateSettings (updates) {
 }
 
 export function scrollTo (hash, behavior) {
-	const container = document.querySelector('.main > .paper > div');
+	const container = document.querySelector('#app > .main > .paper > div');
 	let top = 0;
 
 	if (!container) {
@@ -79,7 +79,7 @@ export function scrollTo (hash, behavior) {
 		}
 
 		const { y = 0 } = heading.getBoundingClientRect();
-		top = y + window.scrollY - 15;
+		top = y + window.scrollY - (window.innerWidth > 1200 ? 15 : 64);
 	}
 
     window.scrollTo({ top, behavior });
@@ -180,7 +180,14 @@ Promise.all([...promises, fetchCode('index')]).then(async sequence => {
 			heading = string;
 		}
 
-		breadcrumbs.push(['a', { href: `/${paths.pop()}` }, heading || 'Unknown']);
+		const path = paths.pop();
+
+		if (!heading) {
+			const name = path.slice(0, -1).split('/').pop();
+			heading = formatHeading(name);
+		}
+
+		breadcrumbs.push(['a', { href: `/${path}` }, heading || 'Unknown']);
 		schema = rest;
 	}
 
