@@ -98,51 +98,45 @@ export function processMemo (callback, ...rest) {
 export default function renderImpulse (info, props, children, context, document, nodes) {
 	if (info[1]) {
 		const [update] = info[1];
-		return update(props, ...children);
+		nodes.push(...update(context, props, ...children));
+		return;
 	}
 
 	const [callback] = info;
 	const [parentNode] = nodes;
 	let anchor, prevParams, prevNodes;
 
-	// TODO: put anchor at the end of slice
-	// - store nodes[nodes.length - 1] to find the start of slice (in case impulses before this one have updated)
-	// - that stored node will never change, since impulses are the only ones that do and always end with their anchor
-	// - anchor can always be used as sibling during reconciliation
 	const update = (...params) => {
-		let siblings;
-		info.push(context[''], document === stew ? null : info.splice(4));
-		stack.unshift(info);
-
 		if (!params.length) {
-			const index = nodes.indexOf(anchor);
-			siblings = nodes.splice(index - prevNodes.length);
 			params = prevParams;
 		}
 
-		const layout = execute(callback, ...params);
+		const [context, ...rest] = params;
+		info.push(context[''], document === stew ? null : info.splice(4));
+		stack.unshift(info);
+		const layout = execute(callback, ...rest);
 		const prevProxy = info[3];
-		const { length } = nodes;
+		const nodes = [parentNode];
 		const proxy = render(layout, context, document, nodes, info, 0, {});
-		const nextNodes = nodes.slice(length);
+		nodes.shift();
 
 		if (proxy !== prevProxy) {
 			remove(prevProxy, parentNode);
 		}
-	
-		if (siblings) {
-			nodes.push(...siblings);
-			reconcile(parentNode, nextNodes, prevNodes, anchor);
+
+		if (params === prevParams) {
+			reconcile(parentNode, nodes, prevNodes, anchor);
+		} else {
+			prevParams = params;
 		}
 
 		stack.shift();
 		info.splice(4, 2);
-		prevParams = params;
-		prevNodes = nextNodes;
+		prevNodes = nodes;
+		return [...nodes, anchor];
 	};
 
 	anchor = document.createTextNode('');
 	info.splice(1, 3, [update, new Set(), ...stack.map(info => info[1])], anchor, null);
-	update(props, ...children);
-	nodes.push(...prevNodes, anchor);
+	nodes.push(...update(context, props, ...children));
 }

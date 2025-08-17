@@ -84,9 +84,10 @@ export function extractData (form) {
 
 		for (const line of lines) {
 			const [, index] = line.match(/^\s*(\d+)\./) || [];
+			const item = items[index - 1];
 
-			if (index > 0) {
-				array.push(items[index - 1]);
+			if (index > 0 && item !== null) {
+				array.push(item);
 			}
 		}
 
@@ -111,6 +112,17 @@ export function findOption (value, ...options) {
 	});
 }
 
+function attachListener (select, callback) {
+	const [tagName, props] = select[3];
+
+	if (tagName === 'select') {
+		props.onchange = callback;
+		return;
+	}
+
+	props.onclick = () => callback({ target: { selectedIndex: 1 } });
+}
+
 function ValueSelect ({ options, names, value }, select) {
 	const state = stew({ index: findOption(value, ...options) }, [value]);
 	const { index } = state;
@@ -126,7 +138,6 @@ function ValueSelect ({ options, names, value }, select) {
 		select.selectedIndex = index + 1;
 	});
 
-	// TODO: add button as shortcut for selecting the first option if there is only one
 	return ref = ['', null,
 		select,
 		index > -1 && Field(options[index][2], value, ...names),
@@ -141,7 +152,8 @@ function renderIdentifier (option, i, value) {
 	}
 
 	if (type[0] === '/') {
-		type = `${label && type.length === 1 ? `${label} ` : ''}${type}${value?.['']?.slice?.(type.length) || ''}`;
+		const name = value?.[''] ? value[''].trim().split(' ')[0].slice(type.length) : '';
+		type = `${label && type.length === 1 ? `${label} ` : ''}${type}${name}`;
 		value = type === '/' ? ` ${placeholder && value?.[placeholder] || ''}` : '';
 	} else {
 		type = !type || type === 'string' ? '// ' : '/';
@@ -186,7 +198,7 @@ function ArraySelect ({ options, names, array }, select) {
 		return field;
 	}, [array]);
 
-	select[3][1].onchange = event => {
+	attachListener(select, event => {
 		const index = event.target.selectedIndex - 1;
 
 		if (index === -1) {
@@ -201,7 +213,7 @@ function ArraySelect ({ options, names, array }, select) {
 		state.indexes = [...indexes, index];
 		event.target.selectedIndex = 0;
 		resizeTextarea([[textarea]]);
-	};
+	});
 
 	Object.assign(meta[1], {
 		onfocus: event => {
@@ -212,7 +224,7 @@ function ArraySelect ({ options, names, array }, select) {
 			}
 
 			const [,, list] = ref[0];
-			const items = list.querySelectorAll('li');
+			const items = list.children;
 			const lines = between.split(/[\r\n]+/);
 			const lineIndexes = lines.map(line => Number(line.match(/^\s*0*(\d*)/)[1]));
 			
@@ -256,7 +268,6 @@ function ArraySelect ({ options, names, array }, select) {
 		},
 	});
 
-	// TODO: add button as shortcut for selecting the first option if there is only one
 	return ref = ['', null,
 		select,
 		meta,
@@ -284,16 +295,17 @@ function ObjectSelect ({ options, names, object }, select, input) {
 	const state = stew({ indexes: initialIndexes }, [object]);
 	const { indexes } = state;
 
-	select[3][1].onchange = event => {
+	attachListener(select, event => {
 		const index = event.target.selectedIndex - 1;
 
-		if (index > -1) {
-			state.indexes = [...state.indexes, index];
-			event.target.value = '';
+		if (index === -1) {
+			return;
 		}
-	};
 
-	// TODO: add button as shortcut for selecting the first option if there is only one
+		state.indexes = [...state.indexes, index];
+		event.target.selectedIndex = 0;
+	});
+
 	return ['', null,
 		select,
 		input[3],
@@ -349,10 +361,12 @@ export function Select (definitions, value, ...names) {
 
 	const select = ['label', { className: 'select-label' },
 		label,
-		['select', {},
-			['option', { selected: true }, placeholder || 'Select an item...'],
-			...options.map(([type, label,, value]) => ['option', null, label || type || value]),
-		],
+		options.length === 1 && type && type !== 'boolean'
+			? ['button', { className: 'action-button' }, placeholder || 'Add']
+			: ['select', {},
+				['option', { selected: true }, placeholder || 'Select an item...'],
+				...options.map(([type, label,, value]) => ['option', null, label || type || value]),
+			],
 	];
 
 	switch (type) {
@@ -401,24 +415,21 @@ function ObjectField ({ schema = {}, data = {}, path, names }, field) {
 		field.splice(0);
 	}
 
+	const [dataPath, ...overrides] = typeof data[''] === 'string' ? data[''].trim().split(/\s+/) : [''];
+
 	const state = stew({
-		expanded: !names.length || Object.keys(data).filter(key => key).length > 0,
-		selection: data?.['']?.split?.('/')?.pop?.() || '',
+		expanded: !names.length,
+		selection: dataPath.split('/').pop(),
 	}, []);
 
 	const { expanded, selection } = state;
-	let existingData = {};
 	let select;
 
 	if (complex) {
 		const base = stew(fetchCode, [path], null);
 		const list = stew(fetchList, [path], null);
 
-		if (selection) {
-			existingData = stew(fetchData, [`${path}/${selection}`], null);
-		}
-
-		if (!base || !existingData || !list) {
+		if (!base || !list) {
 			return;
 		} else if (!form || !input) {
 			form = globalThis.document.createElement('form');
@@ -439,7 +450,7 @@ function ObjectField ({ schema = {}, data = {}, path, names }, field) {
 					return form?.checkValidity?.() ?? true;
 				}).map(value => {
 					return ['option', { value }, value];
-				})
+				}),
 			]],
 		], [path]);
 
@@ -467,9 +478,10 @@ function ObjectField ({ schema = {}, data = {}, path, names }, field) {
 		meta = Field(`/ /${path}/${selection}`, undefined, ...names, '');
 	}
 
-	for (const [name, value] of Object.entries(expanded ? schema : {})) {
-		const existingValue = existingData[name];
-		const item = ['li', null, Field(value, data[name], ...names, name)];
+	for (const [name, definition] of Object.entries(expanded ? schema : {})) {
+		const isOverride = !selection || overrides.indexOf(name) !== -1;
+		const value = isOverride ? data[name] : undefined;
+		const item = ['li', null, Field(definition, value, ...names, name)];
 		const label = item[2];
 		list.push(item);
 
@@ -477,13 +489,10 @@ function ObjectField ({ schema = {}, data = {}, path, names }, field) {
 			label[2] = name;
 		}
 
-		if (existingValue && label[0] === 'label') {
-			item.push(['input', { value: existingValue, disabled: true }]);
+		if (!isOverride && label[0] === 'label') {
+			item.push(['input', { value: data[name] || '', disabled: true }]);
 		}
 	}
-
-	// TODO: figure out why this isn't filling in the content of the new <li> that was added from ArraySelect
-	// - it seems to be getting here, but <ul> is empty
 
 	return !names.length ? list : ['', null, [
 		...field,

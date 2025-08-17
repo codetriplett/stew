@@ -7,7 +7,8 @@ export default [person, {
     '': 'Person',
     name: 'Name // Enter name',
     age: 'Age /.. Enter age',
-    friends: ['Friends /.. Add friend...',
+    quest: 'Quest /index// Choose a quest...',
+    friends: ['Friends /.. Add friend',
         'Person /person// Choose a person...',
     ],
 }];
