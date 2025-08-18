@@ -132,7 +132,7 @@ function attachListener (select, callback) {
 function ValueSelect ({ options, names, value }, select) {
 	const state = stew({ index: findOption(value, ...options) }, [value]);
 	const { index } = state;
-	let ref;
+	let field, ref;
 
 	select[3][1].onchange = event => {
 		state.index = event.target.selectedIndex - 1;
@@ -144,10 +144,12 @@ function ValueSelect ({ options, names, value }, select) {
 		select.selectedIndex = index + 1;
 	});
 
-	return ref = ['', null,
-		select,
-		index > -1 && Field(options[index][2], value, ...names),
-	];
+	if (index > -1) {
+		field = Field(options[index][2], value, ...names);
+		field[2] = null;
+	}
+
+	return ref = ['', null, select, field];
 }
 
 function renderIdentifier (option, i, value) {

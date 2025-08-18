@@ -34,6 +34,9 @@ async function save (path, formRef, textareaRef, isCommit, skipReload) {
 	const data = formRef ? extractData(formRef[0][0]) : {};
 
 	if (!data) {
+		// TODO: show warning if form fails validation here
+		// - replace toolbar content with message and color it red
+		// - this wil ensure the warning is visible if form sidebar is hidden
 		return;
 	}
 
