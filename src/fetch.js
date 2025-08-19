@@ -1,13 +1,19 @@
+export function getItem (path, extension) {
+	path += `${!path || path.endsWith('/') ? 'index' : ''}.${extension}`;
+	const { pathname } = window.location;
+	const key = path.startsWith('/') ? path : `${pathname.replace(/[^\/]*$/, '')}${path}`;
+	return [path, localStorage.getItem(key)];
+}
+
 export async function fetchNote (path) {
-	path = `/${path}.md`;
-	const file = localStorage.getItem(path);
+	const [filepath, file] = getItem(path, 'md');
 
 	if (file) {
 		return file;
 	}
 
 	try {
-		const res  = await fetch(path);
+		const res  = await fetch(filepath);
 		return res.ok ? res.text() : '';
 	} catch (err) {
 		console.error(err);
@@ -41,7 +47,7 @@ export function hydrateData (data, cache, promises) {
 	if (!/^\/.*[^\/]$/.test(path)) {
 		return;
 	} else if (!(path in cache)) {
-		fetchData(path.slice(1), cache);
+		fetchData(path, cache);
 	}
 
 	const promise = cache[path].then(defaults => {
@@ -58,8 +64,7 @@ export function hydrateData (data, cache, promises) {
 }
 
 export async function fetchData (path, cache = {}) {
-	const filepath = `/${path}.json`;
-	const file = localStorage.getItem(filepath);
+	const [filepath, file] = getItem(path, 'json');
 
 	const promise = (file
 		? Promise.resolve(file).then(file => JSON.parse(file))
@@ -69,7 +74,7 @@ export async function fetchData (path, cache = {}) {
 		return {};
 	});
 
-	cache[`/${path}`] = promise;
+	cache[path] = promise;
 	const data = await promise;
 	const promises = [];
 	hydrateData(data, cache, promises);
@@ -78,11 +83,10 @@ export async function fetchData (path, cache = {}) {
 }
 
 export async function fetchCode (path) {
-	path = `/${path}.mjs`;
-	const file = localStorage.getItem(path);
+	const [filepath, file] = getItem(path, 'mjs');
 
 	try {
-		return import(!file ? path : URL.createObjectURL(
+		return import(!file ? filepath : URL.createObjectURL(
 			new Blob([file], { type: 'application/javascript' }),
 		));
 	} catch (err) {
@@ -92,21 +96,21 @@ export async function fetchCode (path) {
 }
 
 export async function fetchList (path) {
-	const folder = `/${path}/`;
+	const folder = `${path}/`;
 	const res = await fetch(`${folder}/`);
 	const names = await res.json();
 
-	for (const path in localStorage) {
-		if (!path.startsWith(folder) || path.lastIndexOf('/') !== folder.length - 1) {
+	for (const key in localStorage) {
+		if (!key.startsWith(folder) || key.lastIndexOf('/') !== folder.length - 1) {
 			continue;
 		}
 
 		let name;
 
-		if (path.endsWith('.md')) {
-			name = path.slice(folder.length, -3);
-		} else if (path.endsWith('.json')) {
-			name = path.slice(folder.length, -5);
+		if (key.endsWith('.md')) {
+			name = key.slice(folder.length, -3);
+		} else if (key.endsWith('.json')) {
+			name = key.slice(folder.length, -5);
 		}
 
 		if (name && names.indexOf(name) === -1) {

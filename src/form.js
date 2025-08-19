@@ -1,4 +1,4 @@
-import { fetchCode, fetchData, fetchList } from './fetch';
+import { fetchCode, fetchList } from './fetch';
 import { resizeTextarea } from './helpers';
 
 function convertValue (type, value, checked) {
@@ -347,7 +347,7 @@ export function Select (definitions, value, ...names) {
 			let { type = '', placeholder, disabled, value } = input[1];
 
 			if (path) {
-				type = `/${path}/`;
+				type = `${path}/`;
 			} else if (isObject) {
 				type = '/';
 				placeholder ||= value;
@@ -483,7 +483,7 @@ function ObjectField ({ schema = {}, data = {}, path, names }, field) {
 	let meta;
 	
 	if (path) {
-		meta = Field(`/ /${path}/${selection}`, undefined, ...names, '');
+		meta = Field(`/ ${path}/${selection}`, undefined, ...names, '');
 	}
 
 	for (const [name, definition] of Object.entries(schema)) {
@@ -538,8 +538,8 @@ export function Field (definition, data, ...names) {
 	let path;
 
 	if (slashes) {
-		const [, prefix, pattern] = slashes.match(/^(.*?)(?:((?:\\\/|[^\s\/])*?)\/)?$/);
-		path = prefix.slice(0, -1);
+		const [, prefix, pattern] = slashes.match(/^(.*?)\/(?:((?:\\\/|[^\s\/])*?)\/)?$/);
+		path = prefix ? `/${prefix}` : '';
 		type ||= 'text';
 		
 		if (pattern) {

@@ -5,17 +5,13 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
 
 <style id="styles">
-	h1 a:only-child,
-	h2 a:only-child,
-	h3 a:only-child,
-	h4 a:only-child,
-	h5 a:only-child,
-	h6 a:only-child {
-		position: relative;
-		text-decoration: none;
-		color: var(--paper-font-color);
-
-		&:hover::after {
+	h1, h2, h3, h4, h5, h6 {
+		a:only-child {
+			position: relative;
+			text-decoration: none;
+			color: var(--paper-font-color);
+		}
+		a[href^="\#"]:last-child:hover::after {
 			content: '#';
 			position: absolute;
 			left: calc(100% + 5px);

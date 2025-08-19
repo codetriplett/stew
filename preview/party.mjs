@@ -2,202 +2,95 @@ export function person () {
 	const [props, content] = arguments;
 
     if (!props) {
-        // missing props means we are rendering the landing page
-
-        return ['', null,
-            ['form', {
-                onsubmit: event => {
-                    // read the input value
-                    const { value } = event.target.elements.name;
-                    
-                    const formattedValue = value.toLowerCase() // only allow lowercase characters
-                        .replace(/[^a-z]+/g, '-') // replace any sequences of non-alpha characters with a dash
-                        .replaceAll(/^-|-$/g, ''); // trim dashes from start end end of string
-
-                    if (!formattedValue) {
-                        // cancel navigation if formatted name is empty
-                        event.preventDefault();
-                        return;
-                    }
-                
-                    // append formatted name to form's destination url
-                    event.target.action = formattedValue;
-                },
-            },
-                ['input', { id: 'name', placeholder: 'Enter Name' }],
-                ['button', { type: 'submit' }, 'View Contact'],
-            ],
-        ];
+        return ['a', { href: 'jeff' }, 'test'];
     }
 
-    // render the contact page
-    const {
-        name = 'Unknown', role = 'Commoner', theme = '#777777',
-        exp = 300, str = 1, def = 1,
-        quest, friends, items,
-    } = props;
+    const { name = 'Unknown', alias, theme = '#777777', quests = [] } = props;
+    let experience = 0;
 
-    let questSummary;
-
-    if (quest) {
-        const { '': path, quest: name, exp, type } = quest;
-
-        if (/[^\/]$/.test(path)) {
-            // TODO: store paths without leading slash
-            const note = stew(fetchNote, [path.slice(1)], null);
-            questSummary = stew(note, [`${window.location.pathname}#`]);
+    const questItems = quests.map(({ '': path, quest, exp = 0, type = 'home', complete }) => {
+        if (complete) {
+            experience += exp;
+            return;
         }
-    }
+    
+        return ['li', { className: `quest quest-${type}` },
+            ['a', { href: path.split(' ')[0] }, quest],
+        ];
+    }).filter(item => item);
 
-    return ['', null,
-        ['div', { className: 'profile' },
-            ['div', { className: 'card' },
-                // create an element that will render a portrait with CSS. An opacity value is added for effect.
-                ['div', { className: 'portrait', style: { background: `${theme}5` } },
-                    ['div', { className: 'torso', style: { background: `${theme}a` } }],
-                    ['div', { className: 'head', style: { background: theme } }],
-                ],
-                ['ul', { className: 'stats' },
-                    ['li', null, ['strong', null, 'STR: '], str],
-                    ['li', null, ['strong', null, 'DEF: '], def],
-                ],
-                // TODO: make this collapsable at smaller breakpoint
-                ['ul', { className: 'items' },
-                    ...items.map(({ name, count = 0 }) => {
-                        return name && ['li', null, name, ['b', { className: 'count' }, `x${count}`]];
-                    }),
-                ],
+    return ['div', { className: 'profile' },
+        ['div', { className: 'sidebar' },
+            ['div', { className: 'portrait' },
+                ['div', { className: 'background', style: { background: theme } }],
+                ['div', { className: 'torso', style: { background: theme } }],
+                ['div', { className: 'head', style: { background: theme } }],
             ],
-
-            ['div', { className: 'details' },
-                // Print name, level, and role. Level advances 1 per 1000 points.
-                ['h1', { className: 'title' }, `${name} (lvl ${Math.floor(exp / 1000) + 1} ${role})`],
-                
-                // Style a progress bar of the remaining experience left in current level.
-                ['div', { className: 'experience' },
-                    ['div', { className: 'experience-fill', style: { width: `${(exp % 1000) / 10 }%` } }],
-                ],
-                
-                ['div', { className: 'quest' }, questSummary],
-
-                ['div', { className: 'bio' }, content],
-            ],
+            questItems.length > 0 && ['ul', { className: 'quests' }, ...questItems],
         ],
-
-        // TODO: put friends here
-        // - move the portrait rendering code to its own function so it can be reused here
-        // - just render portrait and name, with links to their pages
+        ['div', { className: 'details' },
+            ['h1', { className: 'title' },
+                name,
+                alias && ['a', { href: alias[''].split(' ')[0] }, ` (${alias.name})`],
+            ],
+            ['div', { className: 'experience' },
+                ['div', { className: 'level' }, Math.floor(experience / 1000) + 1],
+                ['div', { className: 'fill', style: { width: `${(experience % 1000) / 10 }%` } }],
+            ],
+            ['div', { className: 'bio' }, content],
+        ],
     ];
 }
 
 export default [person, {
     '': 'Person',
     name: 'Name // Enter name',
-    role: ['Role / Choose a role',
-        'Mage / mage',
-        'Warrior / warrior',
-        'Rogue / rogue',
-    ],
-    theme: ['Theme / Choose a color',
-        'Spring / #5fa',
-        'Summer / #f5a',
-        'Autumn / #fa5',
-        'Winter / #5af',
+    alias: 'Alias /party// Choose an alias',
+    theme: ['Theme / Choose a theme',
+        'Spring / #55ffaa',
+        'Summer / #ff55aa',
+        'Autumn / #ffaa55', 
+        'Winter / #55aaff',
+        'Custom color/',
     ],
     exp: 'EXP /0.. Enter experience',
-    str: 'STR /1.. Enter strength',
-    def: 'DEF /1.. Enter defense',
-    quest: 'Quest /index// Choose a quest',
-    items: ['Items /.. Add an item',
-        {
-            '': 'Item / name',
-            name: 'Name // Enter name',
-            count: 'Count // Enter count',
-        },
-    ],
-    friends: ['Friends /.. Add friend',
-        'Person /person// Choose a person',
+    quests: ['Quests /.. Add a quest',
+        'Quest /index//',
     ],
 }, ['style', null, `
-.profile {
-    display: flex;
-    gap: 16px;
-}
-.card {
-    flex: 1 0 0;
-}
-.portrait {
-    position: relative;
-    aspect-ratio: 3 / 4;
-    overflow: hidden;
-}
-.torso,
-.head {
+.profile { display: flex; gap: 16px; }
+.sidebar { flex: 1 0 0; }
+.details { flex: 3 0 0; }
+.quests { padding: 0; list-style: none; border-top: 1px solid #808080; }
+.quest { padding: 8px 12px; border-bottom: 1px solid #808080; text-align: center; }
+.quest a { text-decoration: none; color: var(--paper-font-color); }
+.quest-home { background: #ffffff33; }
+.quest-mind { background: #0000ff33; }
+.quest-body { background: #ff000033; }
+.quest-soul { background: #00ff0033; }
+.portrait { position: relative; aspect-ratio: 3 / 4; overflow: hidden; }
+.background { height: 100%; opacity: 33.333%; }
+.torso, .head { position: absolute; left: 50%; border-radius: 50%; transform: translateX(-50%); }
+.torso { bottom: -45%; width: 75%; height: 100%; opacity: 66.667%; }
+.head { bottom: 45%; width: 50%; height: 45%; }
+.title { margin: 0; }
+.title a { text-decoration: none; color: var(--paper-font-color); opacity: 0.667; }
+.experience { height: 8px; margin: 16px 0 32px 40px; background: #aaff5555; }
+.fill { height: 100%; background: #aaff55; }
+
+.level {
     position: absolute;
-    left: 50%;
-    border-radius: 50%;
-    transform: translateX(-50%);
-}
-.torso {
-    bottom: -45%;
-    width: 75%;
-    height: 100%;
-}
-.head {
-    bottom: 45%;
-    width: 50%;
-    height: 45%;
-}
-.stats,
-.items {
-    margin: 16px 0;
-    padding: 0;
-    list-style: none;
-}
-.stats {
-    display: flex;
-    gap: 16px;
-}
-.stats > * {
-    flex: 1 0 0;
+    width: 32px;
+    padding: 2px 0;
+    margin: -12px 0 0 -40px;
+    font-size: 21px;
     text-align: center;
+    color: #aa55ff;
+    background: #aa55ff33;
 }
-.items {
-    max-width: 240px;
-    margin-left: auto;
-    margin-right: auto;
-    padding-right: 48px;
-    font-size: 17px;
-    text-align: right;
-}
-.items > * {
-    position: relative;
-}
-.count {
-    position: absolute;
-    left: 100%;
-    padding-left: 8px;
-}
-.title {
-    margin: 0 0 16px;
-}
-.details {
-    flex: 3 0 0;
-}
-.experience {
-    height: 8px;
-    background: #00ff0055;
-}
-.experience-fill {
-    height: 100%;
-    background: #00ff00;
-}
+
 @media (max-width: 540px) {
-    .profile {
-        display: block;
-    }
-    .portrait {
-        margin-bottom: 16px;
-    }
+    .profile { display: block; }
+    .portrait { margin-bottom: 16px; }
 }
 `]];

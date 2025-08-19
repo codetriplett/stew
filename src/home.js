@@ -88,7 +88,7 @@ export default function Home () {
 		const month = String(date.getMonth() + 101);
 		const day = String(date.getDate() + 100);
 		const path = `/index/${year}${month.slice(1)}${day.slice(1)}`;
-		const markdown = await fetchNote(path.slice(1));
+		const markdown = await fetchNote(path);
 		const summary = stew(markdown, [`${path}#`]) || ['', null];
 		
 		if (typeof summary[2]?.[0] === 'number') {

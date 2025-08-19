@@ -133,7 +133,7 @@ const pages = pathname.slice(1).split(/\/(\/+)/);
 const names = pages[0].split('/');
 const promises = [];
 const paths = [];
-let name, path = '';
+let name, path = '/';
 unpackSettingsAndSessions();
 
 while (names.length) {
@@ -146,14 +146,14 @@ while (names.length) {
 
 	if (names.length) {
 		promises.unshift(fetchCode(path));
-		path += '/';
 		paths.unshift(path);
+		path += '/';
 	} else {
 		promises.unshift(name ? fetchNote(path) : '');
 	}
 }
 
-Promise.all([...promises, fetchCode('index')]).then(async sequence => {
+Promise.all([...promises, fetchCode('/')]).then(async sequence => {
 	Object.assign(library, sequence.pop());
 	const [defaultExport, defaultSchema] = library.default || [];
 	library.default = { ...defaultSchema?.[''], '': defaultExport };
@@ -183,16 +183,16 @@ Promise.all([...promises, fetchCode('index')]).then(async sequence => {
 		const path = paths.pop();
 
 		if (!heading) {
-			const name = path.slice(0, -1).split('/').pop();
+			const name = path.split('/').pop();
 			heading = formatHeading(name);
 		}
 
-		breadcrumbs.push(['a', { href: `/${path}` }, heading || 'Unknown']);
+		breadcrumbs.push(['a', { href: `${path}/` }, heading || 'Unknown']);
 		schema = rest;
 	}
 
 	const widget = ['', null];
-	let content = stew(markdown, [`/${path}`, library]);
+	let content = stew(markdown, [path, library]);
 
 	if (name) {
 		if (content) {
@@ -207,11 +207,11 @@ Promise.all([...promises, fetchCode('index')]).then(async sequence => {
 	} else {
 		const trimmedPath = path.slice(0, -1);
 		const names = await fetchList(trimmedPath);
-		breadcrumbs[breadcrumbs.length - 1][1].href = `/${trimmedPath}`;
+		breadcrumbs[breadcrumbs.length - 1][1].href = trimmedPath;
 
 		directory = names.sort().map(file => {
 			const text = formatHeading(file);
-			return [`/${path}${file}`, text];
+			return [`${path}${file}`, text];
 		});
 	}
 

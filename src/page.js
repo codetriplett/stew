@@ -121,9 +121,9 @@ function LeftMenu ({ map, ref, directory }, widget) {
 }
 
 function Citation ({ snip, styles }) {
-	const [path] = snip.replace(/^\/+/, '').split('#');
+	const [path] = snip.split('#');
 	const markdown = stew(fetchNote, [path], undefined);
-	let content = markdown ? stew(markdown, [snip]) : markdown === undefined ? null : ['p', null, `File not found: /${path}.md`];
+	let content = markdown ? stew(markdown, [snip]) : markdown === undefined ? null : ['p', null, `File not found: ${path}.md`];
 
 	if (content && content.length < 3) {
 		content = ['p', null, `Section not found: ${snip}`];
@@ -209,7 +209,7 @@ export default function Page ({ path, map, ref, breadcrumbs, heading, isModule, 
 					],
 					...breadcrumbs.map(breadcrumb => ['li', null, breadcrumb]),
 					heading && ['li', null,
-						isModule ? ['a', { href: `/${path}/` }, heading] : heading,
+						isModule ? ['a', { href: `${path}/` }, heading] : heading,
 						['button', {
 							type: 'button',
 							className: 'edit-button',

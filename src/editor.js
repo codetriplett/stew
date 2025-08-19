@@ -22,9 +22,9 @@ async function putFile (path, body, isCommit) {
 }
 
 function clear (path) {
-	localStorage.removeItem(`/${path}.md`);
-	localStorage.removeItem(`/${path}.mjs`);
-	localStorage.removeItem(`/${path}.json`);
+	localStorage.removeItem(`${path}.md`);
+	localStorage.removeItem(`${path}.mjs`);
+	localStorage.removeItem(`${path}.json`);
 }
 
 async function save (path, formRef, textareaRef, isCommit, skipReload) {
@@ -41,9 +41,9 @@ async function save (path, formRef, textareaRef, isCommit, skipReload) {
 	}
 
 	await Promise.all([
-		putFile(`/${path}.md`, file, isCommit),
-		code && putFile(`/${path}.mjs`, code, isCommit),
-		putFile(`/${path}.json`, Object.keys(data).length ? JSON.stringify(data) : '', isCommit),
+		putFile(`${path}.md`, file, isCommit),
+		code && putFile(`${path}.mjs`, code, isCommit),
+		putFile(`${path}.json`, Object.keys(data).length ? JSON.stringify(data) : '', isCommit),
 	]);
 
 	if (!isCommit) {
