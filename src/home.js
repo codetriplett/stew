@@ -103,7 +103,7 @@ export default function Home () {
 		return summary;
 	}, [], null);
 	
-	return ['', {},
+	return ['', null,
 		[Drafts, { paths }],
 		['div', { className: 'main' },
 			['div', { className: 'paper' },

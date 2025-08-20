@@ -66,7 +66,7 @@ export function extractData (form) {
 		}, data);
 
 		if (isMeta) {
-			metas.push([object, finalName, value, tagName.toLowerCase()]);
+			metas.unshift([object, finalName, value, tagName.toLowerCase()]);
 		} else {
 			object[finalName] = value;
 		}
@@ -76,8 +76,10 @@ export function extractData (form) {
 		const structure = object[name];
 
 		if (tagName === 'input') {
-			if (structure || /[^\/]$/.test(value)) {
+			if (structure && Object.keys(structure).length || /[^\/]$/.test(value)) {
 				object[name] = { '': value, ...structure };
+			} else {
+				delete object[name];
 			}
 
 			continue;
@@ -414,16 +416,18 @@ let form, input;
 // - even if another schema is referenced, choosing an existing file is optional. It can be created fresh from overrides within data as well
 // - '' prop on stored data indicates the schema it is tied to, and optionally what existing data it overwrites (if not ending in '/')
 // - the path to the schema is used not only for the form, but can also be used to import the code to render the component (file.default[0])
-function ObjectField ({ schema = {}, data = {}, path, names }, field) {
+function ObjectField ({ '': context, schema = {}, data = {}, path, names }, field) {
 	field = [...field];
 	const inputProps = field.pop()[1];
 	const complex = path && names.length > 0;
+	const { cache } = context;
 
 	if (!field[2]) {
 		field.splice(0);
 	}
 
-	const [dataPath, ...overrides] = typeof data[''] === 'string' ? data[''].trim().split(/\s+/) : [''];
+	const { '': dataMeta, ...dataProps } = data;
+	const [dataPath, ...overrides] = typeof dataMeta === 'string' ? dataMeta.trim().split(/\s+/) : [''];
 
 	const state = stew({
 		expanded: !names.length,
@@ -434,8 +438,8 @@ function ObjectField ({ schema = {}, data = {}, path, names }, field) {
 	let select;
 
 	if (complex) {
-		const base = stew(fetchCode, [path], null);
-		const list = stew(fetchList, [path], null);
+		const base = stew(fetchCode, [path, cache], null);
+		const list = stew(fetchList, [path, cache], null);
 
 		if (!base || !list) {
 			return;
@@ -445,7 +449,8 @@ function ObjectField ({ schema = {}, data = {}, path, names }, field) {
 			form.appendChild(input);
 		}
 
-		const { '': meta, ...baseSchema } = base?.default?.[1] || {};
+		const baseDefault = Array.isArray(base.default) ? base.default : [];
+		const { '': meta, ...baseSchema } = baseDefault[1] || {};
 
 		[schema, select] = stew(() => [
 			merge(baseSchema, schema),
@@ -481,24 +486,27 @@ function ObjectField ({ schema = {}, data = {}, path, names }, field) {
 	
 	const list = ['ul', expanded ? null : { style: { display: 'none' } }];
 	let meta;
-	
-	if (path) {
-		meta = Field(`/ ${path}/${selection}`, undefined, ...names, '');
-	}
 
-	for (const [name, definition] of Object.entries(schema)) {
-		const isOverride = !selection || overrides.indexOf(name) !== -1;
-		const value = isOverride ? data[name] : undefined;
-		const item = ['li', null, Field(definition, value, ...names, name)];
-		const label = item[2];
-		list.push(item);
-
-		if (!label[2]) {
-			label[2] = name;
+	console.log(expanded, dataProps);
+	if (expanded || Object.keys(dataProps).length) {
+		if (path) {
+			meta = Field(`/ ${path}/${selection}`, undefined, ...names, '');
 		}
 
-		if (!isOverride && label[0] === 'label') {
-			item.push(['input', { value: data[name] || '', disabled: true }]);
+		for (const [name, definition] of Object.entries(schema)) {
+			const isOverride = !selection || overrides.indexOf(name) !== -1;
+			const value = isOverride ? dataProps[name] : undefined;
+			const item = ['li', null, Field(definition, value, ...names, name)];
+			const label = item[2];
+			list.push(item);
+
+			if (!label[2]) {
+				label[2] = name;
+			}
+
+			if (!isOverride && label[0] === 'label') {
+				item.push(['input', { value: data[name] || '', disabled: true }]);
+			}
 		}
 	}
 

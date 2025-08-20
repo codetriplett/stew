@@ -46,7 +46,7 @@ export function handleAction () {
 	    motion = rotation;
 	    change = (side === 'left' ? -Math.PI : Math.PI) / 2;
 	} else if (!sides.both) {
-	    motion = side === 'left' ? spin : tilt;
+	    motion = side === 'left' ? tilt : spin;
 	    change = -Math.PI / 2;
 	} else {
 	    sides.both = false;

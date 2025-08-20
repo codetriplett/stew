@@ -1,24 +1,29 @@
-export function getItem (path, extension) {
-	path += `${!path || path.endsWith('/') ? 'index' : ''}.${extension}`;
+export function getPath (path, extension) {
+	path += `${!path || path.endsWith('/') ? 'index' : ''}${extension ? `.${extension}` : '//'}`;
 	const { pathname } = window.location;
 	const key = path.startsWith('/') ? path : `${pathname.replace(/[^\/]*$/, '')}${path}`;
-	return [path, localStorage.getItem(key)];
+	return [key, path];
 }
 
-export async function fetchNote (path) {
-	const [filepath, file] = getItem(path, 'md');
+export function fetchNote (path, cache = {}) {
+	const [key, filepath] = getPath(path, 'md');
+	let promise = cache[key];
 
-	if (file) {
-		return file;
+	if (promise) {
+		return promise;
 	}
 
-	try {
-		const res  = await fetch(filepath);
+	const file = localStorage.getItem(key);
+
+	promise = file ? Promise.resolve(file) : fetch(filepath).then(res => {
 		return res.ok ? res.text() : '';
-	} catch (err) {
+	}).catch(err => {
 		console.error(err);
 		return '';
-	}
+	});
+
+	cache[key] = promise;
+	return promise;
 }
 
 export function hydrateData (data, cache, promises) {
@@ -46,27 +51,41 @@ export function hydrateData (data, cache, promises) {
 
 	if (!/^\/.*[^\/]$/.test(path)) {
 		return;
-	} else if (!(path in cache)) {
-		fetchData(path, cache);
 	}
 
-	const promise = cache[path].then(defaults => {
+	fetchData(path, cache)
+	const promise = cache[`${path}.json`];
+
+	const resolution = promise.then(defaults => {
 		for (const [name, value] of Object.entries(defaults)) {
 			if (!(name in rest)) {
 				data[name] = value;
 			}
 		}
-
-		data[''] = [path, ...Object.keys(rest)].join(' ');
 	});
 
-	promises.push(promise);
+	// TODO: just store the path and have form look at cache to see what has been overridden and what is the same
+	// - have extract data only store overrides if they are different
+	// - maybe just skip showing defualt values for now if it's too complicated
+	data[''] = [path, ...Object.keys(rest)].join(' ');
+	promises.push(resolution);
 }
 
-export async function fetchData (path, cache = {}) {
-	const [filepath, file] = getItem(path, 'json');
+export function fetchData (path, cache = {}) {
+	const [key, filepath] = getPath(path, 'json');
+	let promise = cache[key];
+	let set = cache[''];
 
-	const promise = (file
+	if (promise) {
+		return promise;
+	} else if (!set) {
+		set = new Set();
+		cache[''] = set;
+	}
+	
+	const file = localStorage.getItem(key);
+
+	promise = (file
 		? Promise.resolve(file).then(file => JSON.parse(file))
 		: fetch(filepath).then(res => res.ok ? res.json() : {})
 	).catch(err => {
@@ -74,49 +93,78 @@ export async function fetchData (path, cache = {}) {
 		return {};
 	});
 
-	cache[path] = promise;
-	const data = await promise;
-	const promises = [];
-	hydrateData(data, cache, promises);
-	await Promise.all(promises);
-	return data;
+	const resolution = promise.then(async data => {
+		const promises = [];
+		hydrateData(data, cache, promises);
+		await Promise.all(promises);
+		cache[key] = resolution;
+		set.delete(key);
+		return data;
+	});
+
+	set.add(key);
+	cache[key] = promise;
+	return resolution;
 }
 
-export async function fetchCode (path) {
-	const [filepath, file] = getItem(path, 'mjs');
+export function fetchCode (path, cache = {}) {
+	const [key, filepath] = getPath(path, 'mjs');
+	let promise = cache[key];
 
-	try {
-		return import(!file ? filepath : URL.createObjectURL(
-			new Blob([file], { type: 'application/javascript' }),
-		));
-	} catch (err) {
+	if (promise) {
+		return promise;
+	}
+	
+	const file = localStorage.getItem(key);
+
+	promise = import(!file ? filepath : URL.createObjectURL(
+		new Blob([file], { type: 'application/javascript' }),
+	)).catch(err => {
 		console.error(err);
-		return { default: [null, {}] };
-	}
+		return {};
+	});
+
+	cache[key] = promise;
+	return promise;
 }
 
-export async function fetchList (path) {
-	const folder = `${path}/`;
-	const res = await fetch(`${folder}/`);
-	const names = await res.json();
+export function fetchList (path, cache = {}) {
+	const [key, filepath] = getPath(path);
+	let promise = cache[key];
 
-	for (const key in localStorage) {
-		if (!key.startsWith(folder) || key.lastIndexOf('/') !== folder.length - 1) {
-			continue;
-		}
-
-		let name;
-
-		if (key.endsWith('.md')) {
-			name = key.slice(folder.length, -3);
-		} else if (key.endsWith('.json')) {
-			name = key.slice(folder.length, -5);
-		}
-
-		if (name && names.indexOf(name) === -1) {
-			names.push(name);
-		}
+	if (promise) {
+		return promise;
 	}
 
-	return names;
+	const folder = filepath.slice(0, -1);
+
+	promise = fetch(filepath).then(res => {
+		return res.ok ? res.json() : [];
+	}).catch(err => {
+		console.error(err);
+		return [];
+	}).then(names => {
+		for (const key in localStorage) {
+			if (!key.startsWith(folder) || key.lastIndexOf('/') !== folder.length - 1) {
+				continue;
+			}
+
+			let name;
+
+			if (key.endsWith('.md')) {
+				name = key.slice(folder.length, -3);
+			} else if (key.endsWith('.json')) {
+				name = key.slice(folder.length, -5);
+			}
+
+			if (name && names.indexOf(name) === -1) {
+				names.push(name);
+			}
+		}
+
+		return names;
+	});
+
+	cache[key] = promise;
+	return promise;
 }

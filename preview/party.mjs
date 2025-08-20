@@ -2,7 +2,7 @@ export function person () {
 	const [props, content] = arguments;
 
     if (!props) {
-        return ['a', { href: 'jeff' }, 'test'];
+        return;
     }
 
     const { name = 'Unknown', alias, theme = '#777777', quests = [] } = props;

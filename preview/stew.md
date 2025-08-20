@@ -21,16 +21,14 @@ These are ultimately what gets displayed to the user. The attributes follow the 
 ## Fragments
 
 ```demo
-const state = { time: 'now' } // +
-
-return ['', { state }, // +
+return ['', null, // +
 	['h1', { className: 'greeting' }, 'Hello, World!'],
-	({ state }) => ['p', null, 'The time is ', state.time], // +
+	['p', null, 'The time is now'], // +
 ]
 
 ```
 
-Using an empty value in place of the tag name will create a sublayout. These are useful when you need to control the display of several elements, without having to wrap them in a container. Instead of setting attributes, properties you include will extend the context that is used by its inline functions. This makes it easy pass value to deeply nested code.
+Using an empty value in place of the tag name will create a sublayout. These are useful when you need to control the display of several elements, without having to wrap them in a container. Instead of setting attributes, properties you include will extend the context, which can be accessed by components on the '' property.
 
 ## Components
 

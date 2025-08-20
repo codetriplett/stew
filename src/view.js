@@ -97,7 +97,7 @@ export default function render (layout, context, document, nodes, container, i, 
 			}
 			case 'function': {
 				try {
-					layout = layout(context, nodes[0]);
+					layout = layout(nodes[0]);
 				} catch (err) {
 					console.error(err);
 					layout = null;
@@ -137,8 +137,10 @@ export default function render (layout, context, document, nodes, container, i, 
 				// - these won't update if their parent updates, only if changes are made to state props it uses
 				// - would need to have contexts keep their references on update for this to work, instead of rebuilding themselves
 				// - that would require deleting old props as well
-				if (!object) {
-					props = object;
+				if (object) {
+					props[''] = context;
+				} else {
+					props = null;
 				}
 
 				callback = renderImpulse;

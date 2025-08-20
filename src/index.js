@@ -170,8 +170,8 @@ Promise.all([...promises, fetchCode('/')]).then(async sequence => {
 	state.data = sequence[0];
 
 	for (let i = sequence.length - 1; i > 0; i -= 2) {
-		const { default: defaultExport = [], ...exports } = sequence[i] || {};
-		let { '': heading, ...rest } = defaultExport[1] || {};
+		const { default: defaultExport, ...exports } = sequence[i] || {};
+		let { '': heading, ...rest } = Array.isArray(defaultExport) && defaultExport[1] || {};
 		Object.assign(library, exports);
 
 		if (typeof heading === 'object') {

@@ -233,7 +233,7 @@ export default function compile (strings, ...values) {
 	const sequence = getStored(sequenceMap, strings, () => parse(strings));
 	const [vertexInfo, ...fragmentInfos] = sequence;
 
-	return (context, canvas, parentMap, ...stack) => {
+	return (canvas, parentMap, ...stack) => {
 		const gl = canvas.getContext('webgl');
 		const isRoot = !parentMap;
 
@@ -273,7 +273,7 @@ export default function compile (strings, ...values) {
 					const subprograms = [];
 					
 					for (const prepare of resolver) {
-						subprograms.push(...prepare(context, canvas, map, ...stack));
+						subprograms.push(...prepare(canvas, map, ...stack));
 					}
 
 					for (const subprogram of subprograms) {
