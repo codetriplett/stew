@@ -219,18 +219,18 @@ export function getQuests () {
 	            background: #fffd;
 	            box-shadow: 0 0 4px 4px #fffd;
 	        }
-			.exp-home {
+	        .exp-home {
 	            color: #b93;
-			}
-			.exp-mind {
+	        }
+	        .exp-mind {
 	            color: #33b;
-			}
-			.exp-body {
+	        }
+	        .exp-body {
 	            color: #b33;
-			}
-			.exp-soul {
+	        }
+	        .exp-soul {
 	            color: #3b3;
-			}
+	        }
 	        .card li:nth-child(4) > span {
 	            display: none;
 	        }

@@ -262,9 +262,7 @@ export function cube () {
 }
 
 export default [cube, {
-    '': {
-        '': 'Cube',
-    },
+    '': 'Cube',
 }, ['style', null, `
 canvas {
     width: 100%;

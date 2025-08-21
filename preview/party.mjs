@@ -1,71 +1,74 @@
-export function profile ({ theme = '#777777' }) {
-    return ['div', { className: 'portrait' },
-        ['div', { className: 'background', style: { background: theme } }],
-        ['div', { className: 'torso', style: { background: theme } }],
-        ['div', { className: 'head', style: { background: theme } }],
-    ];
+export function profile () {
+	const [props] = arguments;
+	const { theme } = props;
+
+	return ['div', { className: 'portrait' },
+	    ['div', { className: 'background', style: { background: theme } }],
+	    ['div', { className: 'torso', style: { background: theme } }],
+	    ['div', { className: 'head', style: { background: theme } }],
+	];
 }
 
-export function person () {
+export function party () {
 	const [props, content] = arguments;
 
-    if (!props) {
-        const { pathname } = window.location;
-        const names = stew(fetchList, [pathname.slice(0, -1)], []);
-        const array = names.map(name => stew(fetchData, [name], {}));
+	if (!props) {
+	    const { pathname } = window.location;
+	    const names = stew(fetchList, [pathname.slice(0, -1)], []);
+	    const array = names.map(name => stew(fetchData, [name], {}));
 
-        return ['div', { className: 'grid' },
-            ...array.map(({ name, theme }, i) => ['a', {
-                className: 'link',
-                href: `${pathname}${names[i]}`,
-            },
-                profile({ theme }),
-                [2, { className: 'title' }, name],
-            ]),
-        ];
-    }
+	    return ['div', { className: 'grid' },
+	        ...array.map(({ name, theme }, i) => ['a', {
+	            className: 'link',
+	            href: `${pathname}${names[i]}`,
+	        },
+	            profile({ theme }),
+	            [2, { className: 'title' }, name],
+	        ]),
+	    ];
+	}
 
-    const { name = 'Unknown', alias, theme, quests = [] } = props;
-    let experience = 0;
+	const { name = 'Unknown', alias, theme, quests = [] } = props;
+	let experience = 0;
 
-    const questItems = quests.map(({ '': path, quest, exp = 0, type = 'home', complete }) => {
-        if (complete) {
-            experience += exp;
-            return;
-        }
-    
-        return ['li', { className: `quest quest-${type}` },
-            ['a', { href: path.split(' ')[0] }, quest],
-        ];
-    }).filter(item => item);
+	const questItems = quests.map(({ '': path, quest, exp = 0, type = 'home', complete }) => {
+	    if (complete) {
+	        experience += exp;
+	        return;
+	    }
 
-    return ['div', { className: 'profile' },
-        ['div', { className: 'sidebar' },
-            profile({ theme }),
-            questItems.length > 0 && ['ul', { className: 'quests' }, ...questItems],
-        ],
-        ['div', { className: 'details' },
-            ['h1', { className: 'title' },
-                name,
-                alias && ['a', { href: alias[''].split(' ')[0] }, ` (${alias.name})`],
-            ],
-            ['div', { className: 'experience' },
-                ['div', { className: 'level' }, Math.floor(experience / 1000) + 1],
-                ['div', { className: 'fill', style: { width: `${(experience % 1000) / 10 }%` } }],
-            ],
-            ['div', { className: 'bio' }, content],
-        ],
-    ];
+	    return ['li', { className: `quest quest-${type}` },
+	        ['a', { href: path.split(' ')[0] }, quest],
+	    ];
+	}).filter(item => item);
+
+	return ['div', { className: 'profile' },
+	    ['div', { className: 'sidebar' },
+	        profile({ theme }),
+	        questItems.length > 0 && ['ul', { className: 'quests' }, ...questItems],
+	    ],
+	    ['div', { className: 'details' },
+	        ['h1', { className: 'title' },
+	            name,
+	            alias && ['a', { href: alias[''].split(' ')[0] }, ` (${alias.name})`],
+	        ],
+	        ['div', { className: 'experience' },
+	            ['div', { className: 'level' }, Math.floor(experience / 1000) + 1],
+	            ['div', { className: 'fill', style: { width: `${(experience % 1000) / 10 }%` } }],
+	        ],
+	        ['div', { className: 'bio' }, content],
+	    ],
+	];
 }
 
-export default [person, {
+export default [party, {
     '': 'Party',
     name: 'Name // Enter name',
     alias: 'Alias /party// Choose an alias',
     theme: ['Theme / Choose a theme',
         'Spring / #55ffaa',
         'Summer / #ff55aa',
-        'Autumn / #ffaa55', 
+        'Autumn / #ffaa55',
         'Winter / #55aaff',
         'Custom color/',
     ],
@@ -77,8 +80,8 @@ export default [person, {
 .sidebar { flex: 1 0 0; }
 .details { flex: 3 0 0; }
 .quests { padding: 0; list-style: none; border-top: 1px solid #808080; }
-.quest { padding: 8px 12px; border-bottom: 1px solid #808080; text-align: center; }
-.quest a { text-decoration: none; color: var(--paper-font-color); }
+.quest { border-bottom: 1px solid #808080; text-align: center; }
+
 .quest-home { background: #bb993333; }
 .quest-mind { background: #0000ff33; }
 .quest-body { background: #ff000033; }
@@ -102,6 +105,13 @@ export default [person, {
     text-align: center;
     color: #aa55ff;
     background: #aa55ff33;
+}
+
+.quest a {
+    display: block;
+    padding: 8px 12px;
+    text-decoration: none;
+    color: var(--paper-font-color);
 }
 
 .grid {
