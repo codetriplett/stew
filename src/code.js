@@ -78,7 +78,7 @@ export function extractCode (file, library = {}) {
 
 		for (const link of links) {
 			const [, { href, title }, text] = link;
-			const [path, ...hashes] = href.split('#');
+			const [path, ...hashes] = href.split(/#+/);
 			let object = imports[path];
 
 			if (text || !/^\/./.test(path)) {
@@ -88,11 +88,15 @@ export function extractCode (file, library = {}) {
 				imports[path] = object;
 			}
 
-			const names = hashes.map(hash => hash.replace(/-./g, m => m.slice(1).toUpperCase()));
-			const aliases = title ? title.trim().split(/\s+/) : names;
+			const names = hashes.map(hash => {
+				const name = hash || path.split('/').pop();
+				return name.replace(/-./g, m => m.slice(1).toUpperCase());
+			});
 
-			if (aliases.length < names.length) {
-				aliases.unshift(...names.slice(0, names.length - aliases.length));
+			const aliases = title ? title.trim().split(/\s+/) : [...names];
+
+			if (href.endsWith('#')) {
+				names[names.length - 1] = '';
 			}
 
 			for (const [i, alias] of aliases.entries()) {

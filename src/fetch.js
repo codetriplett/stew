@@ -26,6 +26,9 @@ export function fetchNote (path, cache = {}) {
 	return promise;
 }
 
+// TODO: allow '' prop to store overrides for things to ignore from default data
+// - this would allow user to clear a default value, since otherewise it wouldn't get saved
+// - e.g. { '': '/folder/file xyz' } -> { '': '/folder/file value', abc: 123 } (when /folder/file had abc and xyz props)
 export function hydrateData (data, cache, promises) {
 	if (!data || typeof data !== 'object') {
 		return;
@@ -47,7 +50,10 @@ export function hydrateData (data, cache, promises) {
 		return;
 	}
 
-	const path = meta.trim().split(' ')[0];
+	// TODO: add a way to add overrides that clear to data that is saved to file
+	// - maybe click disabled text field to remove it
+	// - disabled text fields only show up when the default value is not overriden anyway
+	const [path, ...overrides] = meta.trim().split(/\s+/);
 
 	if (!/^\/.*[^\/]$/.test(path)) {
 		return;
@@ -55,18 +61,16 @@ export function hydrateData (data, cache, promises) {
 
 	fetchData(path, cache)
 	const promise = cache[`${path}.json`];
+	overrides.push(...Object.keys(rest));
 
 	const resolution = promise.then(defaults => {
 		for (const [name, value] of Object.entries(defaults)) {
-			if (!(name in rest)) {
+			if (overrides.indexOf(name) === -1) {
 				data[name] = value;
 			}
 		}
 	});
 
-	// TODO: just store the path and have form look at cache to see what has been overridden and what is the same
-	// - have extract data only store overrides if they are different
-	// - maybe just skip showing defualt values for now if it's too complicated
 	data[''] = [path, ...Object.keys(rest)].join(' ');
 	promises.push(resolution);
 }

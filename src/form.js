@@ -371,7 +371,7 @@ export function Select (definitions, value, ...names) {
 	const [type, label, definition, placeholder] = info;
 
 	const select = ['label', { className: 'select-label' },
-		label,
+		label || names[names.length - 1],
 		options.length === 1 && type && type !== 'boolean'
 			? ['button', { type: 'button', className: 'action-button' }, placeholder || 'Add']
 			: ['select', {},
@@ -431,7 +431,8 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, names }, fiel
 	const [dataPath, ...overrides] = typeof dataMeta === 'string' ? dataMeta.trim().split(/\s+/) : [''];
 
 	if (!dataPath || dataPath.endsWith('/')) {
-		overrides.push(...Object.keys(dataProps));
+		const { '': schemaMeta, ...schemaProps } = schema;
+		overrides.push(...Object.keys(schemaProps));
 	}
 
 	const state = stew({
@@ -528,16 +529,23 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, names }, fiel
 // TODO: see if ...names can be replaced by parentId and name
 // - then append name to parentId, in brackets if it's a number
 export function Field (definition, data, ...names) {
-	let schema;
+	let schema, defaultLabel;
 
 	if (Array.isArray(definition)) {
 		return Select(definition, data, ...names);
 	} else if (typeof definition === 'object') {
-		({ '': definition = '', ...schema } = definition);
+		({ '': definition, ...schema } = definition);
+		defaultLabel = 'Object';
+	} else {
+		defaultLabel = names[names.length - 1];
 	}
 
 	if (typeof definition !== 'string') {
-		return;
+		if (schema) {
+			definition = '';
+		} else {
+			return;
+		}
 	}
 
 	const id = names.reduce((id, name) => `${id}${typeof name === 'number' ? `[${name}]` : `${id ? '.' : ''}${name}`}`, '');
@@ -546,7 +554,7 @@ export function Field (definition, data, ...names) {
 	let [, min = '', step, max = ''] = range.match(/^(?:(.*?)\.\.)?(?:(.*?)\.\.)?(.*?)$/);
 	const props = {};
 	const input = ['input', props];
-	const field = ['label', {}, label, input];
+	const field = ['label', {}, label || defaultLabel, input];
 	let path;
 
 	if (slashes) {
