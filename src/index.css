@@ -166,7 +166,8 @@ body.dark-theme {
 		width: 480px;
 	}
 }
-.sidebar-hidden {
+.sidebar-hidden,
+body:not(.show-left) .sidebar-form {
 	flex-basis: 0;
 	width: 0;
 
@@ -363,7 +364,7 @@ form textarea {
     position: static;
 	margin: 0 3px;
 }
-.sidebar-left:not(.sidebar-hidden) + .main .toolbar {
+body.show-left .sidebar-left + .main .toolbar {
 	padding-left: var(--left-sidebar-width);
 }
 

@@ -10,12 +10,11 @@ export default function Sidebar ({ isRight = false, isForm = false, icon, toggle
 	const { settings, hasMounted } = state;
 	const side = isRight ? 'right' : 'left';
 	const sideProp = isRight ? 'showRight' : 'showLeft';
-	const sidebarState = !isForm ? state : stew({ [sideProp]: true }, []);
-	const show = toggleProp ? settings[toggleProp] : sidebarState[sideProp];
+	const show = toggleProp ? settings[toggleProp] : state[sideProp];
 	const { classList } = document.body;
 	const toggleClass = `show-${side}`;
 	const eligible = children.some(child => child);
-	const active = show && eligible;
+	const active = isForm || show && eligible;
 
 	// TODO: prevent these from loading in small view if menu is active but hidden
 	// - maybe detect small view whenever this renders, and empty children array if not visible, even if state shows it as active
@@ -25,9 +24,9 @@ export default function Sidebar ({ isRight = false, isForm = false, icon, toggle
 	}
 
 	return hasMounted && ['div', {
-		className: `sidebar sidebar-${side} ${active ? '': 'sidebar-hidden'}`,
+		className: `sidebar sidebar-${side} ${isForm ? 'sidebar-form' : active ? '': 'sidebar-hidden'}`,
 	},
-		(active || isForm) && ['div', {
+		active && ['div', {
 			className: `scroll scroll-${side}`,
 		}, ...children],
 		eligible && ['button', {
@@ -36,7 +35,7 @@ export default function Sidebar ({ isRight = false, isForm = false, icon, toggle
 			onclick: () => {
 				classList.remove(`show-${isRight ? 'left' : 'right'}`);
 
-				if (active && getComputedStyle(document.querySelector('#app')).float !== 'none') {
+				if (isForm || active && getComputedStyle(document.querySelector('#app')).float !== 'none') {
 					classList.toggle(toggleClass);
 					return;
 				}
@@ -44,7 +43,7 @@ export default function Sidebar ({ isRight = false, isForm = false, icon, toggle
 				if (toggleProp) {
 					updateSettings({ [toggleProp]: !show });
 				} else {
-					sidebarState[sideProp] = !show;
+					state[sideProp] = !show;
 				}
 
 				if (show) {

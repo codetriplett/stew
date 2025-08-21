@@ -14,7 +14,7 @@
 }
 ```
 
-# Person
+# Party
 
 ```export
 const [props, content] = arguments;

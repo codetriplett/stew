@@ -26,6 +26,7 @@ function convertValue (type, value, checked) {
 
 export function extractData (form) {
 	if (!form.checkValidity()) {
+		document.body.classList.add('show-left');
 		form.reportValidity();
 		return;
 	}
@@ -429,6 +430,10 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, names }, fiel
 	const { '': dataMeta, ...dataProps } = data;
 	const [dataPath, ...overrides] = typeof dataMeta === 'string' ? dataMeta.trim().split(/\s+/) : [''];
 
+	if (!dataPath || dataPath.endsWith('/')) {
+		overrides.push(...Object.keys(dataProps));
+	}
+
 	const state = stew({
 		expanded: !names.length,
 		selection: dataPath.split('/').pop(),
@@ -455,7 +460,7 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, names }, fiel
 		[schema, select] = stew(() => [
 			merge(baseSchema, schema),
 			list.length > 0 && ['', null, ['select', {
-				onchange: event => state.selection = event.target.value,
+				onchange: event => state.selection = event.target.selectedIndex ? event.target.value : '',
 			},
 				['option', { value: '' }, inputProps.placeholder || 'Select an item...'],
 				...list.filter(value => {
@@ -487,14 +492,13 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, names }, fiel
 	const list = ['ul', expanded ? null : { style: { display: 'none' } }];
 	let meta;
 
-	console.log(expanded, dataProps);
-	if (expanded || Object.keys(dataProps).length) {
-		if (path) {
-			meta = Field(`/ ${path}/${selection}`, undefined, ...names, '');
-		}
+	if (path) {
+		meta = Field(`/ ${path}/${selection}`, undefined, ...names, '');
+	}
 
+	if (expanded || overrides.length) {
 		for (const [name, definition] of Object.entries(schema)) {
-			const isOverride = !selection || overrides.indexOf(name) !== -1;
+			const isOverride = overrides.indexOf(name) !== -1;
 			const value = isOverride ? dataProps[name] : undefined;
 			const item = ['li', null, Field(definition, value, ...names, name)];
 			const label = item[2];
@@ -504,8 +508,8 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, names }, fiel
 				label[2] = name;
 			}
 
-			if (!isOverride && label[0] === 'label') {
-				item.push(['input', { value: data[name] || '', disabled: true }]);
+			if (!isOverride && data[name] && label[0] === 'label') {
+				item.push(['input', { value: data[name], disabled: true }]);
 			}
 		}
 	}

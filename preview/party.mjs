@@ -1,11 +1,31 @@
+export function profile ({ theme = '#777777' }) {
+    return ['div', { className: 'portrait' },
+        ['div', { className: 'background', style: { background: theme } }],
+        ['div', { className: 'torso', style: { background: theme } }],
+        ['div', { className: 'head', style: { background: theme } }],
+    ];
+}
+
 export function person () {
 	const [props, content] = arguments;
 
     if (!props) {
-        return;
+        const { pathname } = window.location;
+        const names = stew(fetchList, [pathname.slice(0, -1)], []);
+        const array = names.map(name => stew(fetchData, [name], {}));
+
+        return ['div', { className: 'grid' },
+            ...array.map(({ name, theme }, i) => ['a', {
+                className: 'link',
+                href: `${pathname}${names[i]}`,
+            },
+                profile({ theme }),
+                [2, { className: 'title' }, name],
+            ]),
+        ];
     }
 
-    const { name = 'Unknown', alias, theme = '#777777', quests = [] } = props;
+    const { name = 'Unknown', alias, theme, quests = [] } = props;
     let experience = 0;
 
     const questItems = quests.map(({ '': path, quest, exp = 0, type = 'home', complete }) => {
@@ -21,11 +41,7 @@ export function person () {
 
     return ['div', { className: 'profile' },
         ['div', { className: 'sidebar' },
-            ['div', { className: 'portrait' },
-                ['div', { className: 'background', style: { background: theme } }],
-                ['div', { className: 'torso', style: { background: theme } }],
-                ['div', { className: 'head', style: { background: theme } }],
-            ],
+            profile({ theme }),
             questItems.length > 0 && ['ul', { className: 'quests' }, ...questItems],
         ],
         ['div', { className: 'details' },
@@ -43,7 +59,7 @@ export function person () {
 }
 
 export default [person, {
-    '': 'Person',
+    '': 'Party',
     name: 'Name // Enter name',
     alias: 'Alias /party// Choose an alias',
     theme: ['Theme / Choose a theme',
@@ -53,7 +69,6 @@ export default [person, {
         'Winter / #55aaff',
         'Custom color/',
     ],
-    exp: 'EXP /0.. Enter experience',
     quests: ['Quests /.. Add a quest',
         'Quest /index//',
     ],
@@ -64,7 +79,7 @@ export default [person, {
 .quests { padding: 0; list-style: none; border-top: 1px solid #808080; }
 .quest { padding: 8px 12px; border-bottom: 1px solid #808080; text-align: center; }
 .quest a { text-decoration: none; color: var(--paper-font-color); }
-.quest-home { background: #ffffff33; }
+.quest-home { background: #bb993333; }
 .quest-mind { background: #0000ff33; }
 .quest-body { background: #ff000033; }
 .quest-soul { background: #00ff0033; }
@@ -87,6 +102,25 @@ export default [person, {
     text-align: center;
     color: #aa55ff;
     background: #aa55ff33;
+}
+
+.grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 16px;
+
+    .link {
+        width: 320px;
+        max-width: 100%;
+        text-align: center;
+        text-decoration: none;
+        color: var(--paper-font-color);
+    }
+
+    .title {
+        margin: 16px 0 24px;
+    }
 }
 
 @media (max-width: 540px) {

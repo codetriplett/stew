@@ -101,7 +101,7 @@ export function getQuests () {
 	        }
 
 	        const textProps = { className: 'quest' };
-	        let { quest = '', exp = 0, complete } = data;
+	        let { quest = '', exp = 0, type = 'home', complete } = data;
 	        index++;
 
 	        if (!quest && day === 1) {
@@ -113,7 +113,7 @@ export function getQuests () {
 	            ['span', null, day],
 	            ['a', { href },
 	                ['span', textProps, quest],
-	                complete && ['span', { className: 'exp' }, `+${exp}`],
+	                complete && ['span', { className: `exp exp-${type}` }, `+${exp}`],
 	            ],
 	        ]);
 	    }
@@ -216,10 +216,21 @@ export function getQuests () {
 	            padding: 0 4px;
 	            font-size: 15px;
 	            font-weight: bold;
-	            color: #2a2;
 	            background: #fffd;
 	            box-shadow: 0 0 4px 4px #fffd;
 	        }
+			.exp-home {
+	            color: #b93;
+			}
+			.exp-mind {
+	            color: #33b;
+			}
+			.exp-body {
+	            color: #b33;
+			}
+			.exp-soul {
+	            color: #3b3;
+			}
 	        .card li:nth-child(4) > span {
 	            display: none;
 	        }
