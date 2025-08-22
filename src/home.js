@@ -16,6 +16,7 @@ function alphabetizeFolder (folder) {
 function Folder (folder, path = '/') {
 	const { '': files, ...folders } = folder;
 	const folderEntries = Object.entries(folders);
+	const remainingFiles = new Set(files);
 
 	if (!files.length && !folderEntries.length) {
 		return;
@@ -23,12 +24,17 @@ function Folder (folder, path = '/') {
 
 	return ['ul', { className: 'children' },
 		...folderEntries.map(([name, folder]) => {
+			const useLink = remainingFiles.has(name);
+			remainingFiles.delete(name);
+
 			return ['li', null,
-				['span', { className: 'child-button' }, `${name}/`],
+				useLink
+					? ['a', { href: `${path}${name}`, className: 'child-button' }, name]
+					: ['span', { className: 'child-button' }, name],
 				Folder(folder, `${path}${name}/`),
 			];
 		}),
-		...files.map(name => {
+		...[...remainingFiles].map(name => {
 			return ['li', null,
 				['a', {
 					href: `${path}${name}`,
@@ -78,7 +84,7 @@ export default function Home () {
 	stew(null, [theme], setTheme);
 
 	const paths = stew(() => {
-		return Object.keys(localStorage).filter(name => /^\/(?!\/).*\.(md|json)$/.test(name));
+		return Object.keys(localStorage).filter(name => /^\/.*\.(md|json)$/.test(name));
 	}, []);
 
 	const quest = stew(async () => {

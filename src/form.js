@@ -180,7 +180,7 @@ function renderIdentifier (option, i, value) {
 function ArraySelect ({ options, names, array }, select) {
 	const initialIndexes = stew(() => {
 		return array.map(value => findOption(value, ...options));
-	}, [array]);
+	}, []);
 
 	const state = stew({
 		indexes: initialIndexes,
@@ -189,7 +189,7 @@ function ArraySelect ({ options, names, array }, select) {
 		after: '',
 		start: 1,
 		visibleIndexes: new Set(),
-	}, [array]);
+	}, []);
 
 	const { indexes, start, visibleIndexes } = state;
 	let ref;
@@ -207,7 +207,7 @@ function ArraySelect ({ options, names, array }, select) {
 		const field = Field('textarea//', '', ...names, '');
 		field[2] = text;
 		return field;
-	}, [array]);
+	}, []);
 
 	attachListener(select, event => {
 		const index = event.target.selectedIndex - 1;
@@ -219,11 +219,15 @@ function ArraySelect ({ options, names, array }, select) {
 		const [, textarea] = ref[0];
 		const option = options[index];
 		const [type,,, placeholder] = option;
-		const value = type ? null : placeholder;
-		textarea.value += `\n${renderIdentifier(option, indexes.length, value)}`;
+		const { length } = indexes;
+		const { value } = textarea;
+		const string = type ? 'null' : placeholder;
 		state.indexes = [...indexes, index];
+		textarea.value += `${value ? '\n' : ''}${renderIdentifier(option, length, string)}`;
 		event.target.selectedIndex = 0;
 		resizeTextarea([[textarea]]);
+		textarea.selectionStart = value ? value.length + 1 : 0;
+		textarea.selectionEnd = textarea.value.length;
 	});
 
 	Object.assign(meta[1], {
@@ -301,9 +305,9 @@ function ObjectSelect ({ options, names, object }, select, input) {
 		return Object.entries(object)
 			.map(([name, value]) => [name, findOption(value, ...options)])
 			.filter(([, index]) => index > -1);
-	}, [object]);
+	}, []);
 
-	const state = stew({ indexes: initialIndexes }, [object]);
+	const state = stew({ indexes: initialIndexes }, []);
 	const { indexes } = state;
 
 	attachListener(select, event => {
@@ -430,13 +434,8 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, names }, fiel
 	const { '': dataMeta, ...dataProps } = data;
 	const [dataPath, ...overrides] = typeof dataMeta === 'string' ? dataMeta.trim().split(/\s+/) : [''];
 
-	if (!dataPath || dataPath.endsWith('/')) {
-		const { '': schemaMeta, ...schemaProps } = schema;
-		overrides.push(...Object.keys(schemaProps));
-	}
-
 	const state = stew({
-		expanded: !names.length,
+		expanded: !names.length || typeof names[names.length - 1] === 'number',
 		selection: dataPath.split('/').pop(),
 	}, []);
 
@@ -495,6 +494,10 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, names }, fiel
 
 	if (path) {
 		meta = Field(`/ ${path}/${selection}`, undefined, ...names, '');
+	}
+
+	if (!path || !selection) {
+		overrides.splice(0, overrides.length, ...Object.keys(schema));
 	}
 
 	if (expanded || overrides.length) {

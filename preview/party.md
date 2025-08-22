@@ -134,7 +134,7 @@ return ['div', { className: 'profile' },
 
 ```export
 const [props] = arguments;
-const { theme } = props;
+const { theme = '#777777' } = props;
 
 return ['div', { className: 'portrait' },
 	['div', { className: 'background', style: { background: theme } }],

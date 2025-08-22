@@ -283,8 +283,12 @@ span.child-button {
 	gap: 10px;
 	flex-direction: column;
 	margin-top: 10px;
-	padding-left: 16px;
+	padding-left: 12px;
 	border-left: 1px solid var(--paper-font-color);
+}
+.sidebar form ol > li > ul,
+.sidebar form ol > li > ol {
+	margin-left: -12px;
 }
 .sidebar form > ul {
 	margin: 0;
