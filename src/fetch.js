@@ -59,7 +59,7 @@ export function hydrateData (data, cache, promises) {
 		return;
 	}
 
-	fetchData(path, cache)
+	fetchData(path, cache);
 	const promise = cache[`${path}.json`];
 	overrides.push(...Object.keys(rest));
 

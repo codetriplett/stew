@@ -71,55 +71,7 @@ export function getText () {
 }
 
 export function getQuests () {
-	const [todayName, startName, count = 7] = arguments;
-	const locale = Intl.DateTimeFormat().resolvedOptions().locale;
-	const cards = [];
-	const year = startName.slice(0, 4);
-	const start = getDay(year) - (count > 7 ? 28 : 0);
-	let index = getDay(startName) - (count > 7 ? 28 : 0);
-	index -= (index - start) % 7;
-	let week = Math.floor((index - start) / 7) + (count > 7 ? 0 : 4);;
-
-	for (let i = 0; i < count; i += 7) {
-	    const card = ['ul', { className: `card season-${Math.floor(week / 13)} week-${week % 13}` }];
-	    cards.push(card);
-	    week++;
-
-	    for (let j = 0; j < 7; j++) {
-	        const date = new Date(index * 24 * 60 * 60 * 1000);
-	        const year = date.getFullYear();
-	        const month = date.getMonth() + 1;
-	        const day = date.getDate();
-	        const name = `${year}${month < 10 ? '0' : ''}${month}${day < 10 ? '0' : ''}${day}`;
-	        const href = `/index/${name}`;
-	        let data;
-
-	        try {
-	            data = JSON.parse(localStorage.getItem(`${href}.json`) || '{}');
-	        } catch (err) {
-	            data = {};
-	        }
-
-	        const textProps = { className: 'quest' };
-	        let { quest = '', exp = 0, type = 'home', complete } = data;
-	        index++;
-
-	        if (!quest && day === 1) {
-	            quest = new Intl.DateTimeFormat(locale, { month: 'long' }).format(date);
-	            textProps.style = { fontSize: quest.length > 10 ? '11px' : '15px', fontWeight: 'bold' };
-	        }
-
-	        card.push(['li', name === todayName ? { className: 'today' } : null,
-	            ['span', null, day],
-	            ['a', { href },
-	                ['span', textProps, quest],
-	                complete && ['span', { className: `exp exp-${type}` }, `+${exp}`],
-	            ],
-	        ]);
-	    }
-	}
-
-	return ['', null,
+	return ['', {},
 	    ['style', null, `
 	        .header {
 	            display: flex;
@@ -280,7 +232,62 @@ export function getQuests () {
 	            transform: rotate(90deg) translateY(-100%);
 	        }
 	    `],
-	    ['div', { className: 'cards' }, ...cards],
+		['div', { className: 'cards' }, () => {
+			const [todayName, startName, count = 7] = arguments;
+			const year = startName.slice(0, 4);
+			const start = getDay(year) - (count > 7 ? 28 : 0);
+			let index = getDay(startName) - (count > 7 ? 28 : 0);
+			index -= (index - start) % 7;
+			let week = Math.floor((index - start) / 7) + (count > 7 ? 0 : 4);
+			const season = Math.floor(week / 13);
+			const locale = Intl.DateTimeFormat().resolvedOptions().locale;
+			const cards = ['', null];
+
+			switch (week % 13) {
+				case 1: {
+					week -= 1;
+					break;
+				}
+				case 12: {
+					week += 1;
+					break;
+				}
+			}
+
+			for (let i = 0; i < count; i += 7) {
+				const card = ['ul', { className: `card season-${season} week-${week % 13}` }];
+				cards.push(card);
+				week++;
+
+				for (let j = 0; j < 7; j++) {
+					const date = new Date(index * 24 * 60 * 60 * 1000);
+					const year = date.getFullYear();
+					const month = date.getMonth() + 1;
+					const day = date.getDate();
+					const name = `${year}${month < 10 ? '0' : ''}${month}${day < 10 ? '0' : ''}${day}`;
+					const href = `/index/${name}`;
+					const data = stew(fetchData, [href], {});
+					const textProps = { className: 'quest' };
+					let { quest = '', exp = 0, type = 'home', complete } = data;
+					index++;
+
+					if (!quest && day === 1) {
+						quest = new Intl.DateTimeFormat(locale, { month: 'long' }).format(date);
+						textProps.style = { fontSize: quest.length > 10 ? '11px' : '15px', fontWeight: 'bold' };
+					}
+
+					card.push(['li', name === todayName ? { className: 'today' } : null,
+						['span', null, day],
+						['a', { href },
+							['span', textProps, quest],
+							complete && ['span', { className: `exp exp-${type}` }, `+${exp}`],
+						],
+					]);
+				}
+			}
+	    
+			return cards;
+		}],
 	];
 }
 
@@ -328,18 +335,6 @@ export function calendar () {
 	    return [todayName, `${year}${month < 10 ? '0' : ''}${month}01`];
 	}, [seasonOffset]);
 
-	const cards = stew(getQuests, [todayName, startName, 98]);
-	const container = cards[3];
-	const [season] = container[3][1].className.match(/(?:^|\s)season-.*?(?:\s|$)/);
-
-	// TODO: see if these can be handled in getQuest when startName is yyyymm
-	// - needs to find a day name that lies in the first week card of that month
-	if (container[2][1].className.indexOf(season) === -1) {
-	    container.splice(2, 1);
-	} else if (container.length > 15 && container[15][1].className.indexOf(season) === -1) {
-	    container.splice(15, 1);
-	}
-
 	const labels = [
 	    ['Winter', 'December', 'January', 'February'],
 	    ['Spring', 'March', 'April', 'May'],
@@ -359,13 +354,13 @@ export function calendar () {
 	            onclick: () => state.seasonOffset += 1,
 	        }, '〉'],
 	    ],
-	    cards,
+	    stew(getQuests, [todayName, startName, 91]),
 	];
 }
 
 export default [calendar, {
     '': {
-        '': 'Calendar',
+        '': 'Calendar /index// Make a quest',
         smile: '🙂',
     },
     quest: 'Quest //',

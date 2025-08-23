@@ -620,14 +620,18 @@ export default function parse (content, rootPath = '', library = stack[0]?.[4] |
 			const formatter = library[type];
 
 			if (typeof formatter === 'function') {
-				wrapper.splice(0, 3, '', null, () => formatter(flags, container[2]));
+				wrapper.splice(0, 3, formatter, flags, container[2]);
 			}
 		}
 	}
 
-	const root = map[''][0].slice(2);
+	let root = map[''][0].slice(2);
 
 	if (root) {
+		if (typeof main[2]?.[0] === 'number') {
+			root = root.replace(/^:\d+/, m => `:${Number(m.slice(1)) + 1}`);
+		}
+
 		map[''] = `h${root}`;
 		main[1] = map;
 	}

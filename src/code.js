@@ -55,7 +55,7 @@ export function extractCode (file, library = {}) {
 
 	const [, map, ...content] = layout;
 	const { '': root, ...sections } = map || {};
-	const [, name] = root.split('#');
+	const [, name = ''] = root.split('#');
 	const [, index] = summary[1]?.['']?.split?.(':') || [];
 	const claimed = new Set();
 	const imports = {};
@@ -147,6 +147,10 @@ export function extractCode (file, library = {}) {
 			}
 		}
 
+		if (string === 'import' && !named.length) {
+			continue;
+		}
+
 		string += `${named.length ? ` { ${named.join(', ')} }` : ''} from '${path}.mjs';`;
 		strings.unshift(string);
 	}
@@ -158,38 +162,48 @@ export function extractCode (file, library = {}) {
 	if (!index) {
 		if (!code && !defaultString) {
 			return;
-		} else if (defaultString) {
+		} else if (defaultString && formattedName) {
 			code += `${code ? '\n\n' : ''}export default ${formattedName};`;
 		}
 
 		return `${code}\n`;
 	}
 
-	const definition = summary[Number(index) + 3]?.[2]?.[2];
+	const definition = summary[Number(index) + 2]?.[2]?.[2] || '';
 	const schemaStart = definition.indexOf('{');
 	let schemaFinish = definition.search(/(\{\s*|\n)\}/);
 	schemaFinish = definition.indexOf('}', schemaFinish);
 	const resources = definition.slice(0, schemaStart).trim();
 	const styles = definition.slice(schemaFinish + 1).trim();
 	let schema = definition.slice(schemaStart, schemaFinish + 1).trim();
+	let object;
 	code += `${code ? '\n\n' : ''}export default [${defaultString && formattedName || 'null'}, `;
 
 	try {
-		const object = new Function(`return ${schema}`)();
-		const emoji = object[''];
-
-		if (emoji) {
-			object[''] = { ...emoji, '': heading };
-		} else {
-			object[''] = heading;
-		}
-
-		schema = format(object);
+		object = new Function(`return ${schema}`)() || {};
 	} catch (err) {
 		console.error(`Schema syntax error: ${err.message}`);
-		schema = '{}';
+		object = {};
 	}
 
+	let { '': meta, ...fields } = object;
+	let emoji;
+
+	if (typeof meta === 'object') {
+		({ '': meta, ...emoji } = meta);
+	}
+
+	if (typeof meta !== 'string') {
+		meta = '';
+	}
+
+	meta = meta.replace(/^\s*(?=\S*?\/|$)/, `${heading} `).trim();
+
+	if (emoji) {
+		meta = { '': meta, ...emoji };
+	}
+
+	schema = format(meta ? { '': meta, ...fields } : fields);
 	code += `${schema}${!styles ? '' : `, ['style', null, \`\n${styles}\n\`]`}`;
 
 	for (const url of resources.split(/\s*\n+\s*/)) {

@@ -139,7 +139,7 @@ function insert (ref, symbol) {
 }
 
 export default function Editor ({ path, file, schema, isModule }) {
-	const { data } = state;
+	const { data = {} } = state;
 	let formRef, textareaRef;
 
 	stew(null, [], () => {

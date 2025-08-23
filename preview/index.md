@@ -1,6 +1,7 @@
 ```export
 {
     '': {
+        '': '/index// Make a quest',
         smile: '🙂',
     },
     quest: 'Quest //',

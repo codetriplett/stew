@@ -669,32 +669,28 @@ describe('parse', () => {
 		});
 
 		it('tick customized', () => {
-			const actual = parse('```capitalize\nabc\n```', '/', {
-				capitalize: (flags, code) => {
-					const { onlyFirst } = flags;
-					return onlyFirst ? `${code[0].toUpperCase()}${code.slice(1)}` : code.toUpperCase();
-				},
-			});
+			function capitalize (flags, code) {
+				const { onlyFirst } = flags;
+				return onlyFirst ? `${code[0].toUpperCase()}${code.slice(1)}` : code.toUpperCase();
+			}
+
+			const actual = parse('```capitalize\nabc\n```', '/', { capitalize });
 
 			expect(actual).toEqual(['', null,
-				['pre', null,
-					['code', null, 'ABC'],
-				],
+				[capitalize, {}, 'abc'],
 			]);
 		});
 
 		it('tick customized with flags', () => {
-			const actual = parse('```capitalize onlyFirst\nabc\n```', '/', {
-				capitalize: (flags, code) => {
-					const { onlyFirst } = flags;
-					return onlyFirst ? `${code[0].toUpperCase()}${code.slice(1)}` : code.toUpperCase();
-				},
-			});
+			function capitalize (flags, code) {
+				const { onlyFirst } = flags;
+				return onlyFirst ? `${code[0].toUpperCase()}${code.slice(1)}` : code.toUpperCase();
+			}
+
+			const actual = parse('```capitalize onlyFirst\nabc\n```', '/', { capitalize });
 
 			expect(actual).toEqual(['', null,
-				['pre', null,
-					['code', null, 'Abc'],
-				],
+				[capitalize, { onlyFirst: true }, 'abc'],
 			]);
 		});
 
@@ -740,6 +736,33 @@ describe('parse', () => {
 				],
 				['pre', null,
 					['code', null, 'xyz'],
+				],
+			]);
+		});
+
+		it('code summary index', () => {
+			const actual = parse('```export\nabc\n```\n\n# lmno\n\n```export\nxyz\n```', '/path#');
+
+			expect(actual).toEqual(['', {
+				'': 'h:1',
+			},
+				[1, null,
+					['a', { href: '/path#' }, 'lmno'],
+				],
+				['pre', null,
+					['code', null, 'abc'],
+				],
+			]);
+		});
+
+		it('code standalone summary index', () => {
+			const actual = parse('```export\nabc\n```', '/path#');
+
+			expect(actual).toEqual(['', {
+				'': 'h:0',
+			},
+				['pre', null,
+					['code', null, 'abc'],
 				],
 			]);
 		});

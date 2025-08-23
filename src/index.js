@@ -182,7 +182,10 @@ Promise.all([...promises, fetchCode('/')]).then(async sequence => {
 
 		const path = paths.pop();
 
-		if (!heading) {
+		if (heading) {
+			rest[''] = heading;
+			heading = heading.split('/')[0].trim();
+		} else {
 			const name = path.split('/').pop();
 			heading = formatHeading(name);
 		}

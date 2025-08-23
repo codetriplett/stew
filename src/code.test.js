@@ -8,19 +8,24 @@ beforeEach(() => {
 describe('format', () => {
 	it('array', () => {
 		const actual = format([123, '123']);
-		expect(actual).toEqual('[123, \'123\']');
+
+		expect(actual).toEqual(
+`[123,
+    \'123\',
+]`
+		);
 	});
 
 	it('object', () => {
 		const actual = format({
 			abc: 123,
-			'': {},
+			'': 'lmno',
 			xyz: '789',
 		});
 
 		expect(actual).toEqual(
 `{
-    '': {},
+    '': 'lmno',
     abc: 123,
     xyz: '789',
 }`
@@ -42,9 +47,11 @@ describe('format', () => {
     '': {
         abc: 'abc',
     },
-    lmno: ['lmno', {
-        xyz: 'xyz',
-    }],
+    lmno: ['lmno',
+        {
+            xyz: 'xyz',
+        },
+    ],
 }`
 		);
 	});
@@ -67,9 +74,9 @@ describe('extractCode', () => {
 # Component
 
 [Documentation](/documentation)
-[](/path#abc#xyz# "lmno")
-[](/path#lm#no# "ml on mlon")
-[](/path "onml")
+[](/named#abc#xyz#)
+[](/alias#lm#no# "ml on mlon")
+[](/barrel "onml")
 
 \`\`\`export
 const [place] = arguments;
@@ -87,8 +94,9 @@ return \`Hello \${place}\`;
 		`);
 
 		expect(actual).toEqual(
-`import lmno, { abc, xyz, lm as ml, no as on, default as mlon } from '/path.mjs';
-import * as onml from '/path.mjs';
+`import named, { abc, xyz } from '/named.mjs';
+import mlon, { lm as ml, no as on } from '/alias.mjs';
+import * as onml from '/barrel.mjs';
 
 export const state = stew({
     number: 123,
@@ -101,9 +109,7 @@ export function component () {
 }
 
 export default [component, {
-    '': {
-        '': 'Component',
-    },
+    '': 'Component',
     place: '// Place',
 }, ['style', null, \`
 * {
@@ -136,9 +142,7 @@ return 'Hello World';
 }
 
 export default [component, {
-    '': {
-        '': 'Component',
-    },
+    '': 'Component',
 }];
 `
 		);
@@ -182,9 +186,7 @@ return 'Hello World';
 
 		expect(actual).toEqual(
 `export default [null, {
-    '': {
-        '': 'Component',
-    },
+    '': 'Component',
 }];
 `
 		);
@@ -204,5 +206,45 @@ return 'Hello World';
 		`);
 
 		expect(actual).toEqual(undefined);
+	});
+
+	it('with definition', () => {
+		const actual = extractCode(`
+\`\`\`export
+{
+	'': '// Choose an item',
+}
+\`\`\`
+
+# Component
+
+\`\`\`
+return 'Hello World';
+\`\`\`
+		`);
+
+		expect(actual).toEqual(
+`export default [null, {
+    '': 'Component // Choose an item',
+}];
+`
+		);
+	});
+
+	it('alternate heading', () => {
+		const actual = extractCode(`
+\`\`\`export
+{
+	'': 'Heading',
+}
+\`\`\`
+		`);
+
+		expect(actual).toEqual(
+`export default [null, {
+    '': 'Heading',
+}];
+`
+		);
 	});
 });

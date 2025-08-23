@@ -66,7 +66,7 @@ export function extractData (form) {
 			return newObject;
 		}, data);
 
-		if (isMeta) {
+		if (isMeta && finalName) {
 			metas.unshift([object, finalName, value, tagName.toLowerCase()]);
 		} else {
 			object[finalName] = value;
@@ -224,8 +224,8 @@ function ArraySelect ({ options, names, array }, select) {
 		const string = type ? 'null' : placeholder;
 		state.indexes = [...indexes, index];
 		textarea.value += `${value ? '\n' : ''}${renderIdentifier(option, length, string)}`;
-		event.target.selectedIndex = 0;
 		resizeTextarea([[textarea]]);
+		event.target.selectedIndex = 0;
 		textarea.selectionStart = value ? value.length + 1 : 0;
 		textarea.selectionEnd = textarea.value.length;
 	});
@@ -338,9 +338,9 @@ function ObjectSelect ({ options, names, object }, select, input) {
 	];
 }
 
-export function Select (definitions, value, ...names) {
+export function Select ({ definition, data, names }) {
 	const [info, ...options] = stew(() => {
-		return definitions.map((definition, i) => {
+		return definition.map((definition, i) => {
 			let field = Field(definition, undefined, ...(i ? names : []));
 			const isObject = field[0] !== 'label';
 			let path;
@@ -370,9 +370,9 @@ export function Select (definitions, value, ...names) {
 
 			return [type, label, definition, placeholder];
 		}).filter(option => option);
-	}, [definitions]);
+	}, []);
 
-	const [type, label, definition, placeholder] = info;
+	const [type, label, infoDefinition, placeholder] = info;
 
 	const select = ['label', { className: 'select-label' },
 		label || names[names.length - 1],
@@ -387,15 +387,15 @@ export function Select (definitions, value, ...names) {
 	switch (type) {
 		case '':
 		case 'boolean': {
-			return [ValueSelect, { options, names, value }, select];
+			return [ValueSelect, { options, names, value: data }, select];
 		}
 		case 'number': {
-			const array = !Array.isArray(value) ? [] : value;
+			const array = !Array.isArray(data) ? [] : data;
 			return [ArraySelect, { options, names, array }, select];
 		}
 		case 'string': {
-			const object = typeof value !== 'object' || Array.isArray(value) ? {} : value;
-			return [ObjectSelect, { options, names, object }, select, Field(definition)];
+			const object = typeof data !== 'object' || Array.isArray(data) ? {} : data;
+			return [ObjectSelect, { options, names, object }, select, Field(infoDefinition)];
 		}
 	}
 }
@@ -424,7 +424,6 @@ let form, input;
 function ObjectField ({ '': context, schema = {}, data = {}, path, names }, field) {
 	field = [...field];
 	const inputProps = field.pop()[1];
-	const complex = path && names.length > 0;
 	const { cache } = context;
 
 	if (!field[2]) {
@@ -442,7 +441,7 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, names }, fiel
 	const { expanded, selection } = state;
 	let select;
 
-	if (complex) {
+	if (path) {
 		const base = stew(fetchCode, [path, cache], null);
 		const list = stew(fetchList, [path, cache], null);
 
@@ -470,7 +469,7 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, names }, fiel
 					return ['option', { value }, value];
 				}),
 			]],
-		], [path]);
+		], []);
 
 		stew(null, [selection], () => {
 			if (!select) {
@@ -518,15 +517,22 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, names }, fiel
 		}
 	}
 
-	return !names.length ? list : ['', null, [
-		...field,
-		['button', {
-			type: 'button',
-			className: 'action-button',
-			onclick: () => state.expanded = !expanded,
-		}, expanded ? 'Hide' : selection ? 'Override' : 'Show'],
-		select,
-	], meta, list];
+	if (names.length) {
+		field.push(
+			['button', {
+				type: 'button',
+				className: 'action-button',
+				onclick: () => state.expanded = !expanded,
+			}, expanded ? 'Hide' : selection ? 'Override' : 'Show'],
+			select,
+		);
+	} else if (meta) {
+		field.splice(2, 1, '', select);
+	} else {
+		field = null;
+	}
+
+	return ['', null, field, meta, list];
 }
 
 // TODO: see if ...names can be replaced by parentId and name
@@ -535,7 +541,7 @@ export function Field (definition, data, ...names) {
 	let schema, defaultLabel;
 
 	if (Array.isArray(definition)) {
-		return Select(definition, data, ...names);
+		return [Select, { definition, data, names }];
 	} else if (typeof definition === 'object') {
 		({ '': definition, ...schema } = definition);
 		defaultLabel = 'Object';
@@ -551,7 +557,7 @@ export function Field (definition, data, ...names) {
 		}
 	}
 
-	const id = names.reduce((id, name) => `${id}${typeof name === 'number' ? `[${name}]` : `${id ? '.' : ''}${name}`}`, '');
+	const id = names.reduce((id, name) => `${id}${typeof name === 'number' ? `[${name}]` : `${id || !name ? '.' : ''}${name}`}`, '');
 	const match = definition.match(/^\s*(?:([^\/]+)\s+)?(\**)(\S*?)\/(\S*\/)?(\S*?)(?:\s+(.+?))?\s*$/);
 	let [, label, required, type, slashes = '', range = '', placeholder] = match || [, definition.trim()];
 	let [, min = '', step, max = ''] = range.match(/^(?:(.*?)\.\.)?(?:(.*?)\.\.)?(.*?)$/);
