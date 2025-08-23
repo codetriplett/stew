@@ -17,15 +17,26 @@ export function party () {
 	    const names = stew(fetchList, [pathname.slice(0, -1)], []);
 	    const array = names.map(name => stew(fetchData, [name], {}));
 
-	    return ['div', { className: 'grid' },
-	        ...array.map(({ name, theme }, i) => ['a', {
-	            className: 'link',
-	            href: `${pathname}${names[i]}`,
-	        },
-	            profile({ theme }),
-	            [2, { className: 'title' }, name],
-	        ]),
-	    ];
+	    return ['', null,
+			['h1', null, 'Create a party'],
+			['p', null,
+				'This demo shows the basics of editing notes that have fields, and using that date to create a custom layout. ',
+				'Navigate to a note under this landing page to get started, like ', ['a', { href: '/party/me' }, 'this one'], '. ',
+				'Landing pages end with a trailing slash, and their layouts and the ones for their child pages fully editable. ',
+				'Like the rest of your notes, any changes you make to these templates are only stored in your browser. ',
+				'If you wish to reset one of the preset templates on this site, just clear its content and save. ',
+				'To learn more about how the code for templates, visite the ', ['a', { href: '/stew' }, 'Stew guide. '],
+			],
+			['div', { className: 'grid' },
+				...array.map(({ name, theme }, i) => ['a', {
+					className: 'link',
+					href: `${pathname}${names[i]}`,
+				},
+					profile({ theme }),
+					[2, { className: 'title' }, name],
+				]),
+			],
+		];
 	}
 
 	const { name = 'Unknown', alias, theme, quests = [] } = props;
