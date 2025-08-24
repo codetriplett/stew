@@ -2,7 +2,7 @@ import { extractData, Field } from './form';
 import { extractCode } from './code';
 import Sidebar from './sidebar';
 import { resizeTextarea } from './helpers';
-import state, { library } from '.';
+import state from '.';
 
 async function putFile (path, body, isCommit) {
 	const method = /\S/.test(body) ? 'PUT' : 'DELETE';
@@ -27,7 +27,7 @@ function clear (path) {
 	localStorage.removeItem(`${path}.json`);
 }
 
-async function save (path, formRef, textareaRef, isCommit, skipReload) {
+async function save (path, formRef, textareaRef, library, isCommit, skipReload) {
 	const { readonly } = flags;
 	const file = textareaRef[0][0].value;
 	const code = extractCode(file, library);
@@ -138,7 +138,7 @@ function insert (ref, symbol) {
 	Object.assign(textarea, { value, selectionStart, selectionEnd });
 }
 
-export default function Editor ({ path, file, schema, isModule }) {
+export default function Editor ({ '': library, path, file, schema, isModule }) {
 	const { data = {} } = state;
 	let formRef, textareaRef;
 
@@ -219,7 +219,7 @@ export default function Editor ({ path, file, schema, isModule }) {
 							textarea.selectionStart = textarea.selectionEnd = selectionStart + 1;
 						} else if (key === 's' && ctrlKey) {
 							event.preventDefault();
-							save(path, formRef, textareaRef, !flags.readonly, true);
+							save(path, formRef, textareaRef, library, !flags.readonly, true);
 							return;
 						}
 
@@ -234,7 +234,7 @@ export default function Editor ({ path, file, schema, isModule }) {
 				['button', {
 					type: 'button',
 					className: 'right-button save-button',
-					onclick: () => save(path, formRef, textareaRef, !flags.readonly),
+					onclick: () => save(path, formRef, textareaRef, library, !flags.readonly),
 				}],
 				// NOTE: the version of save that pushes to server will exist on the home page
 				// - it will resemble staging changes for commit like GIT

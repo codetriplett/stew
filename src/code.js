@@ -157,7 +157,7 @@ export function extractCode (file, library = {}) {
 
 	let code = strings.join('\n').replace(/^[\r\n]+/, '');
 	const formattedName = name.replace(/^-+|-+$/g, '').replace(/-+./g, m => m.slice(-1).toUpperCase());
-	const heading = sections[name]?.[1] || '';
+	const heading = sections[name]?.[1]?.split?.('/')?.[0] || '';
 
 	if (!index) {
 		if (!code && !defaultString) {
@@ -177,7 +177,6 @@ export function extractCode (file, library = {}) {
 	const styles = definition.slice(schemaFinish + 1).trim();
 	let schema = definition.slice(schemaStart, schemaFinish + 1).trim();
 	let object;
-	code += `${code ? '\n\n' : ''}export default [${defaultString && formattedName || 'null'}, `;
 
 	try {
 		object = new Function(`return ${schema}`)() || {};
@@ -187,23 +186,14 @@ export function extractCode (file, library = {}) {
 	}
 
 	let { '': meta, ...fields } = object;
-	let emoji;
-
-	if (typeof meta === 'object') {
-		({ '': meta, ...emoji } = meta);
-	}
 
 	if (typeof meta !== 'string') {
 		meta = '';
 	}
 
 	meta = meta.replace(/^\s*(?=\S*?\/|$)/, `${heading} `).trim();
-
-	if (emoji) {
-		meta = { '': meta, ...emoji };
-	}
-
 	schema = format(meta ? { '': meta, ...fields } : fields);
+	code += `${code ? '\n\n' : ''}export default [${defaultString && formattedName || 'null'}, `;
 	code += `${schema}${!styles ? '' : `, ['style', null, \`\n${styles}\n\`]`}`;
 
 	for (const url of resources.split(/\s*\n+\s*/)) {

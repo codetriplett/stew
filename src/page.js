@@ -1,5 +1,5 @@
 
-import state, { updateSettings, packSettingsAndSessions, scrollTo, updateWidth } from '.';
+import state, { updateSettings, packSettingsAndSessions, scrollTo } from '.';
 import { fetchNote } from './fetch';
 import Editor from './editor';
 import Sidebar from './sidebar';
@@ -178,7 +178,7 @@ function Citation ({ snip, styles }) {
 // - right nav will be used by snips and preview
 // - left nav will only fill its own width, while right nav will share space with main area (but less)
 
-export default function Page ({ path, map, ref, breadcrumbs, heading, isModule, markdown, directory, schema, widget }, ...children) {
+export default function Page ({ path, cache, map, ref, breadcrumbs, heading, isModule, markdown, directory, schema, widget }, ...children) {
 	const { isEditing, snips } = state;
 
 	if (isEditing) {
@@ -186,7 +186,7 @@ export default function Page ({ path, map, ref, breadcrumbs, heading, isModule, 
 		// - the Page impulse seems to have a mismatch between its nodes array and the actual childNodes in the DOM
 		// - this is causing it to choose the wrong sibling for reconcile()
 		// - Page would be sharing teh same proxy between this and its other one, but the prevNodes should still exist when reconcile runs. prevNodes are only removed afterward
-		return ['', { cache: {} },
+		return ['', { cache },
 			[Editor, { path, file: markdown, schema, isModule }],
 		];
 	}

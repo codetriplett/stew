@@ -67,7 +67,7 @@ function send (res, content, extension) {
 				break;
 			}
 			case 'mjs': {
-				content = 'export default [(_, content) => content, {}];';
+				content = 'export default [null, {}];';
 				break;
 			}
 			case 'json': {

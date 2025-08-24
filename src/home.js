@@ -1,4 +1,4 @@
-import state, { updateSettings, setTheme, updateWidth } from '.';
+import state, { updateSettings, setTheme } from '.';
 import { fetchNote } from './fetch';
 import Sidebar from './sidebar';
 
@@ -77,7 +77,7 @@ function Drafts ({ paths }) {
 
 // TODO: add a link in the breadcrumb area with the current date
 // - clicking on it will take you to the note for the current day, e.g. 20250709
-export default function Home () {
+export default function Home ({ cache, namespace }) {
 	const { settings, snips } = state;
 	const { theme } = settings;
 	stew(null, [], () => state.hasMounted = true);
@@ -88,13 +88,17 @@ export default function Home () {
 	}, []);
 
 	const quest = stew(async () => {
+		if (!namespace) {
+			return;
+		}
+
 		const date = new Date();
 		const dateText = date.toDateString();
 		const year = date.getFullYear();
 		const month = String(date.getMonth() + 101);
 		const day = String(date.getDate() + 100);
-		const path = `/index/${year}${month.slice(1)}${day.slice(1)}`;
-		const markdown = await fetchNote(path);
+		const path = `/${namespace}/${year}${month.slice(1)}${day.slice(1)}`;
+		const markdown = await fetchNote(path, cache);
 		const summary = stew(markdown, [`${path}#`]) || ['', null];
 		
 		if (typeof summary[2]?.[0] === 'number') {
@@ -108,52 +112,17 @@ export default function Home () {
 		summary.splice(2, 0, ['a', { href: path, className: 'date-link' }, dateText]);
 		return summary;
 	}, [], null);
+
+	const markdown = stew(fetchNote, ['/', cache], null);
+	const content = stew(markdown, ['/']);
+	const index = content?.findIndex?.(item => Array.isArray(item) && item[0] > 1);
 	
 	return ['', null,
 		[Drafts, { paths }],
 		['div', { className: 'main' },
 			['div', { className: 'paper' },
 				quest,
-				[1, null, 'Make\u00A0a\u00A0note. Build\u00A0a\u00A0space.'],
-				['p', null,
-					'This site serves as a place to store and browse your notes. ',
-					'It also supports embedded code to create web pages and games. ',
-					'Everything is stored in your browser, but a downloadable version will also be available in the future. ',
-					'Navigate to any URL to get started on a new note, or read on to learn the basics. ',
-				],
-				['div', { className: 'flex-links' },
-					['div', null,
-						['a', { href: '/markdown' }, 'Markdown'],
-						['p', null, 'Decorates notes with basic HTML.'],
-					],
-					['div', null,
-						['a', { href: '/stew' }, 'Stew'],
-						['p', null, 'Enables custom layouts and interactivity.'],
-					],
-					['div', null,
-						['a', { href: '/webgl' }, 'WebGL'],
-						['p', null, 'Streamlines 2D and 3d graphics.'],
-					],
-				],
-				['p', null,
-					'Here are some examples of what you can create. ',
-					'Each of them can be edited like any other note, so feel free to make it your own. ',
-					'You can reset these ones at any time by clearing your local draft and saving. ',
-				],
-				['div', { className: 'flex-links' },
-					['div', null,
-						['a', { href: '/party/' }, 'Party'],
-						['p', null, 'A basic demo of custom pages with data.'],
-					],
-					['div', null,
-						['a', { href: '/index/' }, 'Calendar'],
-						['p', null, 'A view of your daily notes by season.'],
-					],
-					['div', null,
-						['a', { href: '/cube/' }, 'Cube'],
-						['p', null, 'A 3D puzzle cube to fidget with.'],
-					],
-				],
+				content?.slice?.(0, index),
 				// TODO: render active snips session here
 				// - display inactive ones to the side, along with a button to create a new session
 				// - ones to the side can be clicked to make active or closed

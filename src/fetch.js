@@ -111,6 +111,48 @@ export function fetchData (path, cache = {}) {
 	return resolution;
 }
 
+export function normalizeCode (code) {
+	let { default: array, ...object } = code || {};
+
+	if (!Array.isArray(array)) {
+		switch (typeof array) {
+			case 'function': {
+				array = [array, {}];
+				break;
+			}
+			case 'object': {
+				array = [null, array];
+				break;
+			}
+			default: {
+				array = [null, {}];
+				break;
+			}
+		}
+	} else {
+		let [callback, schema, ...rest] = array;
+
+		if (typeof callback !== 'function') {
+			callback = null;
+		}
+
+		if (typeof schema !== 'object' || Array.isArray(schema)) {
+			schema = {};
+		}
+
+		array = [callback, schema, ...rest];
+	}
+
+	const { '': definition, ...schema } = array[1];
+
+	if (typeof definition === 'string') {
+		schema[''] = definition;
+	}
+
+	array[1] = schema;
+	return { default: array, ...object };
+}
+
 export function fetchCode (path, cache = {}) {
 	const [key, filepath] = getPath(path, 'mjs');
 	let promise = cache[key];
@@ -126,7 +168,7 @@ export function fetchCode (path, cache = {}) {
 	)).catch(err => {
 		console.error(err);
 		return {};
-	});
+	}).then(normalizeCode)
 
 	cache[key] = promise;
 	return promise;

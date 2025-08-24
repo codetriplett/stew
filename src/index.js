@@ -26,7 +26,7 @@ export default state;
 
 export function setTheme () {
 	const { settings } = state;
-	const { theme } = settings;
+	const { theme = 'light' } = settings;
 	const { readonly } = flags;
 	document.body.className = `${theme}-theme ${pathname === '/' ? 'home' : 'page'} ${readonly ? 'readonly' : ''}`;
 }
@@ -85,6 +85,7 @@ export function scrollTo (hash, behavior) {
     window.scrollTo({ top, behavior });
 }
 
+// TODO: check if this is still needed
 export function updateWidth (flexRef, scrollRef, grow) {
 	const flexContainer = flexRef?.[''];
 	const scrollContainer = scrollRef?.[''];
@@ -129,37 +130,49 @@ function formatHeading (name) {
 	return name.replace(/-+/g, ' ').trim().replace(/( |^)./g, m => m.toUpperCase());
 }
 
-const pages = pathname.slice(1).split(/\/(\/+)/);
-const names = pages[0].split('/');
+const [page] = pathname.slice(1).split(/\/(\/+)/);
+const names = page ? page.split('/') : [];
+const indexPromises = [fetchCode('/', cache)];
 const promises = [];
 const paths = [];
+const cache = {};
 let name, path = '/';
 unpackSettingsAndSessions();
 
 while (names.length) {
 	name = names.shift();
 	path += name;
+	indexPromises.push(fetchCode(`${path}/`, cache));
 
 	if (promises.length) {
-		promises.unshift(name ? fetchData(path) : null);
+		promises.unshift(name && name !== 'index' ? fetchData(path, cache) : {});
 	}
 
 	if (names.length) {
-		promises.unshift(fetchCode(path));
+		promises.unshift(name !== 'index' ? fetchCode(path, cache) : { default: [null, {}] });
 		paths.unshift(path);
 		path += '/';
 	} else {
-		promises.unshift(name ? fetchNote(path) : '');
+		promises.unshift(name ? fetchNote(path, cache) : '');
 	}
 }
 
-Promise.all([...promises, fetchCode('/')]).then(async sequence => {
-	Object.assign(library, sequence.pop());
-	const [defaultExport, defaultSchema] = library.default || [];
-	library.default = { ...defaultSchema?.[''], '': defaultExport };
+Promise.all([...promises, ...indexPromises]).then(async sequence => {
+	const libraries = sequence.splice(promises.length);
+	const emoji = {};
+	const library = { default: emoji };
+	let namespace;
+
+	for (const code of libraries) {
+		const { default: [, schema], ...rest } = code;
+		const { '': meta = '', ...object } = schema;
+		Object.assign(library, rest);
+		Object.assign(emoji, object);
+		[, namespace] = meta.match(/^([^\/\s]+(?:\/[^\/\s]+)*)/) || [];
+	}
 
 	if (sequence.length < 2 && !name) {
-		stew('#app', library, [Home]);
+		stew('#app', library, [Home, { cache, namespace }]);
 		return;
 	}
 
@@ -170,20 +183,11 @@ Promise.all([...promises, fetchCode('/')]).then(async sequence => {
 	state.data = sequence[0];
 
 	for (let i = sequence.length - 1; i > 0; i -= 2) {
-		const { default: defaultExport, ...exports } = sequence[i] || {};
-		let { '': heading, ...rest } = Array.isArray(defaultExport) && defaultExport[1] || {};
-		Object.assign(library, exports);
-
-		if (typeof heading === 'object') {
-			const { '': string, ...rest } = heading;
-			Object.assign(library.default, rest);
-			heading = string;
-		}
-
+		[, schema] = sequence[i].default;
+		let { '': heading } = schema;
 		const path = paths.pop();
 
 		if (heading) {
-			rest[''] = heading;
 			heading = heading.split('/')[0].trim();
 		} else {
 			const name = path.split('/').pop();
@@ -191,7 +195,6 @@ Promise.all([...promises, fetchCode('/')]).then(async sequence => {
 		}
 
 		breadcrumbs.push(['a', { href: `${path}/` }, heading || 'Unknown']);
-		schema = rest;
 	}
 
 	const widget = ['', null];
@@ -201,6 +204,8 @@ Promise.all([...promises, fetchCode('/')]).then(async sequence => {
 		if (content) {
 			ref = content[2]?.[0] === 'canvas' ? [] : undefined;
 			[, map] = content.splice?.(0, 2, 'main', ref ? { ref } : null);
+		} else {
+			content = ['', null];
 		}
 
 		const [, child] = map && map[''].split('#') || [];
@@ -209,8 +214,9 @@ Promise.all([...promises, fetchCode('/')]).then(async sequence => {
 		isModule = !hash ? false : hash.split('#')[0].indexOf(':') !== -1;
 	} else {
 		const trimmedPath = path.slice(0, -1);
-		const names = await fetchList(trimmedPath);
+		const names = await fetchList(trimmedPath, cache);
 		breadcrumbs[breadcrumbs.length - 1][1].href = trimmedPath;
+		content = null;
 
 		directory = names.sort().map(file => {
 			const text = formatHeading(file);
@@ -225,22 +231,17 @@ Promise.all([...promises, fetchCode('/')]).then(async sequence => {
 	// - change fetch functions to syncronous if they are using local storage values (don't wrap in Promise.resolve)
 	for (let i = 0; i < sequence.length; i += 2) {
 		const data = sequence[i];
-		const exports = sequence[i + 1];
-		const defaultExport = exports.default;
-		const [Component,, ...rest] = Array.isArray(defaultExport) ? defaultExport : [defaultExport];
+		const [Component,, ...rest] = sequence[i + 1].default;
 		resources.unshift(...rest);
 
-		try {
-			// TODO: figure out how to respond to navigation widget changes
-			content = typeof Component === 'function' ? [Component, data, content, widget] : content;
-		} catch (err) {
-			content = null;
-			console.error(err);
+		if (Component) {
+			content = [Component, data, content, widget];
 		}
 	}
 
 	stew('#app', library, [Page, {
 		path,
+		cache,
 		map: map || {},
 		ref,
 		breadcrumbs,

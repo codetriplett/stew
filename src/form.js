@@ -442,10 +442,10 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, names }, fiel
 	let select;
 
 	if (path) {
-		const base = stew(fetchCode, [path, cache], null);
+		const code = stew(fetchCode, [path, cache], null);
 		const list = stew(fetchList, [path, cache], null);
 
-		if (!base || !list) {
+		if (!code || !list) {
 			return;
 		} else if (!form || !input) {
 			form = globalThis.document.createElement('form');
@@ -453,8 +453,7 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, names }, fiel
 			form.appendChild(input);
 		}
 
-		const baseDefault = Array.isArray(base.default) ? base.default : [];
-		const { '': meta, ...baseSchema } = baseDefault[1] || {};
+		const [, { '': meta, ...baseSchema }] = code;
 
 		[schema, select] = stew(() => [
 			merge(baseSchema, schema),
