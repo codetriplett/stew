@@ -150,7 +150,7 @@ export default function Editor ({ '': library, path, file, schema, isModule }) {
 	});
 
 	return ['', null,
-		[Sidebar, { icon: 'menu', isForm: true },
+		[Sidebar, { icon: 'form', isForm: true },
 			!!schema && Object.keys(schema).length > 0 && (formRef = ['', null, ['form', {
 				'': 'form',
 				onsubmit: event => event.preventDefault(),

@@ -107,7 +107,7 @@ export function parseInline (string, stack, links, emoji) {
 				}
 			}
 		} else if (name) {
-			node = emoji[name] ?? emoji[''] ?? '';
+			node = emoji[name] ?? '□';
 		} else if (container[0] === symbol && populated) {
 			stack.shift();
 		} else if (container[0] === symbol?.[0] && populated) {

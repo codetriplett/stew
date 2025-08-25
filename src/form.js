@@ -33,11 +33,15 @@ export function extractData (form) {
 	
 	const metas = [];
 	const data = {};
+	let meta;
 
 	for (const input of form.elements) {
 		let { tagName, type, id, value, checked } = input;
 
 		if (!id) {
+			continue;
+		} else if (id === '.') {
+			meta = /[^\/]$/.test(value) ? value : undefined;
 			continue;
 		}
 
@@ -66,7 +70,7 @@ export function extractData (form) {
 			return newObject;
 		}, data);
 
-		if (isMeta && finalName) {
+		if (isMeta && finalName !== undefined) {
 			metas.unshift([object, finalName, value, tagName.toLowerCase()]);
 		} else {
 			object[finalName] = value;
@@ -105,7 +109,7 @@ export function extractData (form) {
 		}
 	}
 
-	return data;
+	return meta ? { '': meta, ...data } : data;
 }
 
 export function findOption (value, ...options) {
@@ -430,12 +434,13 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, names }, fiel
 		field.splice(0);
 	}
 
-	const { '': dataMeta, ...dataProps } = data;
-	const [dataPath, ...overrides] = typeof dataMeta === 'string' ? dataMeta.trim().split(/\s+/) : [''];
+	const { '': dataMeta } = data;
+	const [metaPath, ...metaKeys] = typeof dataMeta === 'string' ? dataMeta.trim().split(/\s+/) : [''];
+	const initialSelection = metaPath.split('/').pop();
 
 	const state = stew({
 		expanded: !names.length || typeof names[names.length - 1] === 'number',
-		selection: dataPath.split('/').pop(),
+		selection: initialSelection,
 	}, []);
 
 	const { expanded, selection } = state;
@@ -453,12 +458,14 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, names }, fiel
 			form.appendChild(input);
 		}
 
-		const [, { '': meta, ...baseSchema }] = code;
+		const [, { '': meta, ...baseSchema }] = code.default;
 
 		[schema, select] = stew(() => [
 			merge(baseSchema, schema),
 			list.length > 0 && ['', null, ['select', {
-				onchange: event => state.selection = event.target.selectedIndex ? event.target.value : '',
+				onchange: event => {
+					state.selection = event.target.selectedIndex ? event.target.value : '';
+				},
 			},
 				['option', { value: '' }, inputProps.placeholder || 'Select an item...'],
 				...list.filter(value => {
@@ -487,6 +494,19 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, names }, fiel
 		});
 	}
 	
+	const overrides = stew(() => {
+		const keys = !path || !selection ? Object.keys(schema) : metaKeys;
+		const overrides = {};
+
+		for (const key of keys) {
+			if (key in data) {
+				overrides[key] = data[key];
+			}
+		}
+
+		return overrides;
+	}, []);
+
 	const list = ['ul', expanded ? null : { style: { display: 'none' } }];
 	let meta;
 
@@ -494,15 +514,11 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, names }, fiel
 		meta = Field(`/ ${path}/${selection}`, undefined, ...names, '');
 	}
 
-	if (!path || !selection) {
-		overrides.splice(0, overrides.length, ...Object.keys(schema));
-	}
-
-	if (expanded || overrides.length) {
+	if (expanded || Object.keys(overrides).length) {
 		for (const [name, definition] of Object.entries(schema)) {
-			const isOverride = overrides.indexOf(name) !== -1;
-			const value = isOverride ? dataProps[name] : undefined;
-			const item = ['li', null, Field(definition, value, ...names, name)];
+			const value = data[name];
+			const override = overrides[name];
+			const item = ['li', null, Field(definition, override, ...names, name)];
 			const label = item[2];
 			list.push(item);
 
@@ -510,8 +526,11 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, names }, fiel
 				label[2] = name;
 			}
 
-			if (!isOverride && data[name] && label[0] === 'label') {
-				item.push(['input', { value: data[name], disabled: true }]);
+			// TODO: click disabled field to unlink prop for reference
+			// - it will put the field name as an override in the meta string, regardless of whether the value is truthy
+
+			if (selection === initialSelection && !(name in overrides) && value && label[0] === 'label') {
+				item.push(['input', { value, disabled: true }]);
 			}
 		}
 	}

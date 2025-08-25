@@ -43,8 +43,6 @@ export function format (value, indentation = '') {
 	}).join(',\n')},\n${indentation.slice(4)}}`;
 }
 
-// TODO: only treat note as module if it has a preformatted text above first heading that uses the 'default' format
-// - default is an array in the file that is created, so it is not allowed as a custom formatter anyway
 export function extractCode (file, library = {}) {
 	const summary = stew(file, ['/#', library]);
 	const layout = stew(file, ['/', library]);

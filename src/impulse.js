@@ -95,6 +95,16 @@ export function processMemo (callback, ...rest) {
 	return value;
 }
 
+export function unsubscribe (impulse) {
+	const subscriptions = impulse[1];
+
+	for (const subscription of subscriptions) {
+		subscription.delete(impulse);
+	}
+
+	subscriptions.clear();
+}
+
 export default function renderImpulse (info, props, children, context, document, nodes) {
 	if (!info[1]) {
 		const [callback] = info;
@@ -107,6 +117,7 @@ export default function renderImpulse (info, props, children, context, document,
 			}
 
 			const [context, ...rest] = params;
+			unsubscribe(impulse);
 			info.push(context[''], document === stew ? null : info.splice(4));
 			stack.unshift(info);
 			const layout = execute(callback, ...rest);
@@ -131,8 +142,9 @@ export default function renderImpulse (info, props, children, context, document,
 			return [...nodes, anchor];
 		};
 
+		const impulse = [update, new Set(), ...stack.map(info => info[1])];
 		anchor = document.createTextNode('');
-		info.splice(1, 3, [update, new Set(), ...stack.map(info => info[1])], anchor, null);
+		info.splice(1, 3, impulse, anchor, null);
 	}
 
 	const [update] = info[1];

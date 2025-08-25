@@ -379,38 +379,41 @@ body.show-left .sidebar-left + .main .toolbar {
 .edit-button:after {
 	background-position-x: calc((6 * 16px + 1px) * -1.2);
 }
-.preview-button:after {
+.form-button:after {
 	background-position-x: calc((7 * 16px + 1px) * -1.2);
 }
-.save-button:after {
+.preview-button:after {
 	background-position-x: calc((8 * 16px + 1px) * -1.2);
 }
-.delete-button:after {
+.save-button:after {
 	background-position-x: calc((9 * 16px + 1px) * -1.2);
 }
-.fullscreen-button:after {
+.delete-button:after {
 	background-position-x: calc((10 * 16px + 1px) * -1.2);
 }
-.hash-button:after {
+.fullscreen-button:after {
 	background-position-x: calc((11 * 16px + 1px) * -1.2);
 }
-.dash-button:after {
+.hash-button:after {
 	background-position-x: calc((12 * 16px + 1px) * -1.2);
 }
-.tick-button:after {
+.dash-button:after {
 	background-position-x: calc((13 * 16px + 1px) * -1.2);
 }
-.link-button:after {
+.tick-button:after {
 	background-position-x: calc((14 * 16px + 1px) * -1.2);
 }
-.pipe-button:after {
+.link-button:after {
 	background-position-x: calc((15 * 16px + 1px) * -1.2);
 }
-.star-button:after {
+.pipe-button:after {
 	background-position-x: calc((16 * 16px + 1px) * -1.2);
 }
-.colon-button:after {
+.star-button:after {
 	background-position-x: calc((17 * 16px + 1px) * -1.2);
+}
+.colon-button:after {
+	background-position-x: calc((18 * 16px + 1px) * -1.2);
 }
 
 @media (max-width: 1200px) {
@@ -451,7 +454,8 @@ body.show-left .sidebar-left + .main .toolbar {
 		.toolbar {
 			display: none;
 		}
-		.menu-button {
+		.menu-button,
+		.form-button {
 			position: fixed;
 			top: 18px;
 			left: calc(var(--left-sidebar-width) + 20px);

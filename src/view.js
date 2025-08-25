@@ -1,6 +1,5 @@
 import renderElement from './element';
-import renderImpulse, { execute } from './impulse';
-import { unsubscribe } from './state';
+import renderImpulse, { execute, unsubscribe } from './impulse';
 
 export function remove (info, parentNode) {
 	if (!Array.isArray(info)) {

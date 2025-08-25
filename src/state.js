@@ -5,21 +5,10 @@ export const animations = new Map();
 
 const requestAnimationFrame = globalThis.requestAnimationFrame || setTimeout;
 
-export function unsubscribe (impulse) {
-	const subscriptions = impulse[1];
-
-	for (const subscription of subscriptions) {
-		subscription.delete(impulse);
-	}
-
-	subscriptions.clear();
-}
-
 function draw (timestamp) {
 	if (queue.size) {
 		for (const impulse of queue) {
 			const [update,, ...parentImpulses] = impulse;
-			unsubscribe(impulse);
 
 			if (!parentImpulses.some(parentImpulse => queue.has(parentImpulse))) {
 				update();
@@ -79,14 +68,16 @@ export function schedule (subscriptions) {
 	requestAnimationFrame(draw);
 }
 
-export default function createState (state) {
+export default function createState (object) {
 	if (typeof window !== 'object' && !stack[0]?.[5]) {
-		return state;
+		return object;
 	}
 
-	for (const name in state) {
+	const state = {};
+
+	for (const name in object) {
 		const subscriptions = new Set();
-		let value = state[name];
+		let value = object[name];
 
 		Object.defineProperty(state, name, {
 			get () {
