@@ -188,8 +188,7 @@ const [props, content] = arguments;
 
 In their simplest form, each field definition follows the format of `Label /pattern/range Placeholder`. The label, pattern, and placeholder are optional. 
 
-````
-```export
+```demo form
 {
 	string: '//',
 	stringWithPattern: '/[a-z]+/',
@@ -199,70 +198,59 @@ In their simplest form, each field definition follows the format of `Label /patt
 	static: '/ static value',
 }
 ```
-````
 
 Labels and placeholders can be included to provide better labels to fields in the form, and instructions within the inputs.
 
-````
-```export
+```demo form
 {
 	string: 'String // Enter a string',
 	number: 'Number /.. Enter a number',
 	boolean: 'Boolean',
 }
 ```
-````
 
 Objects can be used to group fields. The '' property is used to set a Label for the object.
 
-````
-```export
+```demo form
 {
 	object: {
-		'': Object',
+		'': 'Object',
 		string: 'String // Enter a string',
 		number: 'Number /.. Enter a number',
 		boolean: 'Boolean',
 	}
 }
 ```
-````
 
 Data structures can be embedded from other notes by including a path before a pattern. All notes directly below that path will be added to a drop down to select from. If you provide a pattern, it will only include the ones which have names that match. This type of definition can also be used within the '' property of an object to extend the definition and add extra fields.
 
-````
-```export
+```demo form
 {
-	task: 'Task /task// Select a task',
+	quest: 'Quest /quest// Select a quest',
 }
 ```
-````
 
 A field can be defined as an option between multiple types by setting those types after a boolean or static type definition in an array. This example only uses static values, but any other type can be used as well.
 
-````
-```export
+```demo form
 {
 	color: ['Color / choose a color',
-		'Red / #f00'
-		'Green / #0f0'
-		'Blue / #00f'
+		'Red / #f00',
+		'Green / #0f0',
+		'Blue / #00f',
 	],
 }
 ```
-````
 
 Arrays of values can be defined by setting a range in the first definition in the array.
 
-````
-```export
+```demo form
 {
-	friends: ['Friend /..20 Choose a friend',
-		'Person /person//',
+	friends: ['Friends /..20 Choose a friend',
+		'Person /party//',
 	],
 }
 ```
-````
 
 # Styles
 

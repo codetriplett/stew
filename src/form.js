@@ -24,9 +24,12 @@ function convertValue (type, value, checked) {
 	return value;
 }
 
-export function extractData (form) {
+export function extractData (form, isCustom) {
 	if (!form.checkValidity()) {
-		document.body.classList.add('show-left');
+		if (!isCustom) {
+			document.body.classList.add('show-left');
+		}
+
 		form.reportValidity();
 		return;
 	}
@@ -585,8 +588,8 @@ export function Field (definition, data, ...names) {
 	let path;
 
 	if (slashes) {
-		const [, prefix, pattern] = slashes.match(/^(.*?)\/(?:((?:\\\/|[^\s\/])*?)\/)?$/);
-		path = prefix ? `/${prefix}` : '';
+		const [, prefix, pattern] = slashes.match(/^(.*?)((?:\\\/|[^\s\/])*?)\/$/);
+		path = prefix ? `/${prefix.slice(0, -1)}` : '';
 		type ||= 'text';
 		
 		if (pattern) {
@@ -689,3 +692,25 @@ export function Field (definition, data, ...names) {
 
 	return id.endsWith('.') ? input : field;
 }
+
+export default function renderForm (schema, data, callback) {
+	return ['form', {
+		'': 'form',
+		onsubmit: event => {
+			event.preventDefault();
+
+			if (!callback) {
+				return;
+			}
+
+			const { target } = event;
+			const data = extractData(target, true);
+			callback(data);
+		}
+	},
+		Field(schema, data),
+		callback && ['button', { type: 'submit' }, 'Submit'],
+	];
+}
+
+window.renderForm = renderForm;

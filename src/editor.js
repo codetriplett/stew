@@ -1,4 +1,4 @@
-import { extractData, Field } from './form';
+import renderForm, { extractData } from './form';
 import { extractCode } from './code';
 import Sidebar from './sidebar';
 import { resizeTextarea } from './helpers';
@@ -151,12 +151,9 @@ export default function Editor ({ '': library, path, file, schema, isModule }) {
 
 	return ['', null,
 		[Sidebar, { icon: 'form', isForm: true },
-			!!schema && Object.keys(schema).length > 0 && (formRef = ['', null, ['form', {
-				'': 'form',
-				onsubmit: event => event.preventDefault(),
-			},
-				Field(schema, data),
-			]]),
+			!!schema && Object.keys(schema).length > 0 && (formRef = ['', null,
+				renderForm(schema, data),
+			]),
 		],
 		['div', { className: 'main' },
 			['div', { className: 'paper' },

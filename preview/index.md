@@ -83,7 +83,17 @@ return new Function(code);
 ## Demo
 
 ```export
-const [{ markdown }, code] = arguments;
+const [{ markdown, form }, code] = arguments;
+let result;
+
+if (markdown) {
+    result = stew(code, ['/']);
+} else if (form) {
+    const schema = new Function(`return ${code}`)();
+	result = renderForm(schema, undefined, console.log);
+} else {
+    result = new Function(code);
+}
 
 const lines = markdown ? [code] : code.split(/\r\n|\r|\n/).map(line => {
     const [, text, comment] = line.match(/^(.*?)(?:\s*\/\/\s*([+-]))?\s*$/);
@@ -100,6 +110,44 @@ return ['div', {
     ['style', null, `
         .stew-demo canvas {
             width: 100%;
+        }
+        .stew-demo form {
+            ul {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                padding: 0;
+                list-style: none;
+
+                ul,
+                ol {
+                    margin-top: 10px;
+                    padding-left: 12px;
+                    border-left: 1px solid var(--paper-font-color);
+                }
+            }
+            input:not([type="checkbox"]),
+            textarea,
+            select {
+                display: block;
+                box-sizing: border-box;
+                width: 100%;
+                margin-top: 4px
+            }
+            textarea {
+                min-height: 51px;
+                resize: vertical;
+            }
+            input[type="checkbox"] {
+                float: left;
+                margin-right: 5px;
+            }
+            .action-button {
+                float: right;
+            }
+            > button:last-child {
+                display: none;
+            }
         }
         @media (max-width: 720px) {
             .stew-demo {
@@ -118,6 +166,6 @@ return ['div', {
     ],
     ['div', {
         style: { flex: '2 1 0', overflowX: 'auto', padding: '16px', background: 'var(--page-background)' },
-    }, markdown ? stew(code, ['/']) : new Function(code)],
+    }, result],
 ];
 ```
