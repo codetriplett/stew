@@ -1,10 +1,3 @@
-```export
-{}
-canvas {
-    width: 100%;
-}
-```
-
 # Cube
 
 ```export

@@ -160,25 +160,28 @@ Promise.all([...promises, ...indexPromises]).then(async sequence => {
 	const libraries = sequence.splice(promises.length);
 	const emoji = {};
 	const library = { default: emoji };
+	const style = ['style', null, document.querySelector('#styles').textContent];
+	const indexResources = [style];
 	let namespace;
 
 	for (const code of libraries) {
-		const { default: [, schema], ...rest } = code;
+		const { default: [, schema, ...rest], ...formatters } = code;
 		const { '': meta = '', ...object } = schema;
-		Object.assign(library, rest);
+		Object.assign(library, formatters);
 		Object.assign(emoji, object);
+		indexResources.push(...rest);
 		[, namespace] = meta.match(/^([^\/\s]+(?:\/[^\/\s]+)*)/) || [];
 	}
 
 	if (sequence.length < 2 && !name) {
-		stew('#app', library, [Home, { cache, namespace }]);
+		stew('#app', library, [Home, { cache, namespace, resources: indexResources }]);
 		return;
 	}
 
 	const markdown = sequence.shift();
 	const breadcrumbs = [];
 	const resources = [];
-	let map, ref, heading, isModule, schema, directory;
+	let map, heading, isModule, schema, directory;
 	state.data = sequence[0];
 
 	for (let i = sequence.length - 1; i > 0; i -= 2) {
@@ -201,8 +204,7 @@ Promise.all([...promises, ...indexPromises]).then(async sequence => {
 
 	if (name) {
 		if (content) {
-			ref = content[2]?.[0] === 'canvas' ? [] : undefined;
-			[, map] = content.splice?.(0, 2, 'main', ref ? { ref } : null);
+			[, map] = content.splice?.(0, 2, 'main', null);
 		} else {
 			content = ['', null];
 		}
@@ -242,7 +244,7 @@ Promise.all([...promises, ...indexPromises]).then(async sequence => {
 		path,
 		cache,
 		map: map || {},
-		ref,
+		resources: indexResources,
 		breadcrumbs,
 		heading,
 		isModule,

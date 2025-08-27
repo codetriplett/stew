@@ -1,14 +1,14 @@
 import state, { updateSettings } from '.';
 
-function Widget (_, widget) {
+function Widget (_, ...children) {
 	return ['div', null,
-		['template', { shadowrootmode: 'open' }, widget],
+		['template', { shadowrootmode: 'open' }, ...children],
 	];
 } 
 
-export default function Sidebar ({ isRight = false, isForm = false, icon, toggleProp, widget, Component }, ...children) {
+export default function Sidebar ({ isRight = false, isForm = false, icon, toggleProp, resources, widget, Component }, ...children) {
 	if (widget?.length > 2) {
-		children.unshift([Widget, null, widget]);
+		children.unshift([Widget, null, ...resources, widget]);
 	}
 
 	const { settings, hasMounted } = state;

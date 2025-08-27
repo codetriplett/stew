@@ -79,7 +79,7 @@ function getText (node) {
 // TODO: if map is for a navigation node (all links), show the nav items for the currently active page
 // - need to add a focusedPage in addition to focused section
 // - on hashchange check if id is for a focusedPage and update it, otherwise update focusedSection
-function LeftMenu ({ map, ref, directory }, widget) {
+function LeftMenu ({ map, directory, resources }, widget) {
 	const { focusedSection } = state;
 	const root = map['']?.split?.('#')?.[1];
 	const hashes = map[root]?.[0];
@@ -101,7 +101,7 @@ function LeftMenu ({ map, ref, directory }, widget) {
 		];
 	}).filter(button => button);
 
-	return [Sidebar, { icon: 'menu', toggleProp: 'showMenu', widget },
+	return [Sidebar, { icon: 'menu', toggleProp: 'showMenu', resources, widget },
 		!directory ? LeftMenuList(map, hashes) : directory.length > 0 && ['ul', {
 			className: 'children',
 		},
@@ -120,7 +120,10 @@ function LeftMenu ({ map, ref, directory }, widget) {
 	];
 }
 
-function Citation ({ snip, styles }) {
+// TODO: use resources from the snips own path
+// - right now it is using the main pages path
+// - the root index is the same for all, but overrides could be different
+function Citation ({ snip, resources }) {
 	const [path] = snip.split('#');
 	const markdown = stew(fetchNote, [path], undefined);
 	let content = markdown ? stew(markdown, [snip]) : markdown === undefined ? null : ['p', null, `File not found: ${path}.md`];
@@ -154,7 +157,7 @@ function Citation ({ snip, styles }) {
 		}],
 		['div', null,
 			['template', { shadowrootmode: 'open' },
-				['style', null, styles],
+				...resources,
 				content,
 			],
 		],
@@ -178,7 +181,7 @@ function Citation ({ snip, styles }) {
 // - right nav will be used by snips and preview
 // - left nav will only fill its own width, while right nav will share space with main area (but less)
 
-export default function Page ({ path, cache, map, ref, breadcrumbs, heading, isModule, markdown, directory, schema, widget }, ...children) {
+export default function Page ({ path, cache, map, resources, breadcrumbs, heading, isModule, markdown, directory, schema, widget }, ...children) {
 	const { isEditing, snips } = state;
 
 	if (isEditing) {
@@ -191,8 +194,6 @@ export default function Page ({ path, cache, map, ref, breadcrumbs, heading, isM
 		];
 	}
 
-	const styles = stew(() => document.querySelector('#styles').textContent, []);
-
 	stew(null, [], () => {
 		scrollTo(window.location.hash, 'instant');
 		state.hasMounted = true;
@@ -202,7 +203,7 @@ export default function Page ({ path, cache, map, ref, breadcrumbs, heading, isM
 		// TODO: store array in state for index links that could wrap the left menu links
 		// - these are ones that the parents might store in schema['']
 		// - allows for creating left nav links that expand to show content for child pages
-		[LeftMenu, { map, ref, directory }, widget],
+		[LeftMenu, { map, directory, resources }, widget],
 		['div', { className: 'main' },
 			['div', { className: 'paper' },
 				['ul', { className: 'breadcrumbs' }, 
@@ -221,14 +222,14 @@ export default function Page ({ path, cache, map, ref, breadcrumbs, heading, isM
 				],
 				['div', null,
 					['template', { shadowrootmode: 'open' },
-						['style', null, styles],
+						...resources,
 						...children,
 					],
 				],
 			],
 		],
 		[Sidebar, { isRight: true, icon: 'snips', toggleProp: 'showSnips' },
-			...snips.map(snip => [Citation, { '': snip, snip, styles }]),
+			...snips.map(snip => [Citation, { '': snip, snip, resources }]),
 		],
 	];
 }

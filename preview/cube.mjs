@@ -261,10 +261,4 @@ export function cube () {
 	];
 }
 
-export default [cube, {
-    '': 'Cube',
-}, ['style', null, `
-canvas {
-    width: 100%;
-}
-`]];
+export default cube;
