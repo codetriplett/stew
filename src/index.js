@@ -125,13 +125,45 @@ window.addEventListener('resize', updateWidth);
 // - replace MD with MJS and insert new item with empty content
 // [content, { ...module, '': data }, { ...module }]
 
+// TODO: should this maintain a cache of unique index file chains?
+// - key could be set to path, with only names that have index files filled in
+// - e.g. site -> site only, site//page -> site and page only (category between them did not)
+// - first index file can be assumed to exist, since all will use the same one
+export async function fetchResources (path) {
+	path = path.replace(/(#|\/(\/|#|$)).*|^\//g, '');
+	const names = path ? path.split('/') : [];
+	names.unshift('');
+	path = '';
+
+	const libraries = await Promise.all(names.map(name => {
+		path += `${name}/`;
+		return fetchCode(path, cache);
+	}));
+	
+	const emoji = {};
+	const library = { default: emoji };
+	const resources = [];
+	let namespace;
+
+	for (const code of libraries) {
+		const { default: [, schema, ...rest], ...formatters } = code;
+		const { '': meta = '', ...object } = schema;
+		Object.assign(library, formatters);
+		Object.assign(emoji, object);
+		resources.push(...rest);
+		[, namespace] = meta.match(/^([^\/\s]+(?:\/[^\/\s]+)*)/) || [];
+	}
+
+	return [namespace, library, style, ...resources];
+}
+
 function formatHeading (name) {
 	return name.replace(/-+/g, ' ').trim().replace(/( |^)./g, m => m.toUpperCase());
 }
 
+const style = ['style', null, document.querySelector('#styles').textContent];
 const [page] = pathname.slice(1).split(/\/(\/+)/);
 const names = page ? page.split('/') : [];
-const indexPromises = [fetchCode('/', cache)];
 const promises = [];
 const paths = [];
 const cache = {};
@@ -141,7 +173,6 @@ unpackSettingsAndSessions();
 while (names.length) {
 	name = names.shift();
 	path += name;
-	indexPromises.push(fetchCode(`${path}/`, cache));
 
 	if (promises.length) {
 		promises.unshift(name && name !== 'index' ? fetchData(path, cache) : {});
@@ -156,31 +187,17 @@ while (names.length) {
 	}
 }
 
-Promise.all([...promises, ...indexPromises]).then(async sequence => {
-	const libraries = sequence.splice(promises.length);
-	const emoji = {};
-	const library = { default: emoji };
-	const style = ['style', null, document.querySelector('#styles').textContent];
-	const indexResources = [style];
-	let namespace;
-
-	for (const code of libraries) {
-		const { default: [, schema, ...rest], ...formatters } = code;
-		const { '': meta = '', ...object } = schema;
-		Object.assign(library, formatters);
-		Object.assign(emoji, object);
-		indexResources.push(...rest);
-		[, namespace] = meta.match(/^([^\/\s]+(?:\/[^\/\s]+)*)/) || [];
-	}
+Promise.all([fetchResources(pathname), ...promises]).then(async sequence => {
+	const [namespace, library, ...resources] = sequence.shift();
 
 	if (sequence.length < 2 && !name) {
-		stew('#app', library, [Home, { cache, namespace, resources: indexResources }]);
+		stew('#app', library, [Home, { cache, namespace }]);
 		return;
 	}
 
 	const markdown = sequence.shift();
 	const breadcrumbs = [];
-	const resources = [];
+	const children = [];
 	let map, heading, isModule, schema, directory;
 	state.data = sequence[0];
 
@@ -233,7 +250,7 @@ Promise.all([...promises, ...indexPromises]).then(async sequence => {
 	for (let i = 0; i < sequence.length; i += 2) {
 		const data = sequence[i];
 		const [Component,, ...rest] = sequence[i + 1].default;
-		resources.unshift(...rest);
+		children.unshift(...rest);
 
 		if (Component) {
 			content = [Component, data, content, widget];
@@ -244,7 +261,7 @@ Promise.all([...promises, ...indexPromises]).then(async sequence => {
 		path,
 		cache,
 		map: map || {},
-		resources: indexResources,
+		resources,
 		breadcrumbs,
 		heading,
 		isModule,
@@ -252,5 +269,5 @@ Promise.all([...promises, ...indexPromises]).then(async sequence => {
 		directory,
 		schema,
 		widget,
-	}, ...resources, content]);
+	}, ...children, content]);
 });

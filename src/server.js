@@ -43,9 +43,42 @@ const manifest = new Set([
 	'stew.min.mjs.LEGAL.txt',
 ]);
 
+function getList (path, callback) {
+	readdir(`${folder}/${path}`, (err, files = []) => {
+		const notes = [];
+		
+		for (const file of files) {
+			let name;
+
+			if (file.endsWith('.md')) {
+				name = file.slice(0, -3);
+			} else if (file.endsWith('.json')) {
+				name = file.slice(0, -5);
+			}
+			
+			if (name && notes.indexOf(name) === -1) {
+				notes.push(name);
+			}
+		}
+
+		callback(notes);
+	});
+}
+
 const htmlPromise = new Promise(resolve => {
 	readFile(`${__dirname}/index.html`, { encoding: 'utf8' }, (err, content) => {
-		resolve(content.replace('<body>', `<body><script>const flags=${JSON.stringify(flags)};</script>`));
+		getList('', list => {
+			const manifest = [];
+
+			for (const name of list) {
+				manifest.push(`/${name}.md`, `/${name}.json`, `/${name}.mjs`);
+			}
+
+			resolve(content.replace('<body>', ['<body><script>',
+				`const flags=${JSON.stringify(flags)};`,
+				`const manifest=${readonly ? `new Set(${JSON.stringify(manifest)})` : 'null'};`,
+			'</script>'].join('')));
+		});
 	});
 });
 
@@ -116,25 +149,7 @@ createServer((req, res) => {
 					return;
 				}
 
-				readdir(`${folder}/${path}`, (err, files = []) => {
-					const notes = [];
-					
-					for (const file of files) {
-						let name;
-
-						if (file.endsWith('.md')) {
-							name = file.slice(0, -3);
-						} else if (file.endsWith('.json')) {
-							name = file.slice(0, -5);
-						}
-						
-						if (name && notes.indexOf(name) === -1) {
-							notes.push(name);
-						}
-					}
-
-					send(res, JSON.stringify(notes), 'json');
-				});
+				getList(path, list => send(res, JSON.stringify(list), 'json'));
 			} else {
 				htmlPromise.then(html => send(res, html, 'html'));
 			}

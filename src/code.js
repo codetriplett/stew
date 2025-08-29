@@ -157,14 +157,8 @@ export function extractCode (file, library = {}) {
 	const formattedName = name.replace(/^-+|-+$/g, '').replace(/-+./g, m => m.slice(-1).toUpperCase());
 	const heading = sections[name]?.[1]?.split?.('/')?.[0] || '';
 
-	if (!index) {
-		if (!code && !defaultString) {
-			return;
-		} else if (defaultString && formattedName) {
-			code += `${code ? '\n\n' : ''}export default ${formattedName};`;
-		}
-
-		return `${code}\n`;
+	if (!index && !code && !defaultString) {
+		return;
 	}
 
 	const definition = summary[Number(index) + 2]?.[2]?.[2] || '';

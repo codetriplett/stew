@@ -1,4 +1,4 @@
-import state, { updateSettings, setTheme } from '.';
+import state, { updateSettings, setTheme, fetchResources } from '.';
 import { fetchNote } from './fetch';
 import Sidebar from './sidebar';
 
@@ -75,6 +75,44 @@ function Drafts ({ paths }) {
 	];
 }
 
+function Quest ({ cache, namespace }) {
+	if (!namespace) {
+		return;
+	}
+
+	const [, library, ...resources] = stew(fetchResources, [`/${namespace}`], []);
+
+	if (!library) {
+		return;
+	}
+
+	const date = new Date();
+	const dateText = date.toDateString();
+	const year = date.getFullYear();
+	const month = String(date.getMonth() + 101);
+	const day = String(date.getDate() + 100);
+	const path = `/${namespace}/${year}${month.slice(1)}${day.slice(1)}`;
+	const markdown = stew(fetchNote, [path, cache], null);
+	const summary = stew(markdown, [`${path}#`]) || ['', null];
+	
+	if (typeof summary[2]?.[0] === 'number') {
+		summary.splice(2, 1);
+	}
+
+	return ['', null,
+		['a', { href: path, className: 'date-link' }, dateText],
+		summary.length > 2 && ['', null,
+			['div', null,
+				['template', { shadowrootmode: 'open' },
+					...resources,
+					summary,
+				],
+			],
+			['hr'],
+		],
+	];
+}
+
 // TODO: add a link in the breadcrumb area with the current date
 // - clicking on it will take you to the note for the current day, e.g. 20250709
 export default function Home ({ cache, namespace }) {
@@ -87,32 +125,6 @@ export default function Home ({ cache, namespace }) {
 		return Object.keys(localStorage).filter(name => /^\/.*\.(md|json)$/.test(name));
 	}, []);
 
-	const quest = stew(async () => {
-		if (!namespace) {
-			return;
-		}
-
-		const date = new Date();
-		const dateText = date.toDateString();
-		const year = date.getFullYear();
-		const month = String(date.getMonth() + 101);
-		const day = String(date.getDate() + 100);
-		const path = `/${namespace}/${year}${month.slice(1)}${day.slice(1)}`;
-		const markdown = await fetchNote(path, cache);
-		const summary = stew(markdown, [`${path}#`]) || ['', null];
-		
-		if (typeof summary[2]?.[0] === 'number') {
-			summary.splice(2, 1);
-		}
-
-		if (summary.length > 2) {
-			summary.push(['hr']);
-		}
-
-		summary.splice(2, 0, ['a', { href: path, className: 'date-link' }, dateText]);
-		return summary;
-	}, [], null);
-
 	const markdown = stew(fetchNote, ['/', cache], null);
 	const content = stew(markdown, ['/']);
 	const index = content?.findIndex?.(item => Array.isArray(item) && item[0] > 1);
@@ -121,7 +133,7 @@ export default function Home ({ cache, namespace }) {
 		[Drafts, { paths }],
 		['div', { className: 'main' },
 			['div', { className: 'paper' },
-				quest,
+				[Quest, { cache, namespace }],
 				content?.slice?.(0, index),
 				// TODO: render active snips session here
 				// - display inactive ones to the side, along with a button to create a new session

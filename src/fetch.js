@@ -15,12 +15,14 @@ export function fetchNote (path, cache = {}) {
 
 	const file = localStorage.getItem(key);
 
-	promise = file ? Promise.resolve(file) : fetch(filepath).then(res => {
-		return res.ok ? res.text() : '';
-	}).catch(err => {
-		console.error(err);
-		return '';
-	});
+	promise = file || manifest?.has?.(key) === false
+		? Promise.resolve(file || '')
+		: fetch(filepath).then(res => {
+			return res.ok ? res.text() : '';
+		}).catch(err => {
+			console.error(err);
+			return '';
+		});
 
 	cache[key] = promise;
 	return promise;
@@ -93,8 +95,8 @@ export function fetchData (path, cache = {}) {
 	
 	const file = localStorage.getItem(key);
 
-	promise = (file
-		? Promise.resolve(file).then(file => JSON.parse(file))
+	promise = (file || manifest?.has?.(key) === false
+		? Promise.resolve(file || '{}').then(file => JSON.parse(file))
 		: fetch(filepath).then(res => res.ok ? res.json() : {})
 	).catch(err => {
 		console.error(err);
@@ -167,8 +169,8 @@ export function fetchCode (path, cache = {}) {
 	
 	const file = localStorage.getItem(key);
 
-	promise = import(!file ? filepath : URL.createObjectURL(
-		new Blob([file], { type: 'application/javascript' }),
+	promise = import(!file && manifest?.has?.(key) !== false ? filepath : URL.createObjectURL(
+		new Blob([file || ''], { type: 'application/javascript' }),
 	)).catch(err => {
 		console.error(err);
 		return {};

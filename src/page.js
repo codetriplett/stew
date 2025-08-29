@@ -1,5 +1,5 @@
 
-import state, { updateSettings, packSettingsAndSessions, scrollTo } from '.';
+import state, { updateSettings, packSettingsAndSessions, scrollTo, fetchResources } from '.';
 import { fetchNote } from './fetch';
 import Editor from './editor';
 import Sidebar from './sidebar';
@@ -123,10 +123,16 @@ function LeftMenu ({ map, directory, resources }, widget) {
 // TODO: use resources from the snips own path
 // - right now it is using the main pages path
 // - the root index is the same for all, but overrides could be different
-function Citation ({ snip, resources }) {
+function Citation ({ snip }) {
 	const [path] = snip.split('#');
 	const markdown = stew(fetchNote, [path], undefined);
-	let content = markdown ? stew(markdown, [snip]) : markdown === undefined ? null : ['p', null, `File not found: ${path}.md`];
+	const [, library, ...resources] = stew(fetchResources, [path], []);
+
+	if (!library) {
+		return;
+	}
+
+	let content = markdown ? stew(markdown, [snip, library]) : markdown === undefined ? null : ['p', null, `File not found: ${path}.md`];
 
 	if (content && content.length < 3) {
 		content = ['p', null, `Section not found: ${snip}`];
