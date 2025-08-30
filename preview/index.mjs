@@ -37,29 +37,47 @@ export function demo () {
 }
 
 export function card () {
-	const [props, dateName] = arguments;
-	const { allowedSeason, forNav, markDay } = props;
+	const [props, inputName] = arguments;
+	let { forNav, nameOnly, todayName } = props;
 
-	// extract parts of date string
-	const year = dateName.slice(0, 4);
-	const month = dateName.slice(4, 6);
-	const day = dateName.slice(6, 8);
-
-	// create date for input string and first week of year it exists in
-	// then adjust them to the start of their respective weeks
-	const start = new Date(`${year - (month < 12 ? 1 : 0)}-11-30T00:00:00`);
-	start.setDate(30 - start.getDay());
-	const focus = new Date(`${year}-${month}-${day}T00:00:00`);
-	focus.setDate(Number(day) - focus.getDay());
-
-	// calculate the number of weeks between the dates, along with the season
-	// ensure the week the contains 11/30 is always the first week
-	const week = focus.getMonth() === 10 && focus.getDate() > 23 ? 0
-	    : Math.round((focus - start) / (7 * 24 * 60 * 60 * 1000));
-	const season = Math.min(3, Math.floor(week / 13));
-
-	if ('allowedSeason' in props && season !== allowedSeason) {
+	if (typeof inputName !== 'string' || !/^(\d{6}|\d{8})$/.test(inputName)) {
+	    // reject inputs that aren't strings of length 6 or 8
 	    return;
+	}
+
+	// read first parts of string, and create date for beginning of year
+	const year = inputName.slice(0, 4);
+	const date = new Date(`${year}-01-07T00:00:00`);
+	let week = inputName.slice(4, 6) - 1;
+
+	if (inputName.length < 8) {
+	    // shift by number of weeks past the first
+	    date.setDate((week + 1) * 7 - date.getDay());
+
+	    if (date.getFullYear() > year) {
+	        // don't render if there is not 52nd week for this year
+	        return;
+	    }
+	} else {
+	    // use week index as month instead, and the rest of string as the day
+	    const day = inputName.slice(6, 8);
+	    date.setMonth(week);
+	    date.setDate(Number(day) + 5 * 7);
+	    date.setDate(date.getDate() - date.getDay());
+
+	    // calculate number of weeks since start of year
+	    const start = new Date(`${date.getFullYear()}-01-07T00:00:00`);
+	    start.setDate(start.getDate() - start.getDay());
+	    week = Math.round((date - start) / (7 * 24 * 60 * 60 * 1000));
+	    todayName = inputName;
+	}
+
+	const season = Math.floor(week / 13);
+	date.setDate(date.getDate() - 5 * 7);
+
+	if (nameOnly) {
+	    // just return the week name of the card
+	    return `${date.getFullYear()}${week}`;
 	}
 
 	// render card layout, fetching the quest data for each day
@@ -70,29 +88,36 @@ export function card () {
 	const locale = Intl.DateTimeFormat().resolvedOptions().locale;
 	const list = stew(fetchList, ['/quest'], []);
 
-	for (let j = 0; j < 7; j++) {
-	    const year = focus.getFullYear();
-	    const month = focus.getMonth() + 1;
-	    const day = focus.getDate();
+	for (let i = 0; i < 7; i++) {
+	    // get date components and then increment
+	    const year = date.getFullYear();
+	    const month = date.getMonth() + 1;
+	    const day = date.getDate();
+
+	    // build date string and fetch quest data
 	    const questName = `${year}${month < 10 ? '0' : ''}${month}${day < 10 ? '0' : ''}${day}`;
+	    const className = `${day === 1 ? 'month' : ''} ${ questName === todayName ? 'today' : ''}`;
 	    const href = `/quest/${questName}`;
 	    const data = list.indexOf(questName) !== -1 ? stew(fetchData, [href], {}) : {};
 	    const textProps = { className: 'quest' };
 	    let { quest = '', exp = 0, type = 'home', complete } = data;
-	    focus.setDate(Number(day) + 1);
 
-	    if (!quest && day === 1) {
-	        quest = new Intl.DateTimeFormat(locale, { month: 'long' }).format(focus);
+	    if (!quest && (i === 0 || i === 6)) {
+	        // label the top and bottom rows if they are blank
+	        quest = `${new Intl.DateTimeFormat(locale, { month: 'long' }).format(date)} ${day}`;
 	        textProps.style = { fontSize: quest.length > 10 ? '11px' : '15px', fontWeight: 'bold' };
 	    }
 
-	    card.push(['li', markDay && questName === dateName ? { className: 'today' } : null,
-	        ['span', null, day],
+	    card.push(['li', { className },
+	        ['span', null, i === 2 || i === 4 ? day : ''],
 	        ['a', { href },
 	            ['span', textProps, quest],
 	            complete && ['span', { className: `exp exp-${type}` }, `+${exp}`],
 	        ],
 	    ]);
+	    
+	    // move to next day
+	    date.setDate(day + 1);
 	}
 
 	return card;
@@ -202,18 +227,11 @@ export default [null, {
         height: 24px;
         overflow: hidden;
 
-        &:nth-child(4) > span {
-            display: none;
-        }
         &:nth-child(n + 5) {
             flex-direction: row-reverse;
         }
-        &:nth-child(-n + 2) > span,
-        &:nth-child(n + 6) > span {
-            visibility: hidden;
-        }
         + li {
-            margin-top: 2px;
+            padding-top: 2px;
         }
         > span {
             flex: 0 0 24px;
@@ -245,7 +263,7 @@ export default [null, {
 .season-1:before { background-image: url(/spring-cards.png); }
 .season-2:before { background-image: url(/summer-cards.png); }
 .season-3:before { background-image: url(/autumn-cards.png); }
-.week-12 + .week-0:before { background-image: url(/joker-card.png); }
+.season-4:before { background-image: url(/joker-card.png); }
 .week-0:before { background-position: calc(-0 * 144px) calc(-0 * 204px); }
 .week-1:before { background-position: calc(-1 * 144px) calc(-0 * 204px); }
 .week-2:before { background-position: calc(-2 * 144px) calc(-0 * 204px); }
@@ -267,6 +285,7 @@ export default [null, {
     transform: rotate(90deg) translateY(-100%);
 }
 .nav-card { margin: 8px; transform: scale(1.5); }
+.month { box-shadow: inset 0 8px 8px -4px gray; }
 .today { box-shadow: inset 0 0 2px 2px black; }
 .quest { display: block; width: 100%; font-size: 11px; }
 .exp {

@@ -13,29 +13,33 @@ export function quest () {
 	    return content;
 	}
 
-	const date = new Date();
-	const year = date.getFullYear();
-	const month = date.getMonth() + 1;
-	const day = date.getDate();
-	const todayString = `${year}${month < 10 ? '0' : ''}${month}${day < 10 ? '0' : ''}${day}`;
-
-	const state = stew({
-	    seasonOffset: Math.round(date.getMonth() / 3) % 4,
-	}, []);
-
-	const cards = ['div', { className: 'cards' }];
-	const { seasonOffset } = state;
-	const season = ((seasonOffset % 4) + 4) % 4;
-	date.setMonth(seasonOffset * 3);
-	date.setDate(-39);
-
-	for (let i = 0; i < 15; i++) {
+	const [todayName, initialYear, initialSeason] = stew(() => {
+	    const date = new Date();
 	    const year = date.getFullYear();
 	    const month = date.getMonth() + 1;
 	    const day = date.getDate();
-	    const dateString = `${year}${month < 10 ? '0' : ''}${month}${day < 10 ? '0' : ''}${day}`;
-	    date.setDate(date.getDate() + 7);
-	    cards.push([card, { allowedSeason: season, markDay: dateString === todayString }, dateString])
+	    const todayName = `${year}${month < 10 ? '0' : ''}${month}${day < 10 ? '0' : ''}${day}`;
+	    const weekName = card({ nameOnly: true }, todayName);
+	    const season = Math.min(3, Math.floor(Number(weekName.slice(4, 6)) / 13));
+	    return [todayName, Number(weekName.slice(0, 4)), season];
+	}, []);
+
+	const state = stew({
+	    year: initialYear,
+	    season: initialSeason,
+	}, []);
+
+	const cards = ['div', { className: 'cards' }];
+	const { year, season } = state;
+	const start = season * 13 - (season === 0 ? 2 : 1);
+	const finish = start + 18;
+
+	for (let week = start; week < finish; week++) {
+	    cards.push([card, { todayName },
+	        week <= 0 ? `${year - 1}${week + 53}`
+	        : week > 53 ? `${year + 1}0${week - 53}`
+	        : `${year}${week < 10 ? '0' : ''}${week}`
+	    ])
 	}
 
 	const labels = [
@@ -49,12 +53,24 @@ export function quest () {
 	    ['div', { className: 'header' },
 	        ['button', {
 	            type: 'button',
-	            onclick: () => state.seasonOffset -= 1,
+	            onclick: () => {
+	                if (season === 0) {
+	                    Object.assign(state, { year: year - 1, season: 3 });
+	                } else {
+	                    state.season -= 1;
+	                }
+	            }
 	        }, '〈'],
-	        ['h1', null, `${labels[0]} ${date.getFullYear()}`],
+	        ['h1', null, `${labels[0]} ${year}`],
 	        ['button', {
 	            type: 'button',
-	            onclick: () => state.seasonOffset += 1,
+	            onclick: () => {	
+	                if (season === 3) {
+	                    Object.assign(state, { year: year + 1, season: 0 });
+	                } else {
+	                    state.season += 1;
+	                }
+	            },
 	        }, '〉'],
 	    ],
 	    cards,
