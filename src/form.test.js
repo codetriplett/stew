@@ -1,4 +1,4 @@
-import { extractData, checkInput, findOption, Select, Field } from './form';
+import { extractData, parseDefinition, checkInput, findOption, Select, Field } from './form';
 import { fetchCode, fetchData, fetchList } from './fetch';
 import stew from './stew';
 
@@ -192,6 +192,49 @@ describe('extractData', () => {
 // 123 */ Number
 // abc *// String
 
+// [type, path, pattern, min = '', max = '', step, label, required, placeholder]
+describe('parseDefinition', () => {
+	it('boolean', () => {
+		const actual = parseDefinition('Boolean');
+		expect(actual).toEqual(['checkbox', 'Boolean', '', false]);
+	});
+	
+	it('static', () => {
+		const actual = parseDefinition('Static / abc');
+		expect(actual).toEqual(['hidden', 'Static', 'abc', false]);
+	});
+	
+	it('number', () => {
+		const actual = parseDefinition('Number /..');
+		expect(actual).toEqual(['number', 'Number', '', false, '0']);
+	});
+	
+	it('number range', () => {
+		const actual = parseDefinition('Number /2..4');
+		expect(actual).toEqual(['number', 'Number', '', false, '0', '2', '4']);
+	});
+	
+	it('string', () => {
+		const actual = parseDefinition('String //');
+		expect(actual).toEqual(['text', 'String', '', false,,,, '']);
+	});
+	
+	it('string range', () => {
+		const actual = parseDefinition('String //2..4');
+		expect(actual).toEqual(['text', 'String', '', false,, '2', '4', '']);
+	});
+	
+	it('string pattern', () => {
+		const actual = parseDefinition('String /\\d+/');
+		expect(actual).toEqual(['text', 'String', '', false,,,, '\\d+']);
+	});
+	
+	it('reference', () => {
+		const actual = parseDefinition('String /path//');
+		expect(actual).toEqual(['text', 'String', '', false,,,, '', '/path']);
+	});
+});
+
 describe('Select', () => {
 	it('value select', () => {
 		const actual = stew('#', null, Field(['Label',
@@ -320,7 +363,7 @@ describe('Select', () => {
 		`));
 	});
 
-	it.only('array select object populated', () => {
+	it('array select object populated', () => {
 		const actual = stew('#', null, Field(['Label /..',
 			{
 				'': 'Object / string',
@@ -518,10 +561,11 @@ describe('Select', () => {
 
 describe('Field', () => {
 	it('checkbox', () => {
-		const actual = stew('#', null, Field('', undefined, 'group', 'name'));
+		const actual = stew('#', null, Field('', undefined, null, 'group', 'name'));
 
 		expect(String(actual)).toEqual(trim(`
 			<label for="group.name">
+				name
 				<input id="group.name" type="checkbox">
 			</label>
 		`));

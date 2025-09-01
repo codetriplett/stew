@@ -4,7 +4,7 @@ Markdown is a popular way of converting notes to HTML. Most of its formatting is
 
 ## Headings
 
-Headings are created by placing `#` symbols and a space before your text. Six sizes are supported, from largest to smallest, based on the number of symbols you use. Alternatively, the two largest sizes can be created by putting a string of `=` or `-` symbols directly below your text.
+Headings are created by placing `#` symbols before your text. Six sizes are supported, based on the number of symbols you use. Alternatively, a line of `=` or `-` symbols can be set below your Heading to create the two two largest sizes.
 
 ```demo markdown
 # Largest

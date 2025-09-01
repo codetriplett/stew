@@ -7,7 +7,7 @@ export function getPath (path, extension) {
 
 export function fetchNote (path, cache = {}) {
 	const [key, filepath] = getPath(path, 'md');
-	let promise = cache[key];
+	let promise = cache?.[key];
 
 	if (promise) {
 		return promise;
@@ -24,13 +24,13 @@ export function fetchNote (path, cache = {}) {
 			return '';
 		});
 
-	cache[key] = promise;
+	if (cache) {
+		cache[key] = promise;
+	}
+
 	return promise;
 }
 
-// TODO: allow '' prop to store overrides for things to ignore from default data
-// - this would allow user to clear a default value, since otherewise it wouldn't get saved
-// - e.g. { '': '/folder/file xyz' } -> { '': '/folder/file value', abc: 123 } (when /folder/file had abc and xyz props)
 export function hydrateData (data, cache, stage, promises) {
 	if (!data || typeof data !== 'object') {
 		return;
@@ -42,36 +42,33 @@ export function hydrateData (data, cache, stage, promises) {
 		return;
 	}
 
-	const { '': meta, ...rest } = data;
-	const [path, ...overrides] = typeof meta === 'string' ? meta.trim().split(/\s+/) : [''];
+	const { '': path, ...rest } = data;
 
 	for (const value of Object.values(rest)) {
 		hydrateData(value, cache, stage, promises);
 	}
 
-	if (!/^\/.*[^\/]$/.test(path)) {
+	if (typeof path !== 'string' || !/^(\/[^\/\s]+){2,}$/.test(path)) {
 		return;
 	}
 
 	const promise = fetchData(path, cache, stage);
-	overrides.push(...Object.keys(rest));
 
 	const resolution = promise.then(defaults => {
 		for (const [name, value] of Object.entries(defaults)) {
-			if (name && overrides.indexOf(name) === -1) {
+			if (!(name in rest)) {
 				data[name] = value;
 			}
 		}
 	});
 
-	data[''] = [path, ...Object.keys(rest)].join(' ');
 	promises.push(resolution);
 	return resolution;
 }
 
 export function fetchData (path, cache = {}, stage = {}) {
 	const [key, filepath] = getPath(path, 'json');
-	let promise = stage[key] || cache[key];
+	let promise = stage[key] || cache?.[key];
 
 	if (promise) {
 		return promise;
@@ -83,17 +80,24 @@ export function fetchData (path, cache = {}, stage = {}) {
 		? Promise.resolve(file || '{}').then(file => JSON.parse(file))
 		: fetch(filepath).then(res => res.ok ? res.json() : {})
 	).then(async data => {
-		stage[key] = Promise.resolve(data);
-		const promises = [];
-		hydrateData(data, cache, stage, promises);
-		await Promise.all(promises);
+		if (cache) {
+			stage[key] = Promise.resolve(data);
+			const promises = [];
+			hydrateData(data, cache, stage, promises);
+			await Promise.all(promises);
+			data[''] = key.replace(/[^\/\s]+$/, '');
+		}
+
 		return data;
 	}).catch(err => {
 		console.error(err);
 		return {};
 	});
 
-	cache[key] = promise;
+	if (cache) {
+		cache[key] = promise;
+	}
+
 	return promise;
 }
 
@@ -141,7 +145,7 @@ export function normalizeCode (code) {
 
 export function fetchCode (path, cache = {}) {
 	const [key, filepath] = getPath(path, 'mjs');
-	let promise = cache[key];
+	let promise = cache?.[key];
 
 	if (promise) {
 		return promise;
@@ -154,15 +158,18 @@ export function fetchCode (path, cache = {}) {
 	)).catch(err => {
 		console.error(err);
 		return {};
-	}).then(normalizeCode)
+	}).then(code => cache ? normalizeCode(code) : code);
 
-	cache[key] = promise;
+	if (cache) {
+		cache[key] = promise;
+	}
+
 	return promise;
 }
 
 export function fetchList (path, cache = {}) {
 	const [key, filepath] = getPath(path);
-	let promise = cache[key];
+	let promise = cache?.[key];
 
 	if (promise) {
 		return promise;
@@ -176,27 +183,32 @@ export function fetchList (path, cache = {}) {
 		console.error(err);
 		return [];
 	}).then(names => {
-		for (const key in localStorage) {
-			if (!key.startsWith(folder) || key.lastIndexOf('/') !== folder.length - 1) {
-				continue;
-			}
+		if (cache) {
+			for (const key in localStorage) {
+				if (!key.startsWith(folder) || key.lastIndexOf('/') !== folder.length - 1) {
+					continue;
+				}
 
-			let name;
+				let name;
 
-			if (key.endsWith('.md')) {
-				name = key.slice(folder.length, -3);
-			} else if (key.endsWith('.json')) {
-				name = key.slice(folder.length, -5);
-			}
+				if (key.endsWith('.md')) {
+					name = key.slice(folder.length, -3);
+				} else if (key.endsWith('.json')) {
+					name = key.slice(folder.length, -5);
+				}
 
-			if (name && names.indexOf(name) === -1) {
-				names.push(name);
+				if (name && names.indexOf(name) === -1) {
+					names.push(name);
+				}
 			}
 		}
 
 		return names;
 	});
 
-	cache[key] = promise;
+	if (cache) {
+		cache[key] = promise;
+	}
+
 	return promise;
 }

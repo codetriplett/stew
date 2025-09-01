@@ -190,7 +190,7 @@ function renderIdentifier (option, i, value) {
 }
 
 function ArraySelect ({ options, mode, names, array }, select) {
-	if (mode === false) {
+	if (mode) {
 		array = [];
 	}
 
@@ -422,19 +422,65 @@ export function Select ({ definition, data, mode, names, onclick }, button) {
 	}
 }
 
-function merge (base, change) {
-	if (
-		!base || typeof base !== 'object' || Array.isArray(base) ||
-		!change || typeof change !== 'object' || Array.isArray(change)
-	) {
-		return change;
+export function parseDefinition (definition) {
+	const match = definition.match(/^\s*(?:([^\/]+)\s+)?(\**)(\S*?)\/(\S*\/)?(\S*?)(?:\s+(.+?))?\s*$/);
+	let [, label, required, type, slashes = '', range = '', placeholder = ''] = match || [, definition.trim()];
+	let [, min = '', step, max = ''] = range.match(/^(?:(.*?)\.\.)?(?:(.*?)\.\.)?(.*?)$/);
+	let path, pattern;
+
+	if (slashes) {
+		const [, prefix, remainder] = slashes.match(/^(.*?)((?:\\\/|[^\s\/])*?)\/$/);
+		type ||= 'text';
+		pattern = remainder;
+		
+		if (prefix) {
+			path = `/${prefix.slice(0, -1)}`;
+		}
+	} else if (range) {
+		const [, minDate, minTime] = min.match(/^(?:(\d{4}-\d{2}-\d{2})(T\d{2}:\d{2})?|.*)$/);
+		const [, maxDate, maxTime] = max.match(/^(?:(\d{4}-\d{2}-\d{2})(T\d{2}:\d{2})?|.*)$/);
+		type ||= minTime || maxTime ? 'datetime-local' : minDate || maxDate ? 'date' : 'number';
+		step ||= '0';
+
+		if (min) {
+			if (type !== 'number' && !minDate) {
+				min += '-01-01';
+			}
+			
+			if (type === 'datetime-local' && !minTime) {
+				min += 'T00:00';
+			}
+		}
+
+		if (max) {
+			if (type !== 'number' && !maxDate) {
+				max += '-01-01';
+			}
+			
+			if (type === 'datetime-local' && !maxTime) {
+				max += 'T00:00';
+			}
+		}
+	} else if (placeholder) {
+		type ||= 'hidden';
+	} else {
+		type ||= 'checkbox';
 	}
 
-	for (const [name, value] of Object.entries(change)) {
-		base[name] = merge(base[name], value);
+	return [type, label, placeholder, required || false, step, min || undefined, max || undefined, pattern, path];
+}
+
+async function extendSchema (path, schema, cache, set = new Set()) {
+	const { default: [, base] } = await fetchCode(path, cache);
+	const { '': definition = '', ...rest } = base;
+	const basePath = parseDefinition(definition).pop();
+	set.add(path);
+
+	if (basePath && !set.has(basePath)) {
+		await extendSchema(basePath, rest, cache);
 	}
 
-	return base;
+	return { ...rest, ...schema };
 }
 
 let form, input;
@@ -452,28 +498,30 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, mode, names }
 		field.splice(0);
 	}
 
-	const { '': dataMeta } = data;
-	const [metaPath, ...metaKeys] = typeof dataMeta === 'string' ? dataMeta.trim().split(/\s+/) : [''];
-	const initialSelection = metaPath.split('/').pop();
+	const { '': dataMeta, ...rest } = data;
+	const [, dataPath, dataSelection] = typeof dataMeta === 'string' ? dataMeta.match(/^((?:\/[^\/\s]+){1,})\/([^\/\s]*)$/) : [];
 
 	const state = stew({
 		expanded: mode === undefined || typeof names[names.length - 1] === 'number',
-		selection: initialSelection,
-		overrides: metaKeys,
+		// tODO: also treat names in schema as overrides if selection is present
+		// - what about when selection is cleared? does it need to reprocess overrides in state?
+		overrides: Object.keys(rest).filter(name => !(name in schema)),
+		selection: dataPath === path && dataSelection || '',
 	}, []);
 
-	const { expanded, selection, overrides } = state;
+	const { expanded, overrides, selection } = state;
+	const originals = new Set(Object.keys(schema));
 	let defaults, select;
 
 	if (path) {
-		const code = stew(fetchCode, [path, cache], null);
 		const list = stew(fetchList, [path, cache], null);
+		schema = stew(extendSchema, [path, schema, cache], null);
 
 		defaults = stew(() => {
-			return selection ? fetchData(`${path}/${selection}`, cache) : {};
+			return selection ? fetchData(`${path}/${selection}`, null) : {};
 		}, [selection], null);
 
-		if (!code || !list || !defaults) {
+		if (!list || !schema || !defaults) {
 			return;
 		} else if (!form || !input) {
 			form = globalThis.document.createElement('form');
@@ -481,24 +529,25 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, mode, names }
 			form.appendChild(input);
 		}
 
-		const [, { '': meta, ...baseSchema }] = code.default;
+		for (const name in defaults) {
+			if (name && !(name in data)) {
+				originals.delete(name);
+			}
+		}
 
-		[schema, select] = stew(() => [
-			merge(baseSchema, schema),
-			list.length > 0 && ['', null, ['select', {
-				onchange: event => {
-					state.selection = event.target.selectedIndex ? event.target.value : '';
-				},
+		select = stew(() => list.length > 0 && ['', null, ['select', {
+			onchange: event => {
+				state.selection = event.target.selectedIndex ? event.target.value : '';
 			},
-				['option', { value: '' }, inputProps.placeholder || 'Select an item...'],
-				...list.filter(value => {
-					Object.assign(input, { value }, inputProps);
-					return form?.checkValidity?.() ?? true;
-				}).map(value => {
-					return ['option', { value }, value];
-				}),
-			]],
-		], []);
+		},
+			['option', { value: '' }, inputProps.placeholder || 'Select an item...'],
+			...list.filter(value => {
+				Object.assign(input, { value }, inputProps);
+				return form?.checkValidity?.() ?? true;
+			}).map(value => {
+				return ['option', { value }, value];
+			}),
+		]], []);
 
 		stew(null, [selection], () => {
 			if (!select) {
@@ -517,7 +566,7 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, mode, names }
 		});
 	}
 
-	if (mode === false) {
+	if (mode) {
 		select[2][1].disabled = true;
 	}
 
@@ -528,17 +577,13 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, mode, names }
 		meta = Field(`/ ${path}/${selection}`, undefined, mode, ...names, '');
 	}
 
-	if (expanded || overrides.length && mode !== false) {
+	if (expanded || !mode && overrides.length) {
 		for (const [name, definition] of Object.entries(schema)) {
-			const isOverride = mode !== false && overrides.indexOf(name) !== -1;
+			const isOverride = overrides.indexOf(name) !== -1;
+			const isOriginal = originals.has(name);
 			const isSelf = !names.length && path && `${path}/${selection}` === window.location.pathname;
-			const value = isOverride || !selection ? data[name] : isSelf ? undefined : defaults[name];
-			// TODO: test this
-			// - it should be null for regular fields
-			// - it switches to true or false when is selection is present, based on whether it is an override
-			// - it will stay stuck on false until next override, then switches to null
-			// - I think this is solid
-			const fieldMode = isOverride || !selection && (mode ?? null) && null;
+			const value = isOverride || isOriginal ? data[name] : !isSelf ? defaults[name] : undefined;
+			const fieldMode = mode || !isOverride && (!isOriginal || null);
 			const item = ['li', null, Field(definition, value, fieldMode, ...names, name)];
 			const label = item[2];
 			list.push(item);
@@ -555,7 +600,7 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, mode, names }
 						state.overrides = overrides.filter(override => override !== name);
 					},
 				}, 'Reset']);
-			} else if (selection) {
+			} else if (!isOriginal) {
 				label[1].onclick = () => state.overrides = [...overrides, name];
 			}
 		}
@@ -607,73 +652,32 @@ export function Field (definition, data, mode, ...names) {
 		return `${id}${typeof name === 'number' ? `[${name}]` : `${separator}${name}`}`;
 	}, '');
 
-	const match = definition.match(/^\s*(?:([^\/]+)\s+)?(\**)(\S*?)\/(\S*\/)?(\S*?)(?:\s+(.+?))?\s*$/);
-	let [, label, required, type, slashes = '', range = '', placeholder] = match || [, definition.trim()];
-	let [, min = '', step, max = ''] = range.match(/^(?:(.*?)\.\.)?(?:(.*?)\.\.)?(.*?)$/);
-	const className = mode && 'override' || (mode ?? 'standard') || 'default';
+	const [type, label, placeholder, required, step, min, max, pattern, path] = parseDefinition(definition);
+	const className = mode && 'default' || (mode ?? 'standard') || 'override';
 	const props = { className };
 	const input = ['input', props];
 	const field = ['label', {}, label || defaultLabel, input];
-	let path;
 
-	if (slashes) {
-		const [, prefix, pattern] = slashes.match(/^(.*?)((?:\\\/|[^\s\/])*?)\/$/);
-		path = prefix ? `/${prefix.slice(0, -1)}` : '';
-		type ||= 'text';
-		
-		if (pattern) {
-			props.pattern = pattern;
-		}
-
-		if (min) {
-			props.minlength = min;
-		}
-		
-		if (max) {
-			props.maxlength = max;
-		}
-	} else if (range) {
-		const [, minDate, minTime] = min.match(/^(?:(\d{4}-\d{2}-\d{2})(T\d{2}:\d{2})?|.*)$/);
-		const [, maxDate, maxTime] = max.match(/^(?:(\d{4}-\d{2}-\d{2})(T\d{2}:\d{2})?|.*)$/);
-		type ||= minTime || maxTime ? 'datetime-local' : minDate || maxDate ? 'date' : 'number';
-
-		if (min) {
-			if (type !== 'number' && !minDate) {
-				min += '-01-01';
-			}
-			
-			if (type === 'datetime-local' && !minTime) {
-				min += 'T00:00';
-			}
-
-			props.min = min;
-		}
-
-		if (max) {
-			if (type !== 'number' && !maxDate) {
-				max += '-01-01';
-			}
-			
-			if (type === 'datetime-local' && !maxTime) {
-				max += 'T00:00';
-			}
-
-			props.max = max;
-		}
-
-		if (step && step !== '1') {
-			props.step = step;
-		}
-	} else if (placeholder) {
-		field[1].className = 'static-label';
-		props.value = placeholder;
-		placeholder = '';
-		type ||= 'hidden';
-	} else {
-		type ||= 'checkbox';
+	if (pattern) {
+		props.pattern = pattern;
+	}
+	
+	if (min) {
+		props[pattern !== undefined ? 'minlength' : 'min'] = min;
+	}
+	
+	if (max) {
+		props[pattern !== undefined ? 'maxlength' : 'max'] = min;
 	}
 
-	if (placeholder) {
+	if (step > 1) {
+		props.step = step;
+	}
+
+	if (type === 'hidden') {
+		field[1].className = 'static-label';
+		props.value = placeholder;
+	} else if (placeholder) {
 		props.placeholder = placeholder;
 	}
 
@@ -726,13 +730,8 @@ export function Field (definition, data, mode, ...names) {
 	return id.endsWith('.') ? input : field;
 }
 
-export default function renderForm (rootSchema, data, callback) {
-	const { '': definition, ...schema } = rootSchema;
-	let field = Field(definition, data);
-
-	if (field[0] !== ObjectField) {
-		field = [ObjectField, { schema, data, path: '', names: [] }, field];
-	}
+export default function renderForm (schema, callback) {
+	const data = stew(fetchData, [window.location.pathname, null], null);
 
 	return ['form', {
 		'': 'form',
@@ -748,9 +747,7 @@ export default function renderForm (rootSchema, data, callback) {
 			callback(data);
 		}
 	},
-		field,
+		data && Field(schema, data),
 		callback && ['button', { type: 'submit' }, 'Submit'],
 	];
 }
-
-window.renderForm = renderForm;

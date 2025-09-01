@@ -1,10 +1,11 @@
 import Home from './home';
 import Page from './page';
 import { fetchNote, fetchData, fetchCode, fetchList } from './fetch';
+import renderForm from './form';
 
 const { localStorage, location } = window;
 const { pathname, hash } = location;
-Object.assign(window, { fetchNote, fetchData, fetchCode, fetchList });
+Object.assign(window, { fetchNote, fetchData, fetchCode, fetchList, renderForm });
 
 const state = stew({
 	focusedSection: hash.slice(1),

@@ -24,7 +24,7 @@ export function format (value, indentation = '') {
 	indentation += '    ';
 
 	if (typeof value !== 'object') {
-		return typeof value === 'string' ? `'${value}'` : String(value);
+		return typeof value === 'string' ? `'${value.replaceAll('\\', '\\\\')}'` : String(value);
 	} else if (Array.isArray(value)) {
 		return `[${value.map(item => {
 			return format(item, indentation);

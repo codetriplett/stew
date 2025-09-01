@@ -152,7 +152,7 @@ export default function Editor ({ '': library, path, file, schema, isModule }) {
 	return ['', null,
 		[Sidebar, { icon: 'form', isForm: true },
 			!!schema && Object.keys(schema).length > 0 && (formRef = ['', null,
-				renderForm(schema, data),
+				renderForm(schema),
 			]),
 		],
 		['div', { className: 'main' },

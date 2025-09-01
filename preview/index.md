@@ -160,7 +160,7 @@
     height: 144px;
     transform: rotate(90deg) translateY(-100%);
 }
-.nav-card { margin: 8px; transform: scale(1.5); }
+.nav-card { margin: 8px 8px 110px; transform: scale(1.5); }
 .month { box-shadow: inset 0 8px 8px -4px gray; }
 .today { box-shadow: inset 0 0 2px 2px black; }
 .quest { display: block; width: 100%; font-size: 11px; }
@@ -263,7 +263,7 @@ if (markdown) {
     result = stew(code, ['/']);
 } else if (form) {
     const schema = new Function(`return ${code}`)();
-    result = renderForm(schema, undefined, console.log);
+    result = renderForm(schema, console.log);
 } else {
     result = new Function(code);
 }
