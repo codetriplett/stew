@@ -284,6 +284,9 @@ span.child-button {
 	padding-left: 0;
 	border-left: none;
 }
+.sidebar form > input + ul {
+	margin-top: 10px;
+}
 .sidebar form ol {
 	padding-left: 24px;
 
@@ -298,6 +301,10 @@ form textarea {
 	width: 100%;
 	min-width: 224px;
     margin-top: 5px;
+}
+form input[disabled],
+form select[disabled] {
+	pointer-events: none;
 }
 form input[type="checkbox"] {
 	float: left;

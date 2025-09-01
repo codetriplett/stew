@@ -28,7 +28,7 @@ function updateAttributes (node, attributes, prevNames, nextNames = new Set()) {
 		const [objectName, valueName] = name.split('.');
 
 		if (valueName === undefined) {
-			node.removeAttribute(nameMap[objectName] || objectName);
+			node[nameMap[objectName] || objectName] = null;
 			continue;
 		}
 

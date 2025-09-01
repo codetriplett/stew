@@ -31,44 +31,32 @@ export function fetchNote (path, cache = {}) {
 // TODO: allow '' prop to store overrides for things to ignore from default data
 // - this would allow user to clear a default value, since otherewise it wouldn't get saved
 // - e.g. { '': '/folder/file xyz' } -> { '': '/folder/file value', abc: 123 } (when /folder/file had abc and xyz props)
-export function hydrateData (data, cache, promises, set = new Set()) {
+export function hydrateData (data, cache, stage, promises) {
 	if (!data || typeof data !== 'object') {
 		return;
 	} else if (Array.isArray(data)) {
 		for (const item of data) {
-			hydrateData(item, cache, promises);
+			hydrateData(item, cache, stage, promises);
 		}
 
 		return;
 	}
 
 	const { '': meta, ...rest } = data;
+	const [path, ...overrides] = typeof meta === 'string' ? meta.trim().split(/\s+/) : [''];
 
 	for (const value of Object.values(rest)) {
-		hydrateData(value, cache, promises);
+		hydrateData(value, cache, stage, promises);
 	}
 
-	if (typeof meta !== 'string') {
+	if (!/^\/.*[^\/]$/.test(path)) {
 		return;
 	}
 
-	// TODO: add a way to add overrides that clear to data that is saved to file
-	// - maybe click disabled text field to remove it
-	// - disabled text fields only show up when the default value is not overriden anyway
-	const [path, ...overrides] = meta.trim().split(/\s+/);
-
-	if (set.has(path) || !/^\/.*[^\/]$/.test(path)) {
-		return;
-	}
-
-	set.add(path);
-	fetchData(path, cache);
-	const promise = cache[`${path}.json`];
+	const promise = fetchData(path, cache, stage);
 	overrides.push(...Object.keys(rest));
 
-	const resolution = promise.then(async defaults => {
-		await hydrateData(defaults, cache, promises, set);
-
+	const resolution = promise.then(defaults => {
 		for (const [name, value] of Object.entries(defaults)) {
 			if (name && overrides.indexOf(name) === -1) {
 				data[name] = value;
@@ -81,40 +69,32 @@ export function hydrateData (data, cache, promises, set = new Set()) {
 	return resolution;
 }
 
-export function fetchData (path, cache = {}) {
+export function fetchData (path, cache = {}, stage = {}) {
 	const [key, filepath] = getPath(path, 'json');
-	let promise = cache[key];
-	let set = cache[''];
+	let promise = stage[key] || cache[key];
 
 	if (promise) {
 		return promise;
-	} else if (!set) {
-		set = new Set();
-		cache[''] = set;
 	}
-	
+
 	const file = localStorage.getItem(key);
 
 	promise = (file || manifest?.has?.(key) === false
 		? Promise.resolve(file || '{}').then(file => JSON.parse(file))
 		: fetch(filepath).then(res => res.ok ? res.json() : {})
-	).catch(err => {
+	).then(async data => {
+		stage[key] = Promise.resolve(data);
+		const promises = [];
+		hydrateData(data, cache, stage, promises);
+		await Promise.all(promises);
+		return data;
+	}).catch(err => {
 		console.error(err);
 		return {};
 	});
 
-	const resolution = promise.then(async data => {
-		const promises = [];
-		hydrateData(data, cache, promises);
-		await Promise.all(promises);
-		cache[key] = resolution;
-		set.delete(key);
-		return data;
-	});
-
-	set.add(key);
 	cache[key] = promise;
-	return resolution;
+	return promise;
 }
 
 export function normalizeCode (code) {

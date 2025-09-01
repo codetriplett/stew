@@ -39,25 +39,26 @@ export function extractData (form, isCustom) {
 	let meta;
 
 	for (const input of form.elements) {
-		let { tagName, type, id, value, checked } = input;
+		let { tagName, type, id, value, checked, disabled, className } = input;
 
-		if (!id) {
-			continue;
-		} else if (id === '.') {
+		if (id === '.') {
 			meta = /[^\/]$/.test(value) ? value : undefined;
+			continue;
+		} else if (!id || disabled || className === 'default') {
 			continue;
 		}
 
-		const names = id.split(/\.|(?=\[)/).map(name => name[0] === '[' ? Number(name.slice(1, -1)) : name);
-		let finalName = names.pop();
-		const isMeta = finalName === '';
+		const names = id.replace(/^\.+|\.+$/g, '').split(/\.|(?=\[)/)
+			.map(name => name[0] === '[' ? Number(name.slice(1, -1)) : name);
+		
+		const isOverride = className === 'override';
+		const isMeta = id[id.length - 1] === '.';
+		const finalName = names.pop();
 
-		if (isMeta) {
-			finalName = names.pop();
-		} else {
+		if (!isMeta) {
 			value = convertValue(type, value, checked);
 
-			if (!value) {
+			if (!value && !isOverride) {
 				continue;
 			}
 		}
@@ -139,7 +140,7 @@ function attachListener (select, callback) {
 	props.onclick = () => callback({ target: { selectedIndex: 1 } });
 }
 
-function ValueSelect ({ options, names, value }, select) {
+function ValueSelect ({ options, mode, names, value }, button, select) {
 	const state = stew({ index: findOption(value, ...options) }, [value]);
 	const { index } = state;
 	let field, ref;
@@ -155,11 +156,15 @@ function ValueSelect ({ options, names, value }, select) {
 	});
 
 	if (index > -1) {
-		field = Field(options[index][2], value, ...names);
+		field = Field(options[index][2], value, mode, ...names);
 		field[2] = null;
 	}
 
-	return ref = ['', null, select, field];
+	return ['', null,
+		button,
+		ref = ['', null, select],
+		field,
+	];
 }
 
 function renderIdentifier (option, i, value) {
@@ -184,7 +189,11 @@ function renderIdentifier (option, i, value) {
 	return `${i + 1}. ${type}${value}`;
 }
 
-function ArraySelect ({ options, names, array }, select) {
+function ArraySelect ({ options, mode, names, array }, select) {
+	if (mode === false) {
+		array = [];
+	}
+
 	const initialIndexes = stew(() => {
 		return array.map(value => findOption(value, ...options));
 	}, []);
@@ -210,8 +219,8 @@ function ArraySelect ({ options, names, array }, select) {
 		const text = indexes.map((index, i) => {
 			return index < 0 ? '' : renderIdentifier(options[index], i, array[i]);
 		}).filter(value => value).join('\n');
-		
-		const field = Field('textarea//', '', ...names, '');
+
+		const field = Field('textarea//', '', mode, ...names, '');
 		field[2] = text;
 		return field;
 	}, []);
@@ -301,13 +310,13 @@ function ArraySelect ({ options, names, array }, select) {
 				
 				const definition = options[index][2];
 				const props = visibleIndexes.has(i + 1) ? null : { style: { display: 'none' } };
-				return ['li', props, Field(definition, array[i], ...names, i)];
+				return ['li', props, Field(definition, array[i], mode, ...names, i)];
 			}),
 		],
 	];
 }
 
-function ObjectSelect ({ options, names, object }, select, input) {
+function ObjectSelect ({ options, mode, names, object }, select, input) {
 	const initialIndexes = stew(() => {
 		return Object.entries(object)
 			.map(([name, value]) => [name, findOption(value, ...options)])
@@ -337,7 +346,7 @@ function ObjectSelect ({ options, names, object }, select, input) {
 					return;
 				}
 
-				const field = Field(options[index][2], object[name], ...names, name);
+				const field = Field(options[index][2], object[name], mode, ...names, name);
 				field[2] = name;
 				return ['li', null, field];
 			}),
@@ -345,10 +354,10 @@ function ObjectSelect ({ options, names, object }, select, input) {
 	];
 }
 
-export function Select ({ definition, data, names }) {
+export function Select ({ definition, data, mode, names, onclick }, button) {
 	const [info, ...options] = stew(() => {
 		return definition.map((definition, i) => {
-			let field = Field(definition, undefined, ...(i ? names : []));
+			let field = Field(definition, undefined, null, ...(i ? names : []));
 			const isObject = field[0] !== 'label';
 			let path;
 
@@ -358,15 +367,16 @@ export function Select ({ definition, data, names }) {
 			}
 
 			const [,, label, input] = field;
-			let { type = '', placeholder, disabled, value } = input[1];
+			let { type = '', placeholder, value } = input[1];
 
 			if (path) {
 				type = `${path}/`;
 			} else if (isObject) {
 				type = '/';
 				placeholder ||= value;
-			} else if (disabled) {
+			} else if (type === 'hidden') {
 				placeholder = value;
+				type = '';
 			} else if (type === 'checkbox' || type === 'hidden') {
 				type = 'boolean';
 			} else if (type === 'number' || type === 'range') {
@@ -380,7 +390,7 @@ export function Select ({ definition, data, names }) {
 	}, []);
 
 	const [type, label, infoDefinition, placeholder] = info;
-
+	
 	const select = ['label', { className: 'select-label' },
 		label || names[names.length - 1],
 		options.length === 1 && type && type !== 'boolean'
@@ -394,15 +404,20 @@ export function Select ({ definition, data, names }) {
 	switch (type) {
 		case '':
 		case 'boolean': {
-			return [ValueSelect, { options, names, value: data }, select];
+			if (onclick) {
+				select[1].onclick = onclick;
+				select[3][1].disabled = true;
+			}
+
+			return [ValueSelect, { options, mode, names, value: data }, button, select];
 		}
 		case 'number': {
 			const array = !Array.isArray(data) ? [] : data;
-			return [ArraySelect, { options, names, array }, select];
+			return [ArraySelect, { options, mode, names, array }, select];
 		}
 		case 'string': {
 			const object = typeof data !== 'object' || Array.isArray(data) ? {} : data;
-			return [ObjectSelect, { options, names, object }, select, Field(infoDefinition)];
+			return [ObjectSelect, { options, mode, names, object }, select, Field(infoDefinition)];
 		}
 	}
 }
@@ -428,7 +443,7 @@ let form, input;
 // - even if another schema is referenced, choosing an existing file is optional. It can be created fresh from overrides within data as well
 // - '' prop on stored data indicates the schema it is tied to, and optionally what existing data it overwrites (if not ending in '/')
 // - the path to the schema is used not only for the form, but can also be used to import the code to render the component (file.default[0])
-function ObjectField ({ '': context, schema = {}, data = {}, path, names }, field) {
+function ObjectField ({ '': context, schema = {}, data = {}, path, mode, names }, field) {
 	field = [...field];
 	const inputProps = field.pop()[1];
 	const { cache } = context;
@@ -442,18 +457,23 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, names }, fiel
 	const initialSelection = metaPath.split('/').pop();
 
 	const state = stew({
-		expanded: !names.length || typeof names[names.length - 1] === 'number',
+		expanded: mode === undefined || typeof names[names.length - 1] === 'number',
 		selection: initialSelection,
+		overrides: metaKeys,
 	}, []);
 
-	const { expanded, selection } = state;
-	let select;
+	const { expanded, selection, overrides } = state;
+	let defaults, select;
 
 	if (path) {
 		const code = stew(fetchCode, [path, cache], null);
 		const list = stew(fetchList, [path, cache], null);
 
-		if (!code || !list) {
+		defaults = stew(() => {
+			return selection ? fetchData(`${path}/${selection}`, cache) : {};
+		}, [selection], null);
+
+		if (!code || !list || !defaults) {
 			return;
 		} else if (!form || !input) {
 			form = globalThis.document.createElement('form');
@@ -496,44 +516,47 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, names }, fiel
 			}
 		});
 	}
-	
-	const overrides = stew(() => {
-		const keys = !path || !selection ? Object.keys(schema) : metaKeys;
-		const overrides = {};
 
-		for (const key of keys) {
-			if (key in data) {
-				overrides[key] = data[key];
-			}
-		}
-
-		return overrides;
-	}, []);
+	if (mode === false) {
+		select[2][1].disabled = true;
+	}
 
 	const list = ['ul', expanded ? null : { style: { display: 'none' } }];
 	let meta;
 
 	if (path) {
-		meta = Field(`/ ${path}/${selection}`, undefined, ...names, '');
+		meta = Field(`/ ${path}/${selection}`, undefined, mode, ...names, '');
 	}
 
-	if (expanded || Object.keys(overrides).length) {
+	if (expanded || overrides.length && mode !== false) {
 		for (const [name, definition] of Object.entries(schema)) {
-			const value = data[name];
-			const override = overrides[name];
-			const item = ['li', null, Field(definition, override, ...names, name)];
+			const isOverride = mode !== false && overrides.indexOf(name) !== -1;
+			const isSelf = !names.length && path && `${path}/${selection}` === window.location.pathname;
+			const value = isOverride || !selection ? data[name] : isSelf ? undefined : defaults[name];
+			// TODO: test this
+			// - it should be null for regular fields
+			// - it switches to true or false when is selection is present, based on whether it is an override
+			// - it will stay stuck on false until next override, then switches to null
+			// - I think this is solid
+			const fieldMode = isOverride || !selection && (mode ?? null) && null;
+			const item = ['li', null, Field(definition, value, fieldMode, ...names, name)];
 			const label = item[2];
 			list.push(item);
 
-			if (!label[2]) {
+			if (label[2] === '') {
 				label[2] = name;
 			}
 
-			// TODO: click disabled field to unlink prop for reference
-			// - it will put the field name as an override in the meta string, regardless of whether the value is truthy
-
-			if (selection === initialSelection && !(name in overrides) && value && label[0] === 'label') {
-				item.push(['input', { value, disabled: true }]);
+			if (isOverride) {
+				label.splice(3, 0, ['button', {
+					type: 'button',
+					className: 'action-button',
+					onclick: () => {
+						state.overrides = overrides.filter(override => override !== name);
+					},
+				}, 'Reset']);
+			} else if (selection) {
+				label[1].onclick = () => state.overrides = [...overrides, name];
 			}
 		}
 	}
@@ -558,11 +581,11 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, names }, fiel
 
 // TODO: see if ...names can be replaced by parentId and name
 // - then append name to parentId, in brackets if it's a number
-export function Field (definition, data, ...names) {
+export function Field (definition, data, mode, ...names) {
 	let schema, defaultLabel;
 
 	if (Array.isArray(definition)) {
-		return [Select, { definition, data, names }];
+		return [Select, { definition, data, mode, names }];
 	} else if (typeof definition === 'object') {
 		({ '': definition, ...schema } = definition);
 		defaultLabel = 'Object';
@@ -578,11 +601,17 @@ export function Field (definition, data, ...names) {
 		}
 	}
 
-	const id = names.reduce((id, name) => `${id}${typeof name === 'number' ? `[${name}]` : `${id || !name ? '.' : ''}${name}`}`, '');
+	// TODO: simplify this now that there is no leading ''
+	const id = names.reduce((id, name, i) => {
+		const separator = i || !name && names.length === 1 ? '.' : '';
+		return `${id}${typeof name === 'number' ? `[${name}]` : `${separator}${name}`}`;
+	}, '');
+
 	const match = definition.match(/^\s*(?:([^\/]+)\s+)?(\**)(\S*?)\/(\S*\/)?(\S*?)(?:\s+(.+?))?\s*$/);
 	let [, label, required, type, slashes = '', range = '', placeholder] = match || [, definition.trim()];
 	let [, min = '', step, max = ''] = range.match(/^(?:(.*?)\.\.)?(?:(.*?)\.\.)?(.*?)$/);
-	const props = {};
+	const className = mode && 'override' || (mode ?? 'standard') || 'default';
+	const props = { className };
 	const input = ['input', props];
 	const field = ['label', {}, label || defaultLabel, input];
 	let path;
@@ -638,8 +667,8 @@ export function Field (definition, data, ...names) {
 	} else if (placeholder) {
 		field[1].className = 'static-label';
 		props.value = placeholder;
-		props.disabled = true;
 		placeholder = '';
+		type ||= 'hidden';
 	} else {
 		type ||= 'checkbox';
 	}
@@ -654,10 +683,14 @@ export function Field (definition, data, ...names) {
 
 	if (path || schema) {
 		delete field[1].className;
-		return [ObjectField, { schema, data, path, names }, field];
+		return [ObjectField, { schema, data, path, mode, names }, field];
 	} else if (id) {
 		props.id = id;
 		field[1].for = id;
+	}
+	
+	if (className === 'default') {
+		props.disabled = true;
 	}
 	
 	if (type === 'textarea') {
@@ -666,7 +699,7 @@ export function Field (definition, data, ...names) {
 		props.type = type;
 	}
 
-	if (!props.disabled && (data || data === 0) && typeof data !== 'object') {
+	if (type !== 'hidden' && (data || data === 0) && typeof data !== 'object') {
 		if (type === 'textarea') {
 			input[2] = String(data);
 		} else if (type === 'checkbox') {
@@ -693,7 +726,14 @@ export function Field (definition, data, ...names) {
 	return id.endsWith('.') ? input : field;
 }
 
-export default function renderForm (schema, data, callback) {
+export default function renderForm (rootSchema, data, callback) {
+	const { '': definition, ...schema } = rootSchema;
+	let field = Field(definition, data);
+
+	if (field[0] !== ObjectField) {
+		field = [ObjectField, { schema, data, path: '', names: [] }, field];
+	}
+
 	return ['form', {
 		'': 'form',
 		onsubmit: event => {
@@ -708,7 +748,7 @@ export default function renderForm (schema, data, callback) {
 			callback(data);
 		}
 	},
-		Field(schema, data),
+		field,
 		callback && ['button', { type: 'submit' }, 'Submit'],
 	];
 }
