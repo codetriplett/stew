@@ -130,7 +130,13 @@ export function findOption (value, ...options) {
 }
 
 function attachListener (select, callback) {
-	const [tagName, props] = select[3];
+	const control = select[3];
+
+	if (!control) {
+		return;
+	}
+
+	const [tagName, props] = control;
 
 	if (tagName === 'select') {
 		props.onchange = callback;
@@ -391,11 +397,11 @@ export function Select ({ definition, data, mode, names, onclick }, button) {
 
 	const [type, label, infoDefinition, placeholder] = info;
 	
-	const select = ['label', { className: 'select-label' },
+	const select = ['label', { className: 'select-label', onclick },
 		label || names[names.length - 1],
 		options.length === 1 && type && type !== 'boolean'
-			? ['button', { type: 'button', className: 'action-button' }, placeholder || 'Add']
-			: ['select', {},
+			? !mode && ['button', { type: 'button', className: 'action-button' }, placeholder || 'Add']
+			: ['select', { disabled: !!mode },
 				['option', { selected: true }, placeholder || 'Select an item...'],
 				...options.map(([type, label,, value]) => ['option', null, label || type || value]),
 			],
@@ -404,11 +410,6 @@ export function Select ({ definition, data, mode, names, onclick }, button) {
 	switch (type) {
 		case '':
 		case 'boolean': {
-			if (onclick) {
-				select[1].onclick = onclick;
-				select[3][1].disabled = true;
-			}
-
 			return [ValueSelect, { options, mode, names, value: data }, button, select];
 		}
 		case 'number': {
@@ -470,17 +471,18 @@ export function parseDefinition (definition) {
 	return [type, label, placeholder, required || false, step, min || undefined, max || undefined, pattern, path];
 }
 
-async function extendSchema (path, schema, cache, set = new Set()) {
-	const { default: [, base] } = await fetchCode(path, cache);
-	const { '': definition = '', ...rest } = base;
+async function fetchBase (path, cache, set = new Set()) {
+	const { default: [, schema] } = await fetchCode(path, cache);
+	const { '': definition = '', ...rest } = schema;
 	const basePath = parseDefinition(definition).pop();
 	set.add(path);
 
-	if (basePath && !set.has(basePath)) {
-		await extendSchema(basePath, rest, cache);
+	if (!basePath || set.has(basePath)) {
+		return rest;
 	}
 
-	return { ...rest, ...schema };
+	const base = await fetchBase(path, cache, set);
+	return base ? { ...base, ...rest } : rest;
 }
 
 let form, input;
@@ -489,7 +491,7 @@ let form, input;
 // - even if another schema is referenced, choosing an existing file is optional. It can be created fresh from overrides within data as well
 // - '' prop on stored data indicates the schema it is tied to, and optionally what existing data it overwrites (if not ending in '/')
 // - the path to the schema is used not only for the form, but can also be used to import the code to render the component (file.default[0])
-function ObjectField ({ '': context, schema = {}, data = {}, path, mode, names }, field) {
+function ObjectField ({ '': context, schema = {}, data = {}, path, mode, names, onclick }, field) {
 	field = [...field];
 	const inputProps = field.pop()[1];
 	const { cache } = context;
@@ -498,30 +500,32 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, mode, names }
 		field.splice(0);
 	}
 
+	if (onclick) {
+		field[1].onclick = onclick;
+	}
+
 	const { '': dataMeta, ...rest } = data;
 	const [, dataPath, dataSelection] = typeof dataMeta === 'string' ? dataMeta.match(/^((?:\/[^\/\s]+){1,})\/([^\/\s]*)$/) : [];
 
 	const state = stew({
 		expanded: mode === undefined || typeof names[names.length - 1] === 'number',
-		// tODO: also treat names in schema as overrides if selection is present
-		// - what about when selection is cleared? does it need to reprocess overrides in state?
-		overrides: Object.keys(rest).filter(name => !(name in schema)),
 		selection: dataPath === path && dataSelection || '',
+		overrides: Object.keys(rest),
 	}, []);
 
 	const { expanded, overrides, selection } = state;
-	const originals = new Set(Object.keys(schema));
+	const inherited = [];
 	let defaults, select;
 
 	if (path) {
 		const list = stew(fetchList, [path, cache], null);
-		schema = stew(extendSchema, [path, schema, cache], null);
+		const base = stew(fetchBase, [path, cache], null);
 
 		defaults = stew(() => {
 			return selection ? fetchData(`${path}/${selection}`, null) : {};
 		}, [selection], null);
 
-		if (!list || !schema || !defaults) {
+		if (!list || base === null || !defaults) {
 			return;
 		} else if (!form || !input) {
 			form = globalThis.document.createElement('form');
@@ -529,10 +533,12 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, mode, names }
 			form.appendChild(input);
 		}
 
-		for (const name in defaults) {
-			if (name && !(name in data)) {
-				originals.delete(name);
-			}
+		if (selection) {
+			inherited.push(...Object.keys(base || schema));
+		}
+
+		if (base) {
+			schema = { ...base, ...schema };
 		}
 
 		select = stew(() => list.length > 0 && ['', null, ['select', {
@@ -570,6 +576,7 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, mode, names }
 		select[2][1].disabled = true;
 	}
 
+	const isSelf = !names.length && path && `${path}/${selection}` === window.location.pathname;
 	const list = ['ul', expanded ? null : { style: { display: 'none' } }];
 	let meta;
 
@@ -579,11 +586,13 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, mode, names }
 
 	if (expanded || !mode && overrides.length) {
 		for (const [name, definition] of Object.entries(schema)) {
+			const isInherited = inherited.indexOf(name) !== -1;
+			// TODO: figure out why overridden objects keep override status of their parent
+			// - e.g. expanding alias shoudl show its name field disabled, even if parent field above it was overridden
+			// - the child value doesn't have data
 			const isOverride = overrides.indexOf(name) !== -1;
-			const isOriginal = originals.has(name);
-			const isSelf = !names.length && path && `${path}/${selection}` === window.location.pathname;
-			const value = isOverride || isOriginal ? data[name] : !isSelf ? defaults[name] : undefined;
-			const fieldMode = mode || !isOverride && (!isOriginal || null);
+			const value = isSelf || !isInherited || isOverride ? data[name] : defaults[name];
+			const fieldMode = mode || isInherited && (!isOverride || null);
 			const item = ['li', null, Field(definition, value, fieldMode, ...names, name)];
 			const label = item[2];
 			list.push(item);
@@ -592,7 +601,9 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, mode, names }
 				label[2] = name;
 			}
 
-			if (isOverride) {
+			if (fieldMode) {
+				label[1].onclick = () => state.overrides = [...overrides, name];
+			} else if (isInherited) {
 				label.splice(3, 0, ['button', {
 					type: 'button',
 					className: 'action-button',
@@ -600,15 +611,13 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, mode, names }
 						state.overrides = overrides.filter(override => override !== name);
 					},
 				}, 'Reset']);
-			} else if (!isOriginal) {
-				label[1].onclick = () => state.overrides = [...overrides, name];
 			}
 		}
 	}
 
 	if (names.length) {
 		field.push(
-			['button', {
+			!mode && ['button', {
 				type: 'button',
 				className: 'action-button',
 				onclick: () => state.expanded = !expanded,
@@ -653,7 +662,7 @@ export function Field (definition, data, mode, ...names) {
 	}, '');
 
 	const [type, label, placeholder, required, step, min, max, pattern, path] = parseDefinition(definition);
-	const className = mode && 'default' || (mode ?? 'standard') || 'override';
+	const className = mode && 'default' || (mode ?? 'override');
 	const props = { className };
 	const input = ['input', props];
 	const field = ['label', {}, label || defaultLabel, input];

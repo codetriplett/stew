@@ -53,15 +53,16 @@ export function hydrateData (data, cache, stage, promises) {
 	}
 
 	const promise = fetchData(path, cache, stage);
+	data[''] = path.replace(/[^\/\s]+$/, '');
 
 	const resolution = promise.then(defaults => {
 		for (const [name, value] of Object.entries(defaults)) {
-			if (!(name in rest)) {
+			if (name && !(name in rest)) {
 				data[name] = value;
 			}
 		}
 	});
-
+	
 	promises.push(resolution);
 	return resolution;
 }
