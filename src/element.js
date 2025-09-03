@@ -87,7 +87,7 @@ export default function renderElement (info, props, children, context, document,
 		if (prevNames.has('')) {
 			nextNames.add('');
 			props = onclick || {};
-		} else if (typeof onclick === 'object') {
+		} else if (onclick && typeof onclick === 'object') {
 			props.onclick = () => {
 				map[''] = updateAttributes(node, onclick, nextNames).add('');
 			};
