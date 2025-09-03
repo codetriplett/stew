@@ -28,7 +28,12 @@ function updateAttributes (node, attributes, prevNames, nextNames = new Set()) {
 		const [objectName, valueName] = name.split('.');
 
 		if (valueName === undefined) {
-			node[nameMap[objectName] || objectName] = null;
+			if (name.startsWith('on')) {
+				node[objectName] = null;
+			} else {
+				node.removeAttribute(nameMap[objectName] || objectName);
+			}
+
 			continue;
 		}
 

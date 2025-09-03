@@ -75,24 +75,30 @@ export function extractData (form, isCustom) {
 		}, data);
 
 		if (isMeta && finalName !== undefined) {
-			metas.unshift([object, finalName, value, tagName.toLowerCase()]);
+			metas.unshift([object, finalName, value, tagName.toLowerCase(), className === 'override']);
 		} else {
 			object[finalName] = value;
 		}
 	}
 
-	for (const [object, name, value, tagName] of metas) {
+	for (const [object, name, value, tagName, isOverride] of metas) {
 		const structure = object[name];
 
 		if (tagName === 'input') {
 			if (structure && Object.keys(structure).length || /[^\/]$/.test(value)) {
 				object[name] = { '': value, ...structure };
-			} else {
+			} else if (!isOverride) {
 				delete object[name];
+			} else if (!structure) {
+				object[name] = {};
 			}
 
 			continue;
 		} else if (!structure) {
+			if (isOverride) {
+				object[name] = [];
+			}
+
 			continue;
 		}
 
@@ -146,7 +152,7 @@ function attachListener (select, callback) {
 	props.onclick = () => callback({ target: { selectedIndex: 1 } });
 }
 
-function ValueSelect ({ options, mode, names, value }, button, select) {
+function ValueSelect ({ options, mode, names, value }, select, button) {
 	const state = stew({ index: findOption(value, ...options) }, [value]);
 	const { index } = state;
 	let field, ref;
@@ -163,6 +169,9 @@ function ValueSelect ({ options, mode, names, value }, button, select) {
 
 	if (index > -1) {
 		field = Field(options[index][2], value, mode, ...names);
+		field[2] = null;
+	} else if (mode === null) {
+		field = Field('/', value, mode, ...names);
 		field[2] = null;
 	}
 
@@ -195,14 +204,10 @@ function renderIdentifier (option, i, value) {
 	return `${i + 1}. ${type}${value}`;
 }
 
-function ArraySelect ({ options, mode, names, array }, select) {
-	if (mode) {
-		array = [];
-	}
-
+function ArraySelect ({ options, mode, names, array }, select, button) {
 	const initialIndexes = stew(() => {
 		return array.map(value => findOption(value, ...options));
-	}, []);
+	}, [mode]);
 
 	const state = stew({
 		indexes: initialIndexes,
@@ -211,12 +216,12 @@ function ArraySelect ({ options, mode, names, array }, select) {
 		after: '',
 		start: 1,
 		visibleIndexes: new Set(),
-	}, []);
+	}, [mode]);
 
 	const { indexes, start, visibleIndexes } = state;
 	let ref;
 
-	stew(null, [], () => {
+	stew(null, [mode], () => {
 		const [, textarea] = ref[0];
 		resizeTextarea([[textarea]]);
 	});
@@ -229,7 +234,9 @@ function ArraySelect ({ options, mode, names, array }, select) {
 		const field = Field('textarea//', '', mode, ...names, '');
 		field[2] = text;
 		return field;
-	}, []);
+	}, [mode]);
+
+	meta[1].disabled = !!mode;
 
 	attachListener(select, event => {
 		const index = event.target.selectedIndex - 1;
@@ -305,31 +312,42 @@ function ArraySelect ({ options, mode, names, array }, select) {
 		},
 	});
 
+	const items = [];
+	let isVisible = false;
+
+	for (const [i, index] of indexes.entries()) {
+		if (index < 0) {
+			continue;
+		}
+
+		const definition = options[index][2];
+		const props = visibleIndexes.has(i + 1) ? null : { style: { display: 'none' } };
+		items.push(['li', props, Field(definition, array[i], mode, ...names, i)]);
+
+		if (!props) {
+			isVisible = true;
+		}
+	}
+
 	return ref = ['', null,
+		button,
 		select,
 		meta,
-		['ol', { start, className: start < 10 ? '' : 'extra-padding' },
-			...indexes.map((index, i) => {
-				if (index < 0) {
-					return;
-				}
-				
-				const definition = options[index][2];
-				const props = visibleIndexes.has(i + 1) ? null : { style: { display: 'none' } };
-				return ['li', props, Field(definition, array[i], mode, ...names, i)];
-			}),
-		],
+		!mode && ['ol', {
+			start,
+			className: `${start < 10 ? '' : 'extra-padding'} ${!isVisible ? 'none-visible' : ''}`,
+		}, ...items],
 	];
 }
 
-function ObjectSelect ({ options, mode, names, object }, select, input) {
+function ObjectSelect ({ options, mode, names, object }, select, button, input) {
 	const initialIndexes = stew(() => {
 		return Object.entries(object)
 			.map(([name, value]) => [name, findOption(value, ...options)])
 			.filter(([, index]) => index > -1);
-	}, []);
+	}, [mode]);
 
-	const state = stew({ indexes: initialIndexes }, []);
+	const state = stew({ indexes: initialIndexes }, [mode]);
 	const { indexes } = state;
 
 	attachListener(select, event => {
@@ -344,6 +362,7 @@ function ObjectSelect ({ options, mode, names, object }, select, input) {
 	});
 
 	return ['', null,
+		button,
 		select,
 		input[3],
 		['ul', null,
@@ -400,7 +419,7 @@ export function Select ({ definition, data, mode, names, onclick }, button) {
 	const select = ['label', { className: 'select-label', onclick },
 		label || names[names.length - 1],
 		options.length === 1 && type && type !== 'boolean'
-			? !mode && ['button', { type: 'button', className: 'action-button' }, placeholder || 'Add']
+			? !mode && ['button', { type: 'button', className: 'action-button' }, '+']
 			: ['select', { disabled: !!mode },
 				['option', { selected: true }, placeholder || 'Select an item...'],
 				...options.map(([type, label,, value]) => ['option', null, label || type || value]),
@@ -410,22 +429,27 @@ export function Select ({ definition, data, mode, names, onclick }, button) {
 	switch (type) {
 		case '':
 		case 'boolean': {
-			return [ValueSelect, { options, mode, names, value: data }, button, select];
+			return [ValueSelect, { options, mode, names, value: data }, select, button];
 		}
 		case 'number': {
 			const array = !Array.isArray(data) ? [] : data;
-			return [ArraySelect, { options, mode, names, array }, select];
+			return [ArraySelect, { options, mode, names, array }, select, button];
 		}
 		case 'string': {
 			const object = typeof data !== 'object' || Array.isArray(data) ? {} : data;
-			return [ObjectSelect, { options, mode, names, object }, select, Field(infoDefinition)];
+			return [ObjectSelect, { options, mode, names, object }, select, button, Field(infoDefinition)];
 		}
 	}
 }
 
 export function parseDefinition (definition) {
 	const match = definition.match(/^\s*(?:([^\/]+)\s+)?(\**)(\S*?)\/(\S*\/)?(\S*?)(?:\s+(.+?))?\s*$/);
-	let [, label, required, type, slashes = '', range = '', placeholder = ''] = match || [, definition.trim()];
+	
+	if (!match) {
+		return ['checkbox', definition.trim()];
+	}
+	
+	let [, label, required, type, slashes = '', range = '', placeholder = ''] = match;
 	let [, min = '', step, max = ''] = range.match(/^(?:(.*?)\.\.)?(?:(.*?)\.\.)?(.*?)$/);
 	let path, pattern;
 
@@ -462,10 +486,8 @@ export function parseDefinition (definition) {
 				max += 'T00:00';
 			}
 		}
-	} else if (placeholder) {
-		type ||= 'hidden';
 	} else {
-		type ||= 'checkbox';
+		type ||= 'hidden';
 	}
 
 	return [type, label, placeholder, required || false, step, min || undefined, max || undefined, pattern, path];
@@ -474,7 +496,7 @@ export function parseDefinition (definition) {
 async function fetchBase (path, cache, set = new Set()) {
 	const { default: [, schema] } = await fetchCode(path, cache);
 	const { '': definition = '', ...rest } = schema;
-	const basePath = parseDefinition(definition).pop();
+	const basePath = parseDefinition(definition)[8];
 	set.add(path);
 
 	if (!basePath || set.has(basePath)) {
@@ -491,7 +513,7 @@ let form, input;
 // - even if another schema is referenced, choosing an existing file is optional. It can be created fresh from overrides within data as well
 // - '' prop on stored data indicates the schema it is tied to, and optionally what existing data it overwrites (if not ending in '/')
 // - the path to the schema is used not only for the form, but can also be used to import the code to render the component (file.default[0])
-function ObjectField ({ '': context, schema = {}, data = {}, path, mode, names, onclick }, field) {
+function ObjectField ({ '': context, schema = {}, data = {}, path, mode, names, onclick }, field, button) {
 	field = [...field];
 	const inputProps = field.pop()[1];
 	const { cache } = context;
@@ -509,9 +531,9 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, mode, names, 
 
 	const state = stew({
 		expanded: mode === undefined || typeof names[names.length - 1] === 'number',
+		overrides: Object.keys(mode ? [] : rest),
 		selection: dataPath === path && dataSelection || '',
-		overrides: Object.keys(rest),
-	}, []);
+	}, [mode]);
 
 	const { expanded, overrides, selection } = state;
 	const inherited = [];
@@ -553,7 +575,7 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, mode, names, 
 			}).map(value => {
 				return ['option', { value }, value];
 			}),
-		]], []);
+		]], [mode]);
 
 		stew(null, [selection], () => {
 			if (!select) {
@@ -572,8 +594,8 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, mode, names, 
 		});
 	}
 
-	if (mode) {
-		select[2][1].disabled = true;
+	if (select) {
+		select[2][1].disabled = !!mode;
 	}
 
 	const isSelf = !names.length && path && `${path}/${selection}` === window.location.pathname;
@@ -587,9 +609,6 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, mode, names, 
 	if (expanded || !mode && overrides.length) {
 		for (const [name, definition] of Object.entries(schema)) {
 			const isInherited = inherited.indexOf(name) !== -1;
-			// TODO: figure out why overridden objects keep override status of their parent
-			// - e.g. expanding alias shoudl show its name field disabled, even if parent field above it was overridden
-			// - the child value doesn't have data
 			const isOverride = overrides.indexOf(name) !== -1;
 			const value = isSelf || !isInherited || isOverride ? data[name] : defaults[name];
 			const fieldMode = mode || isInherited && (!isOverride || null);
@@ -601,16 +620,20 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, mode, names, 
 				label[2] = name;
 			}
 
+			if (label[3]?.[1]?.type === 'checkbox') {
+				item[1] = { className: 'checkbox-field' };
+			}
+
 			if (fieldMode) {
 				label[1].onclick = () => state.overrides = [...overrides, name];
 			} else if (isInherited) {
 				label.splice(3, 0, ['button', {
 					type: 'button',
-					className: 'action-button',
+					className: 'action-button reset-button',
 					onclick: () => {
 						state.overrides = overrides.filter(override => override !== name);
 					},
-				}, 'Reset']);
+				}, '🗙']);
 			}
 		}
 	}
@@ -621,7 +644,7 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, mode, names, 
 				type: 'button',
 				className: 'action-button',
 				onclick: () => state.expanded = !expanded,
-			}, expanded ? 'Hide' : selection ? 'Override' : 'Show'],
+			}, expanded ? '︿' : '﹀'],
 			select,
 		);
 	} else if (meta) {
@@ -630,7 +653,7 @@ function ObjectField ({ '': context, schema = {}, data = {}, path, mode, names, 
 		field = null;
 	}
 
-	return ['', null, field, meta, list];
+	return ['', null, button, field, meta, list];
 }
 
 // TODO: see if ...names can be replaced by parentId and name
@@ -712,27 +735,29 @@ export function Field (definition, data, mode, ...names) {
 		props.type = type;
 	}
 
-	if (type !== 'hidden' && (data || data === 0) && typeof data !== 'object') {
-		if (type === 'textarea') {
-			input[2] = String(data);
-		} else if (type === 'checkbox') {
-			props.checked = true;
+	if (type !== 'hidden' && typeof data !== 'object') {
+		if (type === 'checkbox') {
+			props.checked = data === true;
 		} else {
-			let value = String(data);
+			let value = data || data === 0 ? String(data) : '';
 
-			if (type.startsWith('date')) {
-				const [, date, time] = value.match(/^(?:(\d{4}-\d{2}-\d{2})(T\d{2}:\d{2})?|.*)$/);
+			if (type === 'textarea') {
+				input[2] = value;
+			} else  {
+				if (type.startsWith('date')) {
+					const [, date, time] = value.match(/^(?:(\d{4}-\d{2}-\d{2})(T\d{2}:\d{2})?|.*)$/);
 
-				if (!date) {
-					value += '-01-01';
+					if (!date) {
+						value += '-01-01';
+					}
+					
+					if (type === 'datetime-local' && !time) {
+						value += 'T00:00';
+					}
 				}
-				
-				if (type === 'datetime-local' && !time) {
-					value += 'T00:00';
-				}
+
+				props.value = value;
 			}
-
-			props.value = value;
 		}
 	}
 

@@ -561,21 +561,11 @@ describe('Select', () => {
 
 describe('Field', () => {
 	it('checkbox', () => {
-		const actual = stew('#', null, Field('', undefined, null, 'group', 'name'));
+		const actual = stew('#', null, Field('', undefined, false, 'group', 'name'));
 
 		expect(String(actual)).toEqual(trim(`
 			<label for="group.name">
 				name
-				<input id="group.name" type="checkbox">
-			</label>
-		`));
-	});
-
-	it('checkbox using slash', () => {
-		const actual = stew('#', null, Field('/', undefined, 'group', 'name'));
-
-		expect(String(actual)).toEqual(trim(`
-			<label for="group.name">
 				<input id="group.name" type="checkbox">
 			</label>
 		`));
@@ -598,6 +588,17 @@ describe('Field', () => {
 		expect(String(actual)).toEqual(trim(`
 			<label class="static-label" for="group.name">
 				<input id="group.name" value="static" disabled>
+			</label>
+		`));
+	});
+
+	it('static without value', () => {
+		const actual = stew('#', null, Field('/', undefined, false, 'group', 'name'));
+
+		expect(String(actual)).toEqual(trim(`
+			<label class="static-label" for="group.name">
+				name
+				<input id="group.name" type="hidden" value="">
 			</label>
 		`));
 	});
