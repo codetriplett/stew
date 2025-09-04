@@ -38,7 +38,7 @@ export function demo () {
 
 export function card () {
 	const [props, inputName] = arguments;
-	let { forNav, nameOnly, todayName } = props;
+	let { forNav, nameOnly, todayName, onclick } = props;
 
 	if (typeof inputName !== 'string' || !/^(\d{6}|\d{8})$/.test(inputName)) {
 	    // reject inputs that aren't strings of length 6 or 8
@@ -46,27 +46,27 @@ export function card () {
 	}
 
 	// read first parts of string, and create date for beginning of year
-	const year = inputName.slice(0, 4);
-	const date = new Date(`${year}-01-07T00:00:00`);
+	let year = Number(inputName.slice(0, 4));
+	const day = Number(inputName.slice(6, 8));
+	const date = new Date(`${year}-01-${day < 10 ? '0' : ''}${day || 7}T00:00:00`);
 	let week = inputName.slice(4, 6) - 1;
 
-	if (inputName.length < 8) {
+	if (!day) {
 	    // shift by number of weeks past the first
 	    date.setDate((week + 1) * 7 - date.getDay());
 
 	    if (date.getFullYear() > year) {
-	        // don't render if there is not 52nd week for this year
+	        // don't render if there is no 52nd week for this year
 	        return;
 	    }
 	} else {
 	    // use week index as month instead, and the rest of string as the day
-	    const day = inputName.slice(6, 8);
 	    date.setMonth(week);
-	    date.setDate(Number(day) + 5 * 7);
-	    date.setDate(date.getDate() - date.getDay());
+	    date.setDate(date.getDate() + 5 * 7 - date.getDay());
+	    year = date.getFullYear();
 
 	    // calculate number of weeks since start of year
-	    const start = new Date(`${date.getFullYear()}-01-07T00:00:00`);
+	    const start = new Date(`${year}-01-07T00:00:00`);
 	    start.setDate(start.getDate() - start.getDay());
 	    week = Math.round((date - start) / (7 * 24 * 60 * 60 * 1000));
 	    todayName = inputName;
@@ -76,17 +76,32 @@ export function card () {
 	date.setDate(date.getDate() - 5 * 7);
 
 	if (nameOnly) {
-	    // just return the week name of the card
-	    return `${date.getFullYear()}${week}`;
+	    if (!day) {
+	        // return the first day name in card
+	        const year = date.getFullYear();
+	        const month = date.getMonth() + 1;
+	        const day = date.getDate();
+	        return `${year}${month < 10 ? '0' : ''}${month}${day < 10 ? '0' : ''}${day}`;
+	    }
+	    
+	    // return the week name of the card
+	    return `${year}${week + 1}`;
 	}
 
 	// render card layout, fetching the quest data for each day
 	const card = ['ul', {
-	    className: `card season-${season} week-${week % 13} ${forNav ? 'nav-card' : ''}`,
+	    className: [
+	        'card',
+	        `season-${season}`,
+	        `week-${week % 13}`,
+	        forNav ? 'nav-card' : '',
+	        onclick ? 'faded-card' : '',
+	    ].join(' '),
+	    onclick,
 	}];
 
 	const locale = Intl.DateTimeFormat().resolvedOptions().locale;
-	const list = stew(fetchList, ['/quest'], []);
+	const list = stew(fetchList, ['/journal'], []);
 
 	for (let i = 0; i < 7; i++) {
 	    // get date components and then increment
@@ -95,24 +110,24 @@ export function card () {
 	    const day = date.getDate();
 
 	    // build date string and fetch quest data
-	    const questName = `${year}${month < 10 ? '0' : ''}${month}${day < 10 ? '0' : ''}${day}`;
-	    const className = `${day === 1 ? 'month' : ''} ${ questName === todayName ? 'today' : ''}`;
-	    const href = `/quest/${questName}`;
-	    const data = list.indexOf(questName) !== -1 ? stew(fetchData, [href], {}) : {};
+	    const dayName = `${year}${month < 10 ? '0' : ''}${month}${day < 10 ? '0' : ''}${day}`;
+	    const className = `${day === 1 ? 'month' : ''} ${ dayName === todayName ? 'today' : ''}`;
+	    const href = `/journal/${dayName}`;
+	    const data = list.indexOf(dayName) !== -1 ? stew(fetchData, [href], {}) : {};
 	    const textProps = { className: 'quest' };
-	    let { quest = '', exp = 0, type = 'home', complete } = data;
+	    let { name = '', exp = 0, focus = 'home', complete } = data;
 
-	    if (!quest && (i === 0 || i === 6)) {
+	    if (!name && (i === 0 || i === 6)) {
 	        // label the top and bottom rows if they are blank
-	        quest = `${new Intl.DateTimeFormat(locale, { month: 'long' }).format(date)} ${day}`;
-	        textProps.style = { fontSize: quest.length > 10 ? '11px' : '15px', fontWeight: 'bold' };
+	        name = `${new Intl.DateTimeFormat(locale, { month: 'long' }).format(date)} ${day}`;
+	        textProps.style = { fontSize: name.length > 10 ? '11px' : '15px', fontWeight: 'bold' };
 	    }
 
 	    card.push(['li', { className },
 	        ['span', null, i === 2 || i === 4 ? day : ''],
-	        ['a', { href },
-	            ['span', textProps, quest],
-	            complete && ['span', { className: `exp exp-${type}` }, `+${exp}`],
+	        ['a', { href: !onclick && href },
+	            ['span', textProps, name],
+	            complete && ['span', { className: `exp exp-${focus}` }, `+${exp}`],
 	        ],
 	    ]);
 	    
@@ -124,8 +139,22 @@ export function card () {
 }
 
 export default [null, {
-    '': 'quest',
+    '': 'journal',
     smile: '🙂',
+    rotfl: '🤣',
+    sob: '😭',
+    skull: '💀',
+    thumb: '👍',
+    eyes: '👀',
+    shrug: '🤷‍♀️',
+    facepalm: '🤦‍♀️',
+    upsidedown: '🙃',
+    hundred: '💯',
+    fire: '🔥',
+    sparkle: '✨',
+    check: '✅',
+    heart: '❤️',
+    think: '🤔',
 }, ['style', null, `
 .stew-demo {
     display: flex;
@@ -227,6 +256,9 @@ export default [null, {
         height: 24px;
         overflow: hidden;
 
+        &:nth-child(4) > span {
+            display: none;
+        }
         &:nth-child(n + 5) {
             flex-direction: row-reverse;
         }
@@ -284,6 +316,7 @@ export default [null, {
     height: 144px;
     transform: rotate(90deg) translateY(-100%);
 }
+.faded-card { opacity: 0.5 }
 .nav-card { margin: 8px 8px 110px; transform: scale(1.5); }
 .month { box-shadow: inset 0 8px 8px -4px gray; }
 .today { box-shadow: inset 0 0 2px 2px black; }

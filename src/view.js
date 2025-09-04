@@ -60,7 +60,7 @@ export function reconcile (node, nextNodes, prevNodes, sibling) {
 	}
 }
 
-export default function render (layout, context, document, nodes, container, i, map) {
+export default function render (layout, library, document, nodes, container, i, map) {
 	let info = container[i + 3];
 
 	if (!Array.isArray(layout)) {
@@ -88,10 +88,9 @@ export default function render (layout, context, document, nodes, container, i, 
 					break;
 				}
 
-				// TODO: use key to get and store to a different info object
-				const { '': convert } = context['']?.default || {};
 				const { '': key, ...props } = layout;
-				context = props;
+				const convert = library[key] || {};
+				library = props;
 				layout = convert || (() => {});
 			}
 			case 'function': {
@@ -102,7 +101,7 @@ export default function render (layout, context, document, nodes, container, i, 
 					layout = null;
 				}
 				
-				return render(layout, context, document, nodes, container, i, map);
+				return render(layout, library, document, nodes, container, i, map);
 			}
 		}
 	} else {
@@ -136,7 +135,7 @@ export default function render (layout, context, document, nodes, container, i, 
 				// - these won't update if their parent updates, only if changes are made to state props it uses
 				// - would need to have contexts keep their references on update for this to work, instead of rebuilding themselves
 				// - that would require deleting old props as well
-				props[''] = context;
+				props[''] = library;
 				callback = renderImpulse;
 				break;
 			}
@@ -152,7 +151,7 @@ export default function render (layout, context, document, nodes, container, i, 
 			// }
 		}
 
-		const refs = callback(info, props, children, context, document, nodes);
+		const refs = callback(info, props, children, library, document, nodes);
 
 		if (!tagName) {
 			layout[0] = refs;

@@ -105,7 +105,7 @@ export function unsubscribe (impulse) {
 	subscriptions.clear();
 }
 
-export default function renderImpulse (info, props, children, context, document, nodes) {
+export default function renderImpulse (info, props, children, library, document, nodes) {
 	if (!info[1]) {
 		const [callback] = info;
 		const [parentNode] = nodes;
@@ -116,14 +116,14 @@ export default function renderImpulse (info, props, children, context, document,
 				params = prevParams;
 			}
 
-			const [context, ...rest] = params;
+			const [library, ...rest] = params;
 			unsubscribe(impulse);
-			info.push(context[''], document === stew ? null : info.splice(4));
+			info.push(library, document === stew ? null : info.splice(4));
 			stack.unshift(info);
 			const layout = execute(callback, ...rest);
 			const prevProxy = info[3];
 			const nodes = [parentNode];
-			const proxy = render(layout, context, document, nodes, info, 0, {});
+			const proxy = render(layout, library, document, nodes, info, 0, {});
 			nodes.shift();
 
 			if (proxy !== prevProxy) {
@@ -148,5 +148,5 @@ export default function renderImpulse (info, props, children, context, document,
 	}
 
 	const [update] = info[1];
-	nodes.push(...update(context, props, ...children));
+	nodes.push(...update(library, props, ...children));
 }

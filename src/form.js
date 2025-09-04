@@ -512,16 +512,16 @@ export function parseDefinition (definition) {
 }
 
 async function fetchBase (path, cache, set = new Set()) {
+	set.add(path);
 	const { default: [, schema] } = await fetchCode(path, cache);
 	const { '': definition = '', ...rest } = schema;
 	const basePath = parseDefinition(definition)[8];
-	set.add(path);
 
 	if (!basePath || set.has(basePath)) {
 		return rest;
 	}
 
-	const base = await fetchBase(path, cache, set);
+	const base = await fetchBase(basePath, cache, set);
 	return base ? { ...base, ...rest } : rest;
 }
 
@@ -531,14 +531,14 @@ let form, input;
 // - even if another schema is referenced, choosing an existing file is optional. It can be created fresh from overrides within data as well
 // - '' prop on stored data indicates the schema it is tied to, and optionally what existing data it overwrites (if not ending in '/')
 // - the path to the schema is used not only for the form, but can also be used to import the code to render the component (file.default[0])
-function ObjectField ({ '': context, schema = {}, value, path, mode, names, onclick }, field, button) {
+function ObjectField ({ '': library, schema = {}, value, path, mode, names, onclick }, field, button) {
 	const object = stew(() => {
 		return typeof value === 'object' && !Array.isArray(value) ? value : {};
 	}, [value]);
 
 	field = [...field];
 	const inputProps = field.pop()[1];
-	const { cache } = context;
+	const { cache } = library;
 
 	if (!field[2]) {
 		field.splice(0);

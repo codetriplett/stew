@@ -56,15 +56,15 @@ export default function stew (...layout) {
 
 	let document = globalThis.document || stew;
 	const isServer = document === stew;
-	let [selector, object, ...rest] = layout;
+	let [selector, library, ...rest] = layout;
 	let node, props;
 
 	if (Array.isArray(selector)) {
 		return compile(...layout);
-	} else if (Array.isArray(object)) {
+	} else if (Array.isArray(library)) {
 		return processMemo(...layout);
 	} else if (typeof selector === 'function') {
-		({ '': node, ...props } = object || {});
+		({ '': node, ...props } = library || {});
 	} else if (layout.length === 1) {
 		return processMemo(selector, []);
 	} else if (typeof selector !== 'string') {
@@ -91,8 +91,9 @@ export default function stew (...layout) {
 		return;
 	}
 
-	stack.unshift([,,,, object, document === stew ? null : []]);
-	const info = render([node, props, ...rest], { '': object }, document, [], ['', {}], 0, {});
+	library = typeof library === 'object' ? { ...library } : {};
+	stack.unshift([,,,, library, document === stew ? null : []]);
+	const info = render([node, props, ...rest], library, document, [], ['', {}], 0, {});
 	stack.shift();
 	processEffects();
 

@@ -4,6 +4,10 @@ import stew from './stew';
 
 function updateAttributes (node, attributes, prevNames, nextNames = new Set()) {
 	for (const [name, value] of Object.entries(attributes)) {
+		if (!value && value !== 0) {
+			continue;
+		}
+
 		prevNames.delete(name);
 		nextNames.add(name);
 
@@ -11,6 +15,10 @@ function updateAttributes (node, attributes, prevNames, nextNames = new Set()) {
 			const object = node[name];
 
 			for (const [valueName, string] of Object.entries(value)) {
+				if (!string && string !== 0) {
+					continue;
+				}
+
 				const fullName = `${name}.${valueName}`;
 				prevNames.delete(fullName);
 				nextNames.add(fullName);
@@ -52,7 +60,7 @@ function updateAttributes (node, attributes, prevNames, nextNames = new Set()) {
 	return nextNames;
 }
 
-export default function renderElement (info, props, children, context, document, nodes) {
+export default function renderElement (info, props, children, library, document, nodes) {
 	let [tagName, map, node] = info;
 
 	if (!node && tagName) {
@@ -95,7 +103,7 @@ export default function renderElement (info, props, children, context, document,
 
 		updateAttributes(node, props, prevNames, nextNames);
 	} else {
-		context = { ...context, ...props };
+		library = { ...library, ...props };
 		map = {};
 	}
 
@@ -104,7 +112,7 @@ export default function renderElement (info, props, children, context, document,
 	const removeInfos = new Set(info.slice(3));
 
 	for (const [i, childLayout] of children.entries()) {
-		const childInfo = render(childLayout, context, document, nodes, info, i, map);
+		const childInfo = render(childLayout, library, document, nodes, info, i, map);
 
 		if (childInfo) {
 			removeInfos.delete(childInfo);
