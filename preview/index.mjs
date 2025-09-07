@@ -38,7 +38,7 @@ export function demo () {
 
 export function card () {
 	const [props, inputName] = arguments;
-	let { forNav, nameOnly, todayName, onclick } = props;
+	let { forNav, nameOnly, todayName, state, onclick } = props;
 
 	if (typeof inputName !== 'string' || !/^(\d{6}|\d{8})$/.test(inputName)) {
 	    // reject inputs that aren't strings of length 6 or 8
@@ -115,7 +115,11 @@ export function card () {
 	    const href = `/journal/${dayName}`;
 	    const data = list.indexOf(dayName) !== -1 ? stew(fetchData, [href], {}) : {};
 	    const textProps = { className: 'quest' };
-	    let { name = '', exp = 0, focus = 'home', complete } = data;
+	    let { name = '', exp = 0, focus = 'home', complete, steps } = data;
+        
+        if (state && complete) {
+            state[focus] = { ...state[focus], [dayName]: exp };
+        }
 
 	    if (!name && (i === 0 || i === 6)) {
 	        // label the top and bottom rows if they are blank
@@ -127,7 +131,12 @@ export function card () {
 	        ['span', null, i === 2 || i === 4 ? day : ''],
 	        ['a', { href: !onclick && href },
 	            ['span', textProps, name],
-	            complete && ['span', { className: `exp exp-${focus}` }, `+${exp}`],
+	            (steps >= 5000 || complete) && ['span', { className: `exp exp-${focus}` },
+                    complete && `+${exp}`,
+                    steps >= 5000 && ['span', { className: 'steps' },
+                        steps > 15000 ? '👟' : steps >= 8000 ? '🥾' :  '👞',
+                    ],
+                ],
 	        ],
 	    ]);
 	    
@@ -277,7 +286,7 @@ export default [null, {
             position: relative;
             color: #333;
             
-            span {
+            > span {
                 position: absolute;
                 left: 50%;
                 top: 50%;
@@ -289,6 +298,23 @@ export default [null, {
                 font-family: monospace;
             }
         }
+    }
+    .today {
+        box-shadow: inset 0 0 2px 2px black;
+        background: #333;
+
+        > span {
+            display: none;
+        }
+        a {
+            color: #eee;
+        }
+    }
+    .steps {
+        position: relative;
+        top: -3px;
+        margin-left: 3px;
+        font-size: 21px;
     }
 }
 .season-0:before { background-image: url(/winter-cards.png); }
@@ -319,13 +345,13 @@ export default [null, {
 .faded-card { opacity: 0.5 }
 .nav-card { margin: 8px 8px 110px; transform: scale(1.5); }
 .month { box-shadow: inset 0 8px 8px -4px gray; }
-.today { box-shadow: inset 0 0 2px 2px black; }
 .quest { display: block; width: 100%; font-size: 11px; }
 .exp {
     border-radius: 4px;
     padding: 0 4px;
     font-size: 15px;
     font-weight: bold;
+    white-space: nowrap;
     background: #fffd;
     box-shadow: 0 0 4px 4px #fffd;
 }

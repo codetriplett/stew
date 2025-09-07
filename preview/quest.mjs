@@ -1,8 +1,11 @@
 export function quest () {
 	const [props, content, navigation] = arguments;
+    const { name, exp, complete, focus, deadline } = props;
 	console.log(props);
 	// TODO: render quest info
 	// - have journal code call this with props to place info above the week card in nav
+
+    
 }
 
 export default [quest, {
@@ -15,5 +18,5 @@ export default [quest, {
         'Body (exercise) / body',
         'Soul (socialize) / soul',
     ],
-    deadline: 'Deadline /journal// Choose a journal',
+    deadline: 'Deadline /2025-01-01',
 }];

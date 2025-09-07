@@ -29,10 +29,14 @@ export function journal () {
 	const state = stew({
 	    year: initialYear,
 	    season: initialSeason,
+		body: {},
+		home: {},
+		soul: {},
+		mind: {},
 	}, []);
 
 	const cards = ['div', { className: 'cards' }];
-	const { year, season } = state;
+	const { year, season, home, mind, body, soul } = state;
 	const start = season * 13 + 1;
 	const finish = start + (season < 3 ? 13 : 14);
 
@@ -41,7 +45,7 @@ export function journal () {
 	        break;
 	    }
 
-	    cards.push([card, { todayName }, `${year}${week < 10 ? '0' : ''}${week}`]);
+	    cards.push([card, { state, todayName }, `${year}${week < 10 ? '0' : ''}${week}`]);
 	}
 
 	if (cards.length < 16) {
@@ -83,8 +87,10 @@ export function journal () {
 	                if (season === 0) {
 	                    Object.assign(state, { year: year - 1, season: 3 });
 	                } else {
-	                    state.season -= 1;
+						state.season -= 1;
 	                }
+					
+					Object.assign(state, { body: {}, home: {}, soul: {}, mind: {} });
 	            }
 	        }, '〈'],
 	        ['h1', null, `${labels[0]} ${year}`],
@@ -94,11 +100,25 @@ export function journal () {
 	                if (season === 3) {
 	                    Object.assign(state, { year: year + 1, season: 0 });
 	                } else {
-	                    state.season += 1;
+						state.season += 1;
 	                }
+					
+					Object.assign(state, { body: {}, home: {}, soul: {}, mind: {} });
 	            },
 	        }, '〉'],
 	    ],
+		['div', { className: 'journal-experience' },
+			...Object.entries({ body, home, soul, mind }).map(([name, map]) => {
+				const total = Object.values(map).reduce((total, value) => total + value, 0);
+
+				return ['div', { className: `journal-${name}` },
+					['div', {
+						className: 'journal-fill',
+						style: { width: `${Math.min(total * 100 / 5000, 100)}%` },
+					}],
+				];
+			}),
+		],
 	    cards,
 	];
 }
@@ -132,6 +152,20 @@ h1 {
     color: var(--paper-font-color);
     background: none;
 }
+.journal-experience {
+	margin-bottom: 16px;
+
+	> div { height: 8px; margin-top: 4px; }
+}
+.journal-body { background: #b333; }
+.journal-home { background: #b933; }
+.journal-soul { background: #3b33; }
+.journal-mind { background: #33b3; }
+.journal-body .journal-fill { background: #b33; }
+.journal-home .journal-fill { background: #b93; }
+.journal-soul .journal-fill { background: #3b3; }
+.journal-mind .journal-fill { background: #33b; }
+.journal-fill { height: 100%; }
 .cards {
     display: flex;
     flex-wrap: wrap;
