@@ -75,7 +75,7 @@ function Drafts ({ paths }) {
 	];
 }
 
-function Quest ({ cache, namespace }) {
+function Quest ({ namespace }) {
 	if (!namespace) {
 		return;
 	}
@@ -92,7 +92,7 @@ function Quest ({ cache, namespace }) {
 	const month = String(date.getMonth() + 101);
 	const day = String(date.getDate() + 100);
 	const path = `/${namespace}/${year}${month.slice(1)}${day.slice(1)}`;
-	const markdown = stew(fetchNote, [path, cache], null);
+	const markdown = stew(fetchNote, [path], null);
 	const summary = stew(markdown, [`${path}#`]) || ['', null];
 	
 	if (typeof summary[2]?.[0] === 'number') {
@@ -115,7 +115,7 @@ function Quest ({ cache, namespace }) {
 
 // TODO: add a link in the breadcrumb area with the current date
 // - clicking on it will take you to the note for the current day, e.g. 20250709
-export default function Home ({ cache, namespace }) {
+export default function Home ({ namespace }) {
 	const { settings, snips } = state;
 	const { theme } = settings;
 	stew(null, [], () => state.hasMounted = true);
@@ -125,7 +125,7 @@ export default function Home ({ cache, namespace }) {
 		return Object.keys(localStorage).filter(name => /^\/.*\.(md|json)$/.test(name));
 	}, []);
 
-	const markdown = stew(fetchNote, ['/', cache], null);
+	const markdown = stew(fetchNote, ['/'], null);
 	const content = stew(markdown, ['/']);
 	const index = content?.findIndex?.(item => Array.isArray(item) && item[0] > 1);
 	
@@ -133,7 +133,7 @@ export default function Home ({ cache, namespace }) {
 		[Drafts, { paths }],
 		['div', { className: 'main' },
 			['div', { className: 'paper' },
-				[Quest, { cache, namespace }],
+				[Quest, { namespace }],
 				content?.slice?.(0, index),
 				// TODO: render active snips session here
 				// - display inactive ones to the side, along with a button to create a new session

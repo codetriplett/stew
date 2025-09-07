@@ -131,10 +131,10 @@ export function card () {
 	        ['span', null, i === 2 || i === 4 ? day : ''],
 	        ['a', { href: !onclick && href },
 	            ['span', textProps, name],
-	            (steps >= 5000 || complete) && ['span', { className: `exp exp-${focus}` },
+	            (steps >= 6000 || complete) && ['span', { className: `exp exp-${focus}` },
                     complete && `+${exp}`,
-                    steps >= 5000 && ['span', { className: 'steps' },
-                        steps > 15000 ? '👟' : steps >= 8000 ? '🥾' :  '👞',
+                    steps >= 6000 && ['span', { className: 'steps' },
+                        steps > 15000 ? '🥾' : steps >= 9000 ? '👟' :  '👞',
                     ],
                 ],
 	        ],
@@ -343,7 +343,7 @@ export default [null, {
     transform: rotate(90deg) translateY(-100%);
 }
 .faded-card { opacity: 0.5 }
-.nav-card { margin: 8px 8px 110px; transform: scale(1.5); }
+.nav-card { margin: 8px 4px 116px; transform: scale(1.5); }
 .month { box-shadow: inset 0 8px 8px -4px gray; }
 .quest { display: block; width: 100%; font-size: 11px; }
 .exp {

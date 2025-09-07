@@ -138,7 +138,7 @@ export async function fetchResources (path) {
 
 	const libraries = await Promise.all(names.map(name => {
 		path += `${name}/`;
-		return fetchCode(path, cache);
+		return fetchCode(path);
 	}));
 	
 	const emoji = {};
@@ -167,7 +167,6 @@ const [page] = pathname.slice(1).split(/\/(\/+)/);
 const names = page ? page.split('/') : [];
 const promises = [];
 const paths = [];
-const cache = {};
 let name, path = '/';
 unpackSettingsAndSessions();
 
@@ -176,15 +175,15 @@ while (names.length) {
 	path += name;
 
 	if (promises.length) {
-		promises.unshift(name && name !== 'index' ? fetchData(path, cache) : {});
+		promises.unshift(name && name !== 'index' ? fetchData(path) : {});
 	}
 
 	if (names.length) {
-		promises.unshift(name !== 'index' ? fetchCode(path, cache) : { default: [null, {}] });
+		promises.unshift(name !== 'index' ? fetchCode(path) : { default: [null, {}] });
 		paths.unshift(path);
 		path += '/';
 	} else {
-		promises.unshift(name ? fetchNote(path, cache) : '');
+		promises.unshift(name ? fetchNote(path) : '');
 	}
 }
 
@@ -192,7 +191,7 @@ Promise.all([fetchResources(pathname), ...promises]).then(async sequence => {
 	const [namespace, library, ...resources] = sequence.shift();
 
 	if (sequence.length < 2 && !name) {
-		stew('#app', library, [Home, { cache, namespace }]);
+		stew('#app', library, [Home, { namespace }]);
 		return;
 	}
 
@@ -233,7 +232,7 @@ Promise.all([fetchResources(pathname), ...promises]).then(async sequence => {
 		isModule = !hash ? false : hash.split('#')[0].indexOf(':') !== -1;
 	} else {
 		const trimmedPath = path.slice(0, -1);
-		const names = await fetchList(trimmedPath, cache);
+		const names = await fetchList(trimmedPath);
 		breadcrumbs[breadcrumbs.length - 1][1].href = trimmedPath;
 		content = null;
 
@@ -260,7 +259,6 @@ Promise.all([fetchResources(pathname), ...promises]).then(async sequence => {
 
 	stew('#app', library, [Page, {
 		path,
-		cache,
 		map: map || {},
 		resources,
 		breadcrumbs,

@@ -511,9 +511,9 @@ export function parseDefinition (definition) {
 	return [type, label, placeholder, required || false, step, min || undefined, max || undefined, pattern, path];
 }
 
-async function fetchBase (path, cache, set = new Set()) {
+async function fetchBase (path, set = new Set()) {
 	set.add(path);
-	const { default: [, schema] } = await fetchCode(path, cache);
+	const { default: [, schema] } = await fetchCode(path);
 	const { '': definition = '', ...rest } = schema;
 	const basePath = parseDefinition(definition)[8];
 
@@ -521,7 +521,7 @@ async function fetchBase (path, cache, set = new Set()) {
 		return rest;
 	}
 
-	const base = await fetchBase(basePath, cache, set);
+	const base = await fetchBase(basePath, set);
 	return base ? { ...base, ...rest } : rest;
 }
 
@@ -531,14 +531,13 @@ let form, input;
 // - even if another schema is referenced, choosing an existing file is optional. It can be created fresh from overrides within data as well
 // - '' prop on stored data indicates the schema it is tied to, and optionally what existing data it overwrites (if not ending in '/')
 // - the path to the schema is used not only for the form, but can also be used to import the code to render the component (file.default[0])
-function ObjectField ({ '': library, schema = {}, value, path, mode, names, onclick }, field, button) {
+function ObjectField ({ schema = {}, value, path, mode, names, onclick }, field, button) {
 	const object = stew(() => {
 		return typeof value === 'object' && !Array.isArray(value) ? value : {};
 	}, [value]);
 
 	field = [...field];
 	const inputProps = field.pop()[1];
-	const { cache } = library;
 
 	if (!field[2]) {
 		field.splice(0);
@@ -562,8 +561,8 @@ function ObjectField ({ '': library, schema = {}, value, path, mode, names, oncl
 	let defaults, select;
 
 	if (path) {
-		const list = stew(fetchList, [path, cache], null);
-		const base = stew(fetchBase, [path, cache], null);
+		const list = stew(fetchList, [path], null);
+		const base = stew(fetchBase, [path], null);
 
 		defaults = stew(() => {
 			return selection ? fetchData(`${path}/${selection}`, null) : {};

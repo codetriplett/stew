@@ -1,3 +1,5 @@
+const baseCache = {};
+
 export function getPath (path, extension) {
 	path += `${!path || path.endsWith('/') ? 'index' : ''}${extension ? `.${extension}` : '//'}`;
 	const { pathname } = window.location;
@@ -5,7 +7,7 @@ export function getPath (path, extension) {
 	return [key, path];
 }
 
-export function fetchNote (path, cache = {}) {
+export function fetchNote (path, cache = baseCache) {
 	const [key, filepath] = getPath(path, 'md');
 	let promise = cache?.[key];
 
@@ -53,7 +55,7 @@ export function hydrateData (data, cache, stage, promises) {
 	}
 
 	const promise = fetchData(path, cache, stage);
-	data[''] = path.replace(/[^\/\s]+$/, '');
+	data[''] = path.replace(/\/[^\/\s]*$/, '');
 
 	const resolution = promise.then(defaults => {
 		for (const [name, value] of Object.entries(defaults)) {
@@ -67,7 +69,7 @@ export function hydrateData (data, cache, stage, promises) {
 	return resolution;
 }
 
-export function fetchData (path, cache = {}, stage = {}) {
+export function fetchData (path, cache = baseCache, stage = {}) {
 	const [key, filepath] = getPath(path, 'json');
 	let promise = stage[key] || cache?.[key];
 
@@ -86,7 +88,7 @@ export function fetchData (path, cache = {}, stage = {}) {
 			const promises = [];
 			hydrateData(data, cache, stage, promises);
 			await Promise.all(promises);
-			data[''] = key.replace(/[^\/\s]+$/, '');
+			data[''] = key.replace(/\/[^\/\s]*$/, '');
 		}
 
 		return data;
@@ -144,7 +146,7 @@ export function normalizeCode (code) {
 	return { default: array, ...object };
 }
 
-export function fetchCode (path, cache = {}) {
+export function fetchCode (path, cache = baseCache) {
 	const [key, filepath] = getPath(path, 'mjs');
 	let promise = cache?.[key];
 
@@ -168,7 +170,7 @@ export function fetchCode (path, cache = {}) {
 	return promise;
 }
 
-export function fetchList (path, cache = {}) {
+export function fetchList (path, cache = baseCache) {
 	const [key, filepath] = getPath(path);
 	let promise = cache?.[key];
 

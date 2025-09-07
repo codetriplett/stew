@@ -206,6 +206,9 @@ return ['style', null, `
 	gap: 16px;
 	text-align: center;
 
+    > * {
+        flex: 1 0 0;
+    }
 	a {
 		font-size: 21px;
 	}
@@ -215,8 +218,11 @@ return ['style', null, `
 
 This site serves as a place to store and browse your notes. 
 It also supports embedded code to create web pages and games. 
-Everything is stored in your browser, but a downloadable version will also be available in the future. 
-Navigate to any URL to get started on a new note, or read on to learn the basics. 
+Everything is editable and is stored in your browser, but a downloadable version will also be available in the future. 
+Visit the guides and examples below to learn more, or navigate to any URL you wish to create a new note. 
+Notice how the ones in the second row have a trailing slash in their URL. 
+This will render them according to their embedded code. 
+Remove the slash to view the note in its basic form, and to allow editing its content and code. 
 
 ```render
 return ['div', { className: 'flex-links' },
@@ -235,19 +241,15 @@ return ['div', { className: 'flex-links' },
 ];
 ```
 
-Here are some examples of what you can create. 
-Each of them can be edited like any other note, so feel free to make it your own. 
-You can reset these ones at any time by clearing your local draft and saving. 
-
 ```render
 return ['div', { className: 'flex-links' },
     ['div', null,
-        ['a', { href: '/party/' }, 'Party'],
+        ['a', { href: '/quest/' }, 'Quest'],
         ['p', null, 'A basic demo of custom pages with data.'],
     ],
     ['div', null,
-        ['a', { href: '/journal/' }, 'Quest'],
-        ['p', null, 'A view of your daily quests by season.'],
+        ['a', { href: '/journal/' }, 'Journal'],
+        ['p', null, 'A view of your quest progress by season.'],
     ],
     ['div', null,
         ['a', { href: '/cube/' }, 'Cube'],
@@ -255,6 +257,15 @@ return ['div', { className: 'flex-links' },
     ],
 ];
 ```
+
+You'll notice the guides have a left navigation that can be toggled to navigate their sections. 
+This is created automatically for any notes that have a primary heading above secondary headings. 
+When a section is scrolled to from this navigation, its embedded links will also appear at the bottom of the list. 
+Clicking these links, or the underlined one for the active section will open its content as a snip. 
+Snips are shown in a sidebar to the right of your notes as you navigate for quick reference. 
+When notes are viewed with a trailing slash in the URL, the left navigation will provide links to the notes directly beneath them. 
+Notes can also hold a summary by putting content above the main heading. 
+This is what is shown for the active day on the home page. 
 
 ## Capitalize
 

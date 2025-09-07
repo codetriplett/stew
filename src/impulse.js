@@ -54,7 +54,7 @@ export function processMemo (callback, ...rest) {
 	if (memo.length > 1 && deps.every((value, i) => value === prev[i])) {
 		// if memo should remain the same
 		memo.splice(deps.length + 2);
-		return value;
+		return callback ? value : undefined;
 	} else if (!callback) {
 		if (intermediate && memos) {
 			// if effect should be scheduled
