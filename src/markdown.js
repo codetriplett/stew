@@ -312,7 +312,7 @@ export default function parse (content, rootPath = '', library = stack[0]?.[4] |
 	}
 
 	const { default: emoji = {} } = library;
-	const [, trimmedPath, hash] = rootPath.match(/^\/?(.*?)\/?(?:#+(.*))?$/);
+	const [, trimmedPath, hash] = rootPath.match(/^\/?(.*?)(?:#+(.*))?$/);
 	const scopes = new Set(hash?.split?.(/#+/) || []);
 	const headingPath = scopes.size ? `/${trimmedPath}` : '';
 	const lines = content.split(/\r\n|\r|\n/);

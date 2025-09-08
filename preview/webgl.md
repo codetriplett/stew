@@ -1,10 +1,10 @@
 # WebGL
 
-Shaders are supported within canvas elements to create 2D and 3D graphics. You can view a example here, [Cube Code](/cube), and see it running by adding a trailing slash, [Cube Demo](/cube/). This is still experimental, and a better guide will be written to explain more, bu there are some of the basics.
+Shaders are supported within canvas elements to create 2D and 3D graphics. You can view a example here, [Cube Demo](/cube/), and see its code by removing the trailing slash, [Cube Code](/cube). This is still experimental, and a better guide will be written to explain more, but here are some of the basics.
 
 ## Shaders
 
-There are two types of shaders involved in painting a scene. The first runs once for each vertex, to set its position, and the second will run for each pixel of the triangles they form. The Stew library streamlines the linking of values in your program and supports nesting parts of your shaders that are more object-specific.
+There are two types of shaders involved in painting a scene. The first runs once for each vertex, to set its position on the screen, and the second will run for each pixel in the area of the triangles they form. The Stew library streamlines the linking of values in your program and supports nesting parts of your shaders that are more object specific.
 
 ```
 ['canvas', { width: 960, height: 540 }, stew`
@@ -31,7 +31,7 @@ There are two types of shaders involved in painting a scene. The first runs once
 
 ## Variables
 
-Values are linked at the moment your shaders are processed. Each one is defined by its type and name to be used within the program. Most accept basic arrays, the ones that that start with a subtype, e.g. FLOAT are attribute variables that require you to use a typed array, e.g Float32Array. Variables can usually only be used by code on their side of the speparation point, but ones the the vertex shader can be preceeded by a star to indicate they should be shared with the fragment shader.
+Values are linked at the moment your shaders are processed. Each one is defined by its type and name to be used within the program. Most accept basic arrays, the ones that that start with a subtype, e.g. FLOAT, are attribute variables that require you to use a typed array, e.g Float32Array. Variables can usually only be used by code on their side of the vertex/fragment shader speparation point, but ones in the vertex shader can be preceeded by a star to indicate they should be shared with the fragment shader.
 
 ```
 ['canvas', { width: 960, height: 540 }, stew`
@@ -48,7 +48,7 @@ Values are linked at the moment your shaders are processed. Each one is defined 
 
 ## Full example
 
-The following sets up a simple scene. If you make use of a state that triggers your program to relink, be sure to store whatever you can in a memo to save on processing. See the [stew](/stew) guide for more detail on that.
+The following sets up a simple scene. If you make use of a state that triggers your program to relink, be sure to store whatever you can in a memo to save on processing. See the [stew](/stew#memos) guide for more detail on that.
 
 ```demo
 function createRotation () {
@@ -134,4 +134,4 @@ return ['canvas', { width: 540, height: 960 }, stew`
 
 ## Clip Space
 
-Only vertexes within the central volume of space will be visible on screen. This space is limited to between -1 and 1 in each of the axis directions. Matrixes are used to apply rotation and other transformations to each vertex to place it where it belongs in the scene.
+Only vertexes within the central volume of space at the end of their transformation will be visible on screen. This space is limited to between -1 and 1 in each of the axis directions. Matrixes are used to apply rotation and other transformations to each vertex to place it where it belongs in the scene.

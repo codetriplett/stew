@@ -4,18 +4,18 @@
     smile: '🙂',
     rotfl: '🤣',
     sob: '😭',
+    think: '🤔',
+    upsidedown: '🙃',
     skull: '💀',
-    thumb: '👍',
-    eyes: '👀',
     shrug: '🤷‍♀️',
     facepalm: '🤦‍♀️',
-    upsidedown: '🙃',
+    eyes: '👀',
+    thumb: '👍',
     hundred: '💯',
     fire: '🔥',
     sparkle: '✨',
     check: '✅',
     heart: '❤️',
-    think: '🤔',
 }
 .stew-demo {
     display: flex;
@@ -227,50 +227,85 @@
 .exp-soul { color: #3b3; }
 ```
 
-# Make a note. Build a space.
+# Make a note
 
 ```render
-return ['style', null, `
+return ['', null,
+    ['style', null, `
 .flex-links {
-	display: flex;
-	justify-content: space-around;
-	gap: 16px;
-	text-align: center;
+    display: flex;
+    justify-content: space-around;
+    gap: 16px;
+    text-align: center;
 
     > * {
         flex: 1 0 0;
     }
-	a {
-		font-size: 21px;
-	}
+    a {
+        font-size: 21px;
+    }
+    p {
+        margin: 8px 0 0;
+    }
 }
-`];
+.create-form {
+    display: flex;
+    gap: 4px;
+
+    > * {
+        height: 24px !important;
+        margin: 0 !important;
+    }
+}
+    `],
+    ['form', {
+        className: 'create-form',
+        onsubmit: event => {
+            event.preventDefault();
+            const { value } = event.target.heading;
+
+            const name = value.toLowerCase()
+                .replace(/[^a-z0-9\/]+/g, '-')
+                .replace(/-*\/-*/g, '/')
+                .replace(/^-|-$/g, '');
+
+            window.location.href = name;
+        }
+    },
+        ['input', { id: 'heading', placeholder: 'Enter new heading' }],
+        ['button', { type: 'submit' }, 'Create'],
+    ],
+];
 ```
 
-This site serves as a place to store and browse your notes. 
-It also supports embedded code to create web pages and games. 
-Everything is editable and is stored in your browser, but a downloadable version will also be available in the future. 
-Visit the guides and examples below to learn more, or navigate to any URL you wish to create a new note. 
-Notice how the ones in the second row have a trailing slash in their URL. 
-This will render them according to their embedded code. 
-Remove the slash to view the note in its basic form, and to allow editing its content and code. 
+All notes are stored in your browser, and will persist as long as you avoid clearing your local storage. 
+Read more about the formatting options available below. 
+Notes with secondary headings under the main one will include a menu you can toggle in the upper left. 
+Deep links are supported to specific sections of other notes by adding a hash value to the URL. 
+These links will show under the lefthand menu when the section that contains them is active. 
+Clicking them, or the already active heading in the menu will open them to the side and follow you as you browse. 
 
 ```render
 return ['div', { className: 'flex-links' },
     ['div', null,
         ['a', { href: '/markdown' }, 'Markdown'],
-        ['p', null, 'Decorates notes with basic HTML.'],
+        ['p', null, 'Rich text formatting'],
     ],
     ['div', null,
         ['a', { href: '/stew' }, 'Stew'],
-        ['p', null, 'Enables custom layouts and interactivity.'],
+        ['p', null, 'Customized and interactive layouts'],
     ],
     ['div', null,
         ['a', { href: '/webgl' }, 'WebGL'],
-        ['p', null, 'Streamlines 2D and 3d graphics.'],
+        ['p', null, '2D and 3D graphics'],
     ],
 ];
 ```
+
+Here are some examples of notes that have customized layouts. 
+These are like regular notes, but with a trailing slash added to their URLs to activate the embedded code. 
+Feel free to modify them to practice or make them your own. 
+Unlike your other notes, these will reset to their original content if you fully delete your local copy before saving. 
 
 ```render
 return ['div', { className: 'flex-links' },
@@ -289,21 +324,16 @@ return ['div', { className: 'flex-links' },
 ];
 ```
 
-You'll notice the guides have a left navigation that can be toggled to navigate their sections. 
-This is created automatically for any notes that have a primary heading above secondary headings. 
-When a section is scrolled to from this navigation, its embedded links will also appear at the bottom of the list. 
-Clicking these links, or the underlined one for the active section will open its content as a snip. 
-Snips are shown in a sidebar to the right of your notes as you navigate for quick reference. 
-When notes are viewed with a trailing slash in the URL, the left navigation will provide links to the notes directly beneath them. 
 Notes can also hold a summary by putting content above the main heading. 
-This is what is shown for the active day on the home page. 
+This isn't shown when viewing the full note, but can be requested in your stew layouts or linked to as a snip by adding an empty hash to the end of the URL. 
+It is also what is shown at the top of the home page for the journal note of the current day. 
 
 ## Capitalize
 
 ```export
 const [flags, code] = arguments;
 const { all } = flags;
-return ['p', null, all ? code.toUpperCase() : `${code[0]}${code.slice(1)}`];
+return ['p', null, all ? code.toUpperCase() : `${code[0].toUpperCase()}${code.slice(1)}`];
 ```
 
 ## Render

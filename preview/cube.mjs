@@ -149,8 +149,6 @@ export function createMatrix () {
 }
 
 export function cube () {
-	const [props, description] = arguments;
-
 	const cameraMatrix = stew(() => {
 	    window.addEventListener('keydown', ({ key, repeat }) => {
 	        if (repeat) {
@@ -257,8 +255,13 @@ export function cube () {
 	            1.0
 	        );
 	    `],
-	    description,
+	    ['ol', null,
+	        ['li', null, 'Tap the left or right side of the screen (or press F or J) to flip the cube. '],
+	        ['li', null, 'Hold a side and tap the other to spin the top face. '],
+	    ],
 	];
 }
 
-export default cube;
+export default [cube, {
+    '': 'Cube',
+}];

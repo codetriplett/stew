@@ -28,39 +28,43 @@ return ['', null, // +
 
 ```
 
-Using an empty value in place of the tag name will create a sublayout. These are useful when you need to control the display of several elements, without having to wrap them in a container. Instead of setting attributes, properties you include will extend the context, which can be accessed by components on the '' property.
+Using an empty value for the node type will create a layout fragment. These are useful when you need to control the display of several elements without having to wrap them in an extra container element. Instead of setting attributes, properties you include will extend the context, which can be accessed by components on the `''` property. The initial context is made up of the available emojis, on the `default` property, and custom formatters on the remaining properties.
 
 ## Components
 
 ```demo
-const state = { time: 'now' }
+const state = { time: 'now' } // +
 
-function Greeting ({ place }, greeting) { // +
+function Greeting ({ place }, ...children) { // +
 	const { time } = state // +
 
-	return ['', null, // +
-		['h1', { className: 'greeting' }, `${greeting}, ${place}!`], // +
-		['p', null, 'the time is ', state.time], // +
-	] // +
+	return ['', null,
+		['h1', { className: 'greeting' }, `Hello, ${place}!`], // +
+		['p', null, 'The time is ', state.time], // +
+		...children, // +
+	]
 } // +
 
-return [Greeting, { place: 'World' }, 'Hello'] // +
+return [Greeting, { place: 'World' }, // +
+	['p', null, 'Have a nice day!'], // +
+] // +
 
 ```
 
-Functions can be used in place of an element type string to create dynamic and reusable layouts. The properties and children will be passed directly to the function for processing. It will also automatically update its layout when values from states it read from are changed.
+Functions can be used as the node type to create dynamic and reusable layouts. The properties and children will be passed directly to the function for processing. It will also automatically update its layout when any of the values it reads from state objects have changed.
 
 ## States
 
 ```demo
-const state = stew({ time: 'now' }) // +
+const state = stew({ time: 'now' })
 
-function Greeting ({ place }, greeting) {
+function Greeting ({ place }, ...children) {
 	const { time } = state
 
 	return ['', null,
-		['h1', { className: 'greeting' }, `${greeting}, ${place}!`],
-		['p', null, 'the time is ', state.time],
+		['h1', { className: 'greeting' }, `Hello, ${place}!`],
+		['p', null, 'The time is ', state.time],
+		...children,
 	]
 }
 
@@ -68,18 +72,20 @@ setInterval(() => { // +
 	state.time = new Date().toLocaleTimeString(); // +
 }, 1000); // +
 
-return [Greeting, { place: 'World' }, 'Hello']
+return [Greeting, { place: 'World' },
+	['p', null, 'Have a nice day!'],
+]
 
 ```
 
-States hold properties that cause your components to refresh when changed. They can be created anywhere in your layout, but if you create one within a component, be sure to include any values it depends on as a second parameter to create a memo.
+States hold values that cause your components to refresh when changed. Use the stew function, and pass in an object of all the keys you want to track, along with their initial values to create one. They can be created anywhere in your layout, but if you create one within a component, be sure to include any values it depends on as a second parameter to avoid replacing it when the component updates.
 
 ## Memos
 
 ```demo
 const state = stew({ time: 'now' })
 
-function Greeting ({}, greeting) {
+function Greeting ({}, ...children) { // +
 	const { time } = state
 
 	const place = stew(() => { // +
@@ -87,8 +93,9 @@ function Greeting ({}, greeting) {
 	}, []) // +
 
 	return ['', null,
-		['h1', { className: 'greeting' }, `${greeting}, ${place}!`],
-		['p', null, 'the time is ', state.time],
+		['h1', { className: 'greeting' }, `Hello, ${place}!`],
+		['p', null, 'The time is ', state.time],
+		...children,
 	]
 }
 
@@ -96,17 +103,19 @@ setInterval(() => {
 	state.time = new Date().toLocaleTimeString();
 }, 1000);
 
-return [Greeting, {}, 'Hello'] // +
+return [Greeting, {}, // +
+	['p', null, 'Have a nice day!'],
+]
 
 ```
 
-Custom values can be reused between renders by passing in a function to create them. This function is only called the first time your component runs, or if any of the values in the second parameter have changed. If your function returns an async value, you can provide a fallback value to use in the meantime. The component will update once the async value has finished resolving. Another value can be provided to use in cases where the async action fails.
+Custom values can be reused between renders by passing a function to the stew function, along with an array of its dependencies. This function is only called the first time your component runs, or if any of the values in the second parameter have changed. If your function returns an async value, you can provide a fallback value to use in the meantime. The component will update once the async value has finished resolving. Another value can be provided to use in cases where the async action fails.
 
 ```demo
-const state = stew({ time: 'now', latitude: 49.25, longitude: -95 }) // +
+const state = stew({ time: 'now', latitude: 0, longitude: 0 }) // +
 
 async function lookupLocation (latitude, longitude) { // +
-	// Typically you would fetch data here, but this is just a demo
+	// Typically you would fetch data here, but this is just a demo // +
 	await new Promise(resolve => setTimeout(resolve, 5000));  // +
 	return `${latitude < 0 ? 'South' : 'North'}${longitude < 0 ? 'west' : 'east'}`; // +
 } // +
@@ -138,8 +147,23 @@ return [Greeting, {}, 'Hello']
 Markdown can be rendered and stored in a memo by passing in a string.
 
 ```demo
-const content = stew('# Hello World!', []) // +
-return content // +
+return stew('# Hello World!', []) // +
+
+```
+
+Relative links, ones that start with `./` or `../`, will resolve based on the root URL you provide in the dependencies array. You can also include one or more hash values to limit the sections you want displayed, including the summary section above the main heading if a hash value is set with no name.
+
+```demo
+return stew(`
+Summary Section
+
+[Create a quest](./bake-a-cake)
+
+# Hello World!
+
+Main Section
+
+`, ['/quest/#'])
 
 ```
 
@@ -176,17 +200,17 @@ return [App] // +
 
 ```
 
-Code can be scheduled to run once the layout has rendered by putting its function after the dependencies array intead of as the first parameter. This is where you would put code that sets up other functionality on your page, but doesn't directly modify your layout. If you return a function, it will be called when your component is removed from the layout, or if the effect is triggered to run again. Avoid updating state values in effects, since it can lead to endless render loops if not done carefully.
+Code can be scheduled to run once the layout has rendered by putting its function after the dependencies array intead of as the first parameter. This is where you would put code that sets up other functionality on your page, but doesn't directly modify your layout. If you return a function, it will be called right before your setup function runs again, or when your component is removed from the layout. Avoid updating state values in effects, since it can lead to endless render loops if not done carefully.
 
 ## Data
 
-Your code blocks will also be used to wrap the layouts of child notes. An export can be set above your main heading to define the structure of the properties that will be provided along with the note content. These are read from the arguments variable, preferably at the top of your code block.
+The same code block used to render a custom layout for your note will also be used to wrap the layouts of child notes. An export can be set above your main heading to define additional fields for the child notes to pass in as props, along with their note content. These are read from the arguments variable, preferably at the top of your code block.
 
 ```
 const [props, content] = arguments;
 ```
 
-In their simplest form, each field definition follows the format of `Label /pattern/range Placeholder`. The label, pattern, and placeholder are optional. 
+In their simplest form, each field definition follows the format of `Label /pattern/range Placeholder`. The label and placeholder are optional, and the pattern and range are given based on what the desired type should be.
 
 ```demo form
 {
@@ -199,7 +223,7 @@ In their simplest form, each field definition follows the format of `Label /patt
 }
 ```
 
-Labels and placeholders can be included to provide better labels to fields in the form, and instructions within the inputs.
+Labels and placeholders can be included to provide better names to fields in the form, and instructions within the inputs.
 
 ```demo form
 {
@@ -209,7 +233,7 @@ Labels and placeholders can be included to provide better labels to fields in th
 }
 ```
 
-Objects can be used to group fields. Click the down arrow to expand the fields. The '' property is used to set a Label for the object in the form.
+Objects can be used to group fields. Click the down arrow to expand them. The '' property is used to set a Label for the object in the form.
 
 ```demo form
 {
@@ -222,7 +246,7 @@ Objects can be used to group fields. Click the down arrow to expand the fields. 
 }
 ```
 
-Sets of fields from other notes can be embedded by including a path before the pattern slashes. A dropdown will show all the available notes of that type which can be used to prefill the fields if you wish. These prefilled values can be overridden by clicking their label, or reset by clicking the close icon that appears next to the label. If you also provide a pattern, it will only include items in that list which have names that match the pattern.
+Sets of fields from other notes can be embedded by including a path before the pattern. These fields will be imported and used like any other object, but a dropdown will be included to pick from existing notes to prefill the values. These prefilled values can be overridden by clicking their label, or reset by clicking the close icon that appears next to the label. If you also provide a pattern, it will only include items in that dropdown which have names that match the pattern.
 
 ```demo form
 {
@@ -230,7 +254,7 @@ Sets of fields from other notes can be embedded by including a path before the p
 }
 ```
 
-A field can be defined with a set of options to choose from by setting those types after a boolean or static type definition in an array. This example only uses static values, but any other type can be used as well, and those fields will show up below the dropdown if selected.
+A field can be defined with a set of options to choose from by setting those options in an array, with the first definition being a boolean one for the field itself. This example only uses static values, but any other type can be used as well, and those additional fields will show up below the dropdown if selected.
 
 ```demo form
 {
@@ -242,7 +266,7 @@ A field can be defined with a set of options to choose from by setting those typ
 }
 ```
 
-Arrays of values can be defined by setting a range in the first definition in the array. Each item will show as a line in the text area, and can be removed or rearranged withing that field. New items are added with the plus buttion, if there is only one option, or with a drop down if there are more. Selecting text within this field will show the fields for those rows below the textarea. It isn't working on this page, but you can view an example by editing one of the daily notes on the [journal](/journal/) page.
+Arrays of values can be defined by setting a range in the first definition of the array. Each item will show as a line in the text area, and can be removed or rearranged within that field. New items are added with the plus buttion, if there is only one option, or with a dropdown if there are more. Selecting text within this field will show the fields for those rows below the text area. That isn't working on this page, but you can view an example by editing one of the daily notes on the [journal](/journal/) page.
 
 ```demo form
 {
@@ -267,9 +291,11 @@ img {
 
 ## Imports
 
-Code can be included in other sections of your note as well to create functions that can be called on demand, or to create global states, if an object is exported. These can even be imported for use in other notes by including a link to the source note with an empty label. Hash values on your links will control what is imported.
+Code and states from other notes can be accessed by creating a link outside of your export with an empty label. Hash values on your links will control what is imported. A title can be included with space-delimited aliases for the imports from right to left.
 
 ```
 [](/helpers#helperName)
 [](/helpers# "defaultAlias")
 ```
+
+The first example above would allow you to use the `helperName` export from `/helpers`, and the second would allow you to use the default export but with the variable name `defaultAlias`.

@@ -1,7 +1,7 @@
 export function capitalize () {
 	const [flags, code] = arguments;
 	const { all } = flags;
-	return ['p', null, all ? code.toUpperCase() : `${code[0]}${code.slice(1)}`];
+	return ['p', null, all ? code.toUpperCase() : `${code[0].toUpperCase()}${code.slice(1)}`];
 }
 
 export function render () {
@@ -157,18 +157,18 @@ export default [null, {
     smile: '🙂',
     rotfl: '🤣',
     sob: '😭',
+    think: '🤔',
+    upsidedown: '🙃',
     skull: '💀',
-    thumb: '👍',
-    eyes: '👀',
     shrug: '🤷‍♀️',
     facepalm: '🤦‍♀️',
-    upsidedown: '🙃',
+    eyes: '👀',
+    thumb: '👍',
     hundred: '💯',
     fire: '🔥',
     sparkle: '✨',
     check: '✅',
     heart: '❤️',
-    think: '🤔',
 }, ['style', null, `
 .stew-demo {
     display: flex;

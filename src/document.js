@@ -10,6 +10,7 @@ export const selfClosingTags = new Set([
 export const nameMap = {
 	className: 'class',
 	tabIndex: 'tabindex',
+	readOnly: 'readonly',
 };
 
 function findMatches (nodes, selectors, matches) {

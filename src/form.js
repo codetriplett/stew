@@ -237,6 +237,7 @@ function ArraySelect ({ options, mode, names, value }, select, button) {
 		}).filter(value => value).join('\n');
 
 		const field = Field('textarea//', '', mode, ...names, '');
+		field[1].readOnly = true;
 		field[2] = text;
 		return field;
 	}, [array]);
