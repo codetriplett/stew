@@ -1,4 +1,3 @@
-import { nameMap } from './document';
 import render, { remove, reconcile } from './view';
 import stew from './stew';
 
@@ -36,12 +35,7 @@ function updateAttributes (node, attributes, prevNames, nextNames = new Set()) {
 		const [objectName, valueName] = name.split('.');
 
 		if (valueName === undefined) {
-			if (name.startsWith('on')) {
-				node[objectName] = null;
-			} else {
-				node.removeAttribute(nameMap[objectName] || objectName);
-			}
-
+			node[objectName] = null;
 			continue;
 		}
 

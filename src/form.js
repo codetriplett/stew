@@ -566,7 +566,7 @@ function ObjectField ({ schema = {}, value, path, mode, names, onclick }, field,
 		const base = stew(fetchBase, [path], null);
 
 		defaults = stew(() => {
-			return selection ? fetchData(`${path}/${selection}`, null) : {};
+			return selection ? fetchData(`${path}/${selection}`) : {};
 		}, [selection], null);
 
 		if (!list || base === null || !defaults) {

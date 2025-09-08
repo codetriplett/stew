@@ -289,13 +289,6 @@ img {
 ```
 ````
 
-## Imports
+## Fetch
 
-Code and states from other notes can be accessed by creating a link outside of your export with an empty label. Hash values on your links will control what is imported. A title can be included with space-delimited aliases for the imports from right to left.
-
-```
-[](/helpers#helperName)
-[](/helpers# "defaultAlias")
-```
-
-The first example above would allow you to use the `helperName` export from `/helpers`, and the second would allow you to use the default export but with the variable name `defaultAlias`.
+Fetch functions are available to help read ahd process your local content. These include `fetchNote`, to get the note as a string, `fetchData`, to get the fields for the note, `fetchCode`, to get the code module of the note, and `fetchList`, to get the names of all child notes. Like with the regular `fetch` function, starting the path with a `/` will read from the root of the site, instead of the current page. When fetching data, it will fully hydrate the references to other notes, and set the overrides where appropriate.
