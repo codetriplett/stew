@@ -187,7 +187,7 @@
 .season-1:before { background-image: url(/spring-cards.png); }
 .season-2:before { background-image: url(/summer-cards.png); }
 .season-3:before { background-image: url(/autumn-cards.png); }
-.season-4:before { background-image: url(/joker-card.png); }
+.season-4:before { background-image: url(/joker-card.png); background-size: 144px 204px; }
 .week-0:before { background-position: calc(-0 * 144px) calc(-0 * 204px); }
 .week-1:before { background-position: calc(-1 * 144px) calc(-0 * 204px); }
 .week-2:before { background-position: calc(-2 * 144px) calc(-0 * 204px); }
