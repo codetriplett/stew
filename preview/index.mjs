@@ -134,7 +134,7 @@ export function card () {
 
 	    card.push(['li', { className },
 	        ['span', null, i === 2 || i === 4 ? day : ''],
-	        ['a', { href: !onclick && href },
+	        [onclick ? 'div' : 'a', { href: !onclick && href },
 	            ['span', textProps, name],
 	            (steps >= 6000 || complete) && ['span', { className: `exp exp-${focus}` },
 	                complete && `+${exp}`,
@@ -300,7 +300,7 @@ export default [null, {
             line-height: 24px;
             color: #555;
         }
-        a {
+        a, div {
             flex: 1 1 0;
             position: relative;
             color: #333;
