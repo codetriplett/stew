@@ -1,27 +1,27 @@
 export function quest () {
 	const [props, content] = arguments;
-    const { name, exp, complete, focus = 'home', deadline } = props;
+	const { name, exp, complete, focus = 'home', deadline } = props;
 
-    if (!content) {
-        return ['p', null,
-            'Notes can embed code to fully customize their layouts and wrap the layouts of their immediate children. ',
-            'They can also define fields for their children to set additional data to be used alongside the main content. ',
-            'Get started by adding a name to the end of the current URL to create a new note, e.g. ', ['a', { href: '/quest/clean-bedroom' }, '/quest/clean-bedroom'], '. ',
-            'Click edit on that page to write a description of your quest, and expand the left nav to fill in the additional fields. ',
-            'Once you save, the page will refresh to show it rendered as a custom card. ',
-            'You can modify the layout and styles by removing the slash on this page to view and edit the code. ',
-            'Refer to the ', ['a', { href: '/stew' }, 'Stew guide'], ' for instructions on how to structure your code and defined the fields. ',
-        ];
-    }
+	if (!content) {
+	    return ['p', null,
+	        'Notes can embed code to fully customize their layouts and wrap the layouts of their immediate children. ',
+	        'They can also define fields for their children to set additional data to be used alongside the main content. ',
+	        'Get started by adding a name to the end of the current URL to create a new note, e.g. ', ['a', { href: '/quest/clean-bedroom' }, '/quest/clean-bedroom'], '. ',
+	        'Click edit on that page to write a description of your quest, and expand the left nav to fill in the additional fields. ',
+	        'Once you save, the page will refresh to show it rendered as a custom card. ',
+	        'You can modify the layout and styles by removing the slash on this page to view and edit the code. ',
+	        'Refer to the ', ['a', { href: '/stew' }, 'Stew guide'], ' for instructions on how to structure your code and defined the fields. ',
+	    ];
+	}
 
-    return ['div', { className: 'quest-card' },
-        [2, null, name],
-        ['div', { className: 'detail' },
-            ['span', null, deadline],
-            exp && ['span', { className: `exp-goal exp-${focus} ${complete ? 'exp-complete' : '' }` }, `+${exp}`],
-        ],
-        content,
-    ];
+	return ['div', { className: 'quest-card' },
+	    [2, null, name],
+	    ['div', { className: 'detail' },
+	        ['span', null, deadline],
+	        exp && ['span', { className: `exp-goal exp-${focus} ${complete ? 'exp-complete' : '' }` }, `+${exp}`],
+	    ],
+	    content,
+	];
 }
 
 export default [quest, {

@@ -719,7 +719,7 @@ export function Field (definition, value, mode, ...names) {
 	}
 	
 	if (max) {
-		props[pattern !== undefined ? 'maxlength' : 'max'] = min;
+		props[pattern !== undefined ? 'maxlength' : 'max'] = max;
 	}
 
 	if (step > 1) {

@@ -11,13 +11,18 @@ export function render () {
 
 export function demo () {
 	const [{ markdown, form }, code] = arguments;
-	let result;
+	let result, output;
 
 	if (markdown) {
 	    result = stew(code, ['/']);
 	} else if (form) {
 	    const schema = new Function(`return ${code}`)();
-	    result = renderForm(schema, console.log);
+	    output = ['', null, ['pre', null, '{}']];
+
+	    result = renderForm(schema, data => {
+	        const [pre] = output[0];
+	        pre.innerHTML = JSON.stringify(data, null, 4);
+	    });
 	} else {
 	    result = new Function(code);
 	}
@@ -32,7 +37,7 @@ export function demo () {
 
 	return ['div', { className: 'stew-demo' },
 	    ['div', null, ...lines],
-	    ['div', null, result],
+	    ['div', null, result, output],
 	];
 }
 
@@ -116,10 +121,10 @@ export function card () {
 	    const data = list.indexOf(dayName) !== -1 ? stew(fetchData, [href], {}) : {};
 	    const textProps = { className: 'quest' };
 	    let { name = '', exp = 0, focus = 'home', complete, steps } = data;
-        
-        if (state && complete) {
-            state[focus] = { ...state[focus], [dayName]: exp };
-        }
+	    
+	    if (state && complete) {
+	        state[focus] = { ...state[focus], [dayName]: exp };
+	    }
 
 	    if (!name && (i === 0 || i === 6)) {
 	        // label the top and bottom rows if they are blank
@@ -132,11 +137,11 @@ export function card () {
 	        ['a', { href: !onclick && href },
 	            ['span', textProps, name],
 	            (steps >= 6000 || complete) && ['span', { className: `exp exp-${focus}` },
-                    complete && `+${exp}`,
-                    steps >= 6000 && ['span', { className: 'steps' },
-                        steps > 15000 ? '🥾' : steps >= 9000 ? '👟' :  '👞',
-                    ],
-                ],
+	                complete && `+${exp}`,
+	                steps >= 6000 && ['span', { className: 'steps' },
+	                    steps > 15000 ? '🥾' : steps >= 9000 ? '👟' :  '👞',
+	                ],
+	            ],
 	        ],
 	    ]);
 	    
@@ -217,9 +222,23 @@ export default [null, {
         }
         .action-button {
             float: right;
+            width: 21px;
+            height: 21px;
+            padding: 6px 0 0;
+            margin-top: -2px;
+            font-weight: bold;
         }
-        > button:last-child {
-            display: none;
+        .reset-button {
+            float: left;
+            margin-right: 4px;
+        }
+        .select-label .action-button,
+        .reset-button {
+            padding-top: 0;
+        }
+        button {
+            border: 1px solid var(--paper-font-color);
+            background: var(--paper-background);
         }
     }
 }

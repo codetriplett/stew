@@ -69,9 +69,23 @@
         }
         .action-button {
             float: right;
+            width: 21px;
+            height: 21px;
+            padding: 6px 0 0;
+            margin-top: -2px;
+            font-weight: bold;
         }
-        > button:last-child {
-            display: none;
+        .reset-button {
+            float: left;
+            margin-right: 4px;
+        }
+        .select-label .action-button,
+        .reset-button {
+            padding-top: 0;
+        }
+        button {
+            border: 1px solid var(--paper-font-color);
+            background: var(--paper-background);
         }
     }
 }
@@ -138,7 +152,7 @@
             position: relative;
             color: #333;
             
-            span {
+            > span {
                 position: absolute;
                 left: 50%;
                 top: 50%;
@@ -150,6 +164,23 @@
                 font-family: monospace;
             }
         }
+    }
+    .today {
+        box-shadow: inset 0 0 2px 2px black;
+        background: #333;
+
+        > span {
+            display: none;
+        }
+        a {
+            color: #eee;
+        }
+    }
+    .steps {
+        position: relative;
+        top: -3px;
+        margin-left: 3px;
+        font-size: 21px;
     }
 }
 .season-0:before { background-image: url(/winter-cards.png); }
@@ -178,15 +209,15 @@
     transform: rotate(90deg) translateY(-100%);
 }
 .faded-card { opacity: 0.5 }
-.nav-card { margin: 8px 8px 110px; transform: scale(1.5); }
+.nav-card { margin: 8px 4px 116px; transform: scale(1.5); }
 .month { box-shadow: inset 0 8px 8px -4px gray; }
-.today { box-shadow: inset 0 0 2px 2px black; }
 .quest { display: block; width: 100%; font-size: 11px; }
 .exp {
     border-radius: 4px;
     padding: 0 4px;
     font-size: 15px;
     font-weight: bold;
+    white-space: nowrap;
     background: #fffd;
     box-shadow: 0 0 4px 4px #fffd;
 }
@@ -286,13 +317,18 @@ return new Function(code);
 
 ```export
 const [{ markdown, form }, code] = arguments;
-let result;
+let result, output;
 
 if (markdown) {
     result = stew(code, ['/']);
 } else if (form) {
     const schema = new Function(`return ${code}`)();
-    result = renderForm(schema, console.log);
+    output = ['', null, ['pre', null, '{}']];
+
+    result = renderForm(schema, data => {
+        const [pre] = output[0];
+        pre.innerHTML = JSON.stringify(data, null, 4);
+    });
 } else {
     result = new Function(code);
 }
@@ -307,15 +343,15 @@ const lines = markdown ? [code] : code.split(/\r\n|\r|\n/).map(line => {
 
 return ['div', { className: 'stew-demo' },
     ['div', null, ...lines],
-    ['div', null, result],
+    ['div', null, result, output],
 ];
 ```
 
 ## Card
 
-```export 
+```export
 const [props, inputName] = arguments;
-let { forNav, nameOnly, todayName, onclick } = props;
+let { forNav, nameOnly, todayName, state, onclick } = props;
 
 if (typeof inputName !== 'string' || !/^(\d{6}|\d{8})$/.test(inputName)) {
     // reject inputs that aren't strings of length 6 or 8
@@ -392,7 +428,11 @@ for (let i = 0; i < 7; i++) {
     const href = `/journal/${dayName}`;
     const data = list.indexOf(dayName) !== -1 ? stew(fetchData, [href], {}) : {};
     const textProps = { className: 'quest' };
-    let { name = '', exp = 0, focus = 'home', complete } = data;
+    let { name = '', exp = 0, focus = 'home', complete, steps } = data;
+    
+    if (state && complete) {
+        state[focus] = { ...state[focus], [dayName]: exp };
+    }
 
     if (!name && (i === 0 || i === 6)) {
         // label the top and bottom rows if they are blank
@@ -404,7 +444,12 @@ for (let i = 0; i < 7; i++) {
         ['span', null, i === 2 || i === 4 ? day : ''],
         ['a', { href: !onclick && href },
             ['span', textProps, name],
-            complete && ['span', { className: `exp exp-${focus}` }, `+${exp}`],
+            (steps >= 6000 || complete) && ['span', { className: `exp exp-${focus}` },
+                complete && `+${exp}`,
+                steps >= 6000 && ['span', { className: 'steps' },
+                    steps > 15000 ? '🥾' : steps >= 9000 ? '👟' :  '👞',
+                ],
+            ],
         ],
     ]);
     

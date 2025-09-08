@@ -209,7 +209,7 @@ Labels and placeholders can be included to provide better labels to fields in th
 }
 ```
 
-Objects can be used to group fields. The '' property is used to set a Label for the object.
+Objects can be used to group fields. Click the down arrow to expand the fields. The '' property is used to set a Label for the object in the form.
 
 ```demo form
 {
@@ -222,7 +222,7 @@ Objects can be used to group fields. The '' property is used to set a Label for 
 }
 ```
 
-Data structures can be embedded from other notes by including a path before a pattern. All notes directly below that path will be added to a drop down to select from. If you provide a pattern, it will only include the ones which have names that match. This type of definition can also be used within the '' property of an object to extend the definition and add extra fields.
+Sets of fields from other notes can be embedded by including a path before the pattern slashes. A dropdown will show all the available notes of that type which can be used to prefill the fields if you wish. These prefilled values can be overridden by clicking their label, or reset by clicking the close icon that appears next to the label. If you also provide a pattern, it will only include items in that list which have names that match the pattern.
 
 ```demo form
 {
@@ -230,7 +230,7 @@ Data structures can be embedded from other notes by including a path before a pa
 }
 ```
 
-A field can be defined as an option between multiple types by setting those types after a boolean or static type definition in an array. This example only uses static values, but any other type can be used as well.
+A field can be defined with a set of options to choose from by setting those types after a boolean or static type definition in an array. This example only uses static values, but any other type can be used as well, and those fields will show up below the dropdown if selected.
 
 ```demo form
 {
@@ -242,7 +242,7 @@ A field can be defined as an option between multiple types by setting those type
 }
 ```
 
-Arrays of values can be defined by setting a range in the first definition in the array.
+Arrays of values can be defined by setting a range in the first definition in the array. Each item will show as a line in the text area, and can be removed or rearranged withing that field. New items are added with the plus buttion, if there is only one option, or with a drop down if there are more. Selecting text within this field will show the fields for those rows below the textarea. It isn't working on this page, but you can view an example by editing one of the daily notes on the [journal](/journal/) page.
 
 ```demo form
 {

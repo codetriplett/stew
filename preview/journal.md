@@ -28,6 +28,20 @@ h1 {
     color: var(--paper-font-color);
     background: none;
 }
+.journal-experience {
+	margin-bottom: 16px;
+
+	> div { height: 8px; margin-top: 4px; }
+}
+.journal-body { background: #b333; }
+.journal-home { background: #b933; }
+.journal-soul { background: #3b33; }
+.journal-mind { background: #33b3; }
+.journal-body .journal-fill { background: #b33; }
+.journal-home .journal-fill { background: #b93; }
+.journal-soul .journal-fill { background: #3b3; }
+.journal-mind .journal-fill { background: #33b; }
+.journal-fill { height: 100%; }
 .cards {
     display: flex;
     flex-wrap: wrap;
@@ -39,15 +53,21 @@ h1 {
 # Journal
 
 [](/index#card)
+[](/quest# "questModule")
 
 ```export
 const [props, content, navigation] = arguments;
+const [quest,, questStyle] = questModule;
 
 if (content) {
 	const name = window.location.pathname.replace(/\/+$/, '').split('/').pop();
 
 	if (navigation && /^\d{8}$/.test(name)) {
-		navigation[2] = [card, { forNav: true, markDay: true }, name];
+		navigation.splice(2, navigation.length,
+			[card, { forNav: true, markDay: true }, name],
+			questStyle,
+			[quest, props, true],
+		);
 	}
 
 	return content;
@@ -69,10 +89,14 @@ const initialYear = Number(weekName.slice(0, 4));
 const state = stew({
 	year: initialYear,
 	season: initialSeason,
+	body: {},
+	home: {},
+	soul: {},
+	mind: {},
 }, []);
 
 const cards = ['div', { className: 'cards' }];
-const { year, season } = state;
+const { year, season, home, mind, body, soul } = state;
 const start = season * 13 + 1;
 const finish = start + (season < 3 ? 13 : 14);
 
@@ -81,7 +105,7 @@ for (let week = start; week < finish; week++) {
 		break;
 	}
 
-	cards.push([card, { todayName }, `${year}${week < 10 ? '0' : ''}${week}`]);
+	cards.push([card, { state, todayName }, `${year}${week < 10 ? '0' : ''}${week}`]);
 }
 
 if (cards.length < 16) {
@@ -125,6 +149,8 @@ return ['', null,
 				} else {
 					state.season -= 1;
 				}
+				
+				Object.assign(state, { body: {}, home: {}, soul: {}, mind: {} });
 			}
 		}, '〈'],
 		['h1', null, `${labels[0]} ${year}`],
@@ -136,9 +162,35 @@ return ['', null,
 				} else {
 					state.season += 1;
 				}
+				
+				Object.assign(state, { body: {}, home: {}, soul: {}, mind: {} });
 			},
 		}, '〉'],
 	],
+	['div', { className: 'journal-experience' },
+		...Object.entries({ body, home, soul, mind }).map(([name, map]) => {
+			const total = Object.values(map).reduce((total, value) => total + value, 0);
+
+			return ['div', { className: `journal-${name}` },
+				['div', {
+					className: 'journal-fill',
+					style: { width: `${Math.min(total * 100 / 5000, 100)}%` },
+				}],
+			];
+		}),
+	],
 	cards,
+	['p', null,
+		'Each row above shows the main quest of each day in the season. ',
+		'You can set them by clicking on the row to navigate to the day, clicking edit, and expanding the fields in the upper left. ',
+		'Recurring tasks can be set up as quests that can be reused by selecting them in the dropdown at the top. ',
+		'See the ', ['a', { href: '/quest/' }, 'quest guide'], ' for more details. ',
+		'Fields will be autofilled when a quest is chosen, but their values can be overridden by clicking the label. ',
+		'The ones that you mark complete will show the experience points earned, and will add their total to the bars above the cards. ',
+		'Quests are color-coded by focus: Red for body, yellow for home, green for soul, and blue for mind. ',
+		'Aim for 5000 experience points each month in each category, and spread your focus evenly to stay well rounded, and set your goals ',
+		'There is also a field on daily notes to track how many steps you\'ve taken. ',
+		'A brown shoe will be awarded for 6000 steps, a running shoe for 9000, and a hiking boot for 15,000. '
+	],
 ];
 ```
