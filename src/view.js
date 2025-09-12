@@ -64,6 +64,8 @@ export default function render (layout, library, document, nodes, container, i, 
 	let info = container[i + 3];
 
 	if (!Array.isArray(layout)) {
+		let [param] = nodes;
+
 		switch (typeof layout) {
 			default: {
 				info = null;
@@ -89,18 +91,11 @@ export default function render (layout, library, document, nodes, container, i, 
 				}
 
 				const { '': key, ...props } = layout;
-				const convert = library[key] || {};
-				library = props;
-				layout = convert || (() => {});
+				layout = library[key] || (() => {});
+				param = props;
 			}
 			case 'function': {
-				try {
-					layout = layout(nodes[0]);
-				} catch (err) {
-					console.error(err);
-					layout = null;
-				}
-				
+				layout = execute(layout, param);
 				return render(layout, library, document, nodes, container, i, map);
 			}
 		}

@@ -1,20 +1,24 @@
 export function quest () {
-	const [props, content] = arguments;
+	const [props, content,, path] = arguments;
 	const { name, exp, complete, focus = 'home', deadline } = props;
 
 	if (!content) {
-	    return ['p', null,
-	        'Notes can embed code to fully customize their layouts, and wrap the layouts of their immediate children. ',
-	        'They can also define fields for their children to set additional data to be used alongside their main content. ',
-	        'Get started by adding a name to the end of the current URL to create a new note, e.g. ', ['a', { href: '/quest/clean-bedroom' }, '/quest/clean-bedroom'], '. ',
-	        'Click edit on that page to write a description of your quest, and expand the left nav to fill in the additional fields. ',
-	        'Once you save, the page will refresh to show it rendered as a custom card. ',
-	        'You can modify the code and styles by removing the slash on the URL for this page, then click edit like any other note. ',
-	        'Refer to the ', ['a', { href: '/stew' }, 'Stew guide'], ' for instructions on how to structure your code and defined the fields. ',
-	    ];
+	    return ['', null,
+            [1, null, 'Create a Quest'],
+            { '': 'input', path: '/quest/' },
+            ['p', null,
+                'Notes can embed code to fully customize their layouts, and wrap the layouts of their immediate children. ',
+                'They can also define fields for their children to set additional data to be used alongside their main content. ',
+                'Get started by adding a name to the end of the current URL to create a new note, e.g. ', ['a', { href: '/quest/clean-bedroom' }, '/quest/clean-bedroom'], '. ',
+                'Click edit on that page to write a description of your quest, and expand the left nav to fill in the additional fields. ',
+                'Once you save, the page will refresh to show it rendered as a custom card. ',
+                'You can modify the code and styles by removing the slash on the URL for this page, then click edit like any other note. ',
+                'Refer to the ', ['a', { href: '/stew' }, 'Stew guide'], ' for instructions on how to structure your code and defined the fields. ',
+            ],
+        ];
 	}
 
-	return ['div', { className: 'quest-card' },
+	return [path ? 'a' : 'div', { className: 'quest-card', href: path },
 	    [2, null, name],
 	    ['div', { className: 'detail' },
 	        ['span', null, deadline],
@@ -37,11 +41,14 @@ export default [quest, {
     deadline: 'Deadline /2025-01-01..',
 }, ['style', null, `
 .quest-card {
+    display: block;
     max-width: 600px;
     margin: 0 auto 8px;
     padding: 16px;
     border: 1px solid gray;
     border-radius: 12px;
+    text-decoration: none;
+    color: #000 !important;
     background: var(--paper-background);
 
     h2 { margin: 0; text-align: center; }

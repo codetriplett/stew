@@ -99,6 +99,20 @@
     }
 }
 
+.create-form {
+    display: flex;
+    gap: 4px;
+
+    > * {
+        box-sizing: border-box;
+        height: 24px !important;
+        margin: 0 !important;
+    }
+    input {
+        flex: 1 0 0;
+    }
+}
+
 .card {
     position: relative;
     box-sizing: border-box;
@@ -230,8 +244,7 @@
 # Make a Note
 
 ```render
-return ['', null,
-    ['style', null, `
+return ['style', null, `
 .flex-links {
     display: flex;
     justify-content: space-around;
@@ -248,34 +261,11 @@ return ['', null,
         margin: 8px 0 0;
     }
 }
-.create-form {
-    display: flex;
-    gap: 4px;
+`];
+```
 
-    > * {
-        height: 24px !important;
-        margin: 0 !important;
-    }
-}
-    `],
-    ['form', {
-        className: 'create-form',
-        onsubmit: event => {
-            event.preventDefault();
-            const { value } = event.target.heading;
-
-            const name = value.toLowerCase()
-                .replace(/[^a-z0-9\/]+/g, '-')
-                .replace(/-*\/-*/g, '/')
-                .replace(/^-|-$/g, '');
-
-            window.location.href = name;
-        }
-    },
-        ['input', { id: 'heading', placeholder: 'Enter new heading' }],
-        ['button', { type: 'submit' }, 'Create'],
-    ],
-];
+```input
+/
 ```
 
 All notes are stored in your browser, and will persist as long as you avoid clearing your local storage. 
@@ -374,6 +364,32 @@ const lines = markdown ? [code] : code.split(/\r\n|\r|\n/).map(line => {
 return ['div', { className: 'stew-demo' },
     ['div', null, ...lines],
     ['div', null, result, output],
+];
+```
+
+## Input
+
+```export
+const [props, content] = arguments;
+const path = props.path || content;
+const formattedPath = !/^(?:\/[^\/\s]+){1,}\/?$/.test(path) ? '/' : path.endsWith('/') ? path : `${path}\/`;
+
+return ['form', {
+    className: 'create-form',
+    onsubmit: event => {
+        event.preventDefault();
+        const { value } = event.target.heading;
+
+        const name = value.toLowerCase()
+            .replace(/[^a-z0-9\/]+/g, '-')
+            .replace(/-*\/-*/g, '/')
+            .replace(/^-|-$/g, '');
+
+        window.location.href = `${formattedPath}${name}`;
+    }
+},
+    ['input', { id: 'heading', placeholder: 'Enter new heading' }],
+    ['button', { type: 'submit' }, 'Create'],
 ];
 ```
 

@@ -549,7 +549,7 @@ function ObjectField ({ schema = {}, value, path, mode, names, onclick }, field,
 	}
 
 	const { '': dataMeta, ...rest } = object;
-	const [, dataPath, dataSelection] = typeof dataMeta === 'string' ? dataMeta.match(/^((?:\/[^\/\s]+){1,})\/([^\/\s]*)$/) : [];
+	const [, dataPath, dataSelection] = typeof dataMeta === 'string' && dataMeta.match(/^((?:\/[^\/\s]+){1,})\/([^\/\s]*)$/) || [];
 
 	const state = stew({
 		expanded: mode === undefined || typeof names[names.length - 1] === 'number',

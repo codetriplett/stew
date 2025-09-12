@@ -2,17 +2,17 @@ import { card } from '/index.mjs';
 import questModule from '/quest.mjs';
 
 export function journal () {
-	const [props, content, navigation] = arguments;
+	const [props, content, widget, path] = arguments;
 	const [quest,, questStyle] = questModule;
 
 	if (content) {
 	    const name = window.location.pathname.replace(/\/+$/, '').split('/').pop();
 
-	    if (navigation && /^\d{8}$/.test(name)) {
-	        navigation.splice(2, navigation.length,
+	    if (widget && /^\d{8}$/.test(name)) {
+	        widget.splice(2, widget.length,
 	            [card, { forNav: true, markDay: true }, name],
 	            questStyle,
-	            [quest, props, true],
+	            [quest, props, true,, path],
 	        );
 	    }
 

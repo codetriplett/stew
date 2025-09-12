@@ -191,7 +191,7 @@ Promise.all([fetchResources(pathname), ...promises]).then(async sequence => {
 	const [namespace, library, ...resources] = sequence.shift();
 
 	if (sequence.length < 2 && !name) {
-		stew('#app', library, [Home, { namespace }]);
+		stew('#app', library, [Home, { namespace, resources }]);
 		return;
 	}
 
@@ -248,12 +248,12 @@ Promise.all([fetchResources(pathname), ...promises]).then(async sequence => {
 	// - shoudl sequence be in state, and setting new [...sequence] triggers a rerender?
 	// - change fetch functions to syncronous if they are using local storage values (don't wrap in Promise.resolve)
 	for (let i = 0; i < sequence.length; i += 2) {
-		const data = sequence[i];
+		const { '': meta, ...props } = sequence[i] || {};
 		const [Component,, ...rest] = sequence[i + 1].default;
 		children.unshift(...rest);
 
 		if (Component) {
-			content = [Component, data, content, widget];
+			content = [Component, props, content, widget, meta];
 		}
 	}
 

@@ -45,26 +45,16 @@ export function hydrateData (data, cache, stage, promises) {
 	}
 
 	const { '': path, ...rest } = data;
-	const match = typeof path === 'string' && path.match(/^((?:\/[^\/\s]+){1,})\/([^\/\s]*).*$/);
 
 	for (const value of Object.values(rest)) {
 		hydrateData(value, cache, stage, promises);
 	}
 
-	if (!match) {
+	if (typeof path !== 'string' || !/^(?:\/[^\/\s]+){2,}$/.test(path)) {
 		return;
 	}
 
-	const [, type, name] = match;
-	data[''] = type;
-
-	if (!name) {
-		return;
-	}
-
-	const promise = fetchData(path, cache, stage);
-
-	const resolution = promise.then(defaults => {
+	const promise = fetchData(path, cache, stage).then(defaults => {
 		for (const [name, value] of Object.entries(defaults)) {
 			if (name && !(name in rest)) {
 				data[name] = value;
@@ -72,8 +62,7 @@ export function hydrateData (data, cache, stage, promises) {
 		}
 	});
 
-	promises.push(resolution);
-	return resolution;
+	promises.push(promise);
 }
 
 export function fetchData (path, cache = baseCache, stage = {}) {
@@ -95,9 +84,9 @@ export function fetchData (path, cache = baseCache, stage = {}) {
 			const promises = [];
 			hydrateData(data, cache, stage, promises);
 			await Promise.all(promises);
-			data[''] = key.replace(/\/[^\/\s]*$/, '');
 		}
 
+		data[''] = key.slice(0, -5);
 		return data;
 	}).catch(err => {
 		console.error(err);

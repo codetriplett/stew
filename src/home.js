@@ -115,7 +115,7 @@ function Quest ({ namespace }) {
 
 // TODO: add a link in the breadcrumb area with the current date
 // - clicking on it will take you to the note for the current day, e.g. 20250709
-export default function Home ({ namespace }) {
+export default function Home ({ namespace, resources }) {
 	const { settings, snips } = state;
 	const { theme } = settings;
 	stew(null, [], () => state.hasMounted = true);
@@ -134,7 +134,12 @@ export default function Home ({ namespace }) {
 		['div', { className: 'main' },
 			['div', { className: 'paper' },
 				[Quest, { namespace }],
-				content?.slice?.(0, index),
+				['div', { style: { marginTop: '32px' } },
+					['template', { shadowrootmode: 'open' },
+						...resources,
+						content?.slice?.(0, index),
+					],
+				],
 				// TODO: render active snips session here
 				// - display inactive ones to the side, along with a button to create a new session
 				// - ones to the side can be clicked to make active or closed

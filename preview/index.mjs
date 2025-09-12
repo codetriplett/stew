@@ -41,6 +41,30 @@ export function demo () {
 	];
 }
 
+export function input () {
+	const [props, content] = arguments;
+	const path = props.path || content;
+	const formattedPath = !/^(?:\/[^\/\s]+){1,}\/?$/.test(path) ? '/' : path.endsWith('/') ? path : `${path}\/`;
+
+	return ['form', {
+	    className: 'create-form',
+	    onsubmit: event => {
+	        event.preventDefault();
+	        const { value } = event.target.heading;
+
+	        const name = value.toLowerCase()
+	            .replace(/[^a-z0-9\/]+/g, '-')
+	            .replace(/-*\/-*/g, '/')
+	            .replace(/^-|-$/g, '');
+
+	        window.location.href = `${formattedPath}${name}`;
+	    }
+	},
+	    ['input', { id: 'heading', placeholder: 'Enter new heading' }],
+	    ['button', { type: 'submit' }, 'Create'],
+	];
+}
+
 export function card () {
 	const [props, inputName] = arguments;
 	let { forNav, nameOnly, todayName, state, onclick } = props;
@@ -249,6 +273,20 @@ export default [null, {
         > *  + * {
             margin-top: 16px;
         }
+    }
+}
+
+.create-form {
+    display: flex;
+    gap: 4px;
+
+    > * {
+        box-sizing: border-box;
+        height: 24px !important;
+        margin: 0 !important;
+    }
+    input {
+        flex: 1 0 0;
     }
 }
 
