@@ -262,6 +262,7 @@ export default [null, {
         }
         button {
             border: 1px solid var(--paper-font-color);
+            color: var(--paper-font-color);
             background: var(--paper-background);
         }
     }

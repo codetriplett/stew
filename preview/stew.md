@@ -246,7 +246,7 @@ Objects can be used to group fields. Click the down arrow to expand them. The ''
 }
 ```
 
-Sets of fields from other notes can be embedded by including a path before the pattern. These fields will be imported and used like any other object, but a dropdown will be included to pick from existing notes to prefill the values. These prefilled values can be overridden by clicking their label, or reset by clicking the close icon that appears next to the label. If you also provide a pattern, it will only include items in that dropdown which have names that match the pattern.
+Sets of fields from other notes can be embedded by including a path before the pattern. These fields will be imported and used like any other object, but a dropdown will be included to pick from existing notes to prefill the values. These prefilled values can be overridden by clicking their label, or reset by clicking the close icon that appears next to the label. If you also provide a pattern, it will only include items in that dropdown which have names that match the pattern. If there are no options to choose from, the dropdown will not display, so you will need to create a [quest](/quest/) first for this particular example to show it.
 
 ```demo form
 {

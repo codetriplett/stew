@@ -48,7 +48,7 @@ export default [quest, {
     border: 1px solid gray;
     border-radius: 12px;
     text-decoration: none;
-    color: #000 !important;
+    color: var(--paper-font-color) !important;
     background: var(--paper-background);
 
     h2 { margin: 0; text-align: center; }

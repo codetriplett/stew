@@ -86,7 +86,6 @@ export function fetchData (path, cache = baseCache, stage = {}) {
 			await Promise.all(promises);
 		}
 
-		data[''] = key.slice(0, -5);
 		return data;
 	}).catch(err => {
 		console.error(err);
