@@ -1,9 +1,9 @@
 export function quest () {
-	const [props, content,, path] = arguments;
-	const { name, exp, complete, focus = 'home', deadline } = props;
+    const [props, content,, path] = arguments;
+    const { name, exp, complete, focus = 'home', deadline } = props;
 
-	if (!content) {
-	    return ['', null,
+    if (!content) {
+        return ['', null,
             [1, null, 'Create a Quest'],
             { '': 'input', path: '/quest/' },
             ['p', null,
@@ -16,16 +16,16 @@ export function quest () {
                 'Refer to the ', ['a', { href: '/stew' }, 'Stew guide'], ' for instructions on how to structure your code and defined the fields. ',
             ],
         ];
-	}
+    }
 
-	return [path ? 'a' : 'div', { className: 'quest-card', href: path },
-	    [2, null, name],
-	    ['div', { className: 'detail' },
-	        ['span', null, deadline],
-	        exp && ['span', { className: `exp-goal exp-${focus} ${complete ? 'exp-complete' : '' }` }, `+${exp}`],
-	    ],
-	    content,
-	];
+    return [path ? 'a' : 'div', { className: 'quest-card', href: path },
+        [2, null, name],
+        ['div', { className: 'detail' },
+            ['span', null, deadline],
+            exp && ['span', { className: `exp-goal exp-${focus} ${complete ? 'exp-complete' : '' }` }, `+${exp}`],
+        ],
+        content,
+    ];
 }
 
 export default [quest, {

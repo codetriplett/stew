@@ -156,7 +156,7 @@ return ['', null,
 		['h1', null, `${labels[0]} ${year}`],
 		['button', {
 			type: 'button',
-			onclick: () => {	
+			onclick: () => {
 				if (season === 3) {
 					Object.assign(state, { year: year + 1, season: 0 });
 				} else {

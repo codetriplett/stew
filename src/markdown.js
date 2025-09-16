@@ -29,8 +29,35 @@ function buildPath (rootNames, href = '') {
 	return `/${sourcePath.join('/')}`;
 }
 
+function parseNode (string) {
+	const [type, ...rest] = string.match(/^\S+|[^='"\s\/]+(\s*=\s*('.*?('|$)|".*?("|$)|[^='"\s]+))?/g);
+	const props = rest.length ? {} : null;
+
+	for (const string of rest) {
+		const [name, value] = string.split(/['"]|\s*=\s*['"]?/);
+
+		if (name !== 'style' && name !== 'dataset') {
+			props[name] = value ?? true;
+			continue;
+		} else if (!value) {
+			continue;
+		}
+
+		const object = {};
+		const entries = value.trim().split(/\s*;\s*/);
+		props[name] = object;
+
+		for (const entry of entries) {
+			const [name, value] = entry.split(/\s*:\s*/);
+			object[name] = value ?? '';
+		}
+	}
+
+	return [type, props];
+}
+
 const blockRegex = new RegExp(['^',
-	'(\\s*(?:[>\\s]+|(?:[-+*:]|\\d+[.)])(?:\\s{1,4}|\\t|$))*\\s*)(?:\\[([ xX-_])\\]\\s(?=\\S))?(?:',
+	'(\\s*(?:[>\\s]+|(?:[-+*:]|\\d+[.)])(?: {1,4}|$))*(?:`{3,}[^`]*$|\\s*))(?:\\[([ xX-_])\\]\\s(?=\\S))?(?:',
 		'(?:\\[\\s*(.*?)\\s*\\]:\\s+(<.*?>|[^<>]|[^<].*?[^>])(?:\\s+|$))?(\'.*?\'|".*?"|\\(.*?\\))?',
 		'|(#{1,6})\\s+(.*?)(?:\\s+\\{#(\\S*)\\})?(?:\\s+#+)?',
 		'|(=+|-+)',
@@ -129,35 +156,14 @@ export function parseInline (string, stack, links, emoji) {
 		} else if (url) {
 			node = ['a', { href: url }, url];
 		} else if (open) {
-			const [tagName, ...rest] = open.match(/^\S+|[^='"\s\/]+(\s*=\s*('.*?('|$)|".*?("|$)|[^='"\s]+))?/g);
-			const attributes = rest.length ? {} : null;
-			node = [tagName, attributes];
+			node = parseNode(open);
+			const [type] = node;
 
-			for (const string of rest) {
-				const [name, value] = string.split(/['"]|\s*=\s*['"]?/);
-
-				if (name !== 'style' && name !== 'dataset') {
-					attributes[name] = value ?? true;
-					continue;
-				} else if (!value) {
-					continue;
-				}
-
-				const object = {};
-				const entries = value.trim().split(/\s*;\s*/);
-				attributes[name] = object;
-
-				for (const entry of entries) {
-					const [name, value] = entry.split(/\s*:\s*/);
-					object[name] = value ?? '';
-				}
-			}
-
-			if (!selfClosingTags.has(tagName) && !open.endsWith('/')) {
+			if (!selfClosingTags.has(type) && !open.endsWith('/')) {
 				stack.unshift(node);
 			}
 
-			if (blockTags.has(tagName) && !root[1]) {
+			if (blockTags.has(type) && !root[1]) {
 				stack[stack.length - 1][1] = { unwrapped: true };
 			}
 		}
@@ -195,15 +201,19 @@ export function parseInline (string, stack, links, emoji) {
 	return string;
 }
 
-function parseNesting (string, stack, containers, oldlines) {
-	const nodes = [];
+function resolveTabs (string) {
 	let extra = 0;
 
-	const symbols = string.replace(/\t/g, (m, index) => {
+	return string.replaceAll('\t', (m, index) => {
 		const width = 4 - ((index + extra) % 4);
 		extra += width - 1;
 		return ' '.repeat(width);
-	}).match(/((?:\s+|>|\S+(?:\s{0,4}(?!\s)|\s)))+?/g) || [];
+	});
+}
+
+function parseNesting (string, stack, containers, oldlines) {
+	const symbols = string.match(/((?:`+.*$|\s+|>|\S+(?:\s{0,4}(?!\s)|\s)))+?/g) || [];
+	const nodes = [];
 
 	if (oldlines > 1 && stack[0][0] !== 'code' || oldlines > 0 && !symbols.length) {
 		stack.splice(0, stack.length - 1);
@@ -211,14 +221,12 @@ function parseNesting (string, stack, containers, oldlines) {
 
 	let depth = stack.length - 2;
 	let indentation = 0;
-	let props, padding;
+	let indent, props;
 
 	while (symbols.length) {
 		let symbol = symbols.shift();
 		let type = 'ol';
 		let subtype = 'li';
-		let extra = 0;
-		symbol.replaceAll('\t', (m, index) => extra += 3 - ((index + extra) % 4));
 		indentation += symbol.length;
 
 		switch (symbol[0]) {
@@ -239,7 +247,7 @@ function parseNesting (string, stack, containers, oldlines) {
 			}
 			case ' ': {
 				if (indentation === symbol.length) {
-					depth = stack.findIndex(entry => indentation >= entry[1].indentation) - 1;
+					depth = stack.findIndex(entry => entry[0] !== 'code' && indentation >= entry[1].indentation) - 1;
 					const overage = indentation - stack[depth + 1][1].indentation;
 
 					if (overage < 4) {
@@ -249,10 +257,12 @@ function parseNesting (string, stack, containers, oldlines) {
 					symbol = symbol.slice(indentation - overage);
 				}
 
+				indentation += 4;
+			}
+			case '`': {
 				type = 'pre';
 				subtype = 'code';
-				indentation = undefined;
-				padding = `${symbol.slice(4)}${symbols.splice(0).join('')}`;
+				indentation -= symbol.length;
 				oldlines = 0;
 				break;
 			}
@@ -263,7 +273,7 @@ function parseNesting (string, stack, containers, oldlines) {
 		let { wrapper } = props || {};
 
 		if ((type !== wrapper?.[0] || oldlines > 1) && (type !== container?.[0] || oldlines > 0)) {
-			const start = symbol.trim().slice(0, -1);
+			const start = type === 'ol' && symbol.trim().slice(0, -1);
 			wrapper = subtype && [type, start && start !== '1' ? { start } : null];
 			props = { spaced: !subtype, wrapper };
 			const node = [subtype || type, props];
@@ -280,15 +290,23 @@ function parseNesting (string, stack, containers, oldlines) {
 					term[0] = 'dt';
 					wrapper.push(term);
 				}
+			} else if (type === 'pre') {
+				Object.assign(node[1], {
+					format: symbol.replace(/^`*\s*|\s*$/g, ''),
+					indent,
+				});
 			}
 		} else if (subtype && subtype !== 'code') {
 			wrapper.splice(-1, 0, [...container.slice(0, 2), ...container.splice(2)]);
 		}
 
 		props.indentation = indentation;
-		props.padding = padding;
 		stack.splice(0, depth);
 		depth = -1;
+
+		if (type === 'pre') {
+			break;
+		}
 	}
 	
 	if (oldlines === 1) {
@@ -330,12 +348,12 @@ export default function parse (content, rootPath = '', library = stack[0]?.[4] |
 	let newlines = 1;
 	let tickCount = 0;
 	let checkboxCount = 0;
-	let alignments, reference, format;
+	let alignments, reference;
 
 	for (let line of lines) {
-		if (tickCount) {
-			line = `\t${line}`;
-		} else if (!/\S/.test(line)) {
+		line = resolveTabs(line);
+
+		if (!/\S/.test(line)) {
 			newlines += newlines < 0 ? 2 : 1;
 			continue;
 		} else if (tags.length > 1) {
@@ -350,33 +368,34 @@ export default function parse (content, rootPath = '', library = stack[0]?.[4] |
 			parseInline(` ${line.trim()} `, tags, links, emoji);
 			newlines = -1;
 			continue;
+		} else if (tickCount && line.match(/^ {0,3}(`+)/)?.[1]?.length >= tickCount) {
+			line = '';
 		}
 
-		let [,
-			symbols, checkbox, key, href, title,
-			hashes, heading, id, underline,
-			dashes, table, string, whitespace,
-		] = line.match(blockRegex);
+		let [, symbols = '', ...rest] = tickCount ? line.match(/^(\s*)/) : line.match(blockRegex);
 
 		if (/^ {0,3}((-\s+){3,}|(\*\s+){3,})\s*$/.test(symbols)) {
-			dashes = symbols.trim();
+			rest = [,,,,,,,, symbols.trim()];
 			symbols = '';
 		}
 
 		const oldlines = newlines;
-		const nodes = locked ? [] : parseNesting(symbols, stack, containers, oldlines);
+		const nodes = locked || tickCount ? [] : parseNesting(symbols, stack, containers, oldlines);
 		let [container] = stack;
 		stack.unshift(...nodes);
 		const [node] = stack;
 		const isPreformatted = node[0] === 'code';
 		let previous = node[node.length - 1];
+		
+		let [
+			checkbox, key, href, title,
+			hashes, heading, id, underline,
+			dashes, table, string, whitespace,
+		] = isPreformatted ? [] : rest;
+		
 		newlines = string && whitespace.length < 2 ? -1 : 0;
 
-		if (isPreformatted) {
-			hashes = undefined;
-			underline = undefined;
-			table = undefined;
-		} else if (key !== undefined) {
+		if (key !== undefined) {
 			key = key.toLowerCase();
 
 			if (!references[key]) {
@@ -389,9 +408,7 @@ export default function parse (content, rootPath = '', library = stack[0]?.[4] |
 			}
 
 			continue;
-		}
-
-		if (hashes) {
+		} else if (hashes) {
 			const node = [hashes.length, null];
 			nodes.unshift(node);
 			string = heading;
@@ -414,34 +431,39 @@ export default function parse (content, rootPath = '', library = stack[0]?.[4] |
 			candidate += `${string}${whitespace.length > 1 ? '<br>' : ' '}`;
 			continue;
 		} else if (isPreformatted) {
-			const { padding = '' } = node[1];
-			string = `${padding}${line.slice(symbols.length)}`;
+			if (nodes.length) {
+				const { format = '' } = node[1];
+				tickCount = symbols.match(/`+/)?.[0]?.length || 0;
 
-			if (tickCount && string.match(/^ {0,3}(`+)\s*$/)?.[1]?.length >= tickCount) {
-				tickCount = 0;
-				format = undefined;
-				continue;
-			} else if (!nodes.length) {
-				const newlines = Math.max(0, oldlines) + (tickCount || node[2] ? 1 : 0);
-				node[2] += `${'\n'.repeat(newlines)}${string}`;
-				continue;
-			} else if (format === 'export' && stack.length < 3) {
-				links[1][0] += `:${main.length - 2}`;
+				if (/^export(\s|$)/.test(format) && stack.length < 3) {
+					links[1][0] += `:${main.length - 2}`;
+				}
 			}
 
-			node[1].format = format;
-			node.push(string);
-			string = '';
+			if (!nodes.length || !tickCount) {
+				const { indentation = 0 } = node[1];
+				const newlines = node[2] || tickCount ? Math.max(0, oldlines) + (!line || tickCount && !node[2] ? 0 : 1) : 0;
+				string = `${'\n'.repeat(newlines)}${line.slice(indentation)}`;
+
+				if (node.length < 3) {
+					node[2] = string;
+				} else {
+					node[2] += string;
+				}
+
+				string = '';
+			}
+
+			if (!line) {
+				stack.shift();
+				tickCount = 0;
+			}
 		} else if (underline) {
 			if (underline[0] === '=') {
 				string = underline;
 			} else {
 				dashes = underline;
 			}
-		} else if (/^`{3,}[^`]*$/.test(string)) {
-			tickCount = string.search(/[^`]|$/);
-			format = string.slice(tickCount).trim();
-			string = '';
 		} else if (checkbox) {
 			const checked = checkbox.toLowerCase() === 'x';
 			const fragment = ['', null, ['input', { type: 'checkbox', checked, id: `c-${checkboxCount}` }]];
@@ -454,8 +476,10 @@ export default function parse (content, rootPath = '', library = stack[0]?.[4] |
 				const isFirst = !alignments;
 				const container = previous?.[2];
 
-				alignments = remainder.split(/\s*\|\s*/).slice(0, -1).map(string => {
-					return string.endsWith(':') ? string.startsWith(':') ? 'center' : 'right' : '';
+				alignments = remainder.split('|').slice(0, -1).map(string => {
+					const isLeft = /^\s*:/.test(string);
+					const isRight = /:\s*$/.test(string)
+					return isLeft ? isRight ? 'center' : 'left' : isRight ? 'right' : '';
 				});
 
 				if (isFirst && container?.[0] === 'tbody' && oldlines === 0) {
@@ -614,13 +638,12 @@ export default function parse (content, rootPath = '', library = stack[0]?.[4] |
 			}
 		}
 
-		if (format !== undefined) {
-			const [type, ...names] = format.split(/\s+/);
-			const flags = Object.fromEntries(names.map(name => [name, true]));
+		if (format) {
+			const [type, props] = parseNode(format);
 			const formatter = library[type];
 
 			if (typeof formatter === 'function') {
-				wrapper.splice(0, 3, formatter, flags, container[2]);
+				wrapper.splice(0, 3, formatter, props, container[2] || '');
 			}
 		}
 	}

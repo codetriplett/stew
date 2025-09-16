@@ -270,8 +270,8 @@ Arrays of values can be defined by setting a range in the first definition of th
 
 ```demo form
 {
-	friends: ['Friends /..20 Choose a friend',
-		'Person /party//',
+	quests: ['Quests /..5 Choose a quest',
+		'Quest /quest//',
 	],
 }
 ```

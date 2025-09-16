@@ -1,179 +1,179 @@
 export function capitalize () {
-	const [flags, code] = arguments;
-	const { all } = flags;
-	return ['p', null, all ? code.toUpperCase() : `${code[0].toUpperCase()}${code.slice(1)}`];
+    const [flags, code] = arguments;
+    const { all } = flags;
+    return ['p', null, all ? code.toUpperCase() : `${code[0].toUpperCase()}${code.slice(1)}`];
 }
 
 export function render () {
-	const [flags, code] = arguments;
-	return new Function(code);
+    const [flags, code] = arguments;
+    return new Function(code);
 }
 
 export function demo () {
-	const [{ markdown, form }, code] = arguments;
-	let result, output;
+    const [{ markdown, form }, code] = arguments;
+    let result, output;
 
-	if (markdown) {
-	    result = stew(code, ['/']);
-	} else if (form) {
-	    const schema = new Function(`return ${code}`)();
-	    output = ['', null, ['pre', null, '{}']];
+    if (markdown) {
+        result = stew(code, ['/']);
+    } else if (form) {
+        const schema = new Function(`return ${code}`)();
+        output = ['', null, ['pre', null, '{}']];
 
-	    result = renderForm(schema, data => {
-	        const [pre] = output[0];
-	        pre.innerHTML = JSON.stringify(data, null, 4);
-	    });
-	} else {
-	    result = new Function(code);
-	}
+        result = renderForm(schema, data => {
+            const [pre] = output[0];
+            pre.innerHTML = JSON.stringify(data, null, 4);
+        });
+    } else {
+        result = new Function(code);
+    }
 
-	const lines = markdown ? [code] : code.split(/\r\n|\r|\n/).map(line => {
-	    const [, text, comment] = line.match(/^(.*?)(?:\s*\/\/\s*([+-]))?\s*$/);
+    const lines = markdown ? [code] : code.split(/\r\n|\r|\n/).map(line => {
+        const [, text, comment] = line.match(/^(.*?)(?:\s*\/\/\s*([+-]))?\s*$/);
 
-	    return ['div', {
-	        style: comment && { backgroundColor: comment === '-' ? 'rgba(191, 63, 63, 0.125)' : 'rgba(63, 191, 63, 0.125)' },
-	    }, text || ' '];
-	});
+        return ['div', {
+            style: comment && { backgroundColor: comment === '-' ? 'rgba(191, 63, 63, 0.125)' : 'rgba(63, 191, 63, 0.125)' },
+        }, text || ' '];
+    });
 
-	return ['div', { className: 'stew-demo' },
-	    ['div', null, ...lines],
-	    ['div', null, result, output],
-	];
+    return ['div', { className: 'stew-demo' },
+        ['div', null, ...lines],
+        ['div', null, result, output],
+    ];
 }
 
 export function input () {
-	const [props, content] = arguments;
-	const path = props.path || content;
-	const formattedPath = !/^(?:\/[^\/\s]+){1,}\/?$/.test(path) ? '/' : path.endsWith('/') ? path : `${path}\/`;
+    const [{ path }, content = ''] = arguments;
+    const [placeholder, label] = content.trim().split(/[\r\n]+/);
+    const formattedPath = !/^(?:\/[^\/\s]+){1,}\/?$/.test(path) ? '/' : path.endsWith('/') ? path : `${path}\/`;
 
-	return ['form', {
-	    className: 'create-form',
-	    onsubmit: event => {
-	        event.preventDefault();
-	        const { value } = event.target.heading;
+    return ['form', {
+        className: 'create-form',
+        onsubmit: event => {
+            event.preventDefault();
+            const { value } = event.target.heading;
 
-	        const name = value.toLowerCase()
-	            .replace(/[^a-z0-9\/]+/g, '-')
-	            .replace(/-*\/-*/g, '/')
-	            .replace(/^-|-$/g, '');
+            const name = value.toLowerCase()
+                .replace(/[^a-z0-9\/]+/g, '-')
+                .replace(/-*\/-*/g, '/')
+                .replace(/^-|-$/g, '');
 
-	        window.location.href = `${formattedPath}${name}`;
-	    }
-	},
-	    ['input', { id: 'heading', placeholder: 'Enter new heading' }],
-	    ['button', { type: 'submit' }, 'Create'],
-	];
+            window.location.href = `${formattedPath}${name}`;
+        }
+    },
+        ['input', { id: 'heading', placeholder: placeholder || 'Enter new heading' }],
+        ['button', { type: 'submit' }, label || 'Create'],
+    ];
 }
 
 export function card () {
-	const [props, inputName] = arguments;
-	let { forNav, nameOnly, todayName, state, onclick } = props;
+    const [props, inputName] = arguments;
+    let { forNav, nameOnly, todayName, state, onclick } = props;
 
-	if (typeof inputName !== 'string' || !/^(\d{6}|\d{8})$/.test(inputName)) {
-	    // reject inputs that aren't strings of length 6 or 8
-	    return;
-	}
+    if (typeof inputName !== 'string' || !/^(\d{6}|\d{8})$/.test(inputName)) {
+        // reject inputs that aren't strings of length 6 or 8
+        return;
+    }
 
-	// read first parts of string, and create date for beginning of year
-	let year = Number(inputName.slice(0, 4));
-	const day = Number(inputName.slice(6, 8));
-	const date = new Date(`${year}-01-${day < 10 ? '0' : ''}${day || 7}T00:00:00`);
-	let week = inputName.slice(4, 6) - 1;
+    // read first parts of string, and create date for beginning of year
+    let year = Number(inputName.slice(0, 4));
+    const day = Number(inputName.slice(6, 8));
+    const date = new Date(`${year}-01-${day < 10 ? '0' : ''}${day || 7}T00:00:00`);
+    let week = inputName.slice(4, 6) - 1;
 
-	if (!day) {
-	    // shift by number of weeks past the first
-	    date.setDate((week + 1) * 7 - date.getDay());
+    if (!day) {
+        // shift by number of weeks past the first
+        date.setDate((week + 1) * 7 - date.getDay());
 
-	    if (date.getFullYear() > year) {
-	        // don't render if there is no 52nd week for this year
-	        return;
-	    }
-	} else {
-	    // use week index as month instead, and the rest of string as the day
-	    date.setMonth(week);
-	    date.setDate(date.getDate() + 5 * 7 - date.getDay());
-	    year = date.getFullYear();
+        if (date.getFullYear() > year) {
+            // don't render if there is no 52nd week for this year
+            return;
+        }
+    } else {
+        // use week index as month instead, and the rest of string as the day
+        date.setMonth(week);
+        date.setDate(date.getDate() + 5 * 7 - date.getDay());
+        year = date.getFullYear();
 
-	    // calculate number of weeks since start of year
-	    const start = new Date(`${year}-01-07T00:00:00`);
-	    start.setDate(start.getDate() - start.getDay());
-	    week = Math.round((date - start) / (7 * 24 * 60 * 60 * 1000));
-	    todayName = inputName;
-	}
+        // calculate number of weeks since start of year
+        const start = new Date(`${year}-01-07T00:00:00`);
+        start.setDate(start.getDate() - start.getDay());
+        week = Math.round((date - start) / (7 * 24 * 60 * 60 * 1000));
+        todayName = inputName;
+    }
 
-	const season = Math.floor(week / 13);
-	date.setDate(date.getDate() - 5 * 7);
+    const season = Math.floor(week / 13);
+    date.setDate(date.getDate() - 5 * 7);
 
-	if (nameOnly) {
-	    if (!day) {
-	        // return the first day name in card
-	        const year = date.getFullYear();
-	        const month = date.getMonth() + 1;
-	        const day = date.getDate();
-	        return `${year}${month < 10 ? '0' : ''}${month}${day < 10 ? '0' : ''}${day}`;
-	    }
-	    
-	    // return the week name of the card
-	    return `${year}${week + 1}`;
-	}
+    if (nameOnly) {
+        if (!day) {
+            // return the first day name in card
+            const year = date.getFullYear();
+            const month = date.getMonth() + 1;
+            const day = date.getDate();
+            return `${year}${month < 10 ? '0' : ''}${month}${day < 10 ? '0' : ''}${day}`;
+        }
 
-	// render card layout, fetching the quest data for each day
-	const card = ['ul', {
-	    className: [
-	        'card',
-	        `season-${season}`,
-	        `week-${week % 13}`,
-	        forNav ? 'nav-card' : '',
-	        onclick ? 'faded-card' : '',
-	    ].join(' '),
-	    onclick,
-	}];
+        // return the week name of the card
+        return `${year}${week + 1}`;
+    }
 
-	const locale = Intl.DateTimeFormat().resolvedOptions().locale;
-	const list = stew(fetchList, ['/journal'], []);
+    // render card layout, fetching the quest data for each day
+    const card = ['ul', {
+        className: [
+            'card',
+            `season-${season}`,
+            `week-${week % 13}`,
+            forNav ? 'nav-card' : '',
+            onclick ? 'faded-card' : '',
+        ].join(' '),
+        onclick,
+    }];
 
-	for (let i = 0; i < 7; i++) {
-	    // get date components and then increment
-	    const year = date.getFullYear();
-	    const month = date.getMonth() + 1;
-	    const day = date.getDate();
+    const locale = Intl.DateTimeFormat().resolvedOptions().locale;
+    const list = stew(fetchList, ['/journal'], []);
 
-	    // build date string and fetch quest data
-	    const dayName = `${year}${month < 10 ? '0' : ''}${month}${day < 10 ? '0' : ''}${day}`;
-	    const className = `${day === 1 ? 'month' : ''} ${ dayName === todayName ? 'today' : ''}`;
-	    const href = `/journal/${dayName}`;
-	    const data = list.indexOf(dayName) !== -1 ? stew(fetchData, [href], {}) : {};
-	    const textProps = { className: 'quest' };
-	    let { name = '', exp = 0, focus = 'home', complete, steps } = data;
-	    
-	    if (state && complete) {
-	        state[focus] = { ...state[focus], [dayName]: exp };
-	    }
+    for (let i = 0; i < 7; i++) {
+        // get date components and then increment
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        const day = date.getDate();
 
-	    if (!name && (i === 0 || i === 6)) {
-	        // label the top and bottom rows if they are blank
-	        name = `${new Intl.DateTimeFormat(locale, { month: 'long' }).format(date)} ${day}`;
-	        textProps.style = { fontSize: name.length > 10 ? '11px' : '15px', fontWeight: 'bold' };
-	    }
+        // build date string and fetch quest data
+        const dayName = `${year}${month < 10 ? '0' : ''}${month}${day < 10 ? '0' : ''}${day}`;
+        const className = `${day === 1 ? 'month' : ''} ${ dayName === todayName ? 'today' : ''}`;
+        const href = `/journal/${dayName}`;
+        const data = list.indexOf(dayName) !== -1 ? stew(fetchData, [href], {}) : {};
+        const textProps = { className: 'quest' };
+        let { name = '', exp = 0, focus = 'home', complete, steps } = data;
 
-	    card.push(['li', { className },
-	        ['span', null, i === 2 || i === 4 ? day : ''],
-	        [onclick ? 'div' : 'a', { href: !onclick && href },
-	            ['span', textProps, name],
-	            (steps >= 6000 || complete) && ['span', { className: `exp exp-${focus}` },
-	                complete && `+${exp}`,
-	                steps >= 6000 && ['span', { className: 'steps' },
-	                    steps > 15000 ? '🥾' : steps >= 9000 ? '👟' :  '👞',
-	                ],
-	            ],
-	        ],
-	    ]);
-	    
-	    // move to next day
-	    date.setDate(day + 1);
-	}
+        if (state && complete) {
+            state[focus] = { ...state[focus], [dayName]: exp };
+        }
 
-	return card;
+        if (!name && (i === 0 || i === 6)) {
+            // label the top and bottom rows if they are blank
+            name = `${new Intl.DateTimeFormat(locale, { month: 'long' }).format(date)} ${day}`;
+            textProps.style = { fontSize: name.length > 10 ? '11px' : '15px', fontWeight: 'bold' };
+        }
+
+        card.push(['li', { className },
+            ['span', null, i === 2 || i === 4 ? day : ''],
+            [onclick ? 'div' : 'a', { href: !onclick && href },
+                ['span', textProps, name],
+                (steps >= 6000 || complete) && ['span', { className: `exp exp-${focus}` },
+                    complete && `+${exp}`,
+                    steps >= 6000 && ['span', { className: 'steps' },
+                        steps > 15000 ? '🥾' : steps >= 9000 ? '👟' :  '👞',
+                    ],
+                ],
+            ],
+        ]);
+
+        // move to next day
+        date.setDate(day + 1);
+    }
+
+    return card;
 }
 
 export default [null, {
@@ -343,7 +343,7 @@ export default [null, {
             flex: 1 1 0;
             position: relative;
             color: #333;
-            
+
             > span {
                 position: absolute;
                 left: 50%;

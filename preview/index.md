@@ -265,8 +265,7 @@ return ['style', null, `
 `];
 ```
 
-```input
-/
+```input path="/"
 ```
 
 All notes are stored in your browser, and will persist as long as you avoid clearing your local storage. 
@@ -371,8 +370,8 @@ return ['div', { className: 'stew-demo' },
 ## Input
 
 ```export
-const [props, content] = arguments;
-const path = props.path || content;
+const [{ path }, content = ''] = arguments;
+const [placeholder, label] = content.trim().split(/[\r\n]+/);
 const formattedPath = !/^(?:\/[^\/\s]+){1,}\/?$/.test(path) ? '/' : path.endsWith('/') ? path : `${path}\/`;
 
 return ['form', {
@@ -389,8 +388,8 @@ return ['form', {
         window.location.href = `${formattedPath}${name}`;
     }
 },
-    ['input', { id: 'heading', placeholder: 'Enter new heading' }],
-    ['button', { type: 'submit' }, 'Create'],
+    ['input', { id: 'heading', placeholder: placeholder || 'Enter new heading' }],
+    ['button', { type: 'submit' }, label || 'Create'],
 ];
 ```
 

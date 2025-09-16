@@ -112,7 +112,7 @@ export function extractCode (file, library = {}) {
 		if (innerCode[0] === '{') {
 			string = `\nexport const ${formattedName} = stew(${innerCode});`;
 		} else {
-			string = `\nexport function ${formattedName} () {\n\t${innerCode.replace(/[\r\n](?=[^\r\n])/g, m => `${m}\t`) || ''}\n}`;
+			string = `\nexport function ${formattedName} () {\n    ${innerCode.replace(/[\r\n](?=[^\r\n])/g, m => `${m}    `) || ''}\n}`;
 		}
 
 		if (type === 'h2') {
