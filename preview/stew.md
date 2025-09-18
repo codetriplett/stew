@@ -51,7 +51,7 @@ return [Greeting, { place: 'World' }, // +
 
 ```
 
-Functions can be used as the node type to create dynamic and reusable layouts. The properties and children will be passed directly to the function for processing. It will also automatically update its layout when any of the values it reads from state objects have changed.
+Functions can be used as the node type to create dynamic and reusable layouts. The properties and children will be passed directly to the function for processing. It will also automatically update its layout when any of the values it reads from state objects have changed. If you have elements that shift their order between renders, include a unique key on the '' prop for each of them. This helps optimize how the layout reconciles the differences.
 
 ## States
 
@@ -202,6 +202,16 @@ return [App] // +
 
 Code can be scheduled to run once the layout has rendered by putting its function after the dependencies array intead of as the first parameter. This is where you would put code that sets up other functionality on your page, but doesn't directly modify your layout. If you return a function, it will be called right before your setup function runs again, or when your component is removed from the layout. Avoid updating state values in effects, since it can lead to endless render loops if not done carefully.
 
+## Widgets
+
+The same custom formatters you've set up to work within your markdown notes can be embedded into these layouts as well. To do so, include an object with its '' prop set to the name of the formatter you wish to use. You will only be able to pass in props here, unlike in markdown, where it will also receive the preformatted text.
+
+```demo
+return ['h1', { className: 'greeting' }, // +
+	{ '': 'capitalize', all: true, text: 'Hello, World!' }, // +
+]; // +
+```
+
 ## Data
 
 The same code block used to render a custom layout for your note will also be used to wrap the layouts of child notes. An export can be set above your main heading to define additional fields for the child notes to pass in as props, along with their note content. These are read from the arguments variable, preferably at the top of your code block.
@@ -276,7 +286,7 @@ Arrays of values can be defined by setting a range in the first definition of th
 }
 ```
 
-# Styles
+## Styles
 
 CSS is used to style the HTML on your page, and can be set after your field definitions in the export block above your main heading.
 

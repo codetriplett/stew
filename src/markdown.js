@@ -34,10 +34,39 @@ function parseNode (string) {
 	const props = rest.length ? {} : null;
 
 	for (const string of rest) {
-		const [name, value] = string.split(/['"]|\s*=\s*['"]?/);
+		let [name, quote, value] = string.split(/\s*=\s*(['"]?)|['"]/);
+
+		if (!quote) {
+			switch (value) {
+				case 'undefined': {
+					value = undefined;
+					break;
+				}
+				case 'null': {
+					value = null;
+					break;
+				}
+				case undefined:
+				case 'true': {
+					value = true;
+					break;
+				}
+				case 'false': {
+					value = false;
+					break;
+				}
+				default: {
+					if (value && !isNaN(value)) {
+						value = Number(value);
+					}
+
+					break;
+				}
+			}
+		}
 
 		if (name !== 'style' && name !== 'dataset') {
-			props[name] = value ?? true;
+			props[name] = value;
 			continue;
 		} else if (!value) {
 			continue;
@@ -201,16 +230,6 @@ export function parseInline (string, stack, links, emoji) {
 	return string;
 }
 
-function resolveTabs (string) {
-	let extra = 0;
-
-	return string.replaceAll('\t', (m, index) => {
-		const width = 4 - ((index + extra) % 4);
-		extra += width - 1;
-		return ' '.repeat(width);
-	});
-}
-
 function parseNesting (string, stack, containers, oldlines) {
 	const symbols = string.match(/((?:`+.*$|\s+|>|\S+(?:\s{0,4}(?!\s)|\s)))+?/g) || [];
 	const nodes = [];
@@ -351,7 +370,13 @@ export default function parse (content, rootPath = '', library = stack[0]?.[4] |
 	let alignments, reference;
 
 	for (let line of lines) {
-		line = resolveTabs(line);
+		let extra = 0;
+
+		line = line.replaceAll('\t', (m, index) => {
+			const width = 4 - ((index + extra) % 4);
+			extra += width - 1;
+			return ' '.repeat(width);
+		});
 
 		if (!/\S/.test(line)) {
 			newlines += newlines < 0 ? 2 : 1;

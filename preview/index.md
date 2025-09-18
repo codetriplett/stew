@@ -21,13 +21,11 @@
     display: flex;
     gap: 16px;
 
-    > div:first-child {
+    > pre {
         flex: 3 1 0;
         overflow-x: auto;
-        font-family: monospace;
-        white-space: pre;
     }
-    > div:last-child {
+    > div {
         flex: 2 1 0;
         overflow-x: auto;
         padding: 16px;
@@ -283,7 +281,7 @@ return ['div', { className: 'flex-links' },
     ],
     ['div', null,
         ['a', { href: '/stew' }, 'Stew'],
-        ['p', null, 'Customized and interactive layouts'],
+        ['p', null, 'Customized, interactive layouts'],
     ],
     ['div', null,
         ['a', { href: '/webgl' }, 'WebGL'],
@@ -321,28 +319,33 @@ It is also what is shown at the top of the home page for the journal note of the
 ## Capitalize
 
 ```export
-const [flags, code] = arguments;
-const { all } = flags;
-return ['p', null, all ? code.toUpperCase() : `${code[0].toUpperCase()}${code.slice(1)}`];
+const [props, content] = arguments;
+const { text = content, repeat = 1, separator = '', all } = props;
+const result = all ? text.toUpperCase() : `${text[0].toUpperCase()}${text.slice(1)}`;
+
+return ['p', null,
+    Array(repeat).fill(result).join(separator),
+];
 ```
 
 ## Render
 
 ```export
-const [flags, code] = arguments;
-return new Function(code);
+const [props, content] = arguments;
+return new Function(content);
 ```
 
 ## Demo
 
 ```export
-const [{ markdown, form }, code] = arguments;
+const [props, content] = arguments;
+const { markdown, form } = props;
 let result, output;
 
 if (markdown) {
-    result = stew(code, ['/']);
+    result = stew(content, ['/']);
 } else if (form) {
-    const schema = new Function(`return ${code}`)();
+    const schema = new Function(`return ${content}`)();
     output = ['', null, ['pre', null, '{}']];
 
     result = renderForm(schema, data => {
@@ -350,10 +353,10 @@ if (markdown) {
         pre.innerHTML = JSON.stringify(data, null, 4);
     });
 } else {
-    result = new Function(code);
+    result = new Function(content);
 }
 
-const lines = markdown ? [code] : code.split(/\r\n|\r|\n/).map(line => {
+const lines = markdown ? [content] : content.split(/\r\n|\r|\n/).map(line => {
     const [, text, comment] = line.match(/^(.*?)(?:\s*\/\/\s*([+-]))?\s*$/);
 
     return ['div', {
@@ -362,7 +365,7 @@ const lines = markdown ? [code] : code.split(/\r\n|\r|\n/).map(line => {
 });
 
 return ['div', { className: 'stew-demo' },
-    ['div', null, ...lines],
+    ['pre', null, ...lines],
     ['div', null, result, output],
 ];
 ```

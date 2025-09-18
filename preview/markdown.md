@@ -139,9 +139,17 @@ Notes can be embedded by placing `>` symbols before each line. These can contain
 > - List item
 ```
 
+## HTML
+
+HTML tags are only partially supported at this stage. The angle brackets for each tag must exist on the same line, and their content is taken as-is instead of being processed as markdown. These limitations will be fixed in a future update.
+
+```demo markdown
+<b>Inner text</b>
+```
+
 ## Preformatted Text
 
-Text can be displayed with monospaced font by indenting it with a tab, four spaces, or by wrapping it in three `` ` `` symbols. More `` ` `` symbols can be used to wrap the text if the content inside also has a string of three or more of those symbols.
+Text can be displayed as-is and with monospaced font by indenting it by 1 tab (4 spaces), or by wrapping it in three or more `` ` `` symbols.
 
 `````demo markdown
     Indented text
@@ -149,30 +157,16 @@ Text can be displayed with monospaced font by indenting it with a tab, four spac
 ```
 Wrapped text
 ```
-
-````
-```
-Wrapped text with backticks to display
-```
-````
 `````
 
-The content inside will not be formatted according the usual markdown rules, but you can include your own custom formatter. The `export` formatter is the only reserved one, and it is what allows for embedding code in your notes. Custom formatters are found in [index](/index), where you can set your own or modify the existing ones. Any text after the formatter name that is sepeparted by spaces will set a flag of that name to true, all of which will be passed as props to the custom formatter. Whatever is returned will replace the preformatted block, and it can include interactive [stew](/stew) layouts.
+Custom formatters can be used to completely customize the output. The `export` formatter is the only reserved one, and it is what allows for embedding code in your notes. Custom formatters are found in [index](/index), where you can set your own or modify the existing ones. Props can be included after the formatter name. Any props not wrapped in quotes will be converted to their appropriate non-string type, where possible.
 
 ````demo markdown
 ```capitalize
 lowercase text
 ```
 
-```capitalize all
+```capitalize repeat=2 separator=", " all
 lowercase text
 ```
 ````
-
-## HTML
-
-HTML tags are only partially supported at this stage. The angle brackets for each tag must exist on the same line, and their content is taken as-is instead of being processed as markdown. It also doesn't support attributes. These limitations will be fixed in a future update.
-
-```demo markdown
-<b>Inner text</b>
-```

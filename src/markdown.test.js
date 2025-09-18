@@ -701,10 +701,10 @@ describe('parse', () => {
 				return onlyFirst ? `${code[0].toUpperCase()}${code.slice(1)}` : code.toUpperCase();
 			}
 
-			const actual = parse('```capitalize delimiter="-" onlyFirst\nabc\n```', '/', { capitalize });
+			const actual = parse('```capitalize undefined=undefined null=null false=false true=true number=123 string=abc attribute="789" boolean\nabc\n```', '/', { capitalize });
 
 			expect(actual).toEqual(['', null,
-				[capitalize, { delimiter: '-', onlyFirst: true }, 'abc'],
+				[capitalize, { undefined: undefined, null: null, false: false, true: true, number: 123, string: 'abc', attribute: '789', boolean: true }, 'abc'],
 			]);
 		});
 		
