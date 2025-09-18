@@ -41,8 +41,8 @@ async function save (path, formRef, textareaRef, library, isCommit, skipReload) 
 	}
 
 	await Promise.all([
-		putFile(`${path}.md`, file, isCommit),
-		code && putFile(`${path}.mjs`, code, isCommit),
+		putFile(`${path}.md`, file || '', isCommit),
+		(code || !file) && putFile(`${path}.mjs`, code || '', isCommit),
 		putFile(`${path}.json`, Object.keys(data).length ? JSON.stringify(data) : '', isCommit),
 	]);
 
