@@ -4,6 +4,7 @@ export const queue = new Set();
 export const animations = new Map();
 
 const requestAnimationFrame = globalThis.requestAnimationFrame || setTimeout;
+let animationActive = false;
 
 function draw (timestamp) {
 	if (queue.size) {
@@ -49,6 +50,8 @@ function draw (timestamp) {
 
 	if (animations.size) {
 		requestAnimationFrame(draw);
+	} else {
+		animationActive = false;
 	}
 }
 
@@ -65,7 +68,10 @@ export function schedule (subscriptions) {
 		}
 	}
 
-	requestAnimationFrame(draw);
+	if (!animationActive) {
+		animationActive = true;
+		requestAnimationFrame(draw);
+	}
 }
 
 export default function createState (object) {

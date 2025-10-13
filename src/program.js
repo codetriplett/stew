@@ -194,34 +194,35 @@ export function parse (strings) {
 	return sequence;
 }
 
-// TODO: check that impulses can be used in canvas
-// - make sure new objects are added into the gl array in the same spot the previous ones were spliced out
-// - might need to use an empty object when no others were produced to reserve the spot
-// - maybe use that empty object as an anchor, similar to the empty text node used for the DOM
+function cleanProgram (gl, objects = []) {
+	const programs = getStored(animations, gl, () => [undefined, 0]);
+
+	for (const object of objects) {
+		const index = programs.indexOf(object);
+
+		if (index === -1) {
+			continue;
+		}
+
+		programs.splice(index, 1);
+		
+		if (programs.length < 3) {
+			animations.delete(gl);
+		}
+	}
+
+	return programs;
+}
+
 export function Program ({ gl }, ...objects) {
-	const programs = processMemo(() => {
-		const programs = getStored(animations, gl, () => [undefined, 0]);
+	processMemo(prevObjects => {
+		const programs = cleanProgram(gl, prevObjects);
 		programs.push(...objects);
 		schedule();
-		return programs;
-	}, [objects]);
+		return objects;
+	}, [gl, objects]);
 
-	processMemo(null, [objects], () => () => {
-		for (const object of objects) {
-			const index = programs.indexOf(object);
-
-			if (index === -1) {
-				continue;
-			}
-
-			programs.splice(index, 1);
-			
-			if (programs.length < 3) {
-				animations.delete(gl);
-			}
-		}
-	});
-
+	processMemo(null, [gl, objects], () => () => cleanProgram(gl, objects));
 	return ['', null, objects.map(({ label }) => label).join(', ')];
 }
 
@@ -327,8 +328,9 @@ export default function compile (strings, ...values) {
 							return createOtherSetter(gl, ...definition);
 						}
 
+						const type = definition[2];
 						const subtype = definition[3];
-						const setter = !subtype || subtype === 'TEXTURE' ? createUniformSetter : createAttributeSetter;
+						const setter = !subtype || type === 'sampler2D' ? createUniformSetter : createAttributeSetter;
 						return setter(gl, program, ...definition);
 					});
 				});
