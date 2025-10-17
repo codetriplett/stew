@@ -132,7 +132,7 @@ function cards ({ '': { scene }, staff, bias }, reference) {
 
 export function cosmicChord () {
 	const [camera, vertexes, normals, elements] = stew(() => {
-		const scale = [1 / 320, 0, 0, 0, 1 / 180, 0, 0, 0, 1 / 180];
+		const scale = [1 / 640, 0, 0, 0, 1 / 360, 0, 0, 0, 1 / 360];
 		const matrix = [1, 0, 0, 0, 1, 0, 0, 0, 1];
 		const camera = { scale, matrix, position: [0, 0, 0], angles: [-Math.PI / 6, Math.PI / 4, 0] };
 		const vertexes = new Int8Array([0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0]);
@@ -154,14 +154,15 @@ export function cosmicChord () {
 	}, []);
 
 	const scene = stew(async () => {
-		const [cards, keys, notes, palette] = await Promise.all([
+		const [cards, keys, notes, palette, reference] = await Promise.all([
 			loadSprites('/chord-cards.png', 15, 2),
 			loadSprites('/active-keys.png', 4, 7),
 			loadSprites('/active-notes.png', 6, 7),
 			loadSprites('/palette.png', 16, 16),
+			loadSprites('/reference.png', 1, 1, 5),
 		]);
 
-		return { cards, keys, notes, palette };
+		return { cards, keys, notes, palette, reference };
 	}, [], null);
 
 	if (!scene) {
@@ -169,41 +170,36 @@ export function cosmicChord () {
 	}
 
 	const referenceInstances = stew(() => {
-		const sprite = scene.palette[0][0];
-		const offset = [-0.5, -0.5, -0.5];
+		const sprite = scene.reference[0][0];
+		const offset = [-8, -8, -8];
 		
 		const group = {
-			matrix: [20, 0, 0, 0, 20, 0, 0, 0, 20],
+			// matrix: [20, 0, 0, 0, 20, 0, 0, 0, 20],
 			light: { shine: [0.75, 0.5, 0.25, 1] }
 		};
 
 		return [
 			{ sprite, group, offset, matrix: createRotation(0) },
-			{ sprite, group, offset, matrix: createRotation(Math.PI / 2) },
-			{ sprite, group, offset, matrix: createRotation(Math.PI) },
-			{ sprite, group, offset, matrix: createRotation(-Math.PI / 2) },
-			{ sprite, group, offset, matrix: createTilt(Math.PI / 2) },
-			{ sprite, group, offset, matrix: createTilt(-Math.PI / 2) },
 		];
 	}, []);
 
 	// TODO: move this to its own impulse
 	const uiInstances = stew(() => {
 		const sprite = scene.palette[0][0];
-		const group = { matrix: [30, 0, 0, 0, 30, 0, 0, 0, 30] };
+		const group = {};
 
 		return [
-			{ sprite, group, offset: [0, -1, 0], position: [-312, 172, 0] },
-			{ sprite, group, offset: [-1, -1, 0], position: [312, 172, 0] },
-			{ sprite, group, offset: [0, 0, 0], position: [-312, -172, 0] },
-			{ sprite, group, offset: [-1, 0, 0], position: [312, -172, 0] },
+			{ sprite, group, offset: [0, 0, 0], position: [-320, 179, 0] },
+			{ sprite, group, offset: [0, 0, 0], position: [319, 179, 0] },
+			{ sprite, group, offset: [0, 0, 0], position: [-320, -180, 0] },
+			{ sprite, group, offset: [0, 0, 0], position: [319, -180, 0] },
 		];
 	}, []);
 
 	const record = new Set();
 
 	return ['', { scene, camera, vertexes, normals, elements, record },
-		['canvas', { width: 640, height: 360 }, stew`
+		['canvas', { width: 1280, height: 720 }, stew`
 			${gl => {
 				gl.clearColor(0.0, 0.0, 0.0, 1.0);
 				gl.clear(gl.COLOR_BUFFER_BIT);
@@ -214,13 +210,14 @@ export function cosmicChord () {
 				gl.depthFunc(gl.LESS);
 				gl.enable(gl.BLEND);
 				gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+				gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
 				record.clear();
 				return 16;
 			}}
 		`,
 			[cards, null, referenceInstances[0].group],
 			[shader, null, ...referenceInstances],
-			[shader, { reference: camera }, ...uiInstances],
+			// [shader, { reference: camera }, ...uiInstances],
 		],
 	];
 }

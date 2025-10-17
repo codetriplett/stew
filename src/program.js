@@ -20,15 +20,32 @@ function getStored (map, key, callback) {
 function createAttributeSetter (gl, program, subname, name, type, subtype) {
 	const location = gl.getAttribLocation(program, name);
 	const buffer = gl.createBuffer();
+	let isInt, size;
 	
-	if (!/^vec[2-4]$/.test(type)) {
+	if (/^u?int$/.test(type)) {
+		isInt = true;
+		size = 1;
+	} else if (type === 'float') {
+		size = 1;
+	} else if (/^[ui]vec[2-4]$/.test(type)) {
+		isInt = true;
+		size = type[4];
+	} else if (/^vec[2-4]$/.test(type)) {
+		size = type[3];
+	} else {
 		console.error('Invalid attribute type: ', type);
 	}
 
 	return value => {
 		gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
 		gl.bufferData(gl.ARRAY_BUFFER, subname ? value[subname] : value, gl.STATIC_DRAW);
-		gl.vertexAttribPointer(location, type[3], gl[subtype], false, 0, 0);
+
+		if (isInt) {
+			gl.vertexAttribIPointer(location, size, gl[subtype], 0, 0);
+		} else {
+			gl.vertexAttribPointer(location, size, gl[subtype], false, 0, 0);
+		}
+
 		gl.enableVertexAttribArray(location);
 	};
 }
@@ -109,7 +126,7 @@ export function createShader (gl, index, stack, varyings = []) {
 	const type = shaderTypes[index];
 	const allCode = [];
 	const allVars = [];
-	let headerCode = [];
+	const headerCode = index ? ['out vec4 gl2_FragColor;'] : [];
 
 	for (const pair of stack) {
 		const [, code, ...vars] = pair[index];
@@ -119,34 +136,39 @@ export function createShader (gl, index, stack, varyings = []) {
 
 	if (allCode.length === 0) {
 		allCode.push(index
-			? 'gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);'
+			? 'gl2_FragColor = vec4(1.0, 1.0, 1.0, 1.0);'
 			: 'gl_Position = vec4(0.0, 0.0, 0.0, 1.0);\ngl_PointSize = 16.0;'
 		);
-	} else if (allCode[0].startsWith('precision ')) {
+	}
+	
+	if (allCode[0].startsWith('precision ')) {
 		headerCode.unshift(allCode.shift());
 	} else if (index) {
 		headerCode.unshift('precision mediump float;');
 	}
 
+	const varyingType = index ? 'in' : 'out';
+	headerCode.unshift('#version 300 es');
+
 	const processedCode = allCode.map(line => {
 		const match = line.match(/^\*\s*(\S+)\s+(\S+)(\s*=\s*.*)$/);
 
 		if (!match) {
-			return line;
+			return line.replace(/^\s*gl_FragColor\s*=/, 'gl2_FragColor =');
 		}
 
 		const [, type, name, remainder] = match;
-		varyings.push(`varying ${type} ${name};`);
+		varyings.push(`${type} ${name};`);
 		return `${name}${remainder}`;
 	});
 
 	const code = [
 		...headerCode,
 		...allVars.map(([, name, type, subtype]) => {
-			const category = !subtype || type === 'sampler2D' ? 'uniform' : 'attribute';
+			const category = !subtype || type === 'sampler2D' ? 'uniform' : 'in';
 			return `${category} ${type} ${name};`;
 		}),
-		...varyings,
+		...varyings.map(varying => `${varyingType} ${varying}`),
 		'void main() {', ...processedCode, '}',
 	].join('\n');
 
@@ -194,10 +216,10 @@ export function parse (strings) {
 	return sequence;
 }
 
-function cleanProgram (gl, objects = []) {
+function updateProgram (gl, prevObjects = [], objects = []) {
 	const programs = getStored(animations, gl, () => [undefined, 0]);
 
-	for (const object of objects) {
+	for (const object of prevObjects) {
 		const index = programs.indexOf(object);
 
 		if (index === -1) {
@@ -205,24 +227,23 @@ function cleanProgram (gl, objects = []) {
 		}
 
 		programs.splice(index, 1);
-		
-		if (programs.length < 3) {
-			animations.delete(gl);
-		}
 	}
 
-	return programs;
+	programs.push(...objects);
+
+	if (programs.length < 3) {
+		animations.delete(gl);
+	}
 }
 
 export function Program ({ gl }, ...objects) {
 	processMemo(prevObjects => {
-		const programs = cleanProgram(gl, prevObjects);
-		programs.push(...objects);
+		updateProgram(gl, prevObjects, objects);
 		schedule();
 		return objects;
 	}, [gl, objects]);
 
-	processMemo(null, [gl, objects], () => () => cleanProgram(gl, objects));
+	processMemo(null, [gl, objects], () => () => updateProgram(gl, objects));
 	return ['', null, objects.map(({ label }) => label).join(', ')];
 }
 
@@ -235,7 +256,7 @@ export default function compile (strings, ...values) {
 	const [vertexInfo, ...fragmentInfos] = sequence;
 
 	return (canvas, parentMap, ...stack) => {
-		const gl = canvas.getContext('webgl');
+		const gl = canvas.getContext('webgl2');
 		const isRoot = !parentMap;
 
 		if (isRoot) {

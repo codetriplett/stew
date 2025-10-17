@@ -79,7 +79,13 @@ export function processMemo (callback, ...rest) {
 
 	if (rest.length > 1 && value instanceof Promise) {
 		// if it is async
-		value.catch(() => fallback ?? intermediate).then(value => {
+		value.catch(err => {
+			if (rest.length > 2) {
+				return fallback;
+			}
+
+			throw err;
+		}).then(value => {
 			memo[0] = value;
 
 			if (impulse) {

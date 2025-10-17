@@ -109,7 +109,7 @@ return [Greeting, {}, // +
 
 ```
 
-Custom values can be reused between renders by passing a function to the stew function, along with an array of its dependencies. This function is only called the first time your component runs, or if any of the values in the second parameter have changed. If your function returns an async value, you can provide a fallback value to use in the meantime. The component will update once the async value has finished resolving. Another value can be provided to use in cases where the async action fails.
+Custom values can be reused between renders by passing a function to the stew function, along with an array of its dependencies. This function is only called the first time your component runs, or if any of the values in the second parameter have changed. If your function returns an async value, you can provide an intermediate value to use in the meantime. The component will update once the async value has finished resolving. Another value can be provided to use in cases where the async action fails.
 
 ```demo
 const state = stew({ time: 'now', latitude: 0, longitude: 0 }) // +
