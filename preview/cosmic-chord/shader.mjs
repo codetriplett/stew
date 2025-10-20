@@ -105,38 +105,47 @@ export default function shader ({ '': context, points, colors, reference }, ...i
 			}
 		}
 	};
+	
+	// TEXTURE0 usampler2D uImage ${image}
+	// *vec4 pixel = texture(uImage, (vec2(aPoint.xy) + uSpriteCoordinates + 0.5) * uSpriteScale);
 
-	const children = [...sprites].map(([{ image, width, range, scale, offset, points }, instances]) => stew`
-		int uWidth ${width}
-		float uRange ${range}
-		mat2 uSpriteScale ${scale}
-		vec2 uSpriteOffset ${offset}
-		UNSIGNED_BYTE uvec4 aPoint ${points}
-		TEXTURE0 sampler2D uImage ${image}
-		${instances.map(({ group = {}, position, offset, matrix }) => {
-			const child = stew`
-				mat3 uGroupMatrix ${group.matrix || identityMatrix}
-				vec3 uGroupPosition ${group.position || identityPosition}
-				vec3 uGroupOffset ${group.offset || identityPosition}
-				mat3 uMatrix ${matrix || identityMatrix}
-				vec3 uPosition ${position || identityPosition}
-				vec3 uOffset ${offset || identityPosition}
-				${gl => gl.drawArrays(gl.POINTS, 0, points.length >> 2)}
-				vec4 uIntensity = vec4(1.0, 1.0, 1.0, 1.0);
-				gl_FragColor = vec4(pixel.xyz, 1.0);
-			`;
+	const children = [...sprites].map(([{ offset, smoothing = 0, front, back }, instances]) => stew`
+		vec3 uSpriteOffset ${offset}
+		${[front, back].map(({ points, colors }, i) => stew`
+			UNSIGNED_BYTE uvec4 aPoint ${points}
+			UNSIGNED_BYTE uvec3 aColor ${colors}
+			*vec3 color = vec3(aColor) / 255.0;
+			int uNormalZ ${i ? 2 : -2}
+			${instances.map(({ group = {}, position, offset, scale, matrix }) => {
+				const child = stew`
+					mat3 uGroupScale ${group.scale || identityMatrix}
+					mat3 uGroupMatrix ${group.matrix || identityMatrix}
+					vec3 uGroupPosition ${group.position || identityPosition}
+					vec3 uGroupOffset ${group.offset || identityPosition}
+					mat3 uScale ${scale || identityMatrix}
+					mat3 uMatrix ${matrix || identityMatrix}
+					vec3 uPosition ${position || identityPosition}
+					vec3 uOffset ${offset || identityPosition}
+					float uPointSize ${(2 + smoothing) * (scale ? Math.max(...scale) : 1) * (group.scale ? Math.max(...group.scale) : 1)}
+					float uPointOffset ${(smoothing % 2) * 0.5}
+					${gl => gl.drawArrays(gl.POINTS, 0, points.length >> 2)}
+					vec4 uIntensity = vec4(1.0, 1.0, 1.0, 1.0);
+					gl_FragColor = vec4(color, 1.0);
+				`;
 
-			const { light = {} } = group;
+				const { light = {} } = group;
 
-			return reference ? child : stew`
-				//
-				${[child]}
-				mat3 uLightPosition ${light.position || identityMatrix}
-				vec4 uLightShine ${light.shine || [1, 1, 1, 1]}
-				vec4 uLightShade ${light.shade || [0.5, 0.5, 0.5, 1]}
-				uIntensity = uLightShine;
-			`;
-		})}
+				return reference ? child : stew`
+					//
+					${[child]}
+					mat3 uLightPosition ${light.position || identityMatrix}
+					vec4 uLightShine ${light.shine || [1, 1, 1, 1]}
+					vec4 uLightShade ${light.shade || [0.5, 0.5, 0.5, 1]}
+					uIntensity = uLightShine;
+				`;
+			})}
+			int uNormalZ ${i ? 2 : -2}
+		`)}
 		//
 	`);
 
@@ -144,28 +153,29 @@ export default function shader ({ '': context, points, colors, reference }, ...i
 		elements ${elements}
 		mat3 uCameraScale ${camera.scale}
 		*vec3 vNormal = normalize(vec3(int(aPoint.w) / 16, int(aPoint.w) % 16, 8));
-		vec3 vertex = vec3(aPoint.xy, int(aPoint.z) - 128);
-		*vec4 pixel = texture(uImage, (vertex.xy + uSpriteOffset + 0.5) * uSpriteScale);
-		gl_PointSize = 3.0; // also multiply by group, and instance scale matrixes
+		vec3 vertex = vec3(aPoint.xyz) + uSpriteOffset;
+		gl_PointSize = uPointSize;
 		${children}
 		//
 	`;
 
 	// TODO: use normal to add shade
-	// - normals are only needed when there is no reference, all others are UI-based, which lighting doesn't apply
-	// - 
+	// - x and y normals are pack into single byte, and range from -8 to 7
+	// - these are angles in (Math.PI / 7) increments away from z axis
+	// - have light give intensity as well as color that fades with distance
+	// - -8 is reserved for glow effect, where color isn't dimmed if facing away from light source
 
 	return !reference ? stew`
 		vec3 uCameraPosition ${camera.position}
 		mat3 uCameraMatrix ${camera.matrix}
 		vec3 position = uCameraMatrix * (uGroupMatrix * (uMatrix * (vertex + uOffset) + uGroupOffset) + uGroupPosition + uPosition) + uCameraPosition;
-		gl_Position = vec4(uCameraScale * (floor(position * 2.0) + 0.5), 1.0);
+		gl_Position = vec4(uCameraScale * (floor(position * 2.0) + uPointOffset), 1.0);
 		${update}
 		${[common]}
 		//
 	` : reference === camera ? stew`
 		vec3 position = uGroupMatrix * (uMatrix * (vertex + uOffset) + uGroupOffset) + uGroupPosition + uPosition;
-		gl_Position = vec4(uCameraScale * (floor(position * 2.0 + 1.0) + 0.5), 1.0);
+		gl_Position = vec4(uCameraScale * (floor(position * 2.0) + uPointOffset), 1.0);
 		${update}
 		${[common]}
 		//
@@ -176,90 +186,9 @@ export default function shader ({ '': context, points, colors, reference }, ...i
 		vec3 uReferencePosition ${reference.position || identityPosition}
 		vec3 uReferenceOffset ${reference.offset || identityPosition}
 		vec3 position = uCameraMatrix * uReferenceMatrix * (uReferencePosition + uReferenceOffset) + (uGroupMatrix * (uMatrix * (vertex + uOffset) + uGroupOffset) + uGroupPosition + uPosition) + uCameraPosition;
-		gl_Position = vec4(uCameraScale * (floor(position * 2.0) + 0.5), 1.0);
+		gl_Position = vec4(uCameraScale * (floor(position * 2.0) + uPointOffset), 1.0);
 		${update}
 		${[common]}
 		//
 	`;
-
-	// const children = [...sprites].map(([{ image, scale, coordinates }, instances]) => stew`
-	// 	mat3 uScale ${scale}
-	// 	FLOAT vec2 aCoordinate ${coordinates}
-	// 	*vec2 vCoordinate = aCoordinate;
-	// 	${instances.map(({ group = {}, position, offset, matrix }) => {
-	// 		const child = stew`
-	// 			mat3 uGroupMatrix ${group.matrix || identityMatrix}
-	// 			vec3 uGroupPosition ${group.position || identityPosition}
-	// 			vec3 uGroupOffset ${group.offset || identityPosition}
-	// 			mat3 uMatrix ${matrix || identityMatrix}
-	// 			vec3 uPosition ${position || identityPosition}
-	// 			vec3 uOffset ${offset || identityPosition}
-	// 			${gl => gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0)}
-	// 			vec4 uIntensity = vec4(1, 1, 1, 1);
-	// 		`;
-
-	// 		const { light = {} } = group;
-
-	// 		return reference ? child : stew`
-	// 			//
-	// 			${[child]}
-	// 			mat3 uLightPosition ${light.position || identityMatrix}
-	// 			vec4 uLightShine ${light.shine || [1, 1, 1, 1]}
-	// 			vec4 uLightShade ${light.shade || [0.5, 0.5, 0.5, 1]}
-	// 			uIntensity = uLightShine;
-	// 		`;
-	// 	})}
-	// 	TEXTURE0 sampler2D uImage ${image}
-	// `);
-
-	// // have spry sculptures use this same shader
-	// // - they will use custom vertexes and normals instead of the defaults
-	// // - maybe use the sculpture image as the texture image as well and have fragment shader find the index to read from palette that is also passed in
-	// // - model should skip coordinates attribute array and instead calculate vCoordinate from x and y value
-	// //   - separate the common, non-coordinate parts of children shader above simliar to how common was separated below
-
-	// const common = stew`
-	// 	BYTE vec3 aVertex ${vertexes}
-	// 	elements ${elements}
-	// 	mat3 uCameraScale ${camera.scale}
-	// 	${children}
-	// 	vec4 pixel = texture2D(uImage, vCoordinate);
-	// 	gl_FragColor = vec4(pixel * uIntensity);
-	// `;
-
-	// // TODO: use normal to add shade
-	// // - normals are only needed when there is no reference, all others are UI-based, which lighting doesn't apply
-	// // - 
-
-	// return !reference ? stew`
-	// 	BYTE vec3 aNormal ${normals}
-	// 	vec3 uCameraPosition ${camera.position}
-	// 	mat3 uCameraMatrix ${camera.matrix}
-	// 	float facing = dot(vec3(0.0, 0.0, 1.0) * uCameraMatrix * uGroupMatrix * uMatrix, normalize(aNormal));
-	// 	if (facing < -0.25) {
-	// 		return;
-	// 	}
-	// 	vec3 position = uCameraScale * floor(uCameraMatrix * (uGroupMatrix * (uMatrix * (uScale * aVertex + uOffset) + uGroupOffset) + uGroupPosition + uPosition) + uCameraPosition);
-	// 	gl_Position = vec4(position, 1.0);
-	// 	${update}
-	// 	${[common]}
-	// 	//
-	// ` : reference === camera ? stew`
-	// 	vec3 position = uCameraScale * floor(uGroupMatrix * (uMatrix * (uScale * aVertex + uOffset) + uGroupOffset) + uGroupPosition + uPosition);
-	// 	gl_Position = vec4(position, 1.0);
-	// 	${update}
-	// 	${[common]}
-	// 	//
-	// ` : stew`
-	// 	mat3 uCameraMatrix ${camera.matrix}
-	// 	vec3 uCameraPosition ${camera.position}
-	// 	mat3 uReferenceMatrix ${reference.matrix || identityMatrix}
-	// 	vec3 uReferencePosition ${reference.position || identityPosition}
-	// 	vec3 uReferenceOffset ${reference.offset || identityPosition}
-	// 	vec3 position = uCameraScale * floor(uCameraMatrix * uReferenceMatrix * (uReferencePosition + uReferenceOffset) + (uGroupMatrix * (uMatrix * (uScale * aVertex + uOffset) + uGroupOffset) + uGroupPosition + uPosition) + uCameraPosition);
-	// 	gl_Position = vec4(position, 1.0);
-	// 	${update}
-	// 	${[common]}
-	// 	//
-	// `;
 }

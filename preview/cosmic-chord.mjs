@@ -60,9 +60,9 @@ function cards ({ '': { scene }, staff, bias }, reference) {
 
 		return scales.map((scale, i) => {
 			let group = prevCards?.[i]?.group;
-			
+
 			if (!group) {
-				const position = [80 * (i - 1) - 25, i === 1 ? 50 : -50, 0];
+				const position = [80 * (i - 1), i === 1 ? 80 : -20, 0];
 
 				group = {
 					position,
@@ -111,14 +111,14 @@ function cards ({ '': { scene }, staff, bias }, reference) {
 				if (noteY >= 0 && noteY <= 24) {
 					const noteColumn = (position >= 0 ? 2 : inferredBias < 0 ? 0 : 4) + (placement % 2 ? 0 : 1);
 					const sprite = scene.notes[row][noteColumn];
-					const instance = { sprite, group, position: [28, noteY + 7, -1 - i], matrix: [1, 0, 0, 0, 1, 0, 0, 0, 1] };
+					const instance = { sprite, group, position: [12, noteY - 20.5, -1 - i], matrix: [1, 0, 0, 0, 1, 0, 0, 0, 1] };
 					decorations.push(instance);
 				}
 
 				if (keyX >= 0 && keyX <= 40) {
 					const keyColumn = position < 0 ? 3 : [0, 1, 2, 0, 1, 1, 2][position % 7];
 					const sprite = scene.keys[row][keyColumn];
-					const instance = { sprite, group, position: [keyX + 3, 48, -1], matrix: [1, 0, 0, 0, 1, 0, 0, 0, 1] };
+					const instance = { sprite, group, position: [keyX - 20, 18, -1], matrix: [1, 0, 0, 0, 1, 0, 0, 0, 1] };
 					decorations.push(instance);
 				}
 			}
@@ -159,7 +159,7 @@ export function cosmicChord () {
 			loadSprites('/active-keys.png', 4, 7),
 			loadSprites('/active-notes.png', 6, 7),
 			loadSprites('/palette.png', 16, 16),
-			loadSprites('/reference.png', 1, 1, 5),
+			loadSprites('/reference.png', 1, 1, 5.5),
 		]);
 
 		return { cards, keys, notes, palette, reference };
@@ -171,7 +171,6 @@ export function cosmicChord () {
 
 	const referenceInstances = stew(() => {
 		const sprite = scene.reference[0][0];
-		const offset = [-8, -8, -8];
 		
 		const group = {
 			// matrix: [20, 0, 0, 0, 20, 0, 0, 0, 20],
@@ -179,22 +178,21 @@ export function cosmicChord () {
 		};
 
 		return [
-			{ sprite, group, offset, matrix: createRotation(0) },
+			{ sprite, group, matrix: createRotation(0) },
 		];
 	}, []);
 
 	// TODO: move this to its own impulse
-	const uiInstances = stew(() => {
-		const sprite = scene.palette[0][0];
-		const group = {};
+	// const uiInstances = stew(() => {
+	// 	const sprite = scene.notes[0][0];
+	// 	const group = {};
 
-		return [
-			{ sprite, group, offset: [0, 0, 0], position: [-320, 179, 0] },
-			{ sprite, group, offset: [0, 0, 0], position: [319, 179, 0] },
-			{ sprite, group, offset: [0, 0, 0], position: [-320, -180, 0] },
-			{ sprite, group, offset: [0, 0, 0], position: [319, -180, 0] },
-		];
-	}, []);
+	// 	return [
+	// 		{ sprite: scene.cards[0][7], group, position: [0, 0, 0] },
+	// 		{ sprite, group, position: [0, 0, -1] },
+	// 		{ sprite, group, position: [0, 6, -1] },
+	// 	];
+	// }, []);
 
 	const record = new Set();
 
@@ -208,16 +206,19 @@ export function cosmicChord () {
 				gl.cullFace(gl.BACK);
 				gl.enable(gl.DEPTH_TEST);
 				gl.depthFunc(gl.LESS);
-				gl.enable(gl.BLEND);
-				gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-				gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+				// gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
 				record.clear();
-				return 16;
 			}}
 		`,
 			[cards, null, referenceInstances[0].group],
 			[shader, null, ...referenceInstances],
+		stew`
+			${gl => {
+				gl.clear(gl.DEPTH_BUFFER_BIT);
+			}}
+		`,
 			// [shader, { reference: camera }, ...uiInstances],
+			stew`${gl => 16}`,
 		],
 	];
 }

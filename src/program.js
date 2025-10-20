@@ -168,7 +168,7 @@ export function createShader (gl, index, stack, varyings = []) {
 			const category = !subtype || type === 'sampler2D' ? 'uniform' : 'in';
 			return `${category} ${type} ${name};`;
 		}),
-		...varyings.map(varying => `${varyingType} ${varying}`),
+		...varyings.map(varying => `${/^\s*(u?int|[iu]vec\d)\s+/.test(varying) ? 'flat ' : ''}${varyingType} ${varying}`),
 		'void main() {', ...processedCode, '}',
 	].join('\n');
 
