@@ -115,7 +115,7 @@ export default function shader ({ '': context, points, colors, reference }, ...i
 			UNSIGNED_BYTE uvec4 aPoint ${points}
 			UNSIGNED_BYTE uvec3 aColor ${colors}
 			*vec3 color = vec3(aColor) / 255.0;
-			int uNormalZ ${i ? 2 : -2}
+			int uNormalZ ${i ? -8 : 8}
 			${instances.map(({ group = {}, position, offset, scale, matrix }) => {
 				const child = stew`
 					mat3 uGroupScale ${group.scale || identityMatrix}
@@ -129,8 +129,7 @@ export default function shader ({ '': context, points, colors, reference }, ...i
 					float uPointSize ${(2 + smoothing) * (scale ? Math.max(...scale) : 1) * (group.scale ? Math.max(...group.scale) : 1)}
 					float uPointOffset ${(smoothing % 2) * 0.5}
 					${gl => gl.drawArrays(gl.POINTS, 0, points.length >> 2)}
-					vec4 uIntensity = vec4(1.0, 1.0, 1.0, 1.0);
-					gl_FragColor = vec4(color, 1.0);
+					gl_FragColor = vec4(color * vIntensity, 1.0);
 				`;
 
 				const { light = {} } = group;
@@ -141,18 +140,20 @@ export default function shader ({ '': context, points, colors, reference }, ...i
 					mat3 uLightPosition ${light.position || identityMatrix}
 					vec4 uLightShine ${light.shine || [1, 1, 1, 1]}
 					vec4 uLightShade ${light.shade || [0.5, 0.5, 0.5, 1]}
-					uIntensity = uLightShine;
 				`;
 			})}
-			int uNormalZ ${i ? 2 : -2}
+			//
 		`)}
 		//
 	`);
 
+	// TODO: add facing check to each point to see if it should even be rendered (dot product with camera vector)
 	const common = stew`
 		elements ${elements}
 		mat3 uCameraScale ${camera.scale}
-		*vec3 vNormal = normalize(vec3(int(aPoint.w) / 16, int(aPoint.w) % 16, 8));
+		// TODO: have x and y normal pass through pow(abs(x), 2), then apply sign back
+		vec3 vNormal = normalize(vec3((int(aPoint.w) / 16) - 8, (int(aPoint.w) % 16) - 8, uNormalZ));
+		*float vIntensity = 0.5 + dot(normalize(vec3(1.0, 1.0, 1.0)), vNormal) * 0.5;
 		vec3 vertex = vec3(aPoint.xyz) + uSpriteOffset;
 		gl_PointSize = uPointSize;
 		${children}

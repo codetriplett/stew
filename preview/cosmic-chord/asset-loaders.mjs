@@ -18,16 +18,13 @@ function unpackDepths (alpha, shiftBits) {
 }
 
 function getAxisNormal (before, after, crossBefore1, crossAfter1, crossBefore2, crossAfter2, farBefore, farAfter) {
-	const run = Math.max(4 * (before - after), 3 * (crossBefore1 - crossAfter1), 3 * (crossBefore2 - crossAfter2), 2 * farBefore, farAfter);
-	const angle = Math.atan2(8, run);
-	return 8 - Math.round(angle / (Math.PI / 14) - 3.5);
-	// this works out to between 1 and 15 (shader will subtract 8 to get the angle from center)
-	// - shader needs a simple way to convert to vector to normalize
-	// - find mid points between [2, 1] [2, 2.5] and [2, 9]
+	const delta = ((after - before) * 2) || Math.max(-2, Math.min(2, crossAfter1 + crossAfter2 + farAfter - crossBefore1 - crossBefore2 - farBefore));
+	const normal = delta < -11 ? -7 : delta < -6 ? -6 : delta < -4 ? 5 : delta > 12 ? 7 : delta > 6 ? 6 : delta > 4 ? 5 : delta;
+	return normal + (normal < -4 ? 20 : 4);
 }
 
 function getNormalComposite (pixels, y, index, isBack) {
-	const fallback = isBack ? -256 : 256;
+	const fallback = 256;
 	const left = pixels[y][index - 4] ?? fallback;
 	const right = pixels[y][index + 4] ?? fallback;
 	const bottom = pixels[y + 4]?.[index] ?? fallback;
@@ -42,8 +39,10 @@ function getNormalComposite (pixels, y, index, isBack) {
 	const topTop = pixels[y - 8]?.[index] ?? fallback;
 	const normalX = getAxisNormal(left, right, bottomLeft, topRight, topLeft, bottomRight, leftLeft, rightRight);
 	const normalY = getAxisNormal(bottom, top, bottomLeft, topRight, bottomRight, topLeft, bottomBottom, topTop);
-	const fillDepth = Math[isBack ? 'min' : 'max'](left, right, bottom, top);
-	return [(normalX << 4) + normalY, fillDepth];
+
+	return isBack
+		? [((8 - normalX) << 4) + (8 - normalY), Math.min(left, right, bottom, top)]
+		: [((8 + normalX) << 4) + (8 + normalY), Math.max(left, right, bottom, top)];
 }
 
 export function addPoints (frontPoints, backPoints, frontColors, backColors, frontPixels, backPixels, x, y, smoothing) {
@@ -85,10 +84,32 @@ export function addPoints (frontPoints, backPoints, frontColors, backColors, fro
 	backPoints.push(x, y, backDepth + 128, backNormal);
 }
 
+export function testLoader () {
+	return ['', null,
+		test('unpackDepths', () => {
+			test('255:3', () => {
+				const actual = unpackDepths(255, 3);
+				expect(actual).equals([-12, 19]);
+			});
+		}),
+		test('getAxisNormal', () => {
+			test('flat', () => {
+				const actual = getAxisNormal(0, 0, 0, 0, 0, 0, 0, 0);
+				expect(actual).equals(4);
+			});
+			
+			test('steep', () => {
+				const actual = getAxisNormal(-7, 7, 0, 0, 0, 0, 0, 0);
+				expect(actual).equals(11);
+			});
+		}),
+	];
+}
+
 // make depthBits optional and render squares with standard texture using coordinates if not provided
 // - this will be useful for the rough shape of buildings, with sculpted sprites adding detail
 // - have shader skip rendering fragments in flat image if the alpha value < 0.5
-export async function loadSprites (imagePath, columnCount, rowCount, depthBits = 0) {
+export default async function loadSprites (imagePath, columnCount, rowCount, depthBits = 0) {
 	const image = await new Promise(resolve => {
 		const image = new window.Image();
 		image.src = imagePath;

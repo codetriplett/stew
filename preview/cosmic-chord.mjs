@@ -3,8 +3,8 @@ import {
 	createRotation,
 } from '/cosmic-chord/matrix-math.mjs';
 
-import {
-	loadSprites,
+import loadSprites, {
+	testLoader,
 } from '/cosmic-chord/asset-loaders.mjs';
 
 import shader from '/cosmic-chord/shader.mjs';
@@ -220,6 +220,7 @@ export function cosmicChord () {
 			// [shader, { reference: camera }, ...uiInstances],
 			stew`${gl => 16}`,
 		],
+		testLoader(),
 	];
 }
 
