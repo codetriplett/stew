@@ -1,21 +1,25 @@
-function layout ({ '': context, description, promise }, ...children) {
-	const { heading = 2, states = [] } = context;
-	const state = stew({ status: null, message: '' });
-	const { status, message } = state;
+const stack = [['', { mode: null }]];
+let isRestricted = false;
 
-	stew(() => {
-		promise.then(value => {
-			const message = typeof value === 'string' ? value : '';
-			Object.assign(state, { status: true, message });
-		}).catch(err => {
-			const message = typeof err === 'string' ? err : err.message;
-			Object.assign(state, { status: false, message });
-		});
-	}, []);
+function layout ({ '': context, mode, description, callback }, ...children) {
+	const { heading = 2 } = context;
 
-	return ['', { heading: heading + 1, states: [state, ...states] },
+	const [message, isError] = stew(async () => {
+		if (!callback || isRestricted && mode !== 'only') {
+			return [];
+		}
+
+		try {
+			const message = callback();
+			return [typeof message === 'string' ? message : ''];
+		} catch (err) {
+			return [typeof err === 'string' ? err : err.message, true];
+		}
+	}, [], []);
+
+	return ['', { heading: heading + 1 },
 		[heading, null,
-			status !== null && ['input', { type: 'checkbox', checked: status }],
+			callback && ['input', { type: 'checkbox', checked: isError }],
 			description,
 		],
 		message && ['pre', null, message],
@@ -45,7 +49,13 @@ function compare (expected, actual, indentation = 0, key) {
 			return;
 		}
 
-		return `${Array(indentation).fill('    ').join('')}${key ? `${key}: ` : ''}${print(actual)}, // ${print(expected)}`;
+		return [
+			Array(indentation).fill('    ').join(''),
+			key ? `${key}: ` : '',
+			print(actual),
+			indentation ? ',' : '',
+			` // ${print(expected)}`,
+		].join('');
 	}
 
 	const keys = new Set([...Object.keys(expected), ...Object.keys(actual)]);
@@ -76,30 +86,40 @@ function compare (expected, actual, indentation = 0, key) {
 	return [open, ...lines, close].join('\n');
 }
 
-export function expect (actual) {
-	return {
-		equals: expected => {
-			const delta = compare(expected, actual);
+export function expect (actual, expected) {
+	const mismatch = compare(expected, actual);
 
-			if (delta) {
-				throw delta;
-			}
-		}
-	};
+	if (mismatch) {
+		throw mismatch;
+	}
 }
 
-const stack = [];
+function test (mode, description, callback, ...children) {
+	if (mode === 'only') {
+		isRestricted = true;
+	}
 
-export default function (description, callback, ...children) {
 	const [parent] = stack;
-	stack.unshift([]);
-	const promise = new Promise(resolve => resolve(callback()));
-
-	const node = [layout, { description, promise },
-		...children,
-		...stack.shift(),
-	];
-
-	parent?.push?.(node);
+	const node = [layout, { mode: mode ?? parent.mode, description, callback, callback }, ...children];
+	parent.push(node);
 	return node;
 }
+
+function group (mode, description, callback, ...children) {
+	const [parent] = stack;
+	const node = [layout, { mode: mode ?? parent.mode, description }, ...children];
+	parent.push(node);
+	stack.unshift(node);
+	callback();
+	stack.shift();
+	return node;
+}
+
+const root = (...params) => test(null, ...params);
+root.skip = (...params) => test('skip', ...params);
+root.only = (...params) => test('only', ...params);
+root.group = (...params) => group(null, ...params);
+root.group.skip = (...params) => group('skip', ...params);
+root.group.skip = (...params) => group('only', ...params);
+
+export default root

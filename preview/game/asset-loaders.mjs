@@ -7,42 +7,63 @@ function packDepths (front, back, shiftBits) {
 	return (thickness << shiftBits) + (center % mask);
 }
 
-function unpackDepths (alpha, shiftBits) {
-	const thickness = alpha >> shiftBits;
+function unpackDepths (byte, shiftBits) {
+	const thickness = byte >> shiftBits;
 	const half = thickness >> 1;
 	const mask = 1 << shiftBits;
-	const center = (alpha % mask) - (mask >> 1);
+	const center = (byte % mask) - (mask >> 1);
 	const front = center - half;
 	const back = center + half + (thickness % 2);
 	return [front, back];
 }
 
-function getAxisNormal (before, after, crossBefore1, crossAfter1, crossBefore2, crossAfter2, farBefore, farAfter) {
-	const delta = ((after - before) * 2) || Math.max(-2, Math.min(2, crossAfter1 + crossAfter2 + farAfter - crossBefore1 - crossBefore2 - farBefore));
-	const normal = delta < -11 ? -7 : delta < -6 ? -6 : delta < -4 ? 5 : delta > 12 ? 7 : delta > 6 ? 6 : delta > 4 ? 5 : delta;
-	return normal + (normal < -4 ? 20 : 4);
+function packNormal (xAlignment, yAlignment) {
+	const [xNormal, yNormal] = [xAlignment, yAlignment].map(alignment => {
+		if (alignment > -5 && alignment < 5) {
+			return 4 + alignment;
+		}
+
+		return 12 - Math.round(16 / Math.max(-16, Math.min(16, alignment)));
+	});
+
+	return (xNormal << 4) + yNormal;
 }
 
-function getNormalComposite (pixels, y, index, isBack) {
-	const fallback = 256;
-	const left = pixels[y][index - 4] ?? fallback;
-	const right = pixels[y][index + 4] ?? fallback;
-	const bottom = pixels[y + 4]?.[index] ?? fallback;
-	const top = pixels[y - 4]?.[index] ?? fallback;
-	const bottomLeft = pixels[y + 4]?.[index - 4] ?? fallback;
-	const bottomRight = pixels[y + 4]?.[index + 4] ?? fallback;
-	const topLeft = pixels[y - 4]?.[index - 4] ?? fallback;
-	const topRight = pixels[y - 4]?.[index + 4] ?? fallback;
-	const leftLeft = pixels[y][index - 8] ?? fallback;
-	const rightRight = pixels[y][index + 8] ?? fallback;
-	const bottomBottom = pixels[y + 8]?.[index] ?? fallback;
-	const topTop = pixels[y - 8]?.[index] ?? fallback;
-	const normalX = getAxisNormal(left, right, bottomLeft, topRight, topLeft, bottomRight, leftLeft, rightRight);
-	const normalY = getAxisNormal(bottom, top, bottomLeft, topRight, bottomRight, topLeft, bottomBottom, topTop);
+function unpackNormal (byte) {
+	const xNormal = byte >> 4;
+	const yNormal = byte % 16;
+	const xAlignment = xNormal < 9 ? xNormal - 4 : 16 / (12 - xNormal);
+	const yAlignment = yNormal < 9 ? yNormal - 4 : 16 / (12 - yNormal);
+	return [xAlignment, yAlignment];
+}
 
-	return isBack
-		? [((8 - normalX) << 4) + (8 - normalY), Math.min(left, right, bottom, top)]
-		: [((8 + normalX) << 4) + (8 + normalY), Math.max(left, right, bottom, top)];
+function calculateAlignment (before, after, crossBefore1, crossAfter1, crossBefore2, crossAfter2, farBefore, farAfter) {
+	return  ((after - before) * 2) || Math.max(-2, Math.min(2, crossAfter1 + crossAfter2 + farAfter - crossBefore1 - crossBefore2 - farBefore));
+}
+
+function getDepths (pixels, y, index, yChange, xChange, smoothing) {
+	const indexChange = xChange << 2;
+	const depth = pixels[y][index];
+	const before = pixels[y - yChange]?.[index - indexChange];
+	const after = pixels[y + yChange]?.[index + indexChange];
+
+	return [
+		after ?? (smoothing ? depth + 16 : before === undefined ? depth : -before),
+		before ?? (smoothing ? depth + 16 : after === undefined ? depth : -after),
+	];
+}
+
+function getNormal (pixels, y, index, isBack, smoothing) {
+	const [right, left] = getDepths(pixels, y, index, 0, 1, smoothing);
+	const [top, bottom] = getDepths(pixels, y, index, 1, 0, smoothing);
+	const [farRight, farLeft] = getDepths(pixels, y, index, 0, 2, smoothing);
+	const [farTop, farBottom] = getDepths(pixels, y, index, 2, 0, smoothing);
+	const [bottomRight, topLeft] = getDepths(pixels, y, index, -1, 1, smoothing);
+	const [topRight, bottomLeft] = getDepths(pixels, y, index, 1, 1, smoothing);
+	const normalX = calculateAlignment(left, right, bottomLeft, topRight, topLeft, bottomRight, farLeft, farRight);
+	const normalY = calculateAlignment(bottom, top, bottomLeft, topRight, bottomRight, topLeft, farBottom, farTop);
+	const normal = isBack ? packNormal(-normalX, -normalY) : packNormal(normalX, normalY);
+	return [normal, Math[isBack ? 'min' : 'max'](left, right, bottom, top)];
 }
 
 export function addPoints (frontPoints, backPoints, frontColors, backColors, frontPixels, backPixels, x, y, smoothing) {
@@ -54,8 +75,8 @@ export function addPoints (frontPoints, backPoints, frontColors, backColors, fro
 		return;
 	}
 
-	let [frontNormal, frontFillDepth] = getNormalComposite(frontPixels, y, index);
-	let [backNormal, backFillDepth] = getNormalComposite(backPixels, y, index, true);
+	let [frontNormal, frontFillDepth] = getNormal(frontPixels, y, index, false, smoothing);
+	let [backNormal, backFillDepth] = getNormal(backPixels, y, index, true, smoothing);
 
 	if (frontFillDepth > backFillDepth) {
 		frontFillDepth = Math.ceil((frontDepth + backDepth) / 2);
@@ -84,32 +105,10 @@ export function addPoints (frontPoints, backPoints, frontColors, backColors, fro
 	backPoints.push(x, y, backDepth + 128, backNormal);
 }
 
-export function testLoader () {
-	return ['', null,
-		test('unpackDepths', () => {
-			test('255:3', () => {
-				const actual = unpackDepths(255, 3);
-				expect(actual).equals([-12, 19]);
-			});
-		}),
-		test('getAxisNormal', () => {
-			test('flat', () => {
-				const actual = getAxisNormal(0, 0, 0, 0, 0, 0, 0, 0);
-				expect(actual).equals(4);
-			});
-			
-			test('steep', () => {
-				const actual = getAxisNormal(-7, 7, 0, 0, 0, 0, 0, 0);
-				expect(actual).equals(11);
-			});
-		}),
-	];
-}
-
 // make depthBits optional and render squares with standard texture using coordinates if not provided
 // - this will be useful for the rough shape of buildings, with sculpted sprites adding detail
 // - have shader skip rendering fragments in flat image if the alpha value < 0.5
-export default async function loadSprites (imagePath, columnCount, rowCount, depthBits = 0) {
+export async function loadSprites (imagePath, columnCount, rowCount, depthBits = 0) {
 	const image = await new Promise(resolve => {
 		const image = new window.Image();
 		image.src = imagePath;
@@ -215,3 +214,40 @@ export default async function loadSprites (imagePath, columnCount, rowCount, dep
 
 // modeling tool should allow passing in a side profile that roughly carves out back and front
 // - eventually it coudl be smart enough to map side profile colors to ones on the front and back to carve out more detail, instead of pixels in each row having the same depth
+
+export function assetLoaders () {
+	return ['', null,
+		test.group('unpackDepths', () => {
+			test('255:3', () => {
+				const actual = unpackDepths(255, 3);
+				expect(actual, [-12, 19]);
+			});
+		}),
+		test.group('calculateAlignment', () => {
+			test('flat', () => {
+				const actual = calculateAlignment(0, 0, 0, 0, 0, 0, 0, 0);
+				expect(actual, 0);
+			});
+			
+			test('steep', () => {
+				const actual = calculateAlignment(-7, 7, 0, 0, 0, 0, 0, 0);
+				expect(actual, 28);
+			});
+		}),
+		test.group('packNormal', () => {
+			test('0', () => {
+				const actual = packNormal(0, 0);
+				expect(actual, (4 << 4) + 4);
+			});
+			
+			test('steep', () => {
+				const actual = calculateAlignment(28, 28);
+				expect(actual, (11 << 4) + 11);
+			});
+		}),
+	];
+}
+
+export default [assetLoaders, {
+	'': 'Asset Loaders',
+}];

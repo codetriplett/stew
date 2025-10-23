@@ -1,4 +1,4 @@
-import createMatrix from '/cosmic-chord/matrix-math.mjs';
+import createMatrix from '/game/matrix-math.mjs';
 
 function updateAnimation (animation, elapsed, target) {
 	let [physics, reference = target, value] = animation;
@@ -56,7 +56,7 @@ function updateAnimation (animation, elapsed, target) {
 // light: [0, 1, 0] // position of light
 // shine: [1, 1, 1, 1] // percentage of each channel to keep from texture (full strength when pointing toward light vector)
 // shade: [0.5, 0.5, 0.5, 1] // percentage of each channel to keep from texture (full strength when pointing away from light vector)
-export default function shader ({ '': context, points, colors, reference }, ...instances) {
+export function shader ({ '': context, points, colors, reference }, ...instances) {
 	const { camera, vertexes, normals, elements, record = new Set() } = context;
 	const identityMatrix = [1, 0, 0, 0, 1, 0, 0, 0, 1];
 	const identityPosition = [0, 0, 0];
@@ -151,9 +151,12 @@ export default function shader ({ '': context, points, colors, reference }, ...i
 	const common = stew`
 		elements ${elements}
 		mat3 uCameraScale ${camera.scale}
-		// TODO: have x and y normal pass through pow(abs(x), 2), then apply sign back
-		vec3 vNormal = normalize(vec3((int(aPoint.w) / 16) - 8, (int(aPoint.w) % 16) - 8, uNormalZ));
-		*float vIntensity = 0.5 + dot(normalize(vec3(1.0, 1.0, 1.0)), vNormal) * 0.5;
+		float alignmentX = float(int(aPoint.w) / 16);
+		float alignmentY = float(int(aPoint.w) % 16);
+		float normalX = alignmentX < 9.0 ? alignmentX - 4.0 : 16.0 / (12.0 - alignmentX);
+		float normalY = alignmentY < 9.0 ? alignmentY - 4.0 : 16.0 / (12.0 - alignmentY);
+		vec3 vNormal = normalize(vec3(normalX, normalY, uNormalZ));
+		*float vIntensity = 0.5 + dot(normalize(vec3(0.0, 0.0, 1.0)), vNormal) * 0.5;
 		vec3 vertex = vec3(aPoint.xyz) + uSpriteOffset;
 		gl_PointSize = uPointSize;
 		${children}

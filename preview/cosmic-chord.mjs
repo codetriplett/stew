@@ -1,13 +1,10 @@
 import {
 	createTilt,
 	createRotation,
-} from '/cosmic-chord/matrix-math.mjs';
+} from '/game/matrix-math.mjs';
 
-import loadSprites, {
-	testLoader,
-} from '/cosmic-chord/asset-loaders.mjs';
-
-import shader from '/cosmic-chord/shader.mjs';
+import { loadSprites } from '/game/asset-loaders.mjs';
+import { shader } from '/game/shader.mjs';
 
 export const gameState = stew({
 	scales: [-1, 0, 1],
@@ -220,7 +217,6 @@ export function cosmicChord () {
 			// [shader, { reference: camera }, ...uiInstances],
 			stew`${gl => 16}`,
 		],
-		testLoader(),
 	];
 }
 
