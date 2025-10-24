@@ -1,29 +1,81 @@
-const stack = [['', { mode: null }]];
+const stack = [['', { mode: null, heading: 1, update: () => {} }, ['', null]]];
 let isRestricted = false;
 
-function layout ({ '': context, mode, description, callback }, ...children) {
-	const { heading = 2 } = context;
-
-	const [message, isError] = stew(async () => {
-		if (!callback || isRestricted && mode !== 'only') {
-			return [];
+function component ({ mode, heading, description, callback, update }, ...children) {
+	const [message, status] = stew(async () => {
+		if (!callback) {
+			return [''];
+		} if (mode === 'skip' || isRestricted && mode !== 'only') {
+			return ['', null];
 		}
 
 		try {
-			const message = callback();
-			return [typeof message === 'string' ? message : ''];
+			const message = await callback();
+			return [typeof message === 'string' ? message : '', true];
 		} catch (err) {
-			return [typeof err === 'string' ? err : err.message, true];
+			return [typeof err === 'string' ? err : err.message, false];
 		}
-	}, [], []);
+	}, [], ['']);
 
-	return ['', { heading: heading + 1 },
-		[heading, null,
-			callback && ['input', { type: 'checkbox', checked: isError }],
-			description,
-		],
+	const originalUpdate = stew(() => update, []);
+
+	stew(null, [status, update], () => {
+		if (typeof status === 'boolean') {
+			originalUpdate();
+		}
+	});
+
+	const container = ['', null,
+		[heading, { className: status === undefined ? 'pending' : status === null ? 'skipped' : status ? 'success' : 'failure' }, description],
 		message && ['pre', null, message],
-		...children,
+		children.length > 0 && ['div', null, ...children],
+	];
+
+	return heading !== 2 ? container : ['div', null,
+		['template', { shadowrootmode: 'open' },
+			['style', null, `
+				* {
+					margin: 0;
+					font-size: 13px;
+					font-weight: normal;
+				}
+				div {
+					padding: 4px 0 4px 16px;
+				}
+				pre {
+					margin-top: 4px;
+					padding: 4px 8px;
+					background: rgba(255, 255, 255, 0.25);
+				}
+				.success + pre {
+					background: rgba(0, 255, 0, 0.25);
+				}
+				.failure + pre {
+					background: rgba(255, 0, 0, 0.25);
+				}
+				.pending,
+				.success,
+				.failure,
+				.skipped {
+					&:before {
+						margin-right: 4px;
+					}
+				}
+				.pending:before {
+					content: '⏳';
+				}
+				.success:before {
+					content: '✅';
+				}
+				.failure:before {
+					content: '❌';
+				}
+				.skipped:before {
+					content: '🟡';
+				}	
+			`],
+			container,
+		],
 	];
 }
 
@@ -86,40 +138,74 @@ function compare (expected, actual, indentation = 0, key) {
 	return [open, ...lines, close].join('\n');
 }
 
-export function expect (actual, expected) {
-	const mismatch = compare(expected, actual);
-
-	if (mismatch) {
-		throw mismatch;
-	}
-}
-
-function test (mode, description, callback, ...children) {
+function test (isGroup, mode, description, callback, ...children) {
 	if (mode === 'only') {
 		isRestricted = true;
 	}
 
 	const [parent] = stack;
-	const node = [layout, { mode: mode ?? parent.mode, description, callback, callback }, ...children];
-	parent.push(node);
+	const { mode: parentMode, heading: parentHeading, update } = parent[1];
+	mode = mode ?? parentMode;
+	const heading = parentHeading + 1;
+	const container = ['', null];
+	const node = [component, { mode, heading, description, update }, ...children, container];
+	parent[parent.length - 1].push(node);
+
+	if (isGroup) {
+		node[1].update = () => {
+			const nodes = container[0];
+			
+			for (const { className } of nodes) {
+				switch (className) {
+					case 'failure': {
+						status = false;
+						reject?.('');
+						break;
+					}
+					case 'pending': {
+						return;
+					}
+				}
+			}
+
+			status = true;
+			resolve?.('');
+		};
+
+		stack.unshift(node);
+		callback();
+		stack.shift();
+		let status = null;
+		let resolve, reject;
+
+		callback = () => new Promise((...params) => {
+			[resolve, reject] = params;
+
+			if (status === false) {
+				reject('');
+			} else if (status === true) {
+				resolve('');
+			}
+		});
+	}
+
+	node[1].callback = callback;
 	return node;
 }
 
-function group (mode, description, callback, ...children) {
-	const [parent] = stack;
-	const node = [layout, { mode: mode ?? parent.mode, description }, ...children];
-	parent.push(node);
-	stack.unshift(node);
-	callback();
-	stack.shift();
-	return node;
-}
+const root = (...params) => test(false, null, ...params);
+root.skip = (...params) => test(false, 'skip', ...params);
+root.only = (...params) => test(false, 'only', ...params);
+root.group = (...params) => test(true, null, ...params);
+root.group.skip = (...params) => test(true, 'skip', ...params);
+root.group.only = (...params) => test(true, 'only', ...params);
 
-const root = (...params) => test(null, ...params);
-root.skip = (...params) => test('skip', ...params);
-root.only = (...params) => test('only', ...params);
-root.group = (...params) => group(null, ...params);
-root.group.skip = (...params) => group('skip', ...params);
-root.group.skip = (...params) => group('only', ...params);
+root.equals = (actual, expected) => {
+	const mismatch = compare(expected, actual);
 
-export default root
+	if (mismatch) {
+		throw mismatch;
+	}
+};
+
+export default root;

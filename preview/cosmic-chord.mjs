@@ -1,9 +1,9 @@
 import {
 	createTilt,
 	createRotation,
-} from '/game/matrix-math.mjs';
+} from '/game/matrix.mjs';
 
-import { loadSprites } from '/game/asset-loaders.mjs';
+import { loadSprites } from '/game/model.mjs';
 import { shader } from '/game/shader.mjs';
 
 export const gameState = stew({

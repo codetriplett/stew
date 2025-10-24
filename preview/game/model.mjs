@@ -216,35 +216,41 @@ export async function loadSprites (imagePath, columnCount, rowCount, depthBits =
 // - eventually it coudl be smart enough to map side profile colors to ones on the front and back to carve out more detail, instead of pixels in each row having the same depth
 
 export function assetLoaders () {
-	return ['', null,
-		test.group('unpackDepths', () => {
-			test('255:3', () => {
-				const actual = unpackDepths(255, 3);
-				expect(actual, [-12, 19]);
-			});
-		}),
-		test.group('calculateAlignment', () => {
-			test('flat', () => {
-				const actual = calculateAlignment(0, 0, 0, 0, 0, 0, 0, 0);
-				expect(actual, 0);
-			});
-			
-			test('steep', () => {
-				const actual = calculateAlignment(-7, 7, 0, 0, 0, 0, 0, 0);
-				expect(actual, 28);
-			});
-		}),
-		test.group('packNormal', () => {
-			test('0', () => {
-				const actual = packNormal(0, 0);
-				expect(actual, (4 << 4) + 4);
-			});
-			
-			test('steep', () => {
-				const actual = calculateAlignment(28, 28);
-				expect(actual, (11 << 4) + 11);
-			});
-		}),
+	return ['div', { style: { display: 'flex' } },
+		['div', { style: { flex: '1 0 0' } },
+			test.group('unpackDepths', () => {
+				test('255:3', () => {
+					const actual = unpackDepths(255, 3);
+					test.equals(actual, [-12, 19]);
+				});
+			}),
+		],
+		['div', { style: { flex: '1 0 0' } },
+			test.group('calculateAlignment', () => {
+				test('flat', () => {
+					const actual = calculateAlignment(0, 0, 0, 0, 0, 0, 0, 0);
+					test.equals(actual, 0);
+				});
+				
+				test('steep', () => {
+					const actual = calculateAlignment(-7, 7, 0, 0, 0, 0, 0, 0);
+					test.equals(actual, 28);
+				});
+			}),
+		],
+		['div', { style: { flex: '1 0 0' } },
+			test.group('packNormal', () => {
+				test('0', () => {
+					const actual = packNormal(0, 0);
+					test.equals(actual, (4 << 4) + 4);
+				});
+				
+				test('steep', () => {
+					const actual = packNormal(28, 28);
+					test.equals(actual, (11 << 4) + 11);
+				});
+			}),
+		],
 	];
 }
 
