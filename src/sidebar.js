@@ -1,7 +1,7 @@
 import state, { updateSettings } from '.';
 
 function Widget (_, ...children) {
-	return ['div', null,
+	return ['div', { style: { position: 'relative' } },
 		['template', { shadowrootmode: 'open' }, ...children],
 	];
 } 

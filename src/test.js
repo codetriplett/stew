@@ -31,7 +31,7 @@ function component ({ mode, heading, description, callback, update }, ...childre
 		children.length > 0 && ['div', null, ...children],
 	];
 
-	return heading !== 2 ? container : ['div', null,
+	return heading !== 2 ? container : ['div', { style: { position: 'relative' } },
 		['template', { shadowrootmode: 'open' },
 			['style', null, `
 				* {

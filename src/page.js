@@ -161,7 +161,7 @@ function Citation ({ snip }) {
 				}
 			},
 		}],
-		['div', null,
+		['div', { style: { position: 'relative' } },
 			['template', { shadowrootmode: 'open' },
 				...resources,
 				content,
@@ -220,7 +220,7 @@ export default function Page ({ path, map, resources, breadcrumbs, heading, isMo
 						}, '🖉'],
 					],
 				],
-				['div', null,
+				['div', { style: { position: 'relative' } },
 					['template', { shadowrootmode: 'open' },
 						...resources,
 						...children,
