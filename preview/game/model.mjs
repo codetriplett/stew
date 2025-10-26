@@ -66,7 +66,7 @@ function getNormal (pixels, y, index, isBack, smoothing) {
 	return [normal, Math[isBack ? 'min' : 'max'](left, right, bottom, top)];
 }
 
-export function addPoints (frontPoints, backPoints, frontColors, backColors, frontPixels, backPixels, x, y, smoothing) {
+export function addPoints (frontPoints, backPoints, frontColors, backColors, frontPixels, backPixels, x, y, smoothing, skipFiller) {
 	const index = x << 2;
 	const frontDepth = frontPixels[y]?.[index] ?? 256;
 	const backDepth = backPixels[y]?.[index] ?? -256;
@@ -78,25 +78,27 @@ export function addPoints (frontPoints, backPoints, frontColors, backColors, fro
 	let [frontNormal, frontFillDepth] = getNormal(frontPixels, y, index, false, smoothing);
 	let [backNormal, backFillDepth] = getNormal(backPixels, y, index, true, smoothing);
 
-	if (frontFillDepth > backFillDepth) {
-		frontFillDepth = Math.ceil((frontDepth + backDepth) / 2);
-		backFillDepth = frontFillDepth - 1;
-	} else if (!smoothing) {
-		frontFillDepth += 1;
+	if (!skipFiller) {
+		if (frontFillDepth > backFillDepth) {
+			frontFillDepth = Math.ceil((frontDepth + backDepth) / 2);
+			backFillDepth = frontFillDepth - 1;
+		} else if (!smoothing) {
+			frontFillDepth += 1;
 
-		if (frontFillDepth <= backFillDepth) {
-			backFillDepth -= 1;
+			if (frontFillDepth <= backFillDepth) {
+				backFillDepth -= 1;
+			}
 		}
-	}
 
-	for (let z = frontDepth + 1; z < frontFillDepth; z++) {
-		frontColors.push(...frontPixels[y].slice(index + 1, index + 4));
-		frontPoints.push(x, y, z + 128, frontNormal);
-	}
+		for (let z = frontDepth + 1; z < frontFillDepth; z++) {
+			frontColors.push(...frontPixels[y].slice(index + 1, index + 4));
+			frontPoints.push(x, y, z + 128, frontNormal);
+		}
 
-	for (let z = backFillDepth + 1; z < backDepth; z++) {
-		backColors.push(...backPixels[y].slice(index + 1, index + 4));
-		backPoints.push(x, y, z + 128, backNormal);
+		for (let z = backFillDepth + 1; z < backDepth; z++) {
+			backColors.push(...backPixels[y].slice(index + 1, index + 4));
+			backPoints.push(x, y, z + 128, backNormal);
+		}
 	}
 
 	frontColors.push(...frontPixels[y].slice(index + 1, index + 4));
@@ -108,7 +110,7 @@ export function addPoints (frontPoints, backPoints, frontColors, backColors, fro
 // make depthBits optional and render squares with standard texture using coordinates if not provided
 // - this will be useful for the rough shape of buildings, with sculpted sprites adding detail
 // - have shader skip rendering fragments in flat image if the alpha value < 0.5
-export async function loadSprites (imagePath, columnCount, rowCount, depthBits = 0) {
+export async function loadSprites (imagePath, columnCount, rowCount, depthBits = 0, skipFiller) {
 	const image = await new Promise(resolve => {
 		const image = new window.Image();
 		image.src = imagePath;
@@ -178,7 +180,7 @@ export async function loadSprites (imagePath, columnCount, rowCount, depthBits =
 							for (let x = 0; x < width; x++) {
 								// TODO: allow adjusting x, y, and z with offset params passed after depthBits
 								// - this allows for setting custom origin without needing to use another offset vector in shader
-								addPoints(frontPoints, backPoints, frontColors, backColors, frontPixels, backPixels, x, y, smoothing);
+								addPoints(frontPoints, backPoints, frontColors, backColors, frontPixels, backPixels, x, y, smoothing, skipFiller);
 							}
 						}
 
@@ -191,6 +193,11 @@ export async function loadSprites (imagePath, columnCount, rowCount, depthBits =
 							points: new Uint8Array(backPoints),
 							colors: new Uint8Array(backColors),
 						};
+
+						if (skipFiller) {
+							front.pixels = frontPixels;
+							back.pixels = backPixels;
+						}
 						
 						if (x === 0) {
 							row = [];
