@@ -109,13 +109,13 @@ export function shader ({ '': context, points, colors, reference }, ...instances
 	// TEXTURE0 usampler2D uImage ${image}
 	// *vec4 pixel = texture(uImage, (vec2(aPoint.xy) + uSpriteCoordinates + 0.5) * uSpriteScale);
 
-	const children = [...sprites].map(([{ offset, smoothing = 0, front, back }, instances]) => stew`
+	const children = [...sprites].map(([{ offset, smoothing = 0, front, back, filler }, instances]) => stew`
 		vec3 uSpriteOffset ${offset}
-		${[front, back].map(({ points, colors }, i) => stew`
+		${[front, back, filler].map(({ points, colors }, i) => stew`
 			UNSIGNED_BYTE uvec4 aPoint ${points}
-			UNSIGNED_BYTE uvec3 aColor ${colors}
-			*vec3 color = vec3(aColor) / 255.0;
-			int uNormalZ ${i ? -8 : 8}
+			UNSIGNED_BYTE uvec4 aColor ${colors}
+			*vec3 color = vec3(aColor.xyz) / 255.0;
+			int uNormalZ ${[8, -8, 0][i]}
 			${instances.map(({ group = {}, position, offset, scale, matrix }) => {
 				const child = stew`
 					mat3 uGroupScale ${group.scale || identityMatrix}
@@ -150,7 +150,7 @@ export function shader ({ '': context, points, colors, reference }, ...instances
 	// TODO: add facing check to each point to see if it should even be rendered (dot product with camera vector)
 	const common = stew`
 		mat3 uCameraScale ${camera.scale || identityMatrix}
-		float uCameraZoom ${camera.zoom || 1}
+		float uCameraZoom ${camera || { zoom: 1 }} zoom
 		float alignmentX = float(int(aPoint.w) / 16);
 		float alignmentY = float(int(aPoint.w) % 16);
 		float normalX = alignmentX < 9.0 ? alignmentX - 4.0 : 16.0 / (12.0 - alignmentX);
@@ -172,8 +172,9 @@ export function shader ({ '': context, points, colors, reference }, ...instances
 	return !reference ? stew`
 		mat3 uCameraMatrix ${camera.matrix || identityMatrix}
 		vec3 uCameraPosition ${camera.position || identityPosition}
+		vec3 uCameraOffset ${camera.offset || identityPosition}
 		vec3 position = uCameraMatrix * (uGroupMatrix * (uMatrix * (vertex + uOffset) + uGroupOffset) + uGroupPosition + uPosition) + uCameraPosition;
-		gl_Position = vec4(uCameraScale * floor(uCameraZoom * (position * 2.0 + uPointOffset)), 1.0);
+		gl_Position = vec4(uCameraScale * floor(uCameraZoom * (position * 2.0 + uPointOffset) + uCameraOffset * 2.0), 1.0);
 		${update}
 		${[common]}
 		//
@@ -184,13 +185,14 @@ export function shader ({ '': context, points, colors, reference }, ...instances
 		${[common]}
 		//
 	` : stew`
-		mat3 uCameraMatrix ${camera.matrix}
-		vec3 uCameraPosition ${camera.position}
+		mat3 uCameraMatrix ${camera.matrix || identityMatrix}
+		vec3 uCameraPosition ${camera.position || identityPosition}
+		vec3 uCameraOffset ${camera.offset || identityPosition}
 		mat3 uReferenceMatrix ${reference.matrix || identityMatrix}
 		vec3 uReferencePosition ${reference.position || identityPosition}
 		vec3 uReferenceOffset ${reference.offset || identityPosition}
 		vec3 position = uCameraMatrix * uReferenceMatrix * (uReferencePosition + uReferenceOffset) + (uGroupMatrix * (uMatrix * (vertex + uOffset) + uGroupOffset) + uGroupPosition + uPosition) + uCameraPosition;
-		gl_Position = vec4(uCameraScale * floor(uCameraZoom * (position * 2.0 + uPointOffset)), 1.0);
+		gl_Position = vec4(uCameraScale * floor(uCameraZoom * (position * 2.0 + uPointOffset + uCameraOffset * 2.0)), 1.0);
 		${update}
 		${[common]}
 		//

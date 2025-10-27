@@ -41,76 +41,95 @@ function calculateAlignment (before, after, crossBefore1, crossAfter1, crossBefo
 	return  ((after - before) * 2) || Math.max(-2, Math.min(2, crossAfter1 + crossAfter2 + farAfter - crossBefore1 - crossBefore2 - farBefore));
 }
 
-function getDepths (pixels, y, index, yChange, xChange, smoothing) {
-	const indexChange = xChange << 2;
-	const depth = pixels[y][index];
-	const before = pixels[y - yChange]?.[index - indexChange];
-	const after = pixels[y + yChange]?.[index + indexChange];
+function getDepths (points, map, y, x, yChange, xChange, smoothing) {
+	const depth = points[map[y][x]];
+	const before = points[map[y - yChange]?.[x - xChange]];
+	const after = points[map[y + yChange]?.[x + xChange]];
 
 	return [
-		after ?? (smoothing ? depth + 16 : before === undefined ? depth : -before),
-		before ?? (smoothing ? depth + 16 : after === undefined ? depth : -after),
+		after ?? (smoothing ? depth + 16 : (depth << 1) - (before || 0)),
+		before ?? (smoothing ? depth + 16 : (depth << 1) - (after || 0)),
 	];
 }
 
-function getNormal (pixels, y, index, isBack, smoothing) {
-	const [right, left] = getDepths(pixels, y, index, 0, 1, smoothing);
-	const [top, bottom] = getDepths(pixels, y, index, 1, 0, smoothing);
-	const [farRight, farLeft] = getDepths(pixels, y, index, 0, 2, smoothing);
-	const [farTop, farBottom] = getDepths(pixels, y, index, 2, 0, smoothing);
-	const [bottomRight, topLeft] = getDepths(pixels, y, index, -1, 1, smoothing);
-	const [topRight, bottomLeft] = getDepths(pixels, y, index, 1, 1, smoothing);
+function getNormal (points, map, y, x, isBack, smoothing) {
+	const [right, left] = getDepths(points, map, y, x, 0, 1, smoothing);
+	const [top, bottom] = getDepths(points, map, y, x, 1, 0, smoothing);
+	const [farRight, farLeft] = getDepths(points, map, y, x, 0, 2, smoothing);
+	const [farTop, farBottom] = getDepths(points, map, y, x, 2, 0, smoothing);
+	const [bottomRight, topLeft] = getDepths(points, map, y, x, -1, 1, smoothing);
+	const [topRight, bottomLeft] = getDepths(points, map, y, x, 1, 1, smoothing);
 	const normalX = calculateAlignment(left, right, bottomLeft, topRight, topLeft, bottomRight, farLeft, farRight);
 	const normalY = calculateAlignment(bottom, top, bottomLeft, topRight, bottomRight, topLeft, farBottom, farTop);
-	const normal = isBack ? packNormal(-normalX, -normalY) : packNormal(normalX, normalY);
-	return [normal, Math[isBack ? 'min' : 'max'](left, right, bottom, top)];
+	return isBack ? packNormal(-normalX, -normalY) : packNormal(normalX, normalY);
 }
 
-export function addPoints (frontPoints, backPoints, frontColors, backColors, frontPixels, backPixels, x, y, smoothing, skipFiller) {
-	const index = x << 2;
-	const frontDepth = frontPixels[y]?.[index] ?? 256;
-	const backDepth = backPixels[y]?.[index] ?? -256;
+// TODO: call this to update all points in 5x5 grid with x:y at its center
+function patchNormal (face, map, smoothing, x, y) {
 
-	if (frontDepth > 127 || backDepth < -128) {
-		return;
+}
+
+function getFiller (frontPoints, backPoints, map, y, x) {
+	const leftIndex = map[y][x - 1];
+	const rightIndex = map[y][x + 1];
+	const bottomIndex = map[y - 1]?.[x];
+	const topIndex = map[y + 1]?.[x];
+	const centerIndex = map[y][x];
+	const frontDepth = frontPoints[centerIndex];
+	const backDepth = backPoints[centerIndex];
+
+	if (!leftIndex || !rightIndex || !bottomIndex || !topIndex) {
+		const frontFillDepth = Math.ceil((frontDepth + backDepth) / 2);
+		const backFillDepth = frontFillDepth - 1;
+		return [frontDepth, frontFillDepth, backFillDepth, backDepth];
 	}
 
-	let [frontNormal, frontFillDepth] = getNormal(frontPixels, y, index, false, smoothing);
-	let [backNormal, backFillDepth] = getNormal(backPixels, y, index, true, smoothing);
+	return [
+		frontDepth,
+		Math.max(...[leftIndex, rightIndex, bottomIndex, topIndex].map(index => frontPoints[index])),
+		Math.min(...[leftIndex, rightIndex, bottomIndex, topIndex].map(index => backPoints[index])),
+		backDepth,
+	];
+}
 
-	if (!skipFiller) {
-		if (frontFillDepth > backFillDepth) {
-			frontFillDepth = Math.ceil((frontDepth + backDepth) / 2);
-			backFillDepth = frontFillDepth - 1;
-		} else if (!smoothing) {
-			frontFillDepth += 1;
+export function patchSprite (sprite) {
+	const { front, back, map, smoothing } = sprite;
+	const { points: frontPoints, colors: frontColors } = front;
+	const { points: backPoints, colors: backColors } = back;
+	const fillerPoints = [];
+	const fillerColors = [];
 
-			if (frontFillDepth <= backFillDepth) {
-				backFillDepth -= 1;
+	for (const [y, row] of map.entries()) {
+		for (const [x, index] of row.entries()) {
+			const [frontDepth, frontFillDepth, backFillDepth, backDepth] = getFiller(frontPoints, backPoints, map, y, x);
+			const frontNormal = getNormal(frontPoints, map, y, x, false, smoothing);
+			const backNormal = getNormal(backPoints, map, y, x, true, smoothing);
+
+			for (let z = frontDepth + 1; z < frontFillDepth; z++) {
+				fillerPoints.push(x, y, z, frontNormal);
+				fillerColors.push(...frontColors.slice(index - 2, index + 2));
 			}
-		}
 
-		for (let z = frontDepth + 1; z < frontFillDepth; z++) {
-			frontColors.push(...frontPixels[y].slice(index + 1, index + 4));
-			frontPoints.push(x, y, z + 128, frontNormal);
-		}
+			for (let z = backFillDepth + 1; z < backDepth; z++) {
+				fillerPoints.push(x, y, z, backNormal);
+				fillerColors.push(...backColors.slice(index - 2, index + 2));
+			}
 
-		for (let z = backFillDepth + 1; z < backDepth; z++) {
-			backColors.push(...backPixels[y].slice(index + 1, index + 4));
-			backPoints.push(x, y, z + 128, backNormal);
+			frontPoints[index + 1] = frontNormal;
+			backPoints[index + 1] = backNormal;
 		}
 	}
 
-	frontColors.push(...frontPixels[y].slice(index + 1, index + 4));
-	backColors.push(...backPixels[y].slice(index + 1, index + 4));
-	frontPoints.push(x, y, frontDepth + 128, frontNormal);
-	backPoints.push(x, y, backDepth + 128, backNormal);
+	sprite.filler = {
+		points: new Uint8Array(fillerPoints),
+		colors: new Uint8Array(fillerColors),
+	};
 }
 
 // make depthBits optional and render squares with standard texture using coordinates if not provided
 // - this will be useful for the rough shape of buildings, with sculpted sprites adding detail
 // - have shader skip rendering fragments in flat image if the alpha value < 0.5
-export async function loadSprites (imagePath, columnCount, rowCount, depthBits = 0, skipFiller) {
+export async function loadSprites (imagePath, columnCount, rowCount, depthBits = 0) {
 	const image = await new Promise(resolve => {
 		const image = new window.Image();
 		image.src = imagePath;
@@ -150,40 +169,43 @@ export async function loadSprites (imagePath, columnCount, rowCount, depthBits =
 						gl.clear(gl.COLOR_BUFFER_BIT);
 						gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
 						gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-						const frontPixels = [];
-						const backPixels = [];
-						const frontColors = [];
-						const backColors = [];
 						const frontPoints = [];
 						const backPoints = [];
+						const frontColors = [];
+						const backColors = [];
+						const map = [];
 						let index = 0;
 
 						for (let y = 0; y < height; y++) {
-							const frontRow = [];
-							const backRow = [];
-							frontPixels.push(frontRow);
-							backPixels.push(backRow);
+							const mapRow = [];
+							map.push(mapRow);
 
 							for (let x = 0; x < width; x++) {
 								const red = pixels[index];
 								const green = pixels[index + 1];
 								const blue = pixels[index + 2];
 								const alpha = pixels[index + 3];
-								const [front, back] = alpha ? unpackDepths(alpha, shiftBits) : [];
-								frontRow.push(front, (red >> 4) * 17, (green >> 4) * 17, (blue >> 4) * 17);
-								backRow.push(back, (red % 16) * 17, (green % 16) * 17, (blue % 16) * 17);
 								index += 4;
+
+								if (!alpha) {
+									continue;
+								}
+
+								const color = [red, green, blue];
+								const [front, back] = unpackDepths(alpha, shiftBits);
+								mapRow[x] = frontPoints.length + 2;
+								frontPoints.push(x, y, front + 128, 0);
+								backPoints.push(x, y, back + 128, 0);
+								frontColors.push(...color.map(value => (value >> 4) * 17), 0);
+								backColors.push(...color.map(value => (value % 16) * 17), 0);
 							}
 						}
-
-						for (let y = 0; y < height; y++) {
-							for (let x = 0; x < width; x++) {
-								// TODO: allow adjusting x, y, and z with offset params passed after depthBits
-								// - this allows for setting custom origin without needing to use another offset vector in shader
-								addPoints(frontPoints, backPoints, frontColors, backColors, frontPixels, backPixels, x, y, smoothing, skipFiller);
-							}
+						
+						if (x === 0) {
+							row = [];
+							sheet.push(row);
 						}
-
+						
 						const front = {
 							points: new Uint8Array(frontPoints),
 							colors: new Uint8Array(frontColors),
@@ -194,17 +216,8 @@ export async function loadSprites (imagePath, columnCount, rowCount, depthBits =
 							colors: new Uint8Array(backColors),
 						};
 
-						if (skipFiller) {
-							front.pixels = frontPixels;
-							back.pixels = backPixels;
-						}
-						
-						if (x === 0) {
-							row = [];
-							sheet.push(row);
-						}
-
-						const sprite = { offset, smoothing, front, back };
+						const sprite = { offset, smoothing, front, back, map };
+						patchSprite(sprite);
 						row.push(sprite);
 					}}
 					//

@@ -21,7 +21,7 @@ export function handleFullscreen (element) {
 }
 
 export function initializeControls (element, camera) {
-	Object.assign(state, { cursorX: 0, cursorY: 0, cameraX: 0, cameraY: 0, rotation: 0, tilt: 0, mouseSide: '' });
+	Object.assign(state, { cursorX: 0, cursorY: 0, cameraZoom: camera.zoom, cameraX: 0, cameraY: 0, rotation: 0, tilt: 0, mouseSide: '' });
 	const tapThreshold = 400;
 	let scale = 1;
 	let movement = 0;
@@ -36,20 +36,16 @@ export function initializeControls (element, camera) {
 
 	element.onmousedown = ({ offsetX, offsetY }) => {
 		const { clientWidth, clientHeight } = element;
-		const { zoom, position } = camera;
-		const centerX = clientWidth / 2 + position[0] * zoom * scale * 2;
-		const centerY = clientHeight / 2 - position[1] * zoom * scale * 2;
+		const { offset } = camera;
+		const centerX = clientWidth / 2 + offset[0] * scale * 2;
+		const centerY = clientHeight / 2 - offset[1] * scale * 2;
 		downTimestamp = Date.now();
 		movement = 0;
 
-		if (offsetX > centerX - 50 && offsetX < centerX + 50 && offsetY > centerY - 50 && offsetY < centerY + 50) {
-			state.mouseSide = 'center';
-		} else {
-			state.mouseSide = `${offsetY < centerY ? 'top' : 'bottom'} ${offsetX < centerX ? 'left' : 'right'}`;
-		}
-		// TODO: include top, bottom, left, and right
-		// - taps will move cursor one pixel in those directions
-		// - have move for top and bottom set zoome level (locked to integers between 1 and 16)
+		state.mouseSide = [
+			offsetY < centerY - 40 ? 'top' : offsetY <= centerY + 40 ? 'center' : 'bottom',
+			offsetX < centerX - 40 ? 'left' : offsetX <= centerX + 40 ? 'center' : 'right',
+		].join(' ');
 	};
 
 	element.onmouseup = () => {
@@ -65,24 +61,40 @@ export function initializeControls (element, camera) {
 		// - model mode paints it plain white with straight on lighting
 		// - paint mode shows colors and filler, with adjustable scene lighting
 		switch (mouseSide) {
-			case 'center': {
-				console.log('center');
+			case 'center center': {
+				console.log('open palette');
 				break;
 			}
-			case 'top left': {
-				console.log('top left');
+			case 'bottom center': {
+				state.cursorY -= 1;
+				break;
+			}
+			case 'top center': {
+				state.cursorY += 1;
+				break;
+			}
+			case 'center left': {
+				state.cursorX -= 1;
+				break;
+			}
+			case 'center right': {
+				state.cursorX += 1;
 				break;
 			}
 			case 'bottom left': {
-				console.log('bottom left');
+				console.log('add color');
 				break;
 			}
-			case 'top right': {
-				console.log('top right');
+			case 'top left': {
+				console.log('erase');
 				break;
 			}
 			case 'bottom right': {
-				console.log('bottom right');
+				console.log('add depth');
+				break;
+			}
+			case 'top right': {
+				console.log('remove depth');
 				break;
 			}
 		}
@@ -93,29 +105,29 @@ export function initializeControls (element, camera) {
 		movement += Math.max(Math.abs(movementX), Math.abs(movementY));
 
 		switch (mouseSide) {
-			case 'center': {
-				state.cameraX -= movementX * 0.1;
-				state.cameraY += movementY * 0.1;
+			case 'center center': {
+				state.cameraX -= movementX / (scale * 2);
+				state.cameraY += movementY / (scale * 2);
 				break;
 			}
-			case 'top left':
-			case 'bottom left': {
+			case 'bottom center':
+			case 'top center': {
+				state.cameraZoom = Math.max(2, Math.min(16, state.cameraZoom - movementY * 0.1));
+				camera.zoom = Math.round(state.cameraZoom);
+				break;
+			}
+			case 'bottom left':
+			case 'center left':
+			case 'top left': {
 				state.cursorX -= movementX * 0.1;
 				state.cursorY += movementY * 0.1;
 				break;
 			}
-			case 'top right':
-			case 'bottom right': {
+			case 'bottom right':
+			case 'center right':
+			case 'top right': {
 				state.rotation -= movementX * 0.01;
-				let tilt = state.tilt - movementY * 0.01;
-
-				if (tilt > Math.PI / 2) {
-					tilt = Math.PI / 2;
-				} else if (tilt < -Math.PI / 2) {
-					tilt = -Math.PI / 2;
-				}
-
-				state.tilt = tilt;
+				state.tilt = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, state.tilt - movementY * 0.01));
 				break;
 			}
 		}
@@ -183,14 +195,15 @@ export function palette () {
 // - bottom right: scene menu (lighting, zoom, etc)
 
 export function carve () {
-	const [camera, ...instances] = stew(() => {
-		const scale = [1 / 640, 0, 0, 0, 1 / 360, 0, 0, 0, 1 / 360];
+	const [camera, guideLines, ...instances] = stew(() => {
+		const scale = [1 / 640, 0, 0, 0, 1 / 360, 0, 0, 0, 1 / 1280];
 		const matrix = [1, 0, 0, 0, 1, 0, 0, 0, 1];
-		const camera = { scale, zoom: 8, matrix, position: [0, 0, 0], angles: [0, 0, 0] };
+		const camera = { scale, matrix, zoom: 8, offset: [0, 0, 0], angles: [0, 0, 0] };
 		updateColor();
 
 		return [
 			camera,
+			new Int16Array([-640, -40, 640, -40, -640, 40, 640, 40, -40, -360, -40, 360, 40, -360, 40, 360]),
 			{
 				points: new Int8Array([
 					0, 0,
@@ -216,7 +229,7 @@ export function carve () {
 
 	const scene = stew(async () => {
 		const [reference] = await Promise.all([
-			loadSprites('/reference.png', 1, 1, 5, true),
+			loadSprites('/reference.png', 1, 1, 5),
 		]);
 
 		// TODO: calculate filler and store in separate points array
@@ -259,16 +272,17 @@ export function carve () {
 				${gl => {
 					const { cursorX, cursorY, cameraX, cameraY, rotation = 0, tilt = 0 } = state;
 					const { sprite, position } = model;
-					const { offset, front, back } = sprite;
+					const { offset, front, back, map } = sprite;
 					const isBack = Math.abs(rotation) % (Math.PI * 2) > (Math.PI / 2);
-					const face = isBack ? back : front;
+					const { points } = isBack ? back : front;
 					const { matrix } = camera;
 					const x = Math.round(cursorX);
 					const y = Math.round(cursorY);
-					const z = face.pixels[y - offset[1]]?.[(x - offset[0]) << 2];
+					const index = map[y - offset[1]]?.[x - offset[0]];
+					const z = points[index] + offset[2];
 					position.splice(0, 2, -x, -y);
 					matrix.splice(0, 9, ...createMatrix(tilt, rotation, 0));
-					camera.position.splice(0, 2, -Math.round(cameraX), -Math.round(cameraY));
+					camera.offset.splice(0, 2, -Math.round(cameraX), -Math.round(cameraY));
 
 					if (z) {
 						position[2] = -z;
@@ -282,6 +296,21 @@ export function carve () {
 					gl.depthFunc(gl.LESS);
 				}}
 			`,
+				// stew`
+				// 	${[guideLines].map(points => stew`
+				// 		SHORT ivec2 aPoint ${points}
+				// 		mat3 uCameraScale ${camera.scale}
+				// 		vec3 uCameraOffset ${camera.offset}
+				// 		vec3 position = vec3(aPoint, 0.0);
+				// 		gl_Position = vec4(uCameraScale * floor((position * 2.0) + uCameraOffset * 2.0), 1.0);
+				// 		${gl => {
+				// 			gl.drawArrays(gl.LINES, 0, points.length >> 1);
+				// 			gl.clear(gl.DEPTH_BUFFER_BIT);
+				// 		}}
+				// 		vec3 uBrushColor ${contrastColor}
+				// 		gl_FragColor = vec4(uBrushColor, 1.0);
+				// 	`)}
+				// `,
 				[shader, null, model],
 				stew`
 					${gl => {
@@ -291,12 +320,12 @@ export function carve () {
 					${instances.map(({ points }, i) => stew`
 						BYTE ivec2 aPoint ${points}
 						mat3 uCameraScale ${camera.scale}
-						vec3 uCameraPosition ${camera.position}
-						float uCameraZoom ${camera.zoom}
-						float uPointSize ${camera.zoom * 2 + (i ? 0 : 2)}
-						vec3 position = vec3(aPoint, 0.0) + uCameraPosition;
-						gl_Position = vec4(uCameraScale * floor(uCameraZoom * position * 2.0), 1.0);
-						gl_PointSize = uPointSize;
+						vec3 uCameraOffset ${camera.offset}
+						float uCameraZoom ${camera} zoom
+						float uPointSize ${i ? 0 : 2}
+						vec3 position = vec3(aPoint, 0.0);
+						gl_Position = vec4(uCameraScale * floor(uCameraZoom * (position * 2.0) + uCameraOffset * 2.0), 1.0);
+						gl_PointSize = uCameraZoom * 2.0 + uPointSize;
 						${gl => gl.drawArrays(gl.POINTS, 0, points.length >> 1)}
 						vec3 uBrushColor ${colors[i]}
 						gl_FragColor = vec4(uBrushColor, 1.0);
