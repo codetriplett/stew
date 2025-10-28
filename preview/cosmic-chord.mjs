@@ -131,7 +131,7 @@ export function cosmicChord () {
 	const [camera, vertexes, normals, elements] = stew(() => {
 		const scale = [1 / 640, 0, 0, 0, 1 / 360, 0, 0, 0, 1 / 360];
 		const matrix = [1, 0, 0, 0, 1, 0, 0, 0, 1];
-		const camera = { scale, matrix, position: [0, 0, 0], angles: [-Math.PI / 6, Math.PI / 4, 0] };
+		const camera = { scale, matrix, zoom: 1, position: [0, 0, 0], angles: [-Math.PI / 6, Math.PI / 4, 0] };
 		const vertexes = new Int8Array([0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0]);
 		const normals = new Int8Array([0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1]);
 		const elements = new Uint16Array([2, 0, 1, 1, 3, 2]);

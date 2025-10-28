@@ -109,56 +109,60 @@ export function shader ({ '': context, points, colors, reference }, ...instances
 	// TEXTURE0 usampler2D uImage ${image}
 	// *vec4 pixel = texture(uImage, (vec2(aPoint.xy) + uSpriteCoordinates + 0.5) * uSpriteScale);
 
-	const children = [...sprites].map(([{ offset, smoothing = 0, front, back, filler }, instances]) => stew`
-		vec3 uSpriteOffset ${offset}
-		${[front, back, filler].map(({ points, colors }, i) => stew`
-			UNSIGNED_BYTE uvec4 aPoint ${points}
-			UNSIGNED_BYTE uvec4 aColor ${colors}
-			*vec3 color = vec3(aColor.xyz) / 255.0;
-			int uNormalZ ${[8, -8, 0][i]}
-			${instances.map(({ group = {}, position, offset, scale, matrix }) => {
-				const child = stew`
-					mat3 uGroupScale ${group.scale || identityMatrix}
-					mat3 uGroupMatrix ${group.matrix || identityMatrix}
-					vec3 uGroupPosition ${group.position || identityPosition}
-					vec3 uGroupOffset ${group.offset || identityPosition}
-					mat3 uScale ${scale || identityMatrix}
-					mat3 uMatrix ${matrix || identityMatrix}
-					vec3 uPosition ${position || identityPosition}
-					vec3 uOffset ${offset || identityPosition}
-					float uPointSize ${(2 + smoothing) * (scale ? Math.max(...scale) : 1) * (group.scale ? Math.max(...group.scale) : 1)}
-					float uPointOffset ${(smoothing % 2) * 0.5}
-					${gl => gl.drawArrays(gl.POINTS, 0, points.length >> 2)}
-					gl_FragColor = vec4(color * vIntensity, 1.0);
-				`;
+	const children = [...sprites].map(([{ offset, smoothing = 0, vertexes, normals, colors }, instances]) => {
+		const children = instances.map(({ group = {}, position, offset, scale, matrix }) => {
+			const child = stew`
+				mat3 uGroupScale ${group.scale || identityMatrix}
+				mat3 uGroupMatrix ${group.matrix || identityMatrix}
+				vec3 uGroupPosition ${group.position || identityPosition}
+				vec3 uGroupOffset ${group.offset || identityPosition}
+				mat3 uScale ${scale || identityMatrix}
+				mat3 uMatrix ${matrix || identityMatrix}
+				vec3 uPosition ${position || identityPosition}
+				vec3 uOffset ${offset || identityPosition}
+				float uPointSize ${(2 + smoothing) * (scale ? Math.max(...scale) : 1) * (group.scale ? Math.max(...group.scale) : 1)}
+				float intensity = 1.0;
+				${gl => gl.drawArrays(gl.POINTS, 0, vertexes.length / 3)}
+				gl_FragColor = vColor;
+			`;
 
-				const { light = {} } = group;
+			const { light = {} } = group;
 
-				return reference ? child : stew`
-					//
-					${[child]}
-					mat3 uLightPosition ${light.position || identityMatrix}
-					vec4 uLightShine ${light.shine || [1, 1, 1, 1]}
-					vec4 uLightShade ${light.shade || [0.5, 0.5, 0.5, 1]}
-				`;
-			})}
+			return reference ? child : stew`
+				mat3 uLightPosition ${light.position || identityMatrix}
+				vec4 uLightShine ${light.shine || [1, 1, 1, 1]}
+				vec4 uLightShade ${light.shade || [0.5, 0.5, 0.5, 1]}
+				intensity = 0.5 + dot(normalize(vec3(0.0, 0.0, -1.0)), normalize(vec3(aNormal))) * 0.5;
+				${[child]}
+				//
+			`;
+		});
+
+		return reference ? stew`
+			vec3 uSpriteOffset ${offset}
+			UNSIGNED_BYTE uvec3 aVertex ${vertexes}
+			UNSIGNED_BYTE uvec3 aColor ${colors}
+			*vec4 vColor = vec4((vec3(aColor) / 255.0) * intensity, 1.0);
+			${children}
 			//
-		`)}
-		//
-	`);
+		` : stew`
+			vec3 uSpriteOffset ${offset}
+			UNSIGNED_BYTE uvec3 aVertex ${vertexes}
+			BYTE ivec3 aNormal ${normals}
+			UNSIGNED_BYTE uvec3 aColor ${colors}
+			*vec4 vColor = vec4((vec3(aColor) / 255.0) * intensity, 1.0);
+			${children}
+			//
+		`;
+	});
 
 	// TODO: add facing check to each point to see if it should even be rendered (dot product with camera vector)
 	const common = stew`
 		mat3 uCameraScale ${camera.scale || identityMatrix}
-		float uCameraZoom ${camera || { zoom: 1 }} zoom
-		float alignmentX = float(int(aPoint.w) / 16);
-		float alignmentY = float(int(aPoint.w) % 16);
-		float normalX = alignmentX < 9.0 ? alignmentX - 4.0 : 16.0 / (12.0 - alignmentX);
-		float normalY = alignmentY < 9.0 ? alignmentY - 4.0 : 16.0 / (12.0 - alignmentY);
-		vec3 vNormal = normalize(vec3(normalX, normalY, uNormalZ));
-		*float vIntensity = 0.5 + dot(normalize(vec3(0.0, 0.0, 1.0)), vNormal) * 0.5;
-		vec3 vertex = vec3(aPoint.xyz) + uSpriteOffset;
+		float uCameraZoom ${camera} zoom
+		vec3 vertex = vec3(aVertex) + uSpriteOffset;
 		gl_PointSize = uPointSize * uCameraZoom;
+		float pointOffset = mod(gl_PointSize, 2.0) * 0.5; 
 		${children}
 		//
 	`;
@@ -174,13 +178,13 @@ export function shader ({ '': context, points, colors, reference }, ...instances
 		vec3 uCameraPosition ${camera.position || identityPosition}
 		vec3 uCameraOffset ${camera.offset || identityPosition}
 		vec3 position = uCameraMatrix * (uGroupMatrix * (uMatrix * (vertex + uOffset) + uGroupOffset) + uGroupPosition + uPosition) + uCameraPosition;
-		gl_Position = vec4(uCameraScale * floor(uCameraZoom * (position * 2.0 + uPointOffset) + uCameraOffset * 2.0), 1.0);
+		gl_Position = vec4(uCameraScale * (floor(uCameraZoom * position * 2.0 + uCameraOffset * 2.0) + pointOffset), 1.0);
 		${update}
 		${[common]}
 		//
 	` : reference === camera ? stew`
 		vec3 position = uGroupMatrix * (uMatrix * (vertex + uOffset) + uGroupOffset) + uGroupPosition + uPosition;
-		gl_Position = vec4(uCameraScale * floor(uCameraZoom * (position * 2.0 + uPointOffset)), 1.0);
+		gl_Position = vec4(uCameraScale * (floor(uCameraZoom * position * 2.0) + pointOffset), 1.0);
 		${update}
 		${[common]}
 		//
@@ -192,7 +196,7 @@ export function shader ({ '': context, points, colors, reference }, ...instances
 		vec3 uReferencePosition ${reference.position || identityPosition}
 		vec3 uReferenceOffset ${reference.offset || identityPosition}
 		vec3 position = uCameraMatrix * uReferenceMatrix * (uReferencePosition + uReferenceOffset) + (uGroupMatrix * (uMatrix * (vertex + uOffset) + uGroupOffset) + uGroupPosition + uPosition) + uCameraPosition;
-		gl_Position = vec4(uCameraScale * floor(uCameraZoom * (position * 2.0 + uPointOffset + uCameraOffset * 2.0)), 1.0);
+		gl_Position = vec4(uCameraScale * (floor(uCameraZoom * position * 2.0 + uCameraOffset * 2.0) + pointOffset), 1.0);
 		${update}
 		${[common]}
 		//

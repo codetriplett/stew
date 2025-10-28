@@ -195,7 +195,7 @@ export function palette () {
 // - bottom right: scene menu (lighting, zoom, etc)
 
 export function carve () {
-	const [camera, guideLines, ...instances] = stew(() => {
+	const [camera, ...cursorInstances] = stew(() => {
 		const scale = [1 / 640, 0, 0, 0, 1 / 360, 0, 0, 0, 1 / 1280];
 		const matrix = [1, 0, 0, 0, 1, 0, 0, 0, 1];
 		const camera = { scale, matrix, zoom: 8, offset: [0, 0, 0], angles: [0, 0, 0] };
@@ -203,9 +203,8 @@ export function carve () {
 
 		return [
 			camera,
-			new Int16Array([-640, -40, 640, -40, -640, 40, 640, 40, -40, -360, -40, 360, 40, -360, 40, 360]),
 			{
-				points: new Int8Array([
+				vertexes: new Int8Array([
 					0, 0,
 					-4, -2, -3, -2, -2, -2, -2, -3, -2, -4,
 					-4, 2, -3, 2, -2, 2, -2, 3, -2, 4,
@@ -214,10 +213,10 @@ export function carve () {
 				]),
 			},
 			{
-				points: new Int8Array([0, 0]),
+				vertexes: new Int8Array([0, 0]),
 			},
 			{
-				points: new Int8Array([
+				vertexes: new Int8Array([
 					-4, -2, -3, -2, -2, -2, -2, -3, -2, -4,
 					-4, 2, -3, 2, -2, 2, -2, 3, -2, 4,
 					4, -2, 3, -2, 2, -2, 2, -3, 2, -4,
@@ -237,7 +236,7 @@ export function carve () {
 		
 		// TODO: use helper to calcualte and update normal at a set position
 		// - this will be called whenever a pixel depth is changed, and will affect all points +/- 2 pixels away from that point
-
+		
 		const sprite = reference[0][0];
 		sprite.offset = sprite.offset.map(value => -Math.round(-value));
 		return { reference };
@@ -257,7 +256,7 @@ export function carve () {
 		};
 
 		const model = { sprite, group, position: [0, 0, 0], matrix: [1, 0, 0, 0, 1, 0, 0, 0, 1] };
-		const white = new Uint8Array(sprite.front.colors.length).fill(255);
+		const white = new Uint8Array(sprite.length).fill(255);
 		return [model, white];
 	}, []);
 
@@ -272,14 +271,13 @@ export function carve () {
 				${gl => {
 					const { cursorX, cursorY, cameraX, cameraY, rotation = 0, tilt = 0 } = state;
 					const { sprite, position } = model;
-					const { offset, front, back, map } = sprite;
+					const { map, vertexes, offset } = sprite;
 					const isBack = Math.abs(rotation) % (Math.PI * 2) > (Math.PI / 2);
-					const { points } = isBack ? back : front;
 					const { matrix } = camera;
 					const x = Math.round(cursorX);
 					const y = Math.round(cursorY);
 					const index = map[y - offset[1]]?.[x - offset[0]];
-					const z = points[index] + offset[2];
+					const z = vertexes[index + (isBack ? 5 : 2)] + offset[2];
 					position.splice(0, 2, -x, -y);
 					matrix.splice(0, 9, ...createMatrix(tilt, rotation, 0));
 					camera.offset.splice(0, 2, -Math.round(cameraX), -Math.round(cameraY));
@@ -296,29 +294,14 @@ export function carve () {
 					gl.depthFunc(gl.LESS);
 				}}
 			`,
-				// stew`
-				// 	${[guideLines].map(points => stew`
-				// 		SHORT ivec2 aPoint ${points}
-				// 		mat3 uCameraScale ${camera.scale}
-				// 		vec3 uCameraOffset ${camera.offset}
-				// 		vec3 position = vec3(aPoint, 0.0);
-				// 		gl_Position = vec4(uCameraScale * floor((position * 2.0) + uCameraOffset * 2.0), 1.0);
-				// 		${gl => {
-				// 			gl.drawArrays(gl.LINES, 0, points.length >> 1);
-				// 			gl.clear(gl.DEPTH_BUFFER_BIT);
-				// 		}}
-				// 		vec3 uBrushColor ${contrastColor}
-				// 		gl_FragColor = vec4(uBrushColor, 1.0);
-				// 	`)}
-				// `,
 				[shader, null, model],
 				stew`
 					${gl => {
 						gl.clear(gl.DEPTH_BUFFER_BIT);
 						gl.disable(gl.DEPTH_TEST);
 					}}
-					${instances.map(({ points }, i) => stew`
-						BYTE ivec2 aPoint ${points}
+					${cursorInstances.map(({ vertexes }, i) => stew`
+						BYTE ivec2 aPoint ${vertexes}
 						mat3 uCameraScale ${camera.scale}
 						vec3 uCameraOffset ${camera.offset}
 						float uCameraZoom ${camera} zoom
@@ -326,7 +309,7 @@ export function carve () {
 						vec3 position = vec3(aPoint, 0.0);
 						gl_Position = vec4(uCameraScale * floor(uCameraZoom * (position * 2.0) + uCameraOffset * 2.0), 1.0);
 						gl_PointSize = uCameraZoom * 2.0 + uPointSize;
-						${gl => gl.drawArrays(gl.POINTS, 0, points.length >> 1)}
+						${gl => gl.drawArrays(gl.POINTS, 0, vertexes.length >> 1)}
 						vec3 uBrushColor ${colors[i]}
 						gl_FragColor = vec4(uBrushColor, 1.0);
 					`)}
