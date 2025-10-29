@@ -252,12 +252,18 @@ export function carve () {
 		
 		const group = {
 			// matrix: [20, 0, 0, 0, 20, 0, 0, 0, 20],
-			light: { shine: [0.75, 0.5, 0.25, 1] }
+			light: { shine: [1, 1, 1] }
 		};
 
 		const model = { sprite, group, position: [0, 0, 0], matrix: [1, 0, 0, 0, 1, 0, 0, 0, 1] };
 		const white = new Uint8Array(sprite.length).fill(255);
 		return [model, white];
+	}, []);
+
+	// TODO move this to a separate 1x1 canvas
+	// - it is currently rendering the full scene, but only reading a 1x1 section of the result
+	const detectPoint = stew(() => pixels => {
+		// console.log(pixels);
 	}, []);
 
 	stew(null, [], () => initializeControls(ref[0][0], camera));
@@ -315,6 +321,19 @@ export function carve () {
 					`)}
 				`,
 				stew`${() => 16}`,
+			],
+			['canvas', { width: 4, height: 4, style: { width: '4px', height: '4px' } }, stew`
+				${gl => {
+					gl.clearColor(0, 0, 0, 0);
+					gl.clear(gl.COLOR_BUFFER_BIT);
+					gl.clear(gl.DEPTH_BUFFER_BIT);
+					gl.enable(gl.DEPTH_TEST);
+					gl.depthFunc(gl.LESS);
+				}}
+				
+			`,
+				[shader, { callback: detectPoint }, model],
+				stew`${() => 32}`,
 			],
 			['div', { className: 'ui' },
 				[palette, null],

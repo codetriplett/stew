@@ -140,6 +140,12 @@ export function patchSprite (sprite) {
 	});
 }
 
+// TODO: allow exporting as OBJ file
+// - just the points, no triangles
+// - adjust points 0.5 units out in their normal vector directions to fill out the object
+// - filling out object will help it resemble the form seen when viewed with the chunkier points
+// - users can import OBJ into a real 3d modeling tool to have it calculate the links between them, and which ones are unnecessary
+
 // make depthBits optional and render squares with standard texture using coordinates if not provided
 // - this will be useful for the rough shape of buildings, with sculpted sprites adding detail
 // - have shader skip rendering fragments in flat image if the alpha value < 0.5

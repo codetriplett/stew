@@ -56,12 +56,20 @@ function updateAnimation (animation, elapsed, target) {
 // light: [0, 1, 0] // position of light
 // shine: [1, 1, 1, 1] // percentage of each channel to keep from texture (full strength when pointing toward light vector)
 // shade: [0.5, 0.5, 0.5, 1] // percentage of each channel to keep from texture (full strength when pointing away from light vector)
-export function shader ({ '': context, points, colors, reference }, ...instances) {
+export function shader ({ '': context, points, colors, reference, callback }, ...instances) {
 	const { camera, vertexes, normals, elements, record = new Set() } = context;
 	const identityMatrix = [1, 0, 0, 0, 1, 0, 0, 0, 1];
 	const identityPosition = [0, 0, 0];
 	const sprites = new Map();
 	const animatedInstances = new Set();
+	const isFixed = reference === camera;
+	
+	const [pixels, cameraScale] = stew(() => {
+		return [
+			new Uint8Array(4 * 4 * 4),
+			callback ? [1 / 4, 0, 0, 0, 1 / 4, 0, 0, 0, camera.scale?.[8] || 1] : camera.scale,
+		];
+	}, [callback]);
 
 	if (camera.animations) {
 		animatedInstances.add(camera);
@@ -87,28 +95,6 @@ export function shader ({ '': context, points, colors, reference }, ...instances
 		sprites.get(sprite).push(instance);
 	}
 
-	const update = (gl, elapsed) => {
-		for (const instance of animatedInstances) {
-			if (record.has(instance)) {
-				continue;
-			}
-
-			record.add(instance);
-
-			for (const [name, animation] of Object.entries(instance.animations)) {
-				const array = instance[name];
-				updateAnimation(animation, elapsed, array);
-
-				if (name === 'angles') {
-					camera.matrix.splice(0, 9, ...createMatrix(...array));
-				}
-			}
-		}
-	};
-	
-	// TEXTURE0 usampler2D uImage ${image}
-	// *vec4 pixel = texture(uImage, (vec2(aPoint.xy) + uSpriteCoordinates + 0.5) * uSpriteScale);
-
 	const children = [...sprites].map(([{ offset, smoothing = 0, vertexes, normals, colors }, instances]) => {
 		const children = instances.map(({ group = {}, position, offset, scale, matrix }) => {
 			const child = stew`
@@ -121,84 +107,120 @@ export function shader ({ '': context, points, colors, reference }, ...instances
 				vec3 uPosition ${position || identityPosition}
 				vec3 uOffset ${offset || identityPosition}
 				float uPointSize ${(2 + smoothing) * (scale ? Math.max(...scale) : 1) * (group.scale ? Math.max(...group.scale) : 1)}
-				float intensity = 1.0;
+				float pointSize = uPointSize;
+				vec3 color = vec3(aColor) / 255.0;
 				${gl => gl.drawArrays(gl.POINTS, 0, vertexes.length / 3)}
-				gl_FragColor = vColor;
+				//
 			`;
 
-			const { light = {} } = group;
+			const { light } = group;
 
-			return reference ? child : stew`
+			return !light ? child : stew`
 				mat3 uLightPosition ${light.position || identityMatrix}
 				vec4 uLightShine ${light.shine || [1, 1, 1, 1]}
 				vec4 uLightShade ${light.shade || [0.5, 0.5, 0.5, 1]}
-				intensity = 0.5 + dot(normalize(vec3(0.0, 0.0, -1.0)), normalize(vec3(aNormal))) * 0.5;
+				// TODO: calculate light direction from distance vector between them, then normalize
+				float intensity = 0.5 + dot(normalize(vec3(0.0, 0.0, -1.0)), normalize(vec3(aNormal))) * 0.5;
+				// color = color * intensity;
 				${[child]}
 				//
 			`;
 		});
 
-		return reference ? stew`
-			vec3 uSpriteOffset ${offset}
-			UNSIGNED_BYTE uvec3 aVertex ${vertexes}
-			UNSIGNED_BYTE uvec3 aColor ${colors}
-			*vec4 vColor = vec4((vec3(aColor) / 255.0) * intensity, 1.0);
-			${children}
-			//
-		` : stew`
+		return stew`
 			vec3 uSpriteOffset ${offset}
 			UNSIGNED_BYTE uvec3 aVertex ${vertexes}
 			BYTE ivec3 aNormal ${normals}
 			UNSIGNED_BYTE uvec3 aColor ${colors}
-			*vec4 vColor = vec4((vec3(aColor) / 255.0) * intensity, 1.0);
+			float alpha = 1.0;
 			${children}
 			//
 		`;
 	});
 
-	// TODO: add facing check to each point to see if it should even be rendered (dot product with camera vector)
-	const common = stew`
-		mat3 uCameraScale ${camera.scale || identityMatrix}
-		float uCameraZoom ${camera} zoom
+	let program = stew`
+		mat3 uCameraScale ${cameraScale || identityMatrix}
+		vec3 uCameraOffset ${!isFixed && camera.offset || identityPosition}
+		float uCameraZoom ${!isFixed ? camera : { zoom: 1 }} zoom
 		vec3 vertex = vec3(aVertex) + uSpriteOffset;
-		gl_PointSize = uPointSize * uCameraZoom;
-		float pointOffset = mod(gl_PointSize, 2.0) * 0.5; 
+		float pointOffset = mod(pointSize, 2.0) * 0.5;
+		vec3 position = uGroupMatrix * (uMatrix * (vertex + uOffset) + uGroupOffset) + uGroupPosition + uPosition;
 		${children}
 		//
 	`;
 
-	// TODO: use normal to add shade
-	// - x and y normals are pack into single byte, and range from -8 to 7
-	// - these are angles in (Math.PI / 7) increments away from z axis
-	// - have light give intensity as well as color that fades with distance
-	// - -8 is reserved for glow effect, where color isn't dimmed if facing away from light source
+	if (!isFixed) {
+		program = stew`
+			mat3 uCameraMatrix ${camera.matrix || identityMatrix}
+			vec3 uCameraPosition ${camera.position || identityPosition}
+			position = uCameraMatrix * position + uCameraPosition;
+			pointSize = pointSize * uCameraZoom;
+			${[program]}
+			//
+		`;
+		
+		if (reference) {
+			program = stew`
+				mat3 uReferenceMatrix ${reference.matrix || identityMatrix}
+				vec3 uReferencePosition ${reference.position || identityPosition}
+				vec3 uReferenceOffset ${reference.offset || identityPosition}
+				position = uReferenceMatrix * (uReferencePosition + uReferenceOffset) + position;
+				${[program]}
+				//
+			`;
+		}
+	}
 
-	return !reference ? stew`
-		mat3 uCameraMatrix ${camera.matrix || identityMatrix}
-		vec3 uCameraPosition ${camera.position || identityPosition}
-		vec3 uCameraOffset ${camera.offset || identityPosition}
-		vec3 position = uCameraMatrix * (uGroupMatrix * (uMatrix * (vertex + uOffset) + uGroupOffset) + uGroupPosition + uPosition) + uCameraPosition;
+	if (callback) {
+		program = stew`
+			// const gl_VertexID
+			color = vec3(1.0, 1.0, 1.0);
+			alpha = 0.5;
+			${[program]}
+			//
+		`;
+	}
+
+	return stew`
 		gl_Position = vec4(uCameraScale * (floor(uCameraZoom * position * 2.0 + uCameraOffset * 2.0) + pointOffset), 1.0);
-		${update}
-		${[common]}
-		//
-	` : reference === camera ? stew`
-		vec3 position = uGroupMatrix * (uMatrix * (vertex + uOffset) + uGroupOffset) + uGroupPosition + uPosition;
-		gl_Position = vec4(uCameraScale * (floor(uCameraZoom * position * 2.0) + pointOffset), 1.0);
-		${update}
-		${[common]}
-		//
-	` : stew`
-		mat3 uCameraMatrix ${camera.matrix || identityMatrix}
-		vec3 uCameraPosition ${camera.position || identityPosition}
-		vec3 uCameraOffset ${camera.offset || identityPosition}
-		mat3 uReferenceMatrix ${reference.matrix || identityMatrix}
-		vec3 uReferencePosition ${reference.position || identityPosition}
-		vec3 uReferenceOffset ${reference.offset || identityPosition}
-		vec3 position = uCameraMatrix * uReferenceMatrix * (uReferencePosition + uReferenceOffset) + (uGroupMatrix * (uMatrix * (vertex + uOffset) + uGroupOffset) + uGroupPosition + uPosition) + uCameraPosition;
-		gl_Position = vec4(uCameraScale * (floor(uCameraZoom * position * 2.0 + uCameraOffset * 2.0) + pointOffset), 1.0);
-		${update}
-		${[common]}
-		//
+		gl_PointSize = pointSize;
+		*vec4 vColor = vec4(color, alpha);
+		${(gl, elapsed) => {
+			if (callback) {
+				return;
+			}
+
+			for (const instance of animatedInstances) {
+				if (record.has(instance)) {
+					continue;
+				}
+
+				record.add(instance);
+
+				for (const [name, animation] of Object.entries(instance.animations)) {
+					const array = instance[name];
+					updateAnimation(animation, elapsed, array);
+
+					if (name === 'angles') {
+						camera.matrix.splice(0, 9, ...createMatrix(...array));
+					}
+				}
+			}
+		}}
+		${[program]}
+		${gl => {
+			if (!callback) {
+				return;
+			}
+
+			gl.readPixels(0, 0, 4, 4, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+			try {
+				callback(pixels);
+			} catch (err) {
+				console.error(err);
+			}
+		}}
+		gl_FragColor = vColor;
 	`;
 }

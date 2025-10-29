@@ -4,7 +4,6 @@ import { animations, schedule } from './state';
 const shaderTypes = ['VERTEX_SHADER', 'FRAGMENT_SHADER'];
 export const sequenceMap = new WeakMap();
 export const rootMap = new WeakMap();
-export const nodeMap = new WeakMap();
 const varyingMap = new Map();
 
 function getStored (map, key, callback) {
@@ -21,6 +20,10 @@ function createAttributeSetter (gl, program, subname, name, type, subtype) {
 	const location = gl.getAttribLocation(program, name);
 	const buffer = gl.createBuffer();
 	let isInt, size;
+
+	if (location === -1) {
+		return () => {};
+	}
 	
 	if (/^u?int$/.test(type)) {
 		isInt = true;
@@ -71,8 +74,12 @@ const setterNames = {
 function createUniformSetter (gl, program, subname, name, type, subtype) {
 	const location = gl.getUniformLocation(program, name);
 
+	if (location === -1) {
+		return () => {};
+	}
+
 	if (type === 'sampler2D') {
-		const textureMap = new WeakMap;
+		const textureMap = new WeakMap();
 		const index = subtype?.startsWith('TEXTURE') && Number(subtype.slice(7)) || 0;
 
 		return image => {
@@ -295,7 +302,8 @@ export default function compile (strings, ...values) {
 					const subprograms = [];
 					
 					for (const prepare of resolver) {
-						subprograms.push(...prepare(canvas, map, ...stack));
+						const newSubprograms = prepare(canvas, map, ...stack);
+						subprograms.push(...newSubprograms);
 					}
 
 					for (const subprogram of subprograms) {
