@@ -1,6 +1,5 @@
-import createMatrix from '/game/matrix.mjs';
+import createMatrix, { multiply } from '/game/matrix.mjs';
 import { loadSprites } from '/game/model.mjs';
-import { shader } from '/game/shader.mjs';
 
 export const state = stew({
 	red: 119,
@@ -21,7 +20,6 @@ export function handleFullscreen (element) {
 }
 
 export function initializeControls (element, camera) {
-	Object.assign(state, { cursorX: 0, cursorY: 0, cameraZoom: camera.zoom, cameraX: 0, cameraY: 0, rotation: 0, tilt: 0, mouseSide: '' });
 	const tapThreshold = 400;
 	let scale = 1;
 	let movement = 0;
@@ -194,27 +192,93 @@ export function palette () {
 // - bottom left: info (to explain UI)
 // - bottom right: scene menu (lighting, zoom, etc)
 
+export function shader ({ projection, matrix, position, offset, other, pixels, params }, callback, ...instances) {
+	return stew`
+		mat3 uProjection ${projection}
+		mat3 uMatrix ${matrix}
+		vec3 uPosition ${position}
+		vec3 uOffset ${offset}
+		float uZoom ${other} zoom
+		gl_PointSize = uZoom * 2.0;
+		gl_Position = vec4(uProjection * floor(uMatrix * (vec3(aVertex) + uOffset + uPosition) * gl_PointSize), 1.0);
+		float intensity = alpha < 1.0 ? 1.0 : 0.5 + dot(normalize(vec3(0.0, 0.0, -1.0)), normalize(vec3(aNormal))) * 0.5;
+		*vec4 vColor = vec4(vec3(aColor) / 255.0 * intensity, alpha);
+		${gl => {
+			if (callback) {
+				gl.clearColor(0, 0, 0, 0);
+			} else {
+				const { backgroundColor } = state;
+				gl.clearColor(...backgroundColor, 1);
+			}
+
+			gl.clear(gl.COLOR_BUFFER_BIT);
+			gl.clear(gl.DEPTH_BUFFER_BIT);
+			gl.enable(gl.DEPTH_TEST);
+			gl.depthFunc(gl.LESS);
+		}}
+		${instances.map(({ vertexes, normals, colors }, i) => stew`
+			UNSIGNED_BYTE uvec3 aVertex ${vertexes}
+			BYTE ivec3 aNormal ${normals}
+			UNSIGNED_BYTE uvec3 aColor ${colors}
+			float alpha ${callback ? i / 255 : 1}
+			${gl => {
+				gl.drawArrays(gl.POINTS, 0, vertexes.length / 3);
+				gl.clear(gl.DEPTH_BUFFER_BIT);
+			}}
+			//
+		`)}
+		${gl => {
+			const { paused } = state;
+
+			if (!callback) {
+				return !paused && 16;
+			}
+
+			gl.readPixels(0, 0, 4, 4, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+			try {
+				callback(pixels, ...params);
+			} catch (err) {
+				console.error(err);
+			}
+
+			return !paused && 32;
+		}}
+		gl_FragColor = vColor;
+	`;
+}
+
+export function detect (pixels, model, cursor) {
+	// state.paused = true;
+	const index = (pixels[6 * 4] << 16) + (pixels[6 * 4 + 1] << 8) + pixels[6 * 4 + 2] - 1;
+
+	if (index >= 0) {
+		cursor.vertexes.set(model.vertexes.slice(index * 3, index * 3 + 3));
+	} else {
+		// calculate x and y using the current matrix, assuming the plane is at the previously found z value
+	}
+}
+
 export function carve () {
-	const [camera, ...cursorInstances] = stew(() => {
-		const scale = [1 / 640, 0, 0, 0, 1 / 360, 0, 0, 0, 1 / 1280];
-		const matrix = [1, 0, 0, 0, 1, 0, 0, 0, 1];
-		const camera = { scale, matrix, zoom: 8, offset: [0, 0, 0], angles: [0, 0, 0] };
+	const [projection, matrix, position, other, ...cursorInstances] = stew(() => {
 		updateColor();
 
 		return [
-			camera,
+			[1 / 640, 0, 0, 0, 1 / 360, 0, 0, 0, 1 / 1280],
+			[1, 0, 0, 0, 1, 0, 0, 0, 1],
+			[0, 0, 0],
+			{ zoom: 8 },
 			{
 				vertexes: new Int8Array([
-					0, 0,
 					-4, -2, -3, -2, -2, -2, -2, -3, -2, -4,
 					-4, 2, -3, 2, -2, 2, -2, 3, -2, 4,
 					4, -2, 3, -2, 2, -2, 2, -3, 2, -4,
 					4, 2, 3, 2, 2, 2, 2, 3, 2, 4,
 				]),
 			},
-			{
-				vertexes: new Int8Array([0, 0]),
-			},
+			// {
+			// 	vertexes: new Int8Array([0, 0]),
+			// },
 			{
 				vertexes: new Int8Array([
 					-4, -2, -3, -2, -2, -2, -2, -3, -2, -4,
@@ -247,60 +311,65 @@ export function carve () {
 	}
 
 	// change this whenever new model is loaded
-	const [model, white] = stew(() => {
+	const [{ vertexes, normals, colors, offset }, indexes, white] = stew(() => {
 		const sprite = scene.reference[0][0];
-		
-		const group = {
-			// matrix: [20, 0, 0, 0, 20, 0, 0, 0, 20],
-			light: { shine: [1, 1, 1] }
-		};
+		const { length } = sprite.vertexes;
+		const indexes = [];
 
-		const model = { sprite, group, position: [0, 0, 0], matrix: [1, 0, 0, 0, 1, 0, 0, 0, 1] };
-		const white = new Uint8Array(sprite.length).fill(255);
-		return [model, white];
-	}, []);
+		for (let i = 1; i <= length / 3; i++) {
+			indexes.push(i >> 16, (i >> 8) % 256, i % 256);
+		}
 
-	// TODO move this to a separate 1x1 canvas
-	// - it is currently rendering the full scene, but only reading a 1x1 section of the result
-	const detectPoint = stew(() => pixels => {
-		// console.log(pixels);
+		return [sprite, new Uint8Array(indexes), new Uint8Array(sprite.colors.length).fill(255)];
 	}, []);
 
 	stew(null, [], () => initializeControls(ref[0][0], camera));
 	const { brushColor, backgroundColor, contrastColor } = state;
-	const colors = [backgroundColor, brushColor, contrastColor];
+	const sceneColors = [backgroundColor, brushColor, contrastColor];
 	let ref;
 
-	return ref = ['', { camera },
+	// move both to zoom
+	// - this also sets the cursor level to match zoom level, so it should be as accessible as moving cursor
+	// - remove the camera offset for now
+
+	// paint with right tap
+	// - pairs better with moving curser in opposite hand
+
+	// carve with left tap
+	// - pairs better with moving camera in opposite hand to test different angles
+	// - can still tap
+
+	const model = { vertexes, normals, colors: white };
+	const cursor = { vertexes: new Uint8Array(3), normals: new Int8Array(3), colors: new Uint8Array([255, 0, 255]) };
+	const camera = { projection, matrix, position, offset, other, pixels: new Uint8Array(4 * 4 * 4), params: [model, cursor] };
+
+	stew(() => {
+		Object.assign(state, { cursorX: 0, cursorY: 0, cameraZoom: camera.zoom, cameraX: 0, cameraY: 0, rotation: 0, tilt: 0, mouseSide: '', paused: false });
+	}, []);
+
+	// tap center to recenter camera
+	// move palette to its own button
+	return ref = ['', null,
 		['div', null,
-			['canvas', { width: 1280, height: 720 }, stew`
-				${gl => {
-					const { cursorX, cursorY, cameraX, cameraY, rotation = 0, tilt = 0 } = state;
-					const { sprite, position } = model;
-					const { map, vertexes, offset } = sprite;
-					const isBack = Math.abs(rotation) % (Math.PI * 2) > (Math.PI / 2);
-					const { matrix } = camera;
-					const x = Math.round(cursorX);
-					const y = Math.round(cursorY);
-					const index = map[y - offset[1]]?.[x - offset[0]];
-					const z = vertexes[index + (isBack ? 5 : 2)] + offset[2];
-					position.splice(0, 2, -x, -y);
-					matrix.splice(0, 9, ...createMatrix(tilt, rotation, 0));
-					camera.offset.splice(0, 2, -Math.round(cameraX), -Math.round(cameraY));
+			['canvas', { width: 1280, height: 720 },
+				stew`
+					${() => {
+						const { tilt, rotation, cursorX, cursorY } = state;
+						matrix.splice(0, 9, ...createMatrix(tilt, rotation, 0));
 
-					if (z) {
-						position[2] = -z;
-					}
-
-					const { backgroundColor } = state;
-					gl.clearColor(...backgroundColor, 1);
-					gl.clear(gl.COLOR_BUFFER_BIT);
-					gl.clear(gl.DEPTH_BUFFER_BIT);
-					gl.enable(gl.DEPTH_TEST);
-					gl.depthFunc(gl.LESS);
-				}}
-			`,
-				[shader, null, model],
+						if (cursorX || cursorY) {
+							const inverse = createMatrix(-tilt, -rotation, 0, true);
+							const change = multiply([-cursorX, -cursorY, 0], inverse);
+							position[0] += change[0];
+							position[1] += change[1];
+							position[2] += change[2];
+							// position.splice(0, 2, -cursorX, -cursorY);
+							state.cursorX = 0;
+							state.cursorY = 0;
+						}
+					}}
+				`,
+				shader(camera, null, model, cursor),
 				stew`
 					${gl => {
 						gl.clear(gl.DEPTH_BUFFER_BIT);
@@ -308,32 +377,21 @@ export function carve () {
 					}}
 					${cursorInstances.map(({ vertexes }, i) => stew`
 						BYTE ivec2 aPoint ${vertexes}
-						mat3 uCameraScale ${camera.scale}
-						vec3 uCameraOffset ${camera.offset}
-						float uCameraZoom ${camera} zoom
-						float uPointSize ${i ? 0 : 2}
-						vec3 position = vec3(aPoint, 0.0);
-						gl_Position = vec4(uCameraScale * floor(uCameraZoom * (position * 2.0) + uCameraOffset * 2.0), 1.0);
-						gl_PointSize = uCameraZoom * 2.0 + uPointSize;
+						mat3 uProjection ${projection}
+						float uZoom ${other} zoom
+						float uBorder ${i ? 0 : 1}
+						vec3 position = vec3(aPoint, 0);
+						gl_PointSize = uZoom * 2.0;
+						gl_Position = vec4(uProjection * floor(gl_PointSize * position), 1.0);
+						gl_PointSize += uBorder * 2.0;
 						${gl => gl.drawArrays(gl.POINTS, 0, vertexes.length >> 1)}
-						vec3 uBrushColor ${colors[i]}
+						vec3 uBrushColor ${i ? [1, 1, 1] : [0, 0, 0]}
 						gl_FragColor = vec4(uBrushColor, 1.0);
 					`)}
 				`,
-				stew`${() => 16}`,
 			],
-			['canvas', { width: 4, height: 4, style: { width: '4px', height: '4px' } }, stew`
-				${gl => {
-					gl.clearColor(0, 0, 0, 0);
-					gl.clear(gl.COLOR_BUFFER_BIT);
-					gl.clear(gl.DEPTH_BUFFER_BIT);
-					gl.enable(gl.DEPTH_TEST);
-					gl.depthFunc(gl.LESS);
-				}}
-				
-			`,
-				[shader, { callback: detectPoint }, model],
-				stew`${() => 32}`,
+			['canvas', { width: 4, height: 4, style: { width: '4px', height: '4px' } },
+				shader({ ...camera, projection: [1 / 4, 0, 0, 0, 1 / 4, 0, 0, 0, 1 / 1280] }, detect, { ...model, colors: indexes }),
 			],
 			['div', { className: 'ui' },
 				[palette, null],

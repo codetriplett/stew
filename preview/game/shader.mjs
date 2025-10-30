@@ -153,22 +153,26 @@ export function shader ({ '': context, points, colors, reference, callback }, ..
 		program = stew`
 			mat3 uCameraMatrix ${camera.matrix || identityMatrix}
 			vec3 uCameraPosition ${camera.position || identityPosition}
-			position = uCameraMatrix * position + uCameraPosition;
 			pointSize = pointSize * uCameraZoom;
 			${[program]}
 			//
 		`;
 		
-		if (reference) {
-			program = stew`
-				mat3 uReferenceMatrix ${reference.matrix || identityMatrix}
-				vec3 uReferencePosition ${reference.position || identityPosition}
-				vec3 uReferenceOffset ${reference.offset || identityPosition}
-				position = uReferenceMatrix * (uReferencePosition + uReferenceOffset) + position;
-				${[program]}
-				//
-			`;
-		}
+		// maybe reference position should be calculated outside of the shader
+		// - it would be the same for all instances
+		// - just pass in referencePosition already calculated from camera, and referenceMatrix to rotate instances
+		program = reference ? stew`
+			mat3 uReferenceMatrix ${reference.matrix || identityMatrix}
+			vec3 uReferencePosition ${reference.position || identityPosition}
+			vec3 uReferenceOffset ${reference.offset || identityPosition}
+			position = uCameraMatrix * uReferenceMatrix * (uReferencePosition + uReferenceOffset) + position;
+			${[program]}
+			//
+		` : stew`
+			position = uCameraMatrix * position + uCameraPosition;
+			${[program]}
+			//
+		`;
 	}
 
 	if (callback) {
