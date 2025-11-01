@@ -9,6 +9,7 @@ export const state = stew({
 	brushColor: [1, 1, 1],
 	backgroundColor: [0, 0, 0],
 	contrastColor: [0, 0, 0],
+	mode: 'view',
 });
 
 export function handleFullscreen (element) {
@@ -16,6 +17,38 @@ export function handleFullscreen (element) {
 		document.exitFullscreen();
 	} else {
 		element.requestFullscreen();
+	}
+}
+
+export function setMode () {
+	const { mode, tilt, rotation } = state;
+	const cos = Math.cos(rotation);
+	const sin = Math.sin(rotation);
+	const threshold = mode === 'view' ? 0.9569403357322088 : 0.881921264348355;
+	let newMode = 'view';
+	let modifier = '-side';
+
+	if (Math.abs(sin) > threshold) {
+		newMode = `sculpt-${sin < 0 ? 'front' : 'back'}`;
+	} else if (Math.abs(cos) > threshold) {
+		newMode = `paint-${cos < 0 ? 'back' : 'front'}`;
+	}
+
+	if (tilt > Math.PI / 4) {
+		modifier = '-bottom';
+	} else if (tilt < -Math.PI / 4) {
+		modifier = '-top';
+	}
+
+	if (newMode.startsWith('sculpt-')) {
+		newMode += modifier;
+	} else if (modifier !== '-side') {
+		newMode = 'view';
+	}
+
+	if (newMode !== mode) {
+		state.mode = newMode;
+		return newMode;
 	}
 }
 
@@ -32,101 +65,64 @@ export function initializeControls (element, camera) {
 	window.addEventListener('resize', resize);
 	resize();
 
-	element.onmousedown = ({ offsetX, offsetY }) => {
-		const { clientWidth, clientHeight } = element;
-		const { offset } = camera;
-		const centerX = clientWidth / 2 + offset[0] * scale * 2;
-		const centerY = clientHeight / 2 - offset[1] * scale * 2;
+	element.onmousedown = ({ offsetX }) => {
+		const { clientWidth } = element;
 		downTimestamp = Date.now();
 		movement = 0;
-
-		state.mouseSide = [
-			offsetY < centerY - 40 ? 'top' : offsetY <= centerY + 40 ? 'center' : 'bottom',
-			offsetX < centerX - 40 ? 'left' : offsetX <= centerX + 40 ? 'center' : 'right',
-		].join(' ');
+		state.mouseSide = offsetX < clientWidth / 2 ? 'left' : 'right';
 	};
 
 	element.onmouseup = () => {
-		const { mouseSide } = state;
+		const { mode, mouseSide } = state;
 		const downDuration = Date.now() - downTimestamp;
 		state.mouseSide = '';
 
 		if (!(downDuration < tapThreshold) || movement > 3) {
 			return;
 		}
-
-		// TODO: have first tap on either size change between paint and model mode
-		// - model mode paints it plain white with straight on lighting
-		// - paint mode shows colors and filler, with adjustable scene lighting
-		switch (mouseSide) {
-			case 'center center': {
-				console.log('open palette');
-				break;
+		
+		if (mode.startsWith('paint-')) {
+			if (mouseSide === 'left') {
+				console.log('erase color');
+			} else if (mouseSide === 'right') {
+				console.log('set color');
 			}
-			case 'bottom center': {
-				state.cursorY -= 1;
-				break;
-			}
-			case 'top center': {
-				state.cursorY += 1;
-				break;
-			}
-			case 'center left': {
-				state.cursorX -= 1;
-				break;
-			}
-			case 'center right': {
-				state.cursorX += 1;
-				break;
-			}
-			case 'bottom left': {
-				console.log('add color');
-				break;
-			}
-			case 'top left': {
-				console.log('erase');
-				break;
-			}
-			case 'bottom right': {
-				console.log('add depth');
-				break;
-			}
-			case 'top right': {
-				console.log('remove depth');
-				break;
+		} else if (mode.startsWith('sculpt-')) {
+			if (mouseSide === 'left') {
+				console.log(`decrease ${mode.split('-')[1]} depth`);
+			} else if (mouseSide === 'right') {
+				console.log(`increase ${mode.split('-')[1]} depth`);
 			}
 		}
 	};
 
 	element.onmousemove = ({ movementX, movementY }) => {
-		const { mouseSide } = state;
+		const { mode, mouseSide } = state;
 		movement += Math.max(Math.abs(movementX), Math.abs(movementY));
 
-		switch (mouseSide) {
-			case 'center center': {
-				state.cameraX -= movementX / (scale * 2);
-				state.cameraY += movementY / (scale * 2);
-				break;
-			}
-			case 'bottom center':
-			case 'top center': {
-				state.cameraZoom = Math.max(2, Math.min(16, state.cameraZoom - movementY * 0.1));
-				camera.zoom = Math.round(state.cameraZoom);
-				break;
-			}
-			case 'bottom left':
-			case 'center left':
-			case 'top left': {
-				state.cursorX -= movementX * 0.1;
-				state.cursorY += movementY * 0.1;
-				break;
-			}
-			case 'bottom right':
-			case 'center right':
-			case 'top right': {
-				state.rotation -= movementX * 0.01;
-				state.tilt = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, state.tilt - movementY * 0.01));
-				break;
+		if (mouseSide === 'right') {
+			state.rotation -= movementX * 0.01;
+			state.tilt = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, state.tilt - movementY * 0.01));
+			const newMode = setMode();
+			
+			// if (newMode) {
+			// 	console.log(newMode);
+			// }
+		} else if (mouseSide === 'left') {
+			if (mode === 'view') {
+				camera.center[0] += movementX * 0.1;
+				camera.other.zoom = Math.max(2, Math.min(16, camera.other.zoom + movementY * -0.1));
+			} else if (/-(top|bottom)$/.test(mode)) {
+				state.x += movementY * (mode.endsWith('-bottom') ? 0.1 : -0.1);
+				state.z += movementX * -0.1;
+			} else {
+				state.y += movementY * -0.1;
+			
+				if (mode.startsWith('paint-')) {
+					state.x += movementX * (mode.endsWith('-front') ? 0.1 : -0.1);
+				} else if (mode.startsWith('sculpt')) {
+					state.z += movementX * (mode.endsWith('-right') ? 0.1 : -0.1);
+				}
 			}
 		}
 	};
@@ -192,25 +188,21 @@ export function palette () {
 // - bottom left: info (to explain UI)
 // - bottom right: scene menu (lighting, zoom, etc)
 
-export function shader ({ projection, matrix, position, offset, other, pixels, params }, callback, ...instances) {
+export function shader ({ projection, matrix, position, offset, center, other }, callback, ...instances) {
 	return stew`
 		mat3 uProjection ${projection}
 		mat3 uMatrix ${matrix}
 		vec3 uPosition ${position}
 		vec3 uOffset ${offset}
+		vec3 uCenter ${center}
 		float uZoom ${other} zoom
 		gl_PointSize = uZoom * 2.0;
-		gl_Position = vec4(uProjection * floor(uMatrix * (vec3(aVertex) + uOffset + uPosition) * gl_PointSize), 1.0);
+		gl_Position = vec4(uProjection * floor((uMatrix * (vec3(aVertex) + uOffset + uPosition) + uCenter) * gl_PointSize), 1.0);
 		float intensity = alpha < 1.0 ? 1.0 : 0.5 + dot(normalize(vec3(0.0, 0.0, -1.0)), normalize(vec3(aNormal))) * 0.5;
 		*vec4 vColor = vec4(vec3(aColor) / 255.0 * intensity, alpha);
 		${gl => {
-			if (callback) {
-				gl.clearColor(0, 0, 0, 0);
-			} else {
-				const { backgroundColor } = state;
-				gl.clearColor(...backgroundColor, 1);
-			}
-
+			const { backgroundColor } = state;
+			gl.clearColor(...backgroundColor, 1);
 			gl.clear(gl.COLOR_BUFFER_BIT);
 			gl.clear(gl.DEPTH_BUFFER_BIT);
 			gl.enable(gl.DEPTH_TEST);
@@ -227,45 +219,18 @@ export function shader ({ projection, matrix, position, offset, other, pixels, p
 			}}
 			//
 		`)}
-		${gl => {
-			const { paused } = state;
-
-			if (!callback) {
-				return !paused && 16;
-			}
-
-			gl.readPixels(0, 0, 4, 4, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-
-			try {
-				callback(pixels, ...params);
-			} catch (err) {
-				console.error(err);
-			}
-
-			return !paused && 32;
-		}}
 		gl_FragColor = vColor;
 	`;
 }
 
-export function detect (pixels, model, cursor) {
-	// state.paused = true;
-	const index = (pixels[6 * 4] << 16) + (pixels[6 * 4 + 1] << 8) + pixels[6 * 4 + 2] - 1;
-
-	if (index >= 0) {
-		cursor.vertexes.set(model.vertexes.slice(index * 3, index * 3 + 3));
-	} else {
-		// calculate x and y using the current matrix, assuming the plane is at the previously found z value
-	}
-}
-
 export function carve () {
-	const [projection, matrix, position, other, ...cursorInstances] = stew(() => {
+	const [projection, matrix, position, center, other, ...cursorInstances] = stew(() => {
 		updateColor();
 
 		return [
 			[1 / 640, 0, 0, 0, 1 / 360, 0, 0, 0, 1 / 1280],
 			[1, 0, 0, 0, 1, 0, 0, 0, 1],
+			[0, 0, 0],
 			[0, 0, 0],
 			{ zoom: 8 },
 			{
@@ -311,16 +276,9 @@ export function carve () {
 	}
 
 	// change this whenever new model is loaded
-	const [{ vertexes, normals, colors, offset }, indexes, white] = stew(() => {
+	const { vertexes, normals, colors, offset, map } = stew(() => {
 		const sprite = scene.reference[0][0];
-		const { length } = sprite.vertexes;
-		const indexes = [];
-
-		for (let i = 1; i <= length / 3; i++) {
-			indexes.push(i >> 16, (i >> 8) % 256, i % 256);
-		}
-
-		return [sprite, new Uint8Array(indexes), new Uint8Array(sprite.colors.length).fill(255)];
+		return sprite;
 	}, []);
 
 	stew(null, [], () => initializeControls(ref[0][0], camera));
@@ -339,12 +297,12 @@ export function carve () {
 	// - pairs better with moving camera in opposite hand to test different angles
 	// - can still tap
 
-	const model = { vertexes, normals, colors: white };
+	const model = { vertexes, normals, colors };
 	const cursor = { vertexes: new Uint8Array(3), normals: new Int8Array(3), colors: new Uint8Array([255, 0, 255]) };
-	const camera = { projection, matrix, position, offset, other, pixels: new Uint8Array(4 * 4 * 4), params: [model, cursor] };
+	const camera = { projection, matrix, position, offset, center, other, pixels: new Uint8Array(4 * 4 * 4), params: [model, cursor] };
 
 	stew(() => {
-		Object.assign(state, { cursorX: 0, cursorY: 0, cameraZoom: camera.zoom, cameraX: 0, cameraY: 0, rotation: 0, tilt: 0, mouseSide: '', paused: false });
+		Object.assign(state, { cameraZoom: other.zoom, x: 0, y: 0, z: 0, rotation: 0, tilt: 0, mouseSide: '', paused: false });
 	}, []);
 
 	// tap center to recenter camera
@@ -354,19 +312,10 @@ export function carve () {
 			['canvas', { width: 1280, height: 720 },
 				stew`
 					${() => {
-						const { tilt, rotation, cursorX, cursorY } = state;
+						const { x, y, z, tilt, rotation } = state;
 						matrix.splice(0, 9, ...createMatrix(tilt, rotation, 0));
-
-						if (cursorX || cursorY) {
-							const inverse = createMatrix(-tilt, -rotation, 0, true);
-							const change = multiply([-cursorX, -cursorY, 0], inverse);
-							position[0] += change[0];
-							position[1] += change[1];
-							position[2] += change[2];
-							// position.splice(0, 2, -cursorX, -cursorY);
-							state.cursorX = 0;
-							state.cursorY = 0;
-						}
+						position.splice(0, 3, x, y, z);
+						return 16;
 					}}
 				`,
 				shader(camera, null, model, cursor),
@@ -378,20 +327,18 @@ export function carve () {
 					${cursorInstances.map(({ vertexes }, i) => stew`
 						BYTE ivec2 aPoint ${vertexes}
 						mat3 uProjection ${projection}
+						vec3 uCenter ${center}
 						float uZoom ${other} zoom
 						float uBorder ${i ? 0 : 1}
 						vec3 position = vec3(aPoint, 0);
 						gl_PointSize = uZoom * 2.0;
-						gl_Position = vec4(uProjection * floor(gl_PointSize * position), 1.0);
+						gl_Position = vec4(uProjection * floor((position + uCenter) * gl_PointSize), 1.0);
 						gl_PointSize += uBorder * 2.0;
 						${gl => gl.drawArrays(gl.POINTS, 0, vertexes.length >> 1)}
 						vec3 uBrushColor ${i ? [1, 1, 1] : [0, 0, 0]}
 						gl_FragColor = vec4(uBrushColor, 1.0);
 					`)}
 				`,
-			],
-			['canvas', { width: 4, height: 4, style: { width: '4px', height: '4px' } },
-				shader({ ...camera, projection: [1 / 4, 0, 0, 0, 1 / 4, 0, 0, 0, 1 / 1280] }, detect, { ...model, colors: indexes }),
 			],
 			['div', { className: 'ui' },
 				[palette, null],
