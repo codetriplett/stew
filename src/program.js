@@ -78,9 +78,16 @@ function createUniformSetter (gl, program, subname, name, type, subtype) {
 		return () => {};
 	}
 
-	if (type === 'sampler2D') {
+	if (/^u?sampler2D$/.test(type)) {
 		const textureMap = new WeakMap();
-		const index = subtype?.startsWith('TEXTURE') && Number(subtype.slice(7)) || 0;
+		const index = subtype?.startsWith('TEXTURE') && parseInt(subtype.slice(7)) || 0;
+		let internalFormat = subtype.slice(7 + String(index).length) || 'RGBA';
+		let format = internalFormat;
+
+		if (type.startsWith('u')) {
+			internalFormat += '8UI';
+			format += '_Integer';
+		}
 
 		return image => {
 			if (subname) {
@@ -96,7 +103,7 @@ function createUniformSetter (gl, program, subname, name, type, subtype) {
 
 			texture = gl.createTexture();
 			gl.bindTexture(gl.TEXTURE_2D, texture);
-			gl.texImage2D(gl.TEXTURE_2D, index, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+			gl.texImage2D(gl.TEXTURE_2D, index, gl[internalFormat], gl[format], gl.UNSIGNED_BYTE, image);
 			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -131,12 +138,18 @@ function createOtherSetter (gl, subname, name) {
 
 export function createShader (gl, index, stack, varyings = []) {
 	const type = shaderTypes[index];
+	const precisionCode = new Set();
 	const allCode = [];
 	const allVars = [];
 	const headerCode = index ? ['out vec4 gl2_FragColor;'] : [];
 
 	for (const pair of stack) {
-		const [, code, ...vars] = pair[index];
+		const [, [...code], ...vars] = pair[index];
+
+		while (code[0]?.startsWith?.('precision ')) {
+			precisionCode.add(code.shift());
+		}
+
 		allCode.push(...code);
 		allVars.push(...vars.filter(definition => definition.length > 2));
 	}
@@ -148,14 +161,12 @@ export function createShader (gl, index, stack, varyings = []) {
 		);
 	}
 	
-	if (allCode[0].startsWith('precision ')) {
-		headerCode.unshift(allCode.shift());
-	} else if (index) {
-		headerCode.unshift('precision mediump float;');
+	if (index && precisionCode.size === 0) {
+		precisionCode.add('precision mediump float;');
 	}
 
 	const varyingType = index ? 'in' : 'out';
-	headerCode.unshift('#version 300 es');
+	headerCode.unshift('#version 300 es', ...precisionCode);
 
 	const processedCode = allCode.map(line => {
 		const match = line.match(/^\*\s*(\S+)\s+(\S+)(\s*=\s*.*)$/);
@@ -172,7 +183,7 @@ export function createShader (gl, index, stack, varyings = []) {
 	const code = [
 		...headerCode,
 		...allVars.map(([, name, type, subtype]) => {
-			const category = !subtype || type === 'sampler2D' ? 'uniform' : 'in';
+			const category = !subtype || /^u?sampler2D$/.test(type) ? 'uniform' : 'in';
 			return `${category} ${type} ${name};`;
 		}),
 		...varyings.map(varying => `${/^\s*(u?int|[iu]vec\d)\s+/.test(varying) ? 'flat ' : ''}${varyingType} ${varying}`),
@@ -263,7 +274,7 @@ export default function compile (strings, ...values) {
 	const [vertexInfo, ...fragmentInfos] = sequence;
 
 	return (canvas, parentMap, ...stack) => {
-		const gl = canvas.getContext('webgl2');
+		const gl = canvas.getContext('webgl2', { premultipliedAlpha: false });
 		const isRoot = !parentMap;
 
 		if (isRoot) {
@@ -370,9 +381,15 @@ export default function compile (strings, ...values) {
 
 				const values = [...vertexValues, ...fragmentValues];
 
-				entry.splice(2, 0, () => {
+				entry.splice(2, 0, (gl, duration) => {
 					for (const [i, setter] of setters.entries()) {
-						setter(values[i]);
+						let value = values[i];
+
+						if (typeof value === 'function') {
+							value = value(duration);
+						}
+
+						setter(value);
 					}
 				});
 			}
