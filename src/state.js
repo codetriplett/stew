@@ -31,7 +31,7 @@ function draw (timestamp) {
 		const duration = prevTimestamp === undefined ? 0 : timestamp - prevTimestamp;
 		array[0] = timestamp;
 
-		for (const { program, callbacks } of programs) {
+		for (const [program, ...callbacks] of programs) {
 			if (program) {
 				gl.useProgram(program);
 			}

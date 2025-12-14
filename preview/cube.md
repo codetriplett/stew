@@ -92,6 +92,7 @@ return ['', null,
 			mat3 uMatrix ${matrix}
 			vec3 uOffset ${offset}
 			${gl => gl.drawElements(gl.TRIANGLES, 36, gl.UNSIGNED_SHORT, 0)}
+			//
 		`)}
 		vec3 absPos = abs(vPos);
 		float xEdge = max(absPos.y, absPos.z);

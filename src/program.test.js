@@ -1,7 +1,5 @@
 import compile, { parse, Program } from './program';
 
-jest.mock('./document', () => ({ isServer: false }));
-
 function mock (object, callbackNames, constantNames) {
 	for (const name of callbackNames) {
 		object[name] = jest.fn();
@@ -94,76 +92,104 @@ beforeEach(() => {
 	context = { '': convert };
 	requestAnimationFrame.mockImplementation((...params) => [triggerFrame] = params);
 	globalThis.requestAnimationFrame = requestAnimationFrame;
+	globalThis.window = {};
 });
 
 describe('parse', () => {
-	it('standalone callback', () => {
+	it('standalone callbacks', () => {
 		const actual = parse`${() => {}}`;
 
 		expect(actual).toEqual([
-			[[''], []],
-			[[''], []],
+			[['']],
 		]);
 	});
 
-	it('variables', () => {
-		const actual = parse
-`type first ${[]}
-type second ${[]}`;
+	it('empty edges', () => {
+		const actual = parse`
+			${() => {}}
+		`;
 
 		expect(actual).toEqual([
-			[[''], [], ['', 'first', 'type'], ['', 'second', 'type']],
+			[['']],
+		]);
+	});
+	
+	it('no callback', () => {
+		const actual = parse
+`type vertex ${[]}
+position;`;
+
+		expect(actual).toEqual([
+			[[], ['position;'], ['', 'vertex', 'type']],
 		]);
 	});
 
 	it('variables and statements', () => {
 		const actual = parse
-`type first ${[]}
-second;
-type third ${[]}
-fourth;`;
+`type vertex ${[]}
+position;
+${() => {}}
+type color ${[]}
+fragColor;`;
 
 		expect(actual).toEqual([
-			[[''], ['second;', 'fourth;'], ['', 'first', 'type'], ['', 'third', 'type']],
+			[[], ['position;'], ['', 'vertex', 'type']],
+			[[''], ['fragColor;'], ['', 'color', 'type']],
 		]);
 	});
 
-	it('sequence', () => {
-		const actual = parse
-`type first ${[]}
-second;
-${() => {}}
-${() => {}}
-type third ${[]}
-fourth;`;
-
-		expect(actual).toEqual([
-			[[''], ['second;'], ['', 'first', 'type']],
-			[['', ''], ['fourth;'], ['', 'third', 'type']],
-		]);
-	});
-
-	it('sequence without vertex code', () => {
+	it('edge callbacks', () => {
 		const actual = parse
 `${() => {}}
-type third ${[]}
-fourth;`;
-
-		expect(actual).toEqual([
-			[[''], []],
-			[[''], ['fourth;'], ['', 'third', 'type']],
-		]);
-	});
-
-	it('sequence without fragment code', () => {
-		const actual = parse
-`type first ${[]}
-second;
+type vertex ${[]}
+position;
+${() => {}}
+type color ${[]}
+fragColor;
 ${() => {}}`;
 
 		expect(actual).toEqual([
-			[[''], ['second;'], ['', 'first', 'type']],
-			[[''], []],
+			[[''], ['position;'], ['', 'vertex', 'type']],
+			[[''], ['fragColor;'], ['', 'color', 'type']],
+			[['']],
+		]);
+	});
+
+	it('chained callbacks', () => {
+		const actual = parse
+`${() => {}}
+${() => {}}
+type vertex ${[]}
+position;
+${() => {}}
+${() => {}}
+type color ${[]}
+fragColor;
+${() => {}}
+${() => {}}`;
+
+		expect(actual).toEqual([
+			[['', ''], ['position;'], ['', 'vertex', 'type']],
+			[['', ''], ['fragColor;'], ['', 'color', 'type']],
+			[['', '']],
+		]);
+	});
+
+	it('multiple shaders', () => {
+		const actual = parse
+`type vertex ${[]}
+position;
+${() => {}}
+type color ${[]}
+fragColor;
+${() => {}}
+type color2 ${[]}
+fragColor2;`;
+
+		expect(actual).toEqual([
+			[[], ['position;'], ['', 'vertex', 'type']],
+			[[''], ['fragColor;'], ['', 'color', 'type']],
+			[[''], ['fragColor2;'], ['', 'color2', 'type']],
 		]);
 	});
 
@@ -174,7 +200,7 @@ ${() => {}} lmno
 type second ${[]} xyz`;
 
 		expect(actual).toEqual([
-			[[''], [], ['abc', 'first', 'type']],
+			[[], [], ['abc', 'first', 'type']],
 			[['lmno'], [], ['xyz', 'second', 'type']],
 		]);
 	});
@@ -186,7 +212,7 @@ describe('compileProgram', () => {
 		const vector = [123, 456, 789];
 		const color = [0.123, 0.456, 0.789];
 
-		const prepare = compile`
+		const callback = compile`
 			vec3 uVector ${vector}
 			gl_Position = vec4(uVector, 1.0);
 			${draw}
@@ -194,16 +220,134 @@ describe('compileProgram', () => {
 			gl_FragColor = vec4(uColor, 1.0);
 		`;
 
-		expect(prepare).toEqual(expect.any(Function));
-		const actual = prepare(context, canvas);
-		expect(actual).toEqual([Program, { gl }, expect.any(Object)]);
-		const { callbacks } = actual[2];
-		expect(callbacks).toEqual([expect.any(Function), draw]);
+		const actual = callback(canvas);
+
+		expect(actual).toEqual([Program, { gl },
+			[expect.any(Object), expect.any(Function), draw],
+		]);
+
+		const callbacks = actual[2].slice(1);
 		callbacks[0]();
 
 		expect(gl.uniform3fv.mock.calls).toEqual([
 			[0, vector],
 			[1, color],
+		]);
+	});
+
+	it('included edge callbacks', () => {
+		const first = jest.fn();
+		const draw = jest.fn();
+		const last = jest.fn();
+		const vector = [123, 456, 789];
+		const color = [0.123, 0.456, 0.789];
+
+		const callback = compile`
+			${first}
+			vec3 uVector ${vector}
+			gl_Position = vec4(uVector, 1.0);
+			${draw}
+			vec3 uColor ${color}
+			gl_FragColor = vec4(uColor, 1.0);
+			${last}
+		`;
+
+		const actual = callback(canvas);
+
+		expect(actual).toEqual([Program, { gl },
+			[, first],
+			[expect.any(Object), expect.any(Function), draw],
+			[, last],
+		]);
+
+		const callbacks = actual[3].slice(1);
+		callbacks[0]();
+
+		expect(gl.uniform3fv.mock.calls).toEqual([
+			[0, vector],
+			[1, color],
+		]);
+	});
+
+	// TODO: change edge callbacks to setup and teardown
+	// - only run once each tied to Programs effect callback
+	// - callbacks can already be set up to run before and after each render by placing them by the array of children
+	it('included chained callbacks', () => {
+		const first = jest.fn();
+		const draw = jest.fn();
+		const last = jest.fn();
+		const vector = [123, 456, 789];
+		const color = [0.123, 0.456, 0.789];
+
+		const callback = compile`
+			${first}
+			${first}
+			vec3 uVector ${vector}
+			gl_Position = vec4(uVector, 1.0);
+			${draw}
+			${draw}
+			vec3 uColor ${color}
+			gl_FragColor = vec4(uColor, 1.0);
+			${last}
+			${last}
+		`;
+
+		const actual = callback(canvas);
+
+		expect(actual).toEqual([Program, { gl },
+			[, first, first],
+			[expect.any(Object), expect.any(Function), draw, draw],
+			[, last, last],
+		]);
+
+		const callbacks = actual[3].slice(1);
+		callbacks[0]();
+
+		expect(gl.uniform3fv.mock.calls).toEqual([
+			[0, vector],
+			[1, color],
+		]);
+	});
+
+	it('includes multiple shaders', () => {
+		const draw = jest.fn();
+		const vector = [123, 456, 789];
+		const color = [0.123, 0.456, 0.789];
+		const color2 = [0.789, 0.456, 0.123];
+
+		const callback = compile`
+			vec3 uVector ${vector}
+			gl_Position = vec4(uVector, 1.0);
+			${draw}
+			vec3 uColor ${color}
+			gl_FragColor = vec4(uColor, 1.0);
+			${draw}
+			vec3 uColor2 ${color2}
+			gl_FragColor = vec4(uColor2, 1.0);
+		`;
+
+		const actual = callback(canvas);
+
+		expect(actual).toEqual([Program, { gl },
+			[expect.any(Object), expect.any(Function), draw],
+			[expect.any(Object), expect.any(Function), draw],
+		]);
+
+		let callbacks = actual[2].slice(1);
+		callbacks[0]();
+
+		expect(gl.uniform3fv.mock.calls).toEqual([
+			[0, vector],
+			[1, color],
+		]);
+		
+		gl.uniform3fv.mockClear();
+		callbacks = actual[3].slice(1);
+		callbacks[0]();
+
+		expect(gl.uniform3fv.mock.calls).toEqual([
+			[0, vector],
+			[1, color2],
 		]);
 	});
 
@@ -215,7 +359,7 @@ describe('compileProgram', () => {
 			{ vector: [987, 654, 321], color: [0.987, 0.654, 0.321] },
 		];
 		
-		const prepare = compile`
+		const callback = compile`
 			gl_Position = vec4(uVector, 1.0);
 			${array.map(({ vector, color }) => compile`
 				vec3 uVector ${vector}
@@ -225,11 +369,13 @@ describe('compileProgram', () => {
 			gl_FragColor = vec4(uColor, 1.0);
 		`;
 
-		expect(prepare).toEqual(expect.any(Function));
-		const actual = prepare(context, canvas);
-		expect(actual).toEqual([Program, { gl }, expect.any(Object)]);
-		const { callbacks } = actual[2];
-		expect(callbacks).toEqual([expect.any(Function), draw, expect.any(Function), draw]);
+		const actual = callback(canvas);
+
+		expect(actual).toEqual([Program, { gl },
+			[expect.any(Object), expect.any(Function), draw, expect.any(Function), draw],
+		]);
+
+		const callbacks = actual[2].slice(1);
 		callbacks[0]();
 
 		expect(gl.uniform3fv.mock.calls).toEqual([
@@ -264,7 +410,7 @@ describe('compileProgram', () => {
 			color: [0.123, 0.456, 0.789],
 		});
 
-		previous(context, canvas);
+		previous(canvas);
 		jest.clearAllMocks();
 
 		const prepare = render({
@@ -273,9 +419,9 @@ describe('compileProgram', () => {
 		});
 
 		expect(prepare).toEqual(expect.any(Function));
-		const actual = prepare(context, canvas);
-		expect(actual).toEqual([Program, { gl }, expect.any(Object)]);
-		const { callbacks } = actual[2];
+		const actual = prepare(canvas);
+		expect(actual).toEqual([Program, { gl }, expect.any(Array)]);
+		const callbacks = actual[2].slice(1);
 		expect(callbacks).toEqual([expect.any(Function), draw]);
 		callbacks[0]();
 

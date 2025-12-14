@@ -133,10 +133,15 @@ const virtual = {
 	},
 	createElement (tagName) {
 		const element = {
+			...this.createDocumentFragment(),
 			tagName: tagName.toUpperCase(),
 			style: {},
 			dataset: {},
-			...this.createDocumentFragment(),
+			attachShadow () {
+				const shadow = virtual.createElement('shadow');
+				this.childNodes = [shadow];
+				this.shadowRoot = shadow;
+			},
 			toString () {
 				const { tagName, childNodes, style, dataset, ...rest } = this;
 				const attributeEntries = Object.entries(rest);
@@ -217,11 +222,15 @@ const virtual = {
 
 		return element;
 	},
-	attachShadow () {
-		const shadow = this.createElement('shadow');
-		this.childNodes = [shadow];
-		this.shadowRoot = shadow;
-	},
+	// getContext (type) {
+	// 	if (this.tagName !== 'CANVAS') {
+	// 		return;
+	// 	}
+
+	// 	return {
+
+	// 	};
+	// },
 };
 
 Object.assign(stew, virtual);
