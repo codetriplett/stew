@@ -53,6 +53,7 @@ const gl = mock({
 	'attachShader',
 	'linkProgram',
 	'useProgram',
+	'getShaderSource',
 	'getShaderParameter',
 	'getShaderInfoLog',
 	'getProgramParameter',
@@ -68,12 +69,14 @@ const gl = mock({
 	'TEXTURE_WRAP_S',
 	'TEXTURE_WRAP_T',
 	'CLAMP_TO_EDGE',
+	'SHADER_TYPE',
 	'VERTEX_SHADER',
 	'FRAGMENT_SHADER',
 	'ARRAY_BUFFER',
 	'ELEMENT_ARRAY_BUFFER',
 ]);
 
+const programMap = new WeakMap();
 const requestAnimationFrame = jest.fn();
 const convert = jest.fn();
 let context;
@@ -83,10 +86,22 @@ beforeEach(() => {
 	let location = 0;
 	gl.getAttribLocation.mockImplementation(() => location++);
 	gl.getUniformLocation.mockImplementation(() => location++);
-	gl.createShader.mockReturnValue({});
-	gl.createProgram.mockReturnValue({});
+	gl.createShader.mockImplementation(SHADER_TYPE => ({ SHADER_TYPE }));
+	gl.createProgram.mockImplementation(() => ({ id: Math.random() }));
 	gl.getShaderParameter.mockReturnValue(true);
 	gl.getProgramParameter.mockReturnValue(true);
+	gl.shaderSource.mockImplementation((shader, code) => shader.code = code);
+	gl.getShaderSource.mockImplementation(shader => shader.code);
+
+	gl.attachShader.mockImplementation((program, shader) => {
+		if (!programMap.has(program)) {
+			programMap.set(program, {});
+		}
+
+		const { SHADER_TYPE } = shader;
+		programMap.get(program)[SHADER_TYPE] = shader;
+	});
+
 	convert.mockReturnValue(gl);
 	canvas.getContext.mockReturnValue(gl);
 	context = { '': convert };
@@ -100,7 +115,8 @@ describe('parse', () => {
 		const actual = parse`${() => {}}`;
 
 		expect(actual).toEqual([
-			[['']],
+			[expect.any(Array), []],
+			[[''], []],
 		]);
 	});
 
@@ -110,17 +126,8 @@ describe('parse', () => {
 		`;
 
 		expect(actual).toEqual([
-			[['']],
-		]);
-	});
-	
-	it('no callback', () => {
-		const actual = parse
-`type vertex ${[]}
-position;`;
-
-		expect(actual).toEqual([
-			[[], ['position;'], ['', 'vertex', 'type']],
+			[expect.any(Array), []],
+			[[''], []],
 		]);
 	});
 
@@ -133,49 +140,36 @@ type color ${[]}
 fragColor;`;
 
 		expect(actual).toEqual([
-			[[], ['position;'], ['', 'vertex', 'type']],
+			[expect.any(Array), ['position;'], ['', 'vertex', 'type']],
 			[[''], ['fragColor;'], ['', 'color', 'type']],
 		]);
 	});
 
-	it('edge callbacks', () => {
+	it('empty vertex shader', () => {
 		const actual = parse
 `${() => {}}
-type vertex ${[]}
-position;
-${() => {}}
 type color ${[]}
-fragColor;
-${() => {}}`;
+fragColor;`;
 
 		expect(actual).toEqual([
-			[[''], ['position;'], ['', 'vertex', 'type']],
+			[expect.any(Array), []],
 			[[''], ['fragColor;'], ['', 'color', 'type']],
-			[['']],
 		]);
 	});
 
-	it('chained callbacks', () => {
+	it('empty fragment shader', () => {
 		const actual = parse
-`${() => {}}
-${() => {}}
-type vertex ${[]}
+`type vertex ${[]}
 position;
-${() => {}}
-${() => {}}
-type color ${[]}
-fragColor;
-${() => {}}
 ${() => {}}`;
 
 		expect(actual).toEqual([
-			[['', ''], ['position;'], ['', 'vertex', 'type']],
-			[['', ''], ['fragColor;'], ['', 'color', 'type']],
-			[['', '']],
+			[expect.any(Array), ['position;'], ['', 'vertex', 'type']],
+			[[''], []],
 		]);
 	});
 
-	it('multiple shaders', () => {
+	it('multiple programs', () => {
 		const actual = parse
 `type vertex ${[]}
 position;
@@ -187,7 +181,7 @@ type color2 ${[]}
 fragColor2;`;
 
 		expect(actual).toEqual([
-			[[], ['position;'], ['', 'vertex', 'type']],
+			[expect.any(Array), ['position;'], ['', 'vertex', 'type']],
 			[[''], ['fragColor;'], ['', 'color', 'type']],
 			[[''], ['fragColor2;'], ['', 'color2', 'type']],
 		]);
@@ -200,7 +194,7 @@ ${() => {}} lmno
 type second ${[]} xyz`;
 
 		expect(actual).toEqual([
-			[[], [], ['abc', 'first', 'type']],
+			[expect.any(Array), [], ['abc', 'first', 'type']],
 			[['lmno'], [], ['xyz', 'second', 'type']],
 		]);
 	});
@@ -221,10 +215,26 @@ describe('compileProgram', () => {
 		`;
 
 		const actual = callback(canvas);
+		const layout = actual[0](...actual.slice(1));
 
 		expect(actual).toEqual([Program, { gl },
 			[expect.any(Object), expect.any(Function), draw],
 		]);
+
+		expect(layout).toEqual(
+`#version 300 es
+uniform vec3 uVector;
+void main() {
+    gl_Position = vec4(uVector, 1.0);
+}
+#version 300 es
+precision mediump float;
+out vec4 gl2_FragColor;
+uniform vec3 uColor;
+void main() {
+    gl2_FragColor = vec4(uColor, 1.0);
+}`
+		);
 
 		const callbacks = actual[2].slice(1);
 		callbacks[0]();
@@ -235,72 +245,106 @@ describe('compileProgram', () => {
 		]);
 	});
 
-	it('included edge callbacks', () => {
-		const first = jest.fn();
+	it('empty vertex shader', () => {
 		const draw = jest.fn();
-		const last = jest.fn();
-		const vector = [123, 456, 789];
 		const color = [0.123, 0.456, 0.789];
 
 		const callback = compile`
-			${first}
-			vec3 uVector ${vector}
-			gl_Position = vec4(uVector, 1.0);
 			${draw}
 			vec3 uColor ${color}
 			gl_FragColor = vec4(uColor, 1.0);
-			${last}
 		`;
 
 		const actual = callback(canvas);
+		const layout = actual[0](...actual.slice(1));
 
 		expect(actual).toEqual([Program, { gl },
-			[, first],
 			[expect.any(Object), expect.any(Function), draw],
-			[, last],
 		]);
 
-		const callbacks = actual[3].slice(1);
+		expect(layout).toEqual(
+`#version 300 es
+void main() {
+    gl_Position = vec4(0, 0, 0, 1);
+    gl_PointSize = 16.0;
+}
+#version 300 es
+precision mediump float;
+out vec4 gl2_FragColor;
+uniform vec3 uColor;
+void main() {
+    gl2_FragColor = vec4(uColor, 1.0);
+}`
+		);
+
+		const callbacks = actual[2].slice(1);
+		callbacks[0]();
+
+		expect(gl.uniform3fv.mock.calls).toEqual([
+			[0, color],
+		]);
+	});
+	
+	it('empty fragment shader', () => {
+		const draw = jest.fn();
+		const vector = [123, 456, 789];
+
+		const callback = compile`
+			vec3 uVector ${vector}
+			gl_Position = vec4(uVector, 1.0);
+			${draw}
+		`;
+
+		const actual = callback(canvas);
+		const layout = actual[0](...actual.slice(1));
+
+		expect(actual).toEqual([Program, { gl },
+			[expect.any(Object), expect.any(Function), draw],
+		]);
+
+		expect(layout).toEqual(
+`#version 300 es
+uniform vec3 uVector;
+void main() {
+    gl_Position = vec4(uVector, 1.0);
+}
+#version 300 es
+precision mediump float;
+out vec4 gl2_FragColor;
+void main() {
+    gl2_FragColor = vec4(1, 1, 1, 1);
+}`
+		);
+
+		const callbacks = actual[2].slice(1);
 		callbacks[0]();
 
 		expect(gl.uniform3fv.mock.calls).toEqual([
 			[0, vector],
-			[1, color],
 		]);
 	});
 
-	// TODO: change edge callbacks to setup and teardown
-	// - only run once each tied to Programs effect callback
-	// - callbacks can already be set up to run before and after each render by placing them by the array of children
 	it('included chained callbacks', () => {
-		const first = jest.fn();
 		const draw = jest.fn();
-		const last = jest.fn();
 		const vector = [123, 456, 789];
 		const color = [0.123, 0.456, 0.789];
 
 		const callback = compile`
-			${first}
-			${first}
 			vec3 uVector ${vector}
 			gl_Position = vec4(uVector, 1.0);
 			${draw}
 			${draw}
 			vec3 uColor ${color}
 			gl_FragColor = vec4(uColor, 1.0);
-			${last}
-			${last}
 		`;
 
 		const actual = callback(canvas);
 
 		expect(actual).toEqual([Program, { gl },
-			[, first, first],
 			[expect.any(Object), expect.any(Function), draw, draw],
-			[, last, last],
 		]);
 
-		const callbacks = actual[3].slice(1);
+		const callbacks = actual[2].slice(1);
 		callbacks[0]();
 
 		expect(gl.uniform3fv.mock.calls).toEqual([
@@ -327,11 +371,34 @@ describe('compileProgram', () => {
 		`;
 
 		const actual = callback(canvas);
+		const layout = actual[0](...actual.slice(1));
 
 		expect(actual).toEqual([Program, { gl },
 			[expect.any(Object), expect.any(Function), draw],
 			[expect.any(Object), expect.any(Function), draw],
 		]);
+		
+		expect(layout).toEqual(
+`#version 300 es
+uniform vec3 uVector;
+void main() {
+    gl_Position = vec4(uVector, 1.0);
+}
+#version 300 es
+precision mediump float;
+out vec4 gl2_FragColor;
+uniform vec3 uColor;
+void main() {
+    gl2_FragColor = vec4(uColor, 1.0);
+}
+#version 300 es
+precision mediump float;
+out vec4 gl2_FragColor;
+uniform vec3 uColor2;
+void main() {
+    gl2_FragColor = vec4(uColor2, 1.0);
+}`
+		);
 
 		let callbacks = actual[2].slice(1);
 		callbacks[0]();
@@ -346,13 +413,14 @@ describe('compileProgram', () => {
 		callbacks[0]();
 
 		expect(gl.uniform3fv.mock.calls).toEqual([
-			[0, vector],
-			[1, color2],
+			[2, vector],
+			[3, color2],
 		]);
 	});
 
 	it('creates nested program', () => {
 		const draw = jest.fn();
+		const matrix = [1, 0, 0, 0, 1, 0, 0, 0, 1];
 
 		const array = [
 			{ vector: [123, 456, 789], color: [0.123, 0.456, 0.789] },
@@ -360,6 +428,7 @@ describe('compileProgram', () => {
 		];
 		
 		const callback = compile`
+			mat3 uMatrix ${matrix}
 			gl_Position = vec4(uVector, 1.0);
 			${array.map(({ vector, color }) => compile`
 				vec3 uVector ${vector}
@@ -370,13 +439,36 @@ describe('compileProgram', () => {
 		`;
 
 		const actual = callback(canvas);
+		const layout = actual[0](...actual.slice(1));
 
 		expect(actual).toEqual([Program, { gl },
-			[expect.any(Object), expect.any(Function), draw, expect.any(Function), draw],
+			[expect.any(Object), expect.any(Function), expect.any(Function), draw, expect.any(Function), draw],
 		]);
+		
+		expect(layout).toEqual(
+`#version 300 es
+uniform vec3 uVector;
+uniform mat3 uMatrix;
+void main() {
+    gl_Position = vec4(uVector, 1.0);
+}
+#version 300 es
+precision mediump float;
+out vec4 gl2_FragColor;
+uniform vec3 uColor;
+void main() {
+    gl2_FragColor = vec4(uColor, 1.0);
+}`
+		);
 
 		const callbacks = actual[2].slice(1);
 		callbacks[0]();
+
+		expect(gl.uniformMatrix3fv.mock.calls).toEqual([
+			[2, false, matrix],
+		]);
+
+		callbacks[1]();
 
 		expect(gl.uniform3fv.mock.calls).toEqual([
 			[0, array[0].vector],
@@ -384,11 +476,78 @@ describe('compileProgram', () => {
 		]);
 
 		gl.uniform3fv.mockClear();
-		callbacks[2]();
+		callbacks[3]();
 
 		expect(gl.uniform3fv.mock.calls).toEqual([
 			[0, array[1].vector],
 			[1, array[1].color],
+		]);
+	});
+
+	it('creates reuses subprogram', () => {
+		const draw = jest.fn();
+		const vector = [123, 456, 789];
+		const color = [0.123, 0.456, 0.789];
+
+		const child = compile`
+			vec3 uVector ${vector}
+			${draw}
+			vec3 uColor ${color}
+		`;
+		
+		const callback = compile`
+			gl_Position = vec4(uVector, 1.0);
+			${[child]}
+			gl_FragColor = vec4(uColor, 1.0);
+			${[child]}
+			gl_FragColor = vec4(uColor, 0.5);
+		`;
+
+		const actual = callback(canvas);
+		const layout = actual[0](...actual.slice(1));
+
+		expect(actual).toEqual([Program, { gl },
+			[expect.any(Object), expect.any(Function), draw],
+			[expect.any(Object), expect.any(Function), draw],
+		]);
+		
+		expect(layout).toEqual(
+`#version 300 es
+uniform vec3 uVector;
+void main() {
+    gl_Position = vec4(uVector, 1.0);
+}
+#version 300 es
+precision mediump float;
+out vec4 gl2_FragColor;
+uniform vec3 uColor;
+void main() {
+    gl2_FragColor = vec4(uColor, 1.0);
+}
+#version 300 es
+precision mediump float;
+out vec4 gl2_FragColor;
+uniform vec3 uColor;
+void main() {
+    gl2_FragColor = vec4(uColor, 0.5);
+}`
+		);
+
+		let callbacks = actual[2].slice(1);
+		callbacks[0]();
+
+		expect(gl.uniform3fv.mock.calls).toEqual([
+			[0, vector],
+			[1, color],
+		]);
+
+		gl.uniform3fv.mockClear();
+		callbacks = actual[3].slice(1);
+		callbacks[0]();
+
+		expect(gl.uniform3fv.mock.calls).toEqual([
+			[2, vector],
+			[3, color],
 		]);
 	});
 
