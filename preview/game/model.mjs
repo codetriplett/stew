@@ -235,7 +235,6 @@ export async function loadSprites (imagePath, columnCount, rowCount, depthBits =
 						patchSprite(sprite);
 						row.push(sprite);
 					}}
-					//
 				`;
 			})}
 			${() => {

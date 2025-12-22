@@ -217,7 +217,6 @@ export function shader ({ projection, matrix, position, offset, center, other },
 				gl.drawArrays(gl.POINTS, 0, vertexes.length / 3);
 				gl.clear(gl.DEPTH_BUFFER_BIT);
 			}}
-			//
 		`)}
 		gl_FragColor = vColor;
 	`;
