@@ -21,26 +21,28 @@ function draw (timestamp) {
 	}
 
 	for (const [gl, array] of animations) {
-		const [prevTimestamp, nextTimestamp, ...programs] = array;
-		let param;
+		const [prevTimestamp, nextTimestamp, ...chains] = array;
 
 		if (nextTimestamp > timestamp) {
 			continue;
 		}
-
+		
 		const duration = prevTimestamp === undefined ? 0 : timestamp - prevTimestamp;
+		let param;
 		array[0] = timestamp;
 
-		for (const [program, ...callbacks] of programs) {
-			if (program) {
-				gl.useProgram(program);
-			}
+		for (const programs of chains) {
+			for (const [program, ...callbacks] of programs) {
+				if (program) {
+					gl.useProgram(program);
+				}
 
-			for (const callback of callbacks) {
-				param = callback(gl, duration, param) ?? param;
+				for (const callback of callbacks) {
+					param = callback(gl, duration, param) ?? param;
+				}
 			}
 		}
-
+		
 		if (param > 0) {
 			array[1] += param;
 		} else {

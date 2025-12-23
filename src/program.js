@@ -3,8 +3,30 @@ import { animations, schedule } from './state';
 
 export const sequenceMap = new WeakMap();
 export const rootMap = new WeakMap();
-const varyingMap = new WeakMap();
-const programMap = new WeakMap();
+export const varyingMap = new WeakMap();
+export const programMap = new WeakMap();
+export const setterMap = new WeakMap();
+export const vertexStack = [[new WeakMap()]];
+export const fragmentStack = [[new WeakMap()]];
+export const sceneChain = [];
+
+const setterNames = {
+	uint: 'uniform1u',
+	int: 'uniform1i',
+	float: 'uniform1f',
+	uvec2: 'uniform2uv',
+	uvec3: 'uniform3uv',
+	uvec4: 'uniform4uv',
+	ivec2: 'uniform2iv',
+	ivec3: 'uniform3iv',
+	ivec4: 'uniform4iv',
+	vec2: 'uniform2fv',
+	vec3: 'uniform3fv',
+	vec4: 'uniform4fv',
+	mat2: 'uniformMatrix2fv',
+	mat3: 'uniformMatrix3fv',
+	mat4: 'uniformMatrix4fv',
+};
 
 function getStored (map, key, callback) {
 	if (map.has(key)) {
@@ -52,24 +74,6 @@ function createAttributeSetter (gl, program, subname, name, type, subtype) {
 		gl.enableVertexAttribArray(location);
 	};
 }
-
-const setterNames = {
-	uint: 'uniform1u',
-	int: 'uniform1i',
-	float: 'uniform1f',
-	uvec2: 'uniform2uv',
-	uvec3: 'uniform3uv',
-	uvec4: 'uniform4uv',
-	ivec2: 'uniform2iv',
-	ivec3: 'uniform3iv',
-	ivec4: 'uniform4iv',
-	vec2: 'uniform2fv',
-	vec3: 'uniform3fv',
-	vec4: 'uniform4fv',
-	mat2: 'uniformMatrix2fv',
-	mat3: 'uniformMatrix3fv',
-	mat4: 'uniformMatrix4fv',
-};
 
 function createUniformSetter (gl, program, subname, name, type, subtype) {
 	const location = gl.getUniformLocation(program, name);
@@ -251,13 +255,38 @@ export function parse (strings) {
 	return sequence;
 }
 
-export const vertexStack = [[new WeakMap()]];
-export const fragmentStack = [[new WeakMap()]];
-export const sceneChain = [];
+function createSetter (gl, program, variables, values) {
+	const scopedSetterMap = getStored(setterMap, gl, () => new WeakMap());
+
+	const setters = variables.map(variable => {
+		return getStored(scopedSetterMap, variable, () => {
+			if (variable.length < 3) {
+				return createOtherSetter(gl, ...variable);
+			}
+
+			const type = variable[2];
+			const subtype = variable[3];
+			const create = !subtype || type === 'sampler2D' ? createUniformSetter : createAttributeSetter;
+			return create(gl, program, ...variable);
+		});
+	});
+
+	return (gl, duration) => {
+		for (const [i, setter] of setters.entries()) {
+			let value = values[i];
+
+			if (typeof value === 'function') {
+				value = value(duration);
+			}
+
+			setter(value);
+		}
+	};
+}
 
 // TODO: double check if all this is needed
 // - the goal is to reuse what it can, and group instances by common programs created by the same sequence of info arrays
-function append (gl, programChain, siblingMap) {
+function createProgram (gl, programChain, siblingMap) {
 	const varyings = getStored(varyingMap, vertexStack[0], () => []);
 	const vertexShader = createShader(gl, vertexStack, varyings);
 	const fragmentShader = createShader(gl, fragmentStack, varyings);
@@ -281,6 +310,21 @@ function append (gl, programChain, siblingMap) {
 		sceneChain.push(chain);
 		return chain;
 	});
+
+	const entries = [...vertexStack.slice(0, -1), ...fragmentStack.slice(0, -1)];
+	const variables = [];
+	const values = [];
+
+	for (const entry of entries) {
+		const [, entryInfo, entryValues] = entry;
+		variables.push(...entryInfo.splice(2));
+		values.push(...entryValues);
+	}
+
+	if (variables.length) {
+		const setter = createSetter(gl, program, variables, values);
+		existingProgramChain.push(setter);
+	}
 
 	existingProgramChain.push(...programChain.slice(1));
 }
@@ -355,7 +399,7 @@ export default function compile (strings, ...values) {
 					sceneChain.push(child);
 					siblingMap.clear();
 				} else {
-					append(gl, child, siblingMap);
+					createProgram(gl, child, siblingMap);
 				}
 			}
 
@@ -375,9 +419,17 @@ export default function compile (strings, ...values) {
 			chainReference.splice(0, chainReference.length, ...chainCopy);
 
 			processMemo(null, [], () => {
-				// add and remove animation
-				// console.log(chainReference);
-				return () => {};
+				const referenceArray = getStored(animations, gl, () => [undefined, 0]);
+				referenceArray.push(chainReference);
+				schedule();
+
+				return () => {
+					const index = referenceArray.indexOf(chainReference);
+
+					if (index !== -1) {
+						referenceArray.splice(index, 1);
+					}
+				};
 			});
 
 			// print string of all unique programs that are active
