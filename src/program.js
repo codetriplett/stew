@@ -6,6 +6,7 @@ export const rootMap = new WeakMap();
 export const varyingMap = new WeakMap();
 export const programMap = new WeakMap();
 export const setterMap = new WeakMap();
+export const siblingMap = new Map();
 export const vertexStack = [[new WeakMap()]];
 export const fragmentStack = [[new WeakMap()]];
 export const sceneChain = [];
@@ -284,8 +285,6 @@ function createSetter (gl, program, variables, values) {
 	};
 }
 
-// TODO: double check if all this is needed
-// - the goal is to reuse what it can, and group instances by common programs created by the same sequence of info arrays
 function createProgram (gl, programChain, siblingMap) {
 	const varyings = getStored(varyingMap, vertexStack[0], () => []);
 	const vertexShader = createShader(gl, vertexStack, varyings);
@@ -317,7 +316,7 @@ function createProgram (gl, programChain, siblingMap) {
 
 	for (const entry of entries) {
 		const [, entryInfo, entryValues] = entry;
-		variables.push(...entryInfo.splice(2));
+		variables.push(...entryInfo.slice(2));
 		values.push(...entryValues);
 	}
 
@@ -372,12 +371,32 @@ export function extract (strings, ...values) {
 	return [vertexEntry, ...fragmentEntries];
 }
 
+function Program ({ gl, chain }) {
+	const chainReference = processMemo(() => [], []);
+	chainReference.splice(0, chainReference.length, ...chain);
+
+	processMemo(null, [], () => {
+		const referenceArray = getStored(animations, gl, () => [undefined, 0]);
+		referenceArray.push(chainReference);
+		schedule();
+
+		return () => {
+			const index = referenceArray.indexOf(chainReference);
+
+			if (index !== -1) {
+				referenceArray.splice(index, 1);
+			}
+		};
+	});
+
+	// TODO: print string of all unique programs that are active
+	return '';
+}
+
 export default function compile (strings, ...values) {
 	if (typeof window !== 'object') {
 		return;
 	}
-
-	const [vertexEntry, ...fragmentEntries] = extract(strings, ...values);
 
 	return canvas => {
 		const gl = getStored(rootMap, canvas, () => canvas.getContext('webgl2', {
@@ -385,16 +404,24 @@ export default function compile (strings, ...values) {
 			antialias: !/^(crisp-edges|pixelated)$/.test(canvas.style.imageRendering),
 		}));
 
+		if (vertexStack.length < 2) {
+			siblingMap.clear();
+		}
+
+		// TODO: see if this can be done more efficiently
+		// - maybe info can store a setup function that values are passed to which will extract resolvers and values for setters
+		const [vertexEntry, ...fragmentEntries] = extract(strings, ...values);
 		vertexStack.unshift(vertexEntry);
 
 		for (const fragmentEntry of fragmentEntries) {
 			fragmentStack.unshift(fragmentEntry);
 			const children = fragmentEntry.slice(3);
-			let siblingMap = new Map();
 
 			for (const child of children) {
-				if (!Array.isArray(child)) {
+				if (typeof child === 'function') {
 					child(canvas);
+				} else if (!Array.isArray(child)) {
+					continue;
 				} else if (children.length > 1) {
 					sceneChain.push(child);
 					siblingMap.clear();
@@ -408,32 +435,9 @@ export default function compile (strings, ...values) {
 
 		vertexStack.shift();
 
-		if (vertexStack.length > 1) {
-			return;
+		if (vertexStack.length < 2) {
+			const chain = sceneChain.splice(0);
+			return [Program, { gl, chain }];
 		}
-		
-		const chainCopy = sceneChain.splice(0);
-		
-		return [() => {
-			const chainReference = processMemo(() => [], []);
-			chainReference.splice(0, chainReference.length, ...chainCopy);
-
-			processMemo(null, [], () => {
-				const referenceArray = getStored(animations, gl, () => [undefined, 0]);
-				referenceArray.push(chainReference);
-				schedule();
-
-				return () => {
-					const index = referenceArray.indexOf(chainReference);
-
-					if (index !== -1) {
-						referenceArray.splice(index, 1);
-					}
-				};
-			});
-
-			// print string of all unique programs that are active
-			return '';
-		}];
 	};
 }
