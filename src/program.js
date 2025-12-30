@@ -261,7 +261,7 @@ function createProgram (canvas, vertexStack, fragmentStack, siblingMap, ...callb
 		return program;
 	});
 
-	const isNew = siblingMap.has(program);
+	const isNew = !siblingMap.has(program);
 	const entry = getStored(siblingMap, program, () => [program]);
 	const composite = [...vertexStack.slice(1), ...fragmentStack.slice(1)];
 	const allVariables = [];
@@ -336,12 +336,15 @@ export function parse (strings) {
 }
 
 export function extract (canvas, stack, info, values, vertexStack, siblingMap) {
-	const [labels,, ...variables] = info;
+	const [labels, code, ...variables] = info;
 	const resolvers = values.splice(0, labels.length);
-	stack = getStored(stack[0], info, () => [new WeakMap(), [info], ...stack.slice(1)]);
 	const chain = [];
 	let callbacks = [];
-	stack[1].splice(1, 2, new WeakSet(), values.splice(0, variables.length));
+
+	if (code.length || variables.length) {
+		stack = getStored(stack[0], info, () => [new WeakMap(), [info], ...stack.slice(1)]);
+		stack[1].splice(1, 2, new WeakSet(), values.splice(0, variables.length));
+	}
 
 	if (!vertexStack) {
 		return stack;
@@ -397,6 +400,7 @@ function Program ({ canvas, chain }) {
 	});
 
 	// TODO: print string of all unique programs that are active
+	// - print each unique vertex shader with each unique fragment shader under it
 	return '';
 }
 
