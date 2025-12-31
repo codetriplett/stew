@@ -411,7 +411,8 @@ export default function compile (strings, ...values) {
 
 	const [vertexInfo, ...fragmentInfos] = getStored(rootMap, strings, parse);
 
-	return (canvas, vertexStack = vertexRoot, fragmentStack = fragmentRoot, siblingMap = new Map()) => {
+	return (canvas, ...rest) => {
+		let [vertexStack = vertexRoot, fragmentStack = fragmentRoot, siblingMap = new Map()] = rest;
 		const chain = [];
 		values = [...values];
 		vertexStack = extract(canvas, vertexStack, vertexInfo, values);
@@ -420,6 +421,6 @@ export default function compile (strings, ...values) {
 			chain.push(...extract(canvas, fragmentStack, fragmentInfo, values, vertexStack, siblingMap));
 		}
 
-		return vertexStack.length > 2 ? chain : [Program, { canvas, chain }];
+		return rest.length ? chain : [Program, { canvas, chain }];
 	};
 }
