@@ -325,7 +325,23 @@ describe('compile', () => {
 			gl_FragColor = vec4(uColor, 1);
 		`;
 
-		const { chain } = render(canvas)[1];
+		const [Component, props] = render(canvas);
+		const { chain } = props;
+
+		expect(Component(props)).toEqual(['', null,
+`#version 300 es
+uniform vec3 uVertex;
+void main() {
+    gl_Position = vec4(uVertex, 0);
+}
+#version 300 es
+precision mediump float;
+out vec4 gl2_FragColor;
+uniform vec3 uColor;
+void main() {
+    gl2_FragColor = vec4(uColor, 1);
+}`			
+		]);
 		
 		expect(chain).toEqual([
 			[expectedProgram, expect.any(Function), draw],
@@ -350,7 +366,23 @@ describe('compile', () => {
 			gl_FragColor = vec4(uColor, 1);
 		`;
 
-		const { chain } = render(canvas)[1];
+		const [Component, props] = render(canvas);
+		const { chain } = props;
+
+		expect(Component(props)).toEqual(['', null,
+`#version 300 es
+uniform vec3 uVertex;
+void main() {
+    gl_Position = vec4(uVertex, 0);
+}
+#version 300 es
+precision mediump float;
+out vec4 gl2_FragColor;
+uniform vec3 uColor;
+void main() {
+    gl2_FragColor = vec4(uColor, 1);
+}`			
+		]);
 		
 		expect(chain).toEqual([
 			[expectedProgram, expect.any(Function), draw],
@@ -372,7 +404,39 @@ describe('compile', () => {
 			gl_FragColor = vec4(uColor, 1);
 		`;
 
-		const { chain } = render(canvas)[1];
+		const [Component, props] = render(canvas);
+		const { chain } = props;
+
+		expect(Component(props)).toEqual(['', null,
+`#version 300 es
+uniform vec3 uAlphaVertex;
+void main() {
+    vec3 uVertex = uAlphaVertex;
+    gl_Position = vec4(uVertex, 0);
+}
+#version 300 es
+precision mediump float;
+out vec4 gl2_FragColor;
+uniform vec3 uAlphaColor;
+void main() {
+    vec3 uColor = uAlphaColor;
+    gl2_FragColor = vec4(uColor, 1);
+}`,
+`#version 300 es
+uniform vec3 uBetaVertex;
+void main() {
+    vec3 uVertex = uBetaVertex;
+    gl_Position = vec4(uVertex, 0);
+}
+#version 300 es
+precision mediump float;
+out vec4 gl2_FragColor;
+uniform vec3 uBetaColor;
+void main() {
+    vec3 uColor = uBetaColor;
+    gl2_FragColor = vec4(uColor, 1);
+}`
+		]);
 		
 		expect(chain).toEqual([
 			[expectedAlphaProgram, expect.any(Function), draw, expect.any(Function), draw],
@@ -418,7 +482,39 @@ describe('compile', () => {
 			gl_FragColor = vec4(uColor, 1);
 		`;
 
-		const { chain } = render(canvas)[1];
+		const [Component, props] = render(canvas);
+		const { chain } = props;
+
+		expect(Component(props)).toEqual(['', null,
+`#version 300 es
+uniform vec3 uAlphaVertex;
+void main() {
+    vec3 uVertex = uAlphaVertex;
+    gl_Position = vec4(uVertex, 0);
+}
+#version 300 es
+precision mediump float;
+out vec4 gl2_FragColor;
+uniform vec3 uAlphaColor;
+void main() {
+    vec3 uColor = uAlphaColor;
+    gl2_FragColor = vec4(uColor, 1);
+}`,
+`#version 300 es
+uniform vec3 uBetaVertex;
+void main() {
+    vec3 uVertex = uBetaVertex;
+    gl_Position = vec4(uVertex, 0);
+}
+#version 300 es
+precision mediump float;
+out vec4 gl2_FragColor;
+uniform vec3 uBetaColor;
+void main() {
+    vec3 uColor = uBetaColor;
+    gl2_FragColor = vec4(uColor, 1);
+}`
+		]);
 		
 		expect(chain).toEqual([
 			[expectedAlphaProgram, expect.any(Function), draw, expect.any(Function), draw],
@@ -468,7 +564,39 @@ describe('compile', () => {
 			gl_FragColor = vec4(uColor, 1);
 		`;
 
-		const { chain } = render(canvas)[1];
+		const [Component, props] = render(canvas);
+		const { chain } = props;
+
+		expect(Component(props)).toEqual(['', null,
+`#version 300 es
+uniform vec3 uAlphaVertex;
+void main() {
+    vec3 uVertex = uAlphaVertex;
+    gl_Position = vec4(uVertex, 0);
+}
+#version 300 es
+precision mediump float;
+out vec4 gl2_FragColor;
+uniform vec3 uAlphaColor;
+void main() {
+    vec3 uColor = uAlphaColor;
+    gl2_FragColor = vec4(uColor, 1);
+}`,
+`#version 300 es
+uniform vec3 uBetaVertex;
+void main() {
+    vec3 uVertex = uBetaVertex;
+    gl_Position = vec4(uVertex, 0);
+}
+#version 300 es
+precision mediump float;
+out vec4 gl2_FragColor;
+uniform vec3 uBetaColor;
+void main() {
+    vec3 uColor = uBetaColor;
+    gl2_FragColor = vec4(uColor, 1);
+}`
+		]);
 		
 		expect(chain).toEqual([
 			[null, before],

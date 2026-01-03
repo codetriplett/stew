@@ -2,6 +2,7 @@ import { execute, processMemo } from './impulse';
 import { animations, schedule } from './state';
 
 const rootMap = new WeakMap();
+const codeMap = new WeakMap();
 const setterMap = new WeakMap();
 const vertexRoot = [new WeakMap()];
 const fragmentRoot = [new WeakMap()];
@@ -195,11 +196,12 @@ export function createShader (gl, stack, varyings, type) {
 	return getStored(stack[0], gl, () => {
 		const code = createCode(stack, varyings, type);
 		const shader = gl.createShader(gl[type]);
+		codeMap.set(shader, code);
 		gl.shaderSource(shader, code);
 		gl.compileShader(shader);
 
 		if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-			console.error(gl.getShaderInfoLog(shader));
+			console.error(gl.getShaderInfoLog(shader), code);
 		}
 
 		return shader;
@@ -207,7 +209,7 @@ export function createShader (gl, stack, varyings, type) {
 }
 
 function createSetter (gl, program, variables, values) {
-	const scopedSetterMap = getStored(setterMap, gl, () => new WeakMap());
+	const scopedSetterMap = getStored(setterMap, program, () => new WeakMap());
 
 	const setters = variables.map(variable => {
 		return getStored(scopedSetterMap, variable, () => {
@@ -250,6 +252,7 @@ function createProgram (canvas, vertexStack, fragmentStack, siblingMap, ...callb
 		const vertexShader = createShader(gl, vertexStack, varyings, 'VERTEX_SHADER');
 		const fragmentShader = createShader(gl, fragmentStack, varyings, 'FRAGMENT_SHADER');
 		const program = gl.createProgram();
+		codeMap.set(program, [vertexShader, fragmentShader]);
 		gl.attachShader(program, vertexShader);
 		gl.attachShader(program, fragmentShader);
 		gl.linkProgram(program);
@@ -326,10 +329,8 @@ export function parse (strings) {
 			return line;
 		});
 		
-		// const stack = i ? fragmentStack : vertexStack;
 		const minIndentation = Math.min(...indentation);
 		info[1] = codeLines.map(line => line.slice(minIndentation));
-		// return createSetup(stack, info);
 	}
 
 	return sequence;
@@ -340,6 +341,8 @@ export function extract (canvas, stack, info, values, vertexStack, siblingMap) {
 	const resolvers = values.splice(0, labels.length);
 	const chain = [];
 	let callbacks = [];
+	let hasCallback = false;
+	let hasChildren = false;
 
 	if (code.length || variables.length) {
 		stack = getStored(stack[0], info, () => [new WeakMap(), [info], ...stack.slice(1)]);
@@ -352,6 +355,7 @@ export function extract (canvas, stack, info, values, vertexStack, siblingMap) {
 
 	for (const resolver of resolvers) {
 		if (typeof resolver === 'function') {
+			hasCallback = true;
 			callbacks.push(resolver);
 			continue;
 		} else if (!Array.isArray(resolver)) {
@@ -362,12 +366,14 @@ export function extract (canvas, stack, info, values, vertexStack, siblingMap) {
 			callbacks = [];
 		}
 
+		isChildren = true;
+
 		for (const callback of resolver) {
 			chain.push(...execute(callback, canvas, vertexStack, stack, siblingMap));
 		}
 	}
 
-	if (!chain.length) {
+	if (hasCallback && !hasChildren && vertexStack !== vertexRoot) {
 		const entry = createProgram(canvas, vertexStack, stack, siblingMap, ...callbacks);
 
 		if (entry) {
@@ -399,9 +405,13 @@ function Program ({ canvas, chain }) {
 		};
 	});
 
-	// TODO: print string of all unique programs that are active
-	// - print each unique vertex shader with each unique fragment shader under it
-	return '';
+	const programs = new Set(chain.map(([program]) => program));
+	programs.delete(null);
+
+	return ['', null, ...[...programs].map(program => {
+		const [vertexShader, fragmentShader] = codeMap.get(program);
+		return `${codeMap.get(vertexShader)}\n${codeMap.get(fragmentShader)}`;
+	})];
 }
 
 export default function compile (strings, ...values) {
@@ -414,11 +424,11 @@ export default function compile (strings, ...values) {
 	return (canvas, ...rest) => {
 		let [vertexStack = vertexRoot, fragmentStack = fragmentRoot, siblingMap = new Map()] = rest;
 		const chain = [];
-		values = [...values];
-		vertexStack = extract(canvas, vertexStack, vertexInfo, values);
+		const valuesCopy = [...values];
+		vertexStack = extract(canvas, vertexStack, vertexInfo, valuesCopy);
 
 		for (const fragmentInfo of fragmentInfos) {
-			chain.push(...extract(canvas, fragmentStack, fragmentInfo, values, vertexStack, siblingMap));
+			chain.push(...extract(canvas, fragmentStack, fragmentInfo, valuesCopy, vertexStack, siblingMap));
 		}
 
 		return rest.length ? chain : [Program, { canvas, chain }];
