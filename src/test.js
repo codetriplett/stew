@@ -95,8 +95,27 @@ function print (value) {
 	return String(value);
 }
 
+function printType (type) {
+	const name = type.toLowerCase();
+	return `[${name[0].toUpperCase()}${name.slice(1)} ${name}]`;
+}
+
+function Expected (type) {
+	this.type = type;
+}
+
 function compare (expected, actual, indentation = 0, key) {
-	if (typeof actual !== 'object' || typeof expected !== 'object') {
+	if (expected instanceof Expected) {
+		// TODO: test this
+		const { type } = expected;
+
+		if (typeof type === 'function') {
+			return (actual instanceof type) || `${printType(actual.constructor.name)} // ${printType(type.name)}`;
+		} else {
+			const actualType = typeof actual;
+			return actualType === type || `${printType(actualType)} // ${printType(type)}`;
+		}
+	} else if (typeof actual !== 'object' || typeof expected !== 'object') {
 		if (actual === expected) {
 			return;
 		}
@@ -200,9 +219,14 @@ root.group = (...params) => test(true, null, ...params);
 root.group.skip = (...params) => test(true, 'skip', ...params);
 root.group.only = (...params) => test(true, 'only', ...params);
 
-root.equals = (actual, expected) => {
-	const mismatch = compare(expected, actual);
+root.equals = (actual, ...rest) => {
+	if (!rest.length) {
+		return new Expected(actual);
+	}
 
+	const [expected] = rest;
+	const mismatch = compare(expected, actual);
+	
 	if (mismatch) {
 		throw mismatch;
 	}

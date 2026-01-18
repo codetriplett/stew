@@ -366,7 +366,7 @@ export function extract (canvas, stack, info, values, vertexStack, siblingMap) {
 			callbacks = [];
 		}
 
-		isChildren = true;
+		hasChildren = true;
 
 		for (const callback of resolver) {
 			chain.push(...execute(callback, canvas, vertexStack, stack, siblingMap));
