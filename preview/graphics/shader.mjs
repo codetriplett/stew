@@ -1,4 +1,4 @@
-import createMatrix from '/game/matrix.mjs';
+import { createMatrix } from '/graphics/matrix.mjs';
 
 function updateAnimation (animation, elapsed, target) {
 	let [physics, reference = target, value] = animation;

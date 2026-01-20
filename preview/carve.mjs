@@ -1,5 +1,5 @@
-import createMatrix, { multiply } from '/game/matrix.mjs';
-import { loadSprites } from '/game/model.mjs';
+import { multiply, createMatrix } from '/graphics/matrix.mjs';
+import { loadSkeleton } from '/graphics/model.mjs';
 
 export const state = stew({
 	red: 119,
@@ -256,7 +256,7 @@ export function carve () {
 
 	const scene = stew(async () => {
 		const [reference] = await Promise.all([
-			loadSprites('/reference.png', 1, 1, 5),
+			loadSkeleton('/reference.png', 1, 1, 5),
 		]);
 
 		// TODO: calculate filler and store in separate points array

@@ -97,45 +97,60 @@ function print (value) {
 
 function printType (type) {
 	const name = type.toLowerCase();
-	return `[${name[0].toUpperCase()}${name.slice(1)} ${name}]`;
+	return `[${name} ${name[0].toUpperCase()}${name.slice(1)}]`;
 }
 
-function Expected (type) {
+function Expected (type, props, ...items) {
 	this.type = type;
+	this.props = props;
+	this.items = items;
 }
 
-function compare (expected, actual, indentation = 0, key) {
-	if (expected instanceof Expected) {
-		// TODO: test this
-		const { type } = expected;
-
-		if (typeof type === 'function') {
-			return (actual instanceof type) || `${printType(actual.constructor.name)} // ${printType(type.name)}`;
-		} else {
-			const actualType = typeof actual;
-			return actualType === type || `${printType(actualType)} // ${printType(type)}`;
-		}
-	} else if (typeof actual !== 'object' || typeof expected !== 'object') {
-		if (actual === expected) {
-			return;
-		}
-
-		return [
-			Array(indentation).fill('    ').join(''),
-			key ? `${key}: ` : '',
-			print(actual),
-			indentation ? ',' : '',
-			` // ${print(expected)}`,
-		].join('');
+function compare (expected, actual, indentation = 0) {
+	if (typeof actual !== 'object' || typeof expected !== 'object') {
+		return actual !== expected && `${print(actual)} // ${print(expected)}`;
 	}
 
-	const keys = new Set([...Object.keys(expected), ...Object.keys(actual)]);
+	let keys;
+
+	if (expected instanceof Expected) {
+		const { type, props, items } = expected;
+
+		if (typeof type === 'function' && !(actual instanceof type)) {
+			return `${printType(actual.constructor.name)} // ${printType(type.name)}`;
+		} else if (typeof type !== 'function' && typeof actual !== type) {
+			return `${printType(typeof actual)} // ${printType(type)}`;
+		}
+
+		if (items.length) {
+			if (typeof actual[Symbol.iterator] !== 'function') {
+				return '[not iterable] //';
+			}
+
+			const actualItems = [...actual];
+
+			for (const expectedItem of items) {
+				if (actualItems.every(actualItem => compare(expectedItem, actualItem))) {
+					return `[missing] // ${print(expectedItem)}`;
+				}
+			}
+		}
+
+		expected = props;
+		keys = new Set(Object.keys(expected));
+	} else {
+		keys = new Set([...Object.keys(expected), ...Object.keys(actual)]);
+	}
+
 	const isArray = Array.isArray(actual);
+	const entries = [...keys].entries();
 	const lines = [];
+	let prevI = -1;
 	let prevMiss = -1;
 
-	for (const [i, key] of [...keys].entries()) {
-		const result = compare(expected[key], actual[key], indentation + 1, isArray ? undefined : key);
+	for (const [i, key] of entries) {
+		const result = compare(expected[key], actual[key], indentation + 1);
+		prevI = i;
 
 		if (!result) {
 			continue;
@@ -143,8 +158,12 @@ function compare (expected, actual, indentation = 0, key) {
 			lines.push(`${Array(indentation + 1).fill('    ').join('')}...(${i - prevMiss - 1}),`);
 		}
 
-		lines.push(result);
+		lines.push(`${Array(indentation + 1).fill('    ').join('')}${isArray ? '' : `${key || '\'\''}: `}${result},`);
 		prevMiss = i;
+	}
+
+	if (prevMiss > -1 && prevMiss < prevI) {
+		lines.push(`${Array(indentation + 1).fill('    ').join('')}...(${prevI - prevMiss}),`);
 	}
 
 	if (!lines.length) {
@@ -152,7 +171,7 @@ function compare (expected, actual, indentation = 0, key) {
 	}
 
 	const tabs = Array(indentation).fill('    ').join('');
-	const open = `${tabs}${isArray ? '[' : '{'}`;
+	const open = `${isArray ? '[' : '{'}`;
 	const close = `${tabs}${isArray ? ']' : '}'}`;
 	return [open, ...lines, close].join('\n');
 }
@@ -219,17 +238,17 @@ root.group = (...params) => test(true, null, ...params);
 root.group.skip = (...params) => test(true, 'skip', ...params);
 root.group.only = (...params) => test(true, 'only', ...params);
 
-root.equals = (actual, ...rest) => {
-	if (!rest.length) {
-		return new Expected(actual);
-	}
-
-	const [expected] = rest;
+root.equals = (actual, expected) => {
 	const mismatch = compare(expected, actual);
 	
 	if (mismatch) {
 		throw mismatch;
 	}
+};
+
+root.any = (type, ...items) => {
+	const props = typeof type === 'object' ? type : items.shift();
+	return new Expected(type === props ? Object : type, props, ...items);
 };
 
 export default root;
