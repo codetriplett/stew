@@ -26,6 +26,18 @@ export function multiply () {
     });
 }
 
+export function createProjection (fov, aspect, near = 1, far) {
+    const f = 1 / Math.tan(fov / 2);
+    const rangeInv = 1 / (near - far);
+
+    return [
+        f / aspect, 0, 0, 0,
+        0, f, 0, 0,
+        0, 0, far ? (far + near) / rangeInv : -1, -1,
+        0, 0, far ? 2 * far * near * rangeInv : -2 * near, 0,
+    ];
+}
+
 export function createTilt () {
     const [angle] = arguments;
     const cos = Math.cos(angle);

@@ -1,39 +1,6 @@
 import { createMatrix } from './matrix.mjs';
 import { patchModel } from './patch.mjs';
 
-export const models = new Set();
-
-export function linkInstance (instance, newAsset) {
-	const { asset: oldAsset } = instance;
-
-	if (newAsset === oldAsset) {
-		return;
-	}
-
-	if (oldAsset) {
-		const { model, instances } = oldAsset;
-		oldAsset.instances.delete(instance);
-
-		if (instances.size === 0) {
-			const { assets } = model;
-			assets.delete(oldAsset);
-
-			if (assets.size === 0) {
-				models.delete(model);
-			}
-		}
-	}
-	
-	if (newAsset) {
-		const { model } = newAsset;
-		newAsset.instances.add(instance);
-		model.assets.add(newAsset);
-		models.add(model);
-	}
-	
-	instance.asset = newAsset;
-}
-
 export function packDepths (front, back, shiftBits) {
 	const thickness = back - front;
 	const mask = 1 << shiftBits;

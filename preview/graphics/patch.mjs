@@ -51,7 +51,7 @@ export function getFiller (vertexes, map, y, x) {
 	];
 }
 
-// TODO: rewrite polishModel to not need map or centerX, or centerY
+// TODO: rewrite patchModel to not need map or centerX, or centerY
 // - it will read all point data, 6 at a time, and build the depth map
 // - it will then rebuild the vertexes array and 
 export function patchModel (model) {
