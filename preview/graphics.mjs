@@ -4,10 +4,10 @@ export const scene = stew({
 	camera: {
 		projection: createProjection(Math.PI * 0.25, 16 / 9, 0.1),
 		matrix: [1, 0, 0, 0, 1, 0, 0, 0, 1],
-		angles: [0, 0, 0],
 		position: [0, 0, 0],
+		angles: [0, 0, 0],
 		motion: [0, 0, 0, 0, 0, 0, 0, 0, 0],
-		scale: 40 / 360,
+		// scale: 40 / 360,
 		// target: hero,
 	},
 	light: {
@@ -21,7 +21,6 @@ export const scene = stew({
 
 export function graphics () {
     const [props, content] = arguments;
-	console.log(content);
 	return content || ['', null, 'Graphics'];
 }
 
