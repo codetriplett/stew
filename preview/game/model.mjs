@@ -1,14 +1,16 @@
-import { createMatrix } from './matrix.mjs';
-import { patchModel } from './patch.mjs';
+load('/game/matrix.mjs');
+load('/game/patch.mjs');
 
-export function packDepths (front, back, shiftBits) {
+export function packDepths () {
+	const [front, back, shiftBits] = arguments;
 	const thickness = back - front;
 	const mask = 1 << shiftBits;
 	const center = ((front + back - (thickness % 2)) >> 1) + (mask >> 1);
 	return (thickness << shiftBits) + (center % mask);
 }
 
-export function unpackDepths (byte, shiftBits) {
+export function unpackDepths () {
+	const [byte, shiftBits] = arguments;
 	const thickness = byte >> shiftBits;
 	const half = thickness >> 1;
 	const mask = 1 << shiftBits;
@@ -18,7 +20,10 @@ export function unpackDepths (byte, shiftBits) {
 	return [front, back];
 }
 
-export async function loadSkeleton (skeleton) {
+export async function loadSkeleton () {
+	const { createMatrix } = load('/game/matrix.mjs');
+	const { patchModel } = load('/game/patch.mjs');
+	const [skeleton] = arguments;
 	const { '': imageName, ...jointDefinitions } = skeleton;
 
 	if (!imageName) {
@@ -139,7 +144,7 @@ export function model () {
 						//   - if object, assume preloaded part, otherwise create new, maybe use array as key to reuse ones
 						//   - this way it would only load the first time that array is referenced
 						const actual = await loadSkeleton({
-							'': '/graphics/person',
+							'': '/game/person',
 							// [x1, y1, x2, y2, zInverted, centerX, centerY, centerZ, parentName, offsetX, offsetY, offsetZ, constraintX, constraintY]
 							// - can invert in x or y directions by putting larger number first in that direction (no need to flip if both the same)
 							// - x2 and y2 are inclusive of that row column or row (e.g. 0 -> 1 means the first and second column, and 0 -> 0 means only the first column)

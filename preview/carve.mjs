@@ -1,5 +1,5 @@
-import { multiply, createMatrix } from '/graphics/matrix.mjs';
-import { loadSkeleton } from '/graphics/model.mjs';
+import { multiply, createMatrix } from '/game/matrix.mjs';
+import { loadSkeleton } from '/game/model.mjs';
 
 export const state = stew({
 	red: 119,

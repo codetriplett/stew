@@ -26,7 +26,8 @@ export function multiply () {
     });
 }
 
-export function createProjection (fov, aspect, near = 1, far) {
+export function createProjection () {
+    const [fov, aspect, near = 1, far] = arguments;
     const f = 1 / Math.tan(fov / 2);
     const rangeInv = 1 / (near - far);
 

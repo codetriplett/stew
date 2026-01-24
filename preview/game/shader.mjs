@@ -1,7 +1,14 @@
-import { multiply, createMatrix } from './matrix.mjs';
-import { checkBoundary, applyPhysics } from './physics.mjs';
+load('/game.mjs');
+load('/game/matrix.mjs');
+load('/game/physics.mjs');
 
-export function linkInstance (instance, newAsset) {
+export function linkInstance () {
+	// TODO: allow linking and unlinking scenes as another helper, then iterate over the active ones to set models
+	const { scene } = load('/game.mjs');
+	const { models } = scene;
+	
+	
+	const [instance, newAsset] = arguments;
 	const { asset: oldAsset } = instance;
 
 	if (newAsset === oldAsset) {
@@ -32,7 +39,9 @@ export function linkInstance (instance, newAsset) {
 	instance.asset = newAsset;
 }
 
-export function updateMatrix (instance, duration, invert) {
+export function updateMatrix () {
+	const [instance, duration, invert] = arguments;
+	const { createMatrix } = load('/game/matrix.mjs');
 	const { matrix, angles, motion } = instance || {};
 
 	if (!matrix) {
@@ -40,7 +49,7 @@ export function updateMatrix (instance, duration, invert) {
 	}
 
 	if (motion && angles) {
-		applyPhysics(angles, motion.slice(6), duration);
+		physics.applyPhysics(angles, motion.slice(6), duration);
 		const [tilt, rotation, spin] = angles;
 
 		if (invert) {
@@ -53,7 +62,8 @@ export function updateMatrix (instance, duration, invert) {
 	return matrix;
 }
 
-export function updatePosition (instance, duration) {
+export function updatePosition () {
+	const [instance, duration] = arguments;
 	const { position, motion, passengers = [], target } = instance || {};
 
 	if (target) {
@@ -63,19 +73,20 @@ export function updatePosition (instance, duration) {
 	}
 
 	if (motion) {
-		applyPhysics(motion, motion.slice(3), duration, maxVelocity);
-		applyPhysics(position, motion, duration);
-		checkBoundary(instance);
+		physics.applyPhysics(motion, motion.slice(3), duration, maxVelocity);
+		physics.applyPhysics(position, motion, duration);
+		physics.checkBoundary(instance);
 
 		for (const passenger of passengers) {
-			applyPhysics(passenger.position, motion, duration);
+			physics.applyPhysics(passenger.position, motion, duration);
 		}
 	}
 
 	return position;
 }
 
-export function renderInstance (instance, draw) {
+export function renderInstance () {
+	const [instance, draw] = arguments;
 	const { root, offset } = instance;
 	const identityMatrix = [1, 0, 0, 0, 1, 0, 0, 0, 1];
 	const identityPosition = [0, 0, 0];
@@ -101,7 +112,8 @@ export function renderInstance (instance, draw) {
 	`;
 }
 
-export function renderAsset (asset, draw) {
+export function renderAsset () {
+	const [asset, draw] = arguments;
 	const { colors, instances } = asset;
 
 	return stew`
@@ -112,7 +124,8 @@ export function renderAsset (asset, draw) {
 	`;
 }
 
-export function renderModel (model) {
+export function renderModel () {
+	const [model] = arguments;
 	const { elements, vertexes, normals, pointSize, assets } = model;
 
 	const draw = elements
@@ -151,8 +164,9 @@ export function renderModel (model) {
 	`;
 }
 
-export function renderScene (scene) {
-	const { camera, light, models } = scene;
+export function renderScene () {
+	const { multiply } = load('/game/matrix.mjs');
+	const [{ camera, light, models }] = arguments;
 
 	return stew`
 		mat4 uCameraProjection ${camera.projection}

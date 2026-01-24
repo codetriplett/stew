@@ -4,9 +4,37 @@ import test from './test';
 import { fetchNote, fetchData, fetchCode, fetchList } from './fetch';
 import renderForm from './form';
 
+function load (...params) {
+	if (!params.length) {
+		if (!pendingModules.length) {
+			return;
+		}
+
+		return Promise.all(Object.values(pendingModules)).then(() => load());
+	}
+
+	const [path] = params;
+
+	if (path in loadedModules) {
+		return loadedModules[path];
+	}
+
+	const promise = import(path).then(module => {
+		const index = pendingModules.indexOf(promise);
+		pendingModules.splice(index, 1);
+		loadedModules[path] = module;
+		return module;
+	});
+
+	pendingModules.push(promise);
+	return promise;
+}
+
 const { localStorage, location } = window;
 const { pathname, hash } = location;
-Object.assign(window, { test, fetchNote, fetchData, fetchCode, fetchList, renderForm });
+const loadedModules = {};
+const pendingModules = [];
+Object.assign(window, { test, load, fetchNote, fetchData, fetchCode, fetchList, renderForm });
 
 const state = stew({
 	focusedSection: hash.slice(1),
@@ -257,6 +285,8 @@ Promise.all([fetchResources(pathname), ...promises]).then(async sequence => {
 			content = [Component, props, content, widget, meta];
 		}
 	}
+
+	load();
 
 	stew('#app', library, [Page, {
 		path,
