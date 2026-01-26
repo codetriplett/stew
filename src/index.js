@@ -286,7 +286,7 @@ Promise.all([fetchResources(pathname), ...promises]).then(async sequence => {
 		}
 	}
 
-	load();
+	await load();
 
 	stew('#app', library, [Page, {
 		path,

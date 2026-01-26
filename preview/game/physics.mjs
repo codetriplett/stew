@@ -108,7 +108,7 @@ export function checkBoundary () {
 }
 
 export function applyPhysics () {
-	const [target, modifier, duration, max] = arguments;
+	let [target, modifier, duration, max] = arguments;
 
 	if (!modifier) {
 		return;

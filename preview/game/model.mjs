@@ -40,30 +40,34 @@ export async function loadSkeleton () {
 	const joints = Object.fromEntries(Object.keys(skeleton).map(name => [name, { children: {} }]));
 	const pixels = new Uint8Array(width * height * 4);
 	const canvas = document.createElement('canvas');
+	Object.assign(canvas, { width, height });
+	// document.body.appendChild(canvas);
 
 	return new Promise(resolve => {
-		stew(canvas, { width, height }, stew`
+		stew(canvas, null, stew`
 			FLOAT vec2 aVertex ${new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1])}
 			FLOAT vec2 aCoordinate ${new Float32Array([0, 1, 1, 1, 0, 0, 1, 0])}
 			elements ${new Uint16Array([2, 0, 1, 1, 3, 2])}
 			gl_Position = vec4(aVertex, 0.0, 1.0);
 			*vec2 vCoordinate = aCoordinate;
 			${gl => {
+				gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
 				gl.clearColor(0.0, 0.0, 0.0, 0.0);
 				gl.clear(gl.COLOR_BUFFER_BIT);
 				gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
 				gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
 
 				for (const [name, array] of Object.entries(jointDefinitions)) {
-					const [
-						xCenter, yCenter, zCenter, left, top, right, bottom, depthBits,
+					let [
+						xCenter, yCenter, left, top, right, bottom, zCenter, depthBits,
 						parentName = '', xPosition = 0, yPosition = 0, zPosition = 0, ...constraint
 					] = array;
 
+					yCenter = height - 1 - yCenter;
 					const x1 = xCenter - left;
 					const x2 = xCenter + right;
-					const y1 = yCenter - top;
-					const y2 = yCenter + bottom;
+					const y1 = yCenter - bottom;
+					const y2 = yCenter + top;
 					const shiftBits = 8 - depthBits;
 					const joint = joints[name];
 					const parent = joints[parentName];
@@ -71,7 +75,7 @@ export async function loadSkeleton () {
 					const colors = [];
 
 					for (let y = y1; y <= y2; y++) {
-						let index = y * width * 4 + x1;
+						let index = (y * width + x1) * 4;
 
 						for (let x = x1; x <= x2; x++) {
 							const red = pixels[index];
@@ -98,6 +102,7 @@ export async function loadSkeleton () {
 						instances: new Set(),
 						model: {
 							vertexes: new Int8Array(vertexes),
+							pointSize: 8,
 							assets: new Set(),
 						},
 					}

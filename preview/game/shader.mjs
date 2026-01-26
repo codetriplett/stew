@@ -28,7 +28,7 @@ export function linkInstance () {
 			}
 		}
 	}
-	
+
 	if (newAsset) {
 		const { model } = newAsset;
 		newAsset.instances.add(instance);
@@ -40,8 +40,9 @@ export function linkInstance () {
 }
 
 export function updateMatrix () {
-	const [instance, duration, invert] = arguments;
 	const { createMatrix } = load('/game/matrix.mjs');
+	const { applyPhysics } = load('/game/physics.mjs');
+	const [instance, duration, invert] = arguments;
 	const { matrix, angles, motion } = instance || {};
 
 	if (!matrix) {
@@ -49,7 +50,7 @@ export function updateMatrix () {
 	}
 
 	if (motion && angles) {
-		physics.applyPhysics(angles, motion.slice(6), duration);
+		applyPhysics(angles, motion.slice(6), duration);
 		const [tilt, rotation, spin] = angles;
 
 		if (invert) {
@@ -63,6 +64,7 @@ export function updateMatrix () {
 }
 
 export function updatePosition () {
+	const { applyPhysics, checkBoundary  } = load('/game/physics.mjs');
 	const [instance, duration] = arguments;
 	const { position, motion, passengers = [], target } = instance || {};
 
@@ -73,12 +75,12 @@ export function updatePosition () {
 	}
 
 	if (motion) {
-		physics.applyPhysics(motion, motion.slice(3), duration, maxVelocity);
-		physics.applyPhysics(position, motion, duration);
-		physics.checkBoundary(instance);
+		applyPhysics(motion, motion.slice(3), duration, maxVelocity);
+		applyPhysics(position, motion, duration);
+		checkBoundary(instance);
 
 		for (const passenger of passengers) {
-			physics.applyPhysics(passenger.position, motion, duration);
+			applyPhysics(passenger.position, motion, duration);
 		}
 	}
 
@@ -90,7 +92,6 @@ export function renderInstance () {
 	const { root, offset } = instance;
 	const identityMatrix = [1, 0, 0, 0, 1, 0, 0, 0, 1];
 	const identityPosition = [0, 0, 0];
-
 	const child = stew`
 		mat3 uMatrix ${duration => updateMatrix(instance, duration)}
 		vec3 uPosition ${duration => updatePosition(instance, duration)}
@@ -168,19 +169,51 @@ export function renderScene () {
 	const { multiply } = load('/game/matrix.mjs');
 	const [{ camera, light, models }] = arguments;
 
+	if (!models.size) {
+		return;
+	}
+
 	return stew`
 		mat4 uCameraProjection ${camera.projection}
 		mat3 uCameraMatrix ${duration => updateMatrix(camera, duration)}
-		vec3 uCameraPosition ${duration => updatePosition(camera, duration)}
-		vec3 uCameraOffset ${camera.offset || [0, 0, 0]}
 		float uCameraScale ${camera.scale}
-		vec3 uLightVector ${duration => multiply([0, 1, 0], updateMatrix(light, duration, true))}
-		gl_Position = uCameraProjection * vec4((uCameraMatrix * (vertex + position - uCameraPosition) + uCameraOffset) * uCameraScale, 1.0);
-		gl_PointSize = pointSize / gl_Position.w;
-		*vec4 vColor = color * intensity;
-		${[...models].map(model => renderModel(model))}
-		gl_FragColor = vColor;
+		gl_Position = uCameraProjection * vec4(uCameraMatrix * (vec3(aVertex) + uPosition) * uCameraScale, 1);
+		gl_PointSize = 4.0;
+		*vec3 vColor = vec3(aColor) / 255.0;
+		${gl => {
+			gl.clearColor(0, 0, 0, 0);
+			gl.clear(gl.COLOR_BUFFER_BIT);
+			gl.clear(gl.DEPTH_BUFFER_BIT);
+			gl.enable(gl.DEPTH_TEST);
+			gl.depthFunc(gl.LESS);
+			return 16;
+		}}
+		${[...models].map(({ vertexes, assets }) => stew`
+			BYTE ivec3 aVertex ${vertexes}
+			${[...assets].map(({ colors, instances }) => stew`
+				UNSIGNED_BYTE uvec3 aColor ${colors}
+				${[...instances].map(({ position }) => stew`
+					vec3 uPosition ${position || [0, 0, 0]}
+					${gl => gl.drawArrays(gl.POINTS, 0, vertexes.length / 3)}
+				`)}
+			`)}
+		`)}
+		gl_FragColor = vec4(vColor, 1);
 	`;
+
+	// return stew`
+	// 	mat4 uCameraProjection ${camera.projection}
+	// 	mat3 uCameraMatrix ${duration => updateMatrix(camera, duration)}
+	// 	vec3 uCameraPosition ${duration => updatePosition(camera, duration)}
+	// 	vec3 uCameraOffset ${camera.offset || [0, 0, 0]}
+	// 	float uCameraScale ${camera.scale}
+	// 	vec3 uLightVector ${duration => multiply([0, 1, 0], updateMatrix(light, duration, true))}
+	// 	gl_Position = uCameraProjection * vec4((uCameraMatrix * (vertex + position - uCameraPosition) + uCameraOffset) * uCameraScale, 1.0);
+	// 	gl_PointSize = pointSize / gl_Position.w;
+	// 	*vec4 vColor = color * intensity;
+	// 	${[...models].map(model => renderModel(model))}
+	// 	gl_FragColor = vColor;
+	// `;
 }
 
 export function shader () {
